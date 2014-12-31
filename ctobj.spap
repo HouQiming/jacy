@@ -162,6 +162,7 @@ inline getTypeDescription(const T)
 	else if T==TFunctionType:return g_desc_TFunctionType
 	else if T==TNameSpace:return g_desc_TNameSpace
 	else if T==TAdvancedEpos:return g_desc_TAdvancedEpos
+	else if T==TBuiltinType:return g_desc_TBuiltinType
 	else
 		__error("type @1 doesn't have a description",T)
 
@@ -599,7 +600,7 @@ auto setnopNested(PExpression pe)
 		nargs=(flags&~EFLAG_MASK)
 		for i=-1:nargs-1
 			setnopNested(readPool(pe+EXPR_OFS_ARGS+i))
-	writePool(pe,EFLAG_STRING+g_empty_id)
+	setnop(pe)
 	
 /////////////////////////////////////////////
 //compile-time values
@@ -808,7 +809,7 @@ class TTraitCTUnique
 	inline getHash(int id)
 		return g_ctunique_items[id].hash
 	inline computeHash(int[] key)
-		return iptr(key.hash())
+		return iptr(key.__hash__())
 	inline isKeyEqual(int id,int[] key)
 		return g_ctunique_items[id].key==key
 	inline createNew(int[] key,iptr hash)
@@ -1020,9 +1021,9 @@ auto dumpConst(TConstValue val)
 		if int(val.val_bin)<32768&&int(val.val_bin)>=-32768&&((val.type&CTYPE_MASK)==CTYPE_INT)||u32(int(val.val_bin))<32768u&&((val.type&CTYPE_MASK)==CTYPE_UINT):
 			sret=string(int(val.val_bin))
 		else
-			sret="0x"+string.ToBase(u32(int(val.val_bin)),8,16)
+			sret="0x"+formatNumber(u32(int(val.val_bin)),{align:8,base:16})
 	else
-		sret="0x"+string.ToBase(u64(val.val_bin),16,16)+"LL"
+		sret="0x"+formatNumber(u64(val.val_bin),{align:16,base:16})+"LL"
 	if (val.type&CTYPE_MASK)==CTYPE_UINT:
 		return sret+"u"
 	return sret

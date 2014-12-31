@@ -165,7 +165,7 @@ auto tokenize(iptr ptr_start,int g_ignore_indents)
 		//ignore the last dedent
 		while inds.n&&!(inds.back()&0x80000000)
 			if !(inds.back()&0x40000000):
-				toks.push(TToken(){tok:'}',epos0:int(ptr),epos1:int(ptr)})
+				toks.push(TToken(){tok:int('}'),epos0:int(ptr),epos1:int(ptr)})
 			inds.pop()
 		if inds.n:
 			inds.pop()
@@ -188,7 +188,7 @@ auto tokenize(iptr ptr_start,int g_ignore_indents)
 			ch_poped=brastk.back().ch
 			matcher_ch_poped=char(ch_poped=='('?')':(ch_poped=='{'?'}':']'))
 			estr.push(matcher_ch_poped)
-			toks.push(TToken(){'tok':matcher_ch_poped,'epos0':int(ptr),'epos1':int(ptr)+1})
+			toks.push(TToken(){'tok':int(matcher_ch_poped),'epos0':int(ptr),'epos1':int(ptr)+1})
 			brastk.pop()
 			if ch_poped=='{'&&!g_ignore_indents:
 				pop_indents()
@@ -210,7 +210,7 @@ auto tokenize(iptr ptr_start,int g_ignore_indents)
 				pop_indents()
 		else
 			if !errored&&ch0:
-				error(ETYPE_ERROR,ptr,ptr+1,"the closing '@1' does not close any opening bracket".Replace("@1",string(char(ch0))))
+				error(ETYPE_ERROR,ptr,ptr+1,"the closing '@1' does not close any opening bracket".Replace(["@1",string(char(ch0))]))
 				return 0
 		if brastk.n&&brastk.back().ch!='{':
 			ignore_indents=1
@@ -412,7 +412,7 @@ auto tokenize(iptr ptr_start,int g_ignore_indents)
 						//don't pop past the {
 						while inds.n&&(inds.back()&0xbfffffff)>ind:
 							inds.pop();
-							toks.push(TToken(){'tok':'}','epos0':int(ptr),'epos1':int(ptr)})
+							toks.push(TToken(){'tok':int('}'),'epos0':int(ptr),'epos1':int(ptr)})
 						if !inds.n:
 							if ind:
 								error(ETYPE_ERROR,epos0_ch0,ptr,FormatAsText("indentation mismatch - this line is indented less than the first line in the file"))
@@ -709,7 +709,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 		Writeln(dumpTokenArray(toks))
 	initParser()
 	fn=getIdString(id_fn_current)
-	fn=fn.Replace("\\","/")
+	fn=fn.Replace(["\\","/"])
 	sunit_name_default=new string
 	need_to_capitalize=0
 	p_slash=fn.LastIndexOf('/')
@@ -736,7 +736,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 		sunit_name_default="_"+sunit_name_default
 	//sunit_name_default=sunit_name_default.ToLower()
 	if sunit_name_default[0]>='a'&&sunit_name_default[0]<='z':
-		sunit_name_default[0]-=0x20
+		sunit_name_default[0]-=i8(0x20)
 	id_unit=getid(sunit_name_default)
 	//even keyworded statements could use function syntax
 	//we should parse it into the code structures here
@@ -1017,7 +1017,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 					call(g_id_store,exprvar(vtemp),pe_clone),
 					call(g_id_store,pe_var,fupdater(exprvar(vtemp))),
 					exprvar(vtemp))
-		error(ETYPE_ERROR,readPool(pe_var+1),readPool(pe_var+2),"cannot modify constant expression '@1'".Replace("@1",cite_raw(readPool(pe_var+1),readPool(pe_var+2))))
+		error(ETYPE_ERROR,readPool(pe_var+1),readPool(pe_var+2),"cannot modify constant expression '@1'".Replace(["@1",cite_raw(readPool(pe_var+1),readPool(pe_var+2))]))
 		return pe_var
 	auto postexpr()
 		//Write('+')
@@ -1392,8 +1392,8 @@ auto parseC0(int id_fn_current,TToken[] toks)
 				//add the file to the parsing queue
 				id_fn=(toks[ptr].tok&~TOK_TYPE_MASK)
 				ptr++
-				fn_current=getIdString(id_fn_current).Replace("\\","/")
-				fn_unit=getIdString(id_fn).Replace("\\","/")
+				fn_current=getIdString(id_fn_current).Replace(["\\","/"])
+				fn_unit=getIdString(id_fn).Replace(["\\","/"])
 				if !(fn_unit.StartsWith("/")||fn_unit.n>=2&&fn_unit[1]==':')
 					//test in the relative path
 					pslash=fn_current.LastIndexOf('/')
@@ -1419,7 +1419,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 				as_if.push(pecond)
 				as_if.push(0)
 				as_cases=new PExpression[]
-				as_default_group=(PExpression[])NULL
+				as_default_group=PExpression[].NULL
 				is_current_batch_default=0
 				got_default=0
 				while peek()!=TOK_EOF&&!want(int('}')):
@@ -1543,7 +1543,7 @@ auto parseAll()
 		ptr_src=loadSourceFile(id_fn)
 		//Writeln(ptr_src,' ',getIdString(id_fn))
 		if ptr_src<0:
-			Writeln("fatal error: cannot open '@1'".Replace("@1",getIdString(id_fn)))
+			Writeln("fatal error: cannot open '@1'".Replace(["@1",getIdString(id_fn)]))
 			return 0
 		g_top_level_exprs.push(parseC0(id_fn,tokenize(ptr_src,0)))
 		head++

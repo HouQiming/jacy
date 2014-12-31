@@ -44,7 +44,7 @@ auto citeexpr(PExpression pe)
 	epos0=readPool(pe+1)
 	epos1=readPool(pe+2)
 	if !epos0:
-		return dumpExpr(pe,fcolorer_callback.NULL)
+		return dumpExpr(pe,__zero(fcolorer_callback))
 	if epos1<0:
 		paepos=epos0
 		for(;;)
@@ -83,7 +83,7 @@ auto errorAtAEPos(int type0,PCTObject paepos0,string serr0)
 				//it's the parent-inline combo, reset the error but don't show it
 				assert(readPool(epos1)==g_tid_TFunction)
 				type=ETYPE_NOTE
-				serr="within expanded inline function '@1'".Replace("@1",dumpFunction(epos1))
+				serr="within expanded inline function '@1'".Replace(["@1",dumpFunction(epos1)])
 		else
 			//it's a normal epos
 			paepos=0
@@ -149,8 +149,8 @@ auto getDotMember(PExpression pecall,int do_err)
 		val=getExprValue(peobj)
 		if val.tid!=g_vtid_UNINIT&&do_err:
 			if DEBUG_TRAP_MEMBER_NOT_FOUND:
-				Writeln('-------------------');Writeln(dumpExpr(pecall,NULL))
-				Writeln('-------------------');Writeln(dumpExpr(g_pe_top,NULL))
+				Writeln('-------------------');Writeln(dumpExpr(pecall,__zero(fcolorer_callback)))
+				Writeln('-------------------');Writeln(dumpExpr(g_pe_top,__zero(fcolorer_callback)))
 				assert(0)
 			if t:
 				errorAtExpr(ETYPE_ERROR,pecall,"only class-typed expressions can have members ('@3'), but '@1' is of type '@2'".Replace(["@1",citeexpr(peobj),"@2",dumpType(t),"@3",getIdString(id_member)]))
@@ -174,8 +174,8 @@ auto getDotMember(PExpression pecall,int do_err)
 		//assert(0)
 		//assert(id_member!=g_id_operator_bracket)
 		if DEBUG_TRAP_MEMBER_NOT_FOUND:
-			Writeln('-------------------');Writeln(dumpExpr(pecall,NULL))
-			Writeln('-------------------');Writeln(dumpExpr(g_pe_top,NULL))
+			Writeln('-------------------');Writeln(dumpExpr(pecall,__zero(fcolorer_callback)))
+			Writeln('-------------------');Writeln(dumpExpr(g_pe_top,__zero(fcolorer_callback)))
 			assert(0)
 		return 0
 	//cache the result
@@ -296,7 +296,7 @@ inline transformCode(PExpression pesrc, ftransformer_callback ftransformer, PExp
 	return transformCodeEx(pesrc, ftransformer, as_before,pe_replacement,as_after, 1)
 
 inline replaceExpr(PExpression pesrc, PExpression pe_replacement)
-	return transformCode(pesrc,ftransformer_callback.NULL, PExpression[].NULL,pe_replacement,PExpression[].NULL)
+	return transformCode(pesrc,__zero(ftransformer_callback), PExpression[].NULL,pe_replacement,PExpression[].NULL)
 
 auto transformCodeEx(PExpression pesrc, ftransformer_callback ftransformer, PExpression[] as_before,PExpression pe_replacement,PExpression[] as_after, int queue_reach)
 	if !ftransformer&&(!as_before||!as_before.n)&&!pe_replacement&&(!as_after||!as_after.n):
@@ -730,7 +730,7 @@ auto coreInit()
 						pecaller=readPool(pe+EXPR_OFS_CALLER)
 						//if idvar==getid("f0"):
 						//	Writeln(dumpType(pf_class),' ',dumpObject(pf_owner))
-						//	Writeln(">>>f0!\n"+dumpExpr(pe_expanded,NULL))
+						//	Writeln(">>>f0!\n"+dumpExpr(pe_expanded,__zero(fcolorer_callback)))
 						//	assert(0)
 						if idvar==g_id_this:
 							//this
@@ -764,7 +764,7 @@ auto coreInit()
 		//so it's scope-jumper + pre-resolved parameter exprs
 		//bind parameters - ldparam replacement
 		//n_funcargs=(nargs_pecode-2)>>1
-		pvar_arg_ret=new PCTObject[] //shouldn't use gencode: lackof decl
+		pvar_arg_ret=new PCTObject[n_args_call] //shouldn't use gencode: lackof decl
 		pv_arguments=PCTObject(0)
 		id_return_label=getReturnLabel(pobjfn)
 		need_return_scope=0
@@ -793,10 +793,14 @@ auto coreInit()
 					//writePool(pe_param+EXPR_OFS_CALLER,0)
 					pvar=getVariable(pe_var_i)
 					writePool(pvar+VAR_OFS_USER_FLAGS,readPool(pvar+VAR_OFS_USER_FLAGS)&~VAR_FLAG_PARAM)
-					if pvar:pvar_arg_ret.push(pvar)
+					if pvar:
+						if pvar_arg_ret[paramid]:
+							pvar_arg_ret.push(pvar)
+						else
+							pvar_arg_ret[paramid]=pvar
 					//bind the param
 					//no premature param reach
-					insertCallAt(pe_store_i,pe_code_i,function(){return pe_param})
+					insertCallAt(pe_store_i,pe_code_i,function(PExpression pe){return pe_param})
 					//sccpQueueReach()
 					return 0
 			if isExpr(pe_store_i,EFLAG_VARIABLE):
@@ -817,7 +821,7 @@ auto coreInit()
 							else
 								pe_call_argi=cloneExpr(readPool(pecall+EXPR_OFS_ARGS+i))
 							as.push(call(g_id_stdot,exprvar(pv_arguments),exprstr(getTupleId(i)),pe_call_argi))
-					transformCodeEx(pe_store_i,NULL,as,exprvar(pv_arguments),NULL,0)
+					transformCodeEx(pe_store_i,__zero(ftransformer_callback),as,exprvar(pv_arguments),PExpression[].NULL,0)
 				return 0
 			return 1
 		}
@@ -840,6 +844,11 @@ auto coreInit()
 			writePool(pvar_return+VAR_OFS_ID,gettempid(g_id_return))
 		else
 			pe_return_value=expriptr(0)
+		for i=0:n_args_call-1
+			if !pvar_arg_ret[i]:
+				peargi=readPool(pecall+EXPR_OFS_ARGS+i)
+				if isExpr(peargi,EFLAG_FCALL):
+					setnopNested(peargi)
 		pvar_arg_ret.Sort()
 		pvar_arg_ret.Unique()
 		need_optimization=0
@@ -889,7 +898,7 @@ auto coreInit()
 		else
 			as_before=[pe_check,pe_expanded]
 		pecaller_original=readPool(pecall+EXPR_OFS_CALLER)
-		pe_final=transformCode(pecall,ftransformer_callback.NULL, as_before,pe_return_value,PExpression[].NULL)
+		pe_final=transformCode(pecall,__zero(ftransformer_callback), as_before,pe_return_value,PExpression[].NULL)
 		//somehow we're needing this - test_js0.spap
 		if testUserFlag(pecaller_original,QUEUE_FLAG_REACH):
 			sccpQueueEval(pecaller_original)
@@ -907,8 +916,8 @@ auto coreInit()
 						pe_replace_with=readPool(pe_ass+EXPR_OFS_ARGS+1)
 						//assert(!!pe_replace_with)
 						//writePool(pe_ass+EXPR_OFS_ARGS+1,0)
-						//Writeln('pe_ass>>> ',dumpExpr(pe_ass,NULL))
-						//Writeln('pe>>> ',dumpExpr(pe,NULL))
+						//Writeln('pe_ass>>> ',dumpExpr(pe_ass,__zero(fcolorer_callback)))
+						//Writeln('pe>>> ',dumpExpr(pe,__zero(fcolorer_callback)))
 						if need_dup:
 							pe_replace_with=cloneExpr(pe_replace_with)
 							writePool(pe_replace_with+EXPR_OFS_EPOS+0,readPool(pe+EXPR_OFS_EPOS+0))
@@ -918,7 +927,7 @@ auto coreInit()
 							//setnop(pe_ass)
 						//no premature param reach, but we need to reach the return value
 						//wipeepos(pe_replace_with)
-						insertCallAt(pecaller,pe,function(){return pe_replace_with})
+						insertCallAt(pecaller,pe,function(PExpression pe){return pe_replace_with})
 						if pvar==pvar_return:
 							//Writeln('return reach: '+dumpExpr(pe_replace_with,fcolor_reach_eval))
 							sccpQueueReach(pe_replace_with)
@@ -965,7 +974,7 @@ auto coreInit()
 			if isBuiltin(pecaller,g_id_new):
 				//ditch whatever parent new when we're sure it's a new or an init call
 				pecaller_caller=readPool(pecaller+EXPR_OFS_CALLER)
-				insertCallAt(pecaller_caller,pecaller,function(){return pecall})
+				insertCallAt(pecaller_caller,pecaller,function(PExpression pe){return pecall})
 				setnop(pecaller)
 				pecaller=pecaller_caller
 				sccpQueueEval(pecaller)
@@ -991,7 +1000,7 @@ auto coreInit()
 					writePool(as_init[1+i-n_funcargs]+EXPR_OFS_CALLER,0)
 				pe_init_call=fillepos(indcall(as_init),readPool(pecall+EXPR_OFS_EPOS+0),readPool(pecall+EXPR_OFS_EPOS+1))
 				if is_stored:
-					transformCode(pecaller,ftransformer_callback.NULL, [pe_check],0,[pe_init_call])
+					transformCode(pecaller,__zero(ftransformer_callback), [pe_check],0,[pe_init_call])
 				else
 					transformCode(pecall,function(PExpression pe){return fillepos(call(g_id_store,exprvar(pv_temp),pe),readPool(pe+EXPR_OFS_EPOS+0),readPool(pe+EXPR_OFS_EPOS+1))}, [pe_check],exprvar(pv_temp),[pe_init_call])
 				return fget_function_return_value(pobjfn,pecall)
@@ -1016,7 +1025,7 @@ auto coreInit()
 					continue
 				if t&&t!=t_expected:
 					//cast
-					sccpQueueReach(insertCallAt(pecall,~i,function(){return call(g_id_cast,exprctval(t_expected),pe_argi)}))
+					sccpQueueReach(insertCallAt(pecall,~i,function(PExpression pe){return call(g_id_cast,exprctval(t_expected),pe_argi)}))
 					return TSCCPValue(){'tid':g_vtid_UNINIT}
 			//sccp
 			val_old=readPoolTyped(p_param_values+i*3,TSCCPValue)
@@ -1081,7 +1090,7 @@ auto coreInit()
 						else if tisclass(ctval_test):
 							name='class'
 						else if readPool(ctval_test)==g_tid_TFunction&&getCcnv(ctval_test)!=g_id_function:
-							name='@1 function'.Replace("@1",getIdString(getCcnv(ctval_test)))
+							name='@1 function'.Replace(["@1",getIdString(getCcnv(ctval_test))])
 						errorAtExpr(ETYPE_ERROR,pe_argi,"@3 '@1' cannot be passed to auto-typed template parameter '@2', try to use a 'const' template parameter instead".Replace([
 							"@1",citeexpr(pe_argi),
 							"@2",citeexpr(readPool(pedecl+EXPR_OFS_ARGS+2+i*2)),
@@ -1138,7 +1147,7 @@ auto coreInit()
 				if eflag_sid==EFLAG_STRING+g_id_auto:
 					//resolve the type
 					assert(arg_mapping[i]==n2)
-					//sccpQueueReach(insertCallAt(pedecl_insted,~(1+n2*2),function(){return exprctval(template_desc2[i])}))
+					//sccpQueueReach(insertCallAt(pedecl_insted,~(1+n2*2),function(PExpression pe){return exprctval(template_desc2[i])}))
 					pe_atype_new=exprctval(template_desc2[i])
 					writePool(pedecl_insted+EXPR_OFS_ARGS+1+n2*2,pe_atype_new);writePool(pe_atype_new+EXPR_OFS_CALLER,pedecl_insted)
 					writePool(pedecl_insted+EXPR_OFS_ARGS+2+n2*2,readPool(pedecl_insted+EXPR_OFS_ARGS+2+i*2))
@@ -1155,7 +1164,7 @@ auto coreInit()
 						if (template_desc2[i]&EFLAG_MASK)==EFLAG_CTVAL&&objistype(template_desc2[i]&~EFLAG_MASK):
 							sname.push(dumpType(template_desc2[i]&~EFLAG_MASK))
 						else
-							sname.push(dumpExpr(poolCode(TCnsExpression(){'flags_cid':template_desc2[i]}),NULL))
+							sname.push(dumpExpr(poolCode(TCnsExpression(){'flags_cid':template_desc2[i]}),__zero(fcolorer_callback)))
 				else
 					//don't touch the arg
 					assert(arg_mapping[i]==n2)
@@ -1182,13 +1191,13 @@ auto coreInit()
 						//just change the param id
 						writePool(pe_paramid,EFLAG_CONST+getid_const(const_type(CTYPE_INT,Util.bitSize()),i64(map_to)))
 						if readPool(pe_atype)==EFLAG_STRING+g_id_auto:
-							sccpQueueReach(insertCallAt(pe,~1,function(){return exprctval(template_desc2[paramid])}))
+							sccpQueueReach(insertCallAt(pe,~1,function(PExpression pe){return exprctval(template_desc2[paramid])}))
 						//update the ldparam pointers
 						writePool(p_param_values+map_to*3+2,pe)
 					else
 						eflag_val_valid=template_desc2[paramid]
 						auto pecaller=readPool(pe+EXPR_OFS_CALLER)
-						fmake_const_template_arg=function(){
+						fmake_const_template_arg=function(PExpression pe){
 							return poolCode(TCnsExpression(){'flags_cid':eflag_val_valid})
 						}
 						sccpQueueReach(insertCallAt(pecaller,pe,fmake_const_template_arg))
@@ -1221,7 +1230,7 @@ auto coreInit()
 		if isBuiltin(pecallee,g_id_dot):
 			//call dot case - keep this
 			pecallee_clone=cloneExpr(pecallee)
-			sccpQueueReach(insertCallAt(pecallee_clone,~1,function(){return as_new[0]}))
+			sccpQueueReach(insertCallAt(pecallee_clone,~1,function(PExpression pe){return as_new[0]}))
 			as_new[0]=pecallee_clone
 		as_checks.push(lockValueCheck(pecallee,g_id_error_template_cannot_change));
 		//Write('>>> ',isBuiltin(pecallee,g_id_dot),' ');Writeln(dumpExpr(pecallee,fcolor_abbrv_blocks))
@@ -1239,7 +1248,7 @@ auto coreInit()
 		if pecaller:
 			//we may reach here with pecaller=0 for function types
 			sccpQueueEval(pecaller)
-			transformCode(pecall,ftransformer_callback.NULL, as_checks,pecall_new,PExpression[].NULL)
+			transformCode(pecall,__zero(ftransformer_callback), as_checks,pecall_new,PExpression[].NULL)
 		else
 			return TSCCPValue(){'tid':g_vtid_CTVAL,'val':pobjfn_insted}
 		//Writeln('>>> after template transformCode');
@@ -2000,7 +2009,7 @@ auto coreInit()
 			pe_argi=readPool(pecall+EXPR_OFS_ARGS+i)
 			val_i=getExprValue(pe_argi)
 			if val_i.tid!=g_vtid_CNS:
-				errorAtExpr(ETYPE_ERROR,pe_argi,"case label must be an integer but '@1' isn't one".Replace("@1",citeexpr(pe_argi)))
+				errorAtExpr(ETYPE_ERROR,pe_argi,"case label must be an integer but '@1' isn't one".Replace(["@1",citeexpr(pe_argi)]))
 				errored=1
 		if !errored:
 			//todo: duplicate labels, etc
@@ -2037,7 +2046,7 @@ auto coreInit()
 		id_error=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+1),g_vtid_STR)
 		val=getExprValue(pearg0)
 		if val.tid==g_vtid_RTVAR:
-			errorAtExpr(ETYPE_ERROR,pearg0,new(getIdString(id_error)).Replace("@1",citeexpr(pearg0)))
+			errorAtExpr(ETYPE_ERROR,pearg0,new(getIdString(id_error)).Replace(["@1",citeexpr(pearg0)]))
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_assert_ctval,fcompiler_callback.NULL,fassert_ctval_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
@@ -2190,7 +2199,7 @@ auto coreInit()
 				t_element=getExprValueAs(peobj,g_vtid_CTVAL)
 				if id_member==g_id_operator_bracket&&t_element&&(tisbuiltin(t_element)||tisclass(t_element)):
 					pecaller_caller=readPool(pecaller+EXPR_OFS_CALLER)
-					sccpQueueReach(insertCallAt(pecaller_caller,pecaller,function(){return call(g_id_array_or_map,peobj,pe_subscript)}))
+					sccpQueueReach(insertCallAt(pecaller_caller,pecaller,function(PExpression pe){return call(g_id_array_or_map,peobj,pe_subscript)}))
 					return TSCCPValue(){'tid':g_vtid_UNINIT}
 				//tuple[CNS], this is writable
 				t_object=getExprType(peobj)
@@ -2210,7 +2219,7 @@ auto coreInit()
 				//function.call
 				if pobjfn_called&&readPool(pobjfn_called)==g_tid_TFunction||tisfunction(getExprType(peobj)):
 					if readPool(pecaller)!=EFLAG_FCALL+1:
-						errorAtExpr(ETYPE_ERROR,pecaller,"indirect call '@1' can only take one tuple as argument".Replace("@1",citeexpr(pecaller)))
+						errorAtExpr(ETYPE_ERROR,pecaller,"indirect call '@1' can only take one tuple as argument".Replace(["@1",citeexpr(pecaller)]))
 						return TSCCPValue(){'tid':g_vtid_UNINIT}
 					pe_arg=readPool(pecaller+EXPR_OFS_ARGS+0)
 					replaceExpr(pecaller,call(g_id_tuple_call,peobj,pe_arg))
@@ -2689,7 +2698,7 @@ auto coreInit()
 			id_member=readPool(p_members+i)
 			if id_member==g_id_length||id_member==g_id_this||id_member==g_id_return:continue
 			as_indcall.push(call(g_id_dot,exprvar(pv_this),exprstr(id_member)))
-		transformCode(pecall,ftransformer_callback.NULL,as,indcall(as_indcall),PExpression[].NULL)
+		transformCode(pecall,__zero(ftransformer_callback),as,indcall(as_indcall),PExpression[].NULL)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_tuple_call,fcompiler_callback.NULL,ftuple_call_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
@@ -2704,11 +2713,11 @@ auto coreInit()
 					//replace with a tuple dot and remove the call
 					//writePool(readPool(pecall+EXPR_OFS_ARGS+1),EFLAG_STRING+getTupleId(cns_subscript))
 					//pecaller_caller=readPool(pecaller+EXPR_OFS_CALLER)
-					transformCode(pecall,ftransformer_callback.NULL,[lockValueCheck(pe_subscript,g_id_error_int_cannot_change)],call(g_id_dot,peobj,exprstr(getTupleId(cns_subscript))),PExpression[].NULL)
+					transformCode(pecall,__zero(ftransformer_callback),[lockValueCheck(pe_subscript,g_id_error_int_cannot_change)],call(g_id_dot,peobj,exprstr(getTupleId(cns_subscript))),PExpression[].NULL)
 				else
 					//replace with a stdot call and add an object slot
 					pe_stdot_value=readPool(pecall+EXPR_OFS_ARGS+2)
-					transformCode(pecall,ftransformer_callback.NULL,[lockValueCheck(pe_subscript,g_id_error_int_cannot_change)],call(g_id_stdot,peobj,exprstr(getTupleId(cns_subscript)),pe_stdot_value),PExpression[].NULL)
+					transformCode(pecall,__zero(ftransformer_callback),[lockValueCheck(pe_subscript,g_id_error_int_cannot_change)],call(g_id_stdot,peobj,exprstr(getTupleId(cns_subscript)),pe_stdot_value),PExpression[].NULL)
 				return TSCCPValue(){'tid':g_vtid_UNINIT}
 			else
 				errorAtExpr(ETYPE_ERROR,pe_subscript,"invalid tuple subscript '@1'".Replace(["@1",citeexpr(pe_subscript)]))
@@ -2750,7 +2759,7 @@ auto coreInit()
 		as[0]=call(g_id_store,exprvar(pobj_var),indcall([call(g_id_array_type,exprctval(t_all)),expriptr(n_args),exprcns(getid_const(const_type(CTYPE_INT,16),0LL))]))
 		for i=0:n_args-1
 			as[i+1]=indcall([call(g_id_dot,exprvar(pobj_var),exprstr(g_id_set_operator_bracket)),expriptr(i),readPool(pecall+EXPR_OFS_ARGS+i)])
-		transformCode(pecall,ftransformer_callback.NULL, as,exprvar(pobj_var),PExpression[].NULL)
+		transformCode(pecall,__zero(ftransformer_callback), as,exprvar(pobj_var),PExpression[].NULL)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_list,fcompiler_callback.NULL,flist_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
@@ -2809,7 +2818,7 @@ auto coreInit()
 		as.push(call(g_id_store,exprvar(pv_return_new),pe_tuple))
 		foreach id,I in id_all_members
 			as.push(call(g_id_stdot,exprvar(pv_return_new),exprstr(getTupleId(int(I))),exprstr(id)))
-		transformCode(pecall,ftransformer_callback.NULL, as,exprvar(pv_return_new),PExpression[].NULL)
+		transformCode(pecall,__zero(ftransformer_callback), as,exprvar(pv_return_new),PExpression[].NULL)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_member_list,fcompiler_callback.NULL,fmember_list_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
@@ -2826,8 +2835,9 @@ auto coreInit()
 		if val.tid==g_vtid_UNINIT:
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
 		if val.tid==g_vtid_RTVAR:
-			pecaller=readPool(pecall+EXPR_OFS_CALLER)
-			sccpQueueReach(insertCallAt(pecaller,pecall,function(){return readPool(pecall+EXPR_OFS_ARGS+1)}))
+			//pecaller=readPool(pecall+EXPR_OFS_CALLER)
+			//sccpQueueReach(insertCallAt(pecaller,pecall,function(PExpression pe){return readPool(pecall+EXPR_OFS_ARGS+1)}))
+			replaceExpr(pecall,readPool(pecall+EXPR_OFS_ARGS+1))
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_is_variable,fis_variable_onreach,fis_variable_oneval,fdummy_callback,FFLAG_SPECIAL|FFLAG_STATEMENT_HOST)
@@ -2918,12 +2928,12 @@ auto coreInit()
 			//it's a map
 			t_map=getStdObject(pecall,STDTYPE_MAP)
 			if !t_map:return TSCCPValue(){'tid':g_vtid_UNINIT}
-			transformCode(pecall,NULL, NULL,indcall([exprctval(t_map),pe_subscript,peobj]),NULL)
+			replaceExpr(pecall,indcall([exprctval(t_map),pe_subscript,peobj]))
 		else
 			//translate T.[] into Array(T), this is read-only
 			t_array=getStdObject(pecall,STDTYPE_ARRAY)
 			if !t_array:return TSCCPValue(){'tid':g_vtid_UNINIT}
-			transformCode(pecall,NULL, NULL,indcall([indcall([exprctval(t_array),peobj]),pe_subscript,exprcns(getid_const(const_type(CTYPE_INT,16),0LL))]),NULL)
+			replaceExpr(pecall,indcall([indcall([exprctval(t_array),peobj]),pe_subscript,exprcns(getid_const(const_type(CTYPE_INT,16),0LL))]))
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_array_or_map,fcompiler_callback.NULL,farray_or_map_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
@@ -2935,13 +2945,13 @@ auto coreInit()
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
 		if val.tid==g_vtid_CTVAL&&tisclass(val.val):
 			//transform to a call
-			transformCode(pecall,NULL, NULL,indcall([pe_type]),NULL)
+			replaceExpr(pecall,indcall([pe_type]))
 		else
 			//transform into "clone"
 			pobjfn_clone=getStdObject(pecall,STDFN_CLONE)
 			if !pobjfn_clone:
 				return TSCCPValue(){'tid':g_vtid_UNINIT}
-			insertCallAt(pecall,0,function(){return exprctval(pobjfn_clone)})
+			insertCallAt(pecall,0,function(PExpression pe){return exprctval(pobjfn_clone)})
 			sccpQueueEval(pecall)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
@@ -3052,7 +3062,7 @@ auto coreInit()
 			n_args_call++
 		n_args_proto=getNumberOfArguments(pobjfn_proto)
 		if n_args_call!=n_args_proto:
-			transformCode(pecall,NULL, NULL,expriptr(0),NULL)
+			replaceExpr(pecall,expriptr(0))
 			return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,32),0LL)}
 		pedecl_proto=readPool(pobjfn_proto+FUNCTION_OFS_PEDECL)
 		p_args=0
@@ -3067,14 +3077,14 @@ auto coreInit()
 				t_call_i=getVariableType(pobj_member)
 				if !t_call_i:
 					//we need to know all the arg types - dependency
-					sccpQueueReach(insertCallAt(pecall,~2,function(){return exprvar(pobj_member)}))
+					sccpQueueReach(insertCallAt(pecall,~2,function(PExpression pe){return exprvar(pobj_member)}))
 					return TSCCPValue(){'tid':g_vtid_UNINIT}
 				t_proto_i=getExprValueAs(pe_proto_i,g_vtid_CTVAL)
 				//Writeln('=? ',dumpType(t_proto_i),' ',dumpType(t_call_i))
 				if t_proto_i&&t_proto_i!=t_call_i:
 					//a type mismatch
 					//Writeln('mismatch')
-					transformCode(pecall,NULL, NULL,expriptr(0),NULL)
+					replaceExpr(pecall,expriptr(0))
 					return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,32),0LL)}
 			p_args++
 		//Writeln('match')
@@ -3138,10 +3148,10 @@ auto coreInit()
 						as.push(expriptr(0))
 						as.push(exprstr(g_empty_id))
 						pv_reused_tuple=makevar(pobjfn_dup)
-						transformCode(pestore,NULL, [call(g_id_store,exprvar(pv_reused_tuple),indcall(as))],0,NULL)
+						transformCode(pestore,__zero(ftransformer_callback), [call(g_id_store,exprvar(pv_reused_tuple),indcall(as))],0,PExpression[].NULL)
 						ctUnique([g_id_deriv_reusable_components,pestore])=pv_reused_tuple
 						if DEBUG_DUMP_DERIV:
-							Writeln("precomputing for pobjfn_compute_reusable_components: "+dumpExpr(readPool(pobjfn_dup+FUNCTION_OFS_PEDECL),NULL))
+							Writeln("precomputing for pobjfn_compute_reusable_components: "+dumpExpr(readPool(pobjfn_dup+FUNCTION_OFS_PEDECL),__zero(fcolorer_callback)))
 					//add the resulting tuple to pe_original_expr
 					as=new PExpression[]
 					n_args_original_expr=getFCallNArgs(pe_original_expr)
@@ -3150,9 +3160,9 @@ auto coreInit()
 					as.push(exprvar(pv_reused_tuple))
 					pe_original_expr=indcall(as)
 					if DEBUG_DUMP_DERIV:
-						Writeln("triggered pobjfn_compute_reusable_components: "+dumpExpr(pe_original_expr,NULL))
+						Writeln("triggered pobjfn_compute_reusable_components: "+dumpExpr(pe_original_expr,__zero(fcolorer_callback)))
 			pe_store_caller=readPool(pestore+EXPR_OFS_CALLER)
-			//Writeln(dumpExpr(pestore,NULL),' ',pe_store_caller
+			//Writeln(dumpExpr(pestore,__zero(fcolorer_callback)),' ',pe_store_caller
 			fadd_more_stores=function(PExpression pe){
 				auto as=new int[]
 				as.push(pe)
@@ -3169,7 +3179,7 @@ auto coreInit()
 				pe_store_deriv=call(g_id_store,exprvar(pvar_deriv_i),pe_deriv_i)
 				as.push(pe_store_deriv)
 				if DEBUG_DUMP_DERIV:
-					Writeln('  ',dumpExpr(pe_store_deriv,NULL))
+					Writeln('  ',dumpExpr(pe_store_deriv,__zero(fcolorer_callback)))
 				return vcall(g_id_block,as)
 			}
 			sccpQueueReach(insertCallAt(pe_store_caller,pestore,fadd_more_stores))
@@ -3195,7 +3205,7 @@ auto coreInit()
 			writePool(var_list_ret[i]+VAR_OFS_ID,g_id_return)
 		partialSSAGVN(readPool(pobjfn_dup+FUNCTION_OFS_PEDECL),1,0)
 		sccp(0)
-		pedecl_new=dfsFlattenBlocks(NULL,readPool(pobjfn_dup+FUNCTION_OFS_PEDECL),0,1)
+		pedecl_new=dfsFlattenBlocks(PExpression[].NULL,readPool(pobjfn_dup+FUNCTION_OFS_PEDECL),0,1)
 		writePool(pobjfn_dup+FUNCTION_OFS_PEDECL,pedecl_new)
 		sccp(0)
 		for i=0:var_list_ret.n-1
@@ -3286,7 +3296,7 @@ auto coreInit()
 							auto pecaller=readPool(pe+EXPR_OFS_CALLER)
 							ca=castConst(TConstValue(){'type':const_type(CTYPE_INT,64),'val_bin':1LL},t)
 							auto pe_one=exprcns(getid_const(ca.type,ca.val_bin))
-							sccpQueueReach(insertCallAt(pecaller,pe,function(){return call(g_id_operator_mul,pe_arg0,call(g_id_operator_div,pe_one,pe_arg1))}))
+							sccpQueueReach(insertCallAt(pecaller,pe,function(PExpression pe){return call(g_id_operator_mul,pe_arg0,call(g_id_operator_div,pe_one,pe_arg1))}))
 							return 1
 				return 1
 			}
@@ -3334,13 +3344,13 @@ auto coreInit()
 			if !testUserFlag(pe,QUEUE_FLAG_REACH)&&isBuiltin(pe,g_id_block):return 0
 			if isBuiltin(pe,g_id_symderiv)||isBuiltin(pe,g_id_inline_clone):
 				if DEBUG_DUMP_DERIV:
-					Writeln('symderiv / inline clone - ',dumpExpr(pe,NULL))
+					Writeln('symderiv / inline clone - ',dumpExpr(pe,__zero(fcolorer_callback)))
 				waiting_on_inner_symderiv=1
 			val=getExprValue(pe)
 			if val.tid==g_vtid_UNINIT&&pe==readPool(readPool(pe+EXPR_OFS_CALLER)+EXPR_OFS_FUNCTION):
 				//uninited function, could be symderiv
 				if DEBUG_DUMP_DERIV:
-					Writeln('uninited function - ',dumpExpr(pe,NULL))
+					Writeln('uninited function - ',dumpExpr(pe,__zero(fcolorer_callback)))
 				waiting_on_inner_symderiv=1
 			return !waiting_on_inner_symderiv
 		}
@@ -3363,7 +3373,7 @@ auto coreInit()
 			//Writeln(dumpType(t),' ',dumpObject(pobj_var))
 			if !t||tisclass(t):
 				//g_strflatten_eval_queue.push(pecall)
-				sccpQueueReach(insertCallAt(pecall,~1,function(){return !t?exprvar(pobj_var):expriptr(0)}))
+				sccpQueueReach(insertCallAt(pecall,~1,function(PExpression pe){return !t?exprvar(pobj_var):expriptr(0)}))
 				if DEBUG_DUMP_DERIV:
 					Writeln('waiting on ret variable ',dumpObject(pobj_var),' ',t?dumpType(t):"typeless")
 				return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -3372,7 +3382,7 @@ auto coreInit()
 			//Writeln(dumpType(t),' ',dumpObject(pobj_var))
 			if !t||tisclass(t):
 				//g_strflatten_eval_queue.push(pecall)
-				sccpQueueReach(insertCallAt(pecall,~1,function(){return !t?exprvar(pobj_var):expriptr(0)}))
+				sccpQueueReach(insertCallAt(pecall,~1,function(PExpression pe){return !t?exprvar(pobj_var):expriptr(0)}))
 				if DEBUG_DUMP_DERIV:
 					Writeln('waiting on param variable ',dumpObject(pobj_var),' ',t?dumpType(t):"typeless")
 				return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -3395,7 +3405,7 @@ auto coreInit()
 						//Writeln(string.ToHex(fn.scope))
 						for(peuser=vdata.first_v_user;peuser;peuser=readPool(peuser+EXPR_OFS_NEXT_V_USER))
 							//if DEBUG_DUMP_DERIV:
-							//	Writeln('  deriv-user: ',dumpExpr(peuser,NULL))
+							//	Writeln('  deriv-user: ',dumpExpr(peuser,__zero(fcolorer_callback)))
 							if !testUserFlag(peuser,USER_FLAG_ACTIVATED):continue
 							if testUserFlag(peuser,FLAG_RELATED):continue
 							//Writeln('^_^')
@@ -3421,14 +3431,14 @@ auto coreInit()
 									//all related variables have to be flattened before we can do this
 									clearUserFlags(code,0)
 									if DEBUG_DUMP_DERIV:
-										Writeln('waiting on ',dumpExpr(pecaller,NULL))
+										Writeln('waiting on ',dumpExpr(pecaller,__zero(fcolorer_callback)))
 									return TSCCPValue(){'tid':g_vtid_UNINIT}
 							//flow control and stuff are ignored
 							continue
 						if !testUserFlag(pecaller,USER_FLAG_ACTIVATED):continue
 						if testUserFlag(pecaller,FLAG_RELATED):continue
 						if DEBUG_DUMP_DERIV:
-							Writeln('queue caller: ',dumpExpr(pecaller,NULL))
+							Writeln('queue caller: ',dumpExpr(pecaller,__zero(fcolorer_callback)))
 						setUserFlag(pecaller,FLAG_RELATED)
 						Q.push(pecaller)
 				if DEBUG_DUMP_USER_FLAGS:
@@ -3558,7 +3568,7 @@ auto coreInit()
 				}
 				dfsExpr(readPool(pobjfn_dup+FUNCTION_OFS_CODE),flabelvar)
 		if DEBUG_DUMP_DERIV:
-			Writeln("before add-deriv: "+dumpExpr(readPool(pobjfn_dup+FUNCTION_OFS_PEDECL),NULL))
+			Writeln("before add-deriv: "+dumpExpr(readPool(pobjfn_dup+FUNCTION_OFS_PEDECL),__zero(fcolorer_callback)))
 		foreach final_vars,I in all_final_vars.ReverseOrder()
 			foreach pobj_var in final_vars.ReverseOrder()
 				if DEBUG_DUMP_DERIV:
@@ -3600,7 +3610,7 @@ auto coreInit()
 			sccpQueueReach(insertCallAt(pecaller,pecall,function(PExpression pe0){return pe_ret}))
 			addFunctionUser(pobjfn_dup,pe_ret)
 			//avoid duplicated eval
-			insertCallAt(pecall,0,function(){return exprvar(g_symbols[g_id_nop].user_slot)})
+			insertCallAt(pecall,0,function(PExpression pe){return exprvar(g_symbols[g_id_nop].user_slot)})
 		writePool(pobjfn_dup+FUNCTION_OFS_FLAGS,(readPool(pobjfn_dup+FUNCTION_OFS_FLAGS)&~FFLAG_IS_SYMDERIV_TEMP)|FFLAG_IS_SYMDERIV)
 		if DEBUG_DUMP_DERIV:
 			sccpProcessReaches()//warning: this may break/fix something!
@@ -3610,7 +3620,6 @@ auto coreInit()
 	registerPrimitive(g_id_symderiv,fderiv_onreach,fsymderiv_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL|FFLAG_DEPENDS_ON_OTHER_CODE)
 	finline_deriv_oneval=function(PExpression pecall,int expr_oplevel){
 		//directly expand the thing
-		//Writeln(parser.Canonical.dumpExpr(pecall,function(){return -1}))
 		peexpr=readPool(pecall+(EXPR_OFS_ARGS+0))
 		pobjfn=getExprValueAs(readPool(pecall+(EXPR_OFS_ARGS+1)),g_vtid_CNS)
 		if !pobjfn:return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -3757,9 +3766,9 @@ auto coreInit()
 							pv_temp=makevar(pobj_f_deriv)
 							pv_to_pull.push(pv_temp)
 							if DEBUG_DUMP_DERIV:
-								Writeln("mark as reusable: "+dumpExpr(pe_argi,NULL))
+								Writeln("mark as reusable: "+dumpExpr(pe_argi,__zero(fcolorer_callback)))
 							//tempify
-							transformCodeEx(pe_argi,function(PExpression pe_argi){return call(g_id_store,exprvar(pv_temp),pe_argi)}, NULL,exprvar(pv_temp),NULL,0)
+							transformCodeEx(pe_argi,function(PExpression pe_argi){return call(g_id_store,exprvar(pv_temp),pe_argi)}, PExpression[].NULL,exprvar(pv_temp),PExpression[].NULL,0)
 					else
 						checkReusableComponents(pe_argi)
 		checkReusableComponents(pe_code)
@@ -3833,19 +3842,19 @@ auto coreInit()
 						if !pv_tuple_param:
 							pv_tuple_param=makevar(pobj_f_deriv)
 							pe_store_tuple=call(g_id_store,exprvar(pv_tuple_param),call(g_id_ldparam,expriptr(argid_reusable),expriptr(0),exprstr(g_id_deriv_reusable_components)))
-							transformCodeEx(pe,NULL, [pe_store_tuple],0,NULL,0)
+							transformCodeEx(pe,__zero(ftransformer_callback), [pe_store_tuple],0,PExpression[].NULL,0)
 						pe_replacement=call(g_id_dot,exprvar(pv_tuple_param),exprstr(getTupleId(tuple_slot_id)))
-						insertCallAt(pe,~1,function(){return pe_replacement})
+						insertCallAt(pe,~1,function(PExpression pe){return pe_replacement})
 				else if isBuiltin(pe,g_id_ldparam):
 					paramid=getExprValueAs(readPool(pe+EXPR_OFS_ARGS+0),g_vtid_CNS)
 					if paramid>=argid_reusable:
-						insertCallAt(pe,~0,function(){return expriptr(paramid+1)})
+						insertCallAt(pe,~0,function(PExpression pe){return expriptr(paramid+1)})
 				return 1
 			}
 			dfsExpr(pe_code,fdottify_pulled)
 			if DEBUG_DUMP_DERIV:
-				Writeln("compute_reusable: "+dumpExpr(pe_code_compute_reusable,NULL))
-				Writeln("original: "+dumpExpr(pe_code,NULL))
+				Writeln("compute_reusable: "+dumpExpr(pe_code_compute_reusable,__zero(fcolorer_callback)))
+				Writeln("original: "+dumpExpr(pe_code,__zero(fcolorer_callback)))
 			ctUnique([g_id_deriv_reusable_components,pobj_f])=pobjfn_compute_reusable_components
 		/////
 		clearUserFlags(pe_code,0)
@@ -3933,13 +3942,13 @@ auto coreInit()
 			//__ANM_decompose cannot nest
 			if isBuiltin(pe,g_id_symderiv)||isBuiltin(pe,g_id_inline_clone)||isBuiltin(pe,g_id_deriv):
 				if DEBUG_DUMP_DERIV:
-					Writeln('symderiv / inline clone - ',dumpExpr(pe,NULL))
+					Writeln('symderiv / inline clone - ',dumpExpr(pe,__zero(fcolorer_callback)))
 				waiting_on_inner_symderiv=1
 			val=getExprValue(pe)
 			if val.tid==g_vtid_UNINIT&&pe==readPool(readPool(pe+EXPR_OFS_CALLER)+EXPR_OFS_FUNCTION):
 				//uninited function, could be symderiv
 				if DEBUG_DUMP_DERIV:
-					Writeln('uninited function - ',dumpExpr(pe,NULL))
+					Writeln('uninited function - ',dumpExpr(pe,__zero(fcolorer_callback)))
 				waiting_on_inner_symderiv=1
 			return !waiting_on_inner_symderiv
 		}
@@ -3965,7 +3974,7 @@ auto coreInit()
 			if !t||tisclass(t):
 				//varifyDblMembers(pecall,t)
 				//g_strflatten_eval_queue.push(pecall)
-				sccpQueueReach(insertCallAt(pecall,~1,function(){return !t?exprvar(pobj_var):expriptr(0)}))
+				sccpQueueReach(insertCallAt(pecall,~1,function(PExpression pe){return !t?exprvar(pobj_var):expriptr(0)}))
 				if DEBUG_DUMP_DERIV:
 					Writeln('waiting on ret variable ',dumpObject(pobj_var),' ',t?dumpType(t):"typeless")
 				return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -3975,7 +3984,7 @@ auto coreInit()
 			if !t||tisclass(t):
 				//varifyDblMembers(pecall,t)
 				//g_strflatten_eval_queue.push(pecall)
-				sccpQueueReach(insertCallAt(pecall,~1,function(){return !t?exprvar(pobj_var):expriptr(0)}))
+				sccpQueueReach(insertCallAt(pecall,~1,function(PExpression pe){return !t?exprvar(pobj_var):expriptr(0)}))
 				if DEBUG_DUMP_DERIV:
 					Writeln('waiting on param variable ',dumpObject(pobj_var),' ',t?dumpType(t):"typeless")
 				return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -3985,7 +3994,7 @@ auto coreInit()
 		assert(readPool(pe_decl+EXPR_OFS_ARGS+n_args_decl-1)==code)
 		clearUserFlags(code,USER_FLAG_ACTIVATED)
 		//Writeln('code-shit:')
-		//Writeln(dumpExpr(code,NULL))
+		//Writeln(dumpExpr(code,__zero(fcolorer_callback)))
 		//mark the variable-related ops
 		Q=new PCTObject[]
 		foreach pobj_vderiv,J in var_list_params
@@ -4001,7 +4010,7 @@ auto coreInit()
 				//Writeln(string.ToHex(fn.scope))
 				for(peuser=vdata.first_v_user;peuser;peuser=readPool(peuser+EXPR_OFS_NEXT_V_USER))
 					//if DEBUG_DUMP_DERIV:
-					//	Writeln('  user: ',dumpExpr(peuser,NULL),' ',testUserFlag(peuser,USER_FLAG_ACTIVATED),' ',testUserFlag(peuser,FLAG_RELATED))
+					//	Writeln('  user: ',dumpExpr(peuser,__zero(fcolorer_callback)),' ',testUserFlag(peuser,USER_FLAG_ACTIVATED),' ',testUserFlag(peuser,FLAG_RELATED))
 					if !testUserFlag(peuser,USER_FLAG_ACTIVATED):continue
 					if testUserFlag(peuser,FLAG_RELATED):continue
 					//Writeln('^_^')
@@ -4026,14 +4035,14 @@ auto coreInit()
 						//all related variables have to be flattened before we can do this
 						clearUserFlags(code,0)
 						if DEBUG_DUMP_DERIV:
-							Writeln('waiting on ',dumpExpr(pecaller,NULL))
+							Writeln('waiting on ',dumpExpr(pecaller,__zero(fcolorer_callback)))
 						return TSCCPValue(){'tid':g_vtid_UNINIT}
 					//flow control and stuff are ignored
 					continue
 				if !testUserFlag(pecaller,USER_FLAG_ACTIVATED):continue
 				if testUserFlag(pecaller,FLAG_RELATED):continue
 				if DEBUG_DUMP_DERIV:
-					Writeln('queue caller: ',dumpExpr(pecaller,NULL))
+					Writeln('queue caller: ',dumpExpr(pecaller,__zero(fcolorer_callback)))
 				setUserFlag(pecaller,FLAG_RELATED)
 				Q.push(pecaller)
 		//final_vars=new PCTObject[]
@@ -4168,7 +4177,7 @@ auto coreInit()
 			assert(poweri>0)
 			if poweri==1:
 				pequ=new CEquationTerm
-				pequ.terms=[TQuadTerm{'var_a':evid,'var_b':-1,'const_id':0}]
+				pequ.terms=[TQuadTerm(){'var_a':evid,'var_b':-1,'const_id':0}]
 				pequ.pe=exprvar(evid_realvar[evid])
 				return pequ
 			pequ0=equPowerTo(evid,poweri>>1)
@@ -4219,14 +4228,14 @@ auto coreInit()
 						pequ0.terms.push(TQuadTerm(){'var_a':-1,'var_b':-1,'const_id':1})
 						if DEBUG_DUMP_DERIV:
 							Writeln('x',ret,' for equation: ',dumpEquation(pequ0),' (rcp(pow(x',evid_original,',1/',System.Math.abs(inv_power),')))')
-							Writeln('    level 0: ',dumpExpr(pe_root,NULL))
+							Writeln('    level 0: ',dumpExpr(pe_root,__zero(fcolorer_callback)))
 						addEquation(pequ0)
 					else
 						//-evid_original
 						pequ0.terms.push(TQuadTerm(){'var_a':evid_original,'var_b':-1,'const_id':1})
 						if DEBUG_DUMP_DERIV:
 							Writeln('x',ret,' for equation: ',dumpEquation(pequ0),' pow(x',evid_original,',1/',System.Math.abs(inv_power),')')
-							Writeln('    level 0: ',dumpExpr(pe_root,NULL))
+							Writeln('    level 0: ',dumpExpr(pe_root,__zero(fcolorer_callback)))
 						addEquation(pequ0)
 			if DEBUG_DUMP_DERIV:
 				Writeln('x',ret,' <- ',dumpObject(pvar),' ',inv_power)
@@ -4239,7 +4248,7 @@ auto coreInit()
 			pequ.terms.push(TQuadTerm(){'var_a':ret,'var_b':-1,'const_id':1})
 			if DEBUG_DUMP_DERIV:
 				Writeln('x',ret,' for equation: ',dumpEquation(pequ),' makevar')
-				Writeln('    level 0: ',dumpExpr(pequ.pe,NULL))
+				Writeln('    level 0: ',dumpExpr(pequ.pe,__zero(fcolorer_callback)))
 			addEquation(pequ)
 			pequ2=new CEquationTerm
 			pequ2.terms=[TQuadTerm(){'var_a':ret,'var_b':-1,'const_id':0}]
@@ -4260,7 +4269,7 @@ auto coreInit()
 					n_args=getFCallNArgs(pe)
 					for i=0:n_args-1
 						generateEquations(readPool(pe+EXPR_OFS_ARGS+i))
-					return NULL
+					return CEquationTerm.NULL
 				else if isBuiltin(pe,g_id_if):
 					n_args_if=getFCallNArgs(pe)
 					for i=1:2:n_args_if-1
@@ -4268,7 +4277,7 @@ auto coreInit()
 						if testUserFlag(pe_branch,QUEUE_FLAG_REACH):
 							generateEquations(pe_branch)
 				else if isBuiltin(pe,g_id_nop)||isBuiltin(pe,g_id_assert_ctval)||isBuiltin(pe,g_id_function):
-					return NULL
+					return CEquationTerm.NULL
 				else if isBuiltin(pe,g_id_store):
 					pobj_var=getVariable(readPool(pe+EXPR_OFS_ARGS+0))
 					assert(!!pobj_var)
@@ -4276,41 +4285,41 @@ auto coreInit()
 					if isExpr(pe_value,EFLAG_CTVAL)||isExpr(pe_value,EFLAG_STRING):
 						//ignore _deriv artifacts
 						setnop(pe)
-						return NULL
+						return CEquationTerm.NULL
 					//if readPool(pe)==EFLAG_FCALL+3:
-					//	Writeln('shit! ',dumpExpr(pe,NULL),' ',readPool(pe_value))
+					//	Writeln('shit! ',dumpExpr(pe,__zero(fcolorer_callback)),' ',readPool(pe_value))
 					//	//assert(0)
 					if !testUserFlag(pobj_var,FLAG_RELATED)||!testUserFlag(pobj_var,FLAG_REQUIRED):
 						//unrelated store - keep it as is
 						as_cstores.push(pe)
 						//setnop(pe)
-						return NULL
+						return CEquationTerm.NULL
 					if isBuiltin(pe_value,g_id_ldparam):
 						//we still need them - order 0
 						as_cstores.push(pe)
 						//setnop(pe)
-						return NULL
+						return CEquationTerm.NULL
 					//it's an equation
 					pequ=generateEquations(pe_value)
 					if !pequ:
 						//somehow we ignored it, keep around for safety
 						as_cstores.push(pe)
-						return NULL
+						return CEquationTerm.NULL
 					assert(!!pequ)
 					//add a -1*term, then apply the equation
 					as_cstores.push(call(g_id_store,exprvar(pobj_var),pequ.pe))
 					pequ.terms.push(TQuadTerm(){'var_a':equVariableId(pobj_var,1),'var_b':-1,'const_id':1})
 					if DEBUG_DUMP_DERIV:
-						Writeln('x',equVariableId(pobj_var,1),' for equation: ',dumpEquation(pequ),' ',dumpExpr(pe,NULL))
-						Writeln('    level 0: ',dumpExpr(pequ.pe,NULL))
+						Writeln('x',equVariableId(pobj_var,1),' for equation: ',dumpEquation(pequ),' ',dumpExpr(pe,__zero(fcolorer_callback)))
+						Writeln('    level 0: ',dumpExpr(pequ.pe,__zero(fcolorer_callback)))
 					addEquation(pequ)
-					return NULL
+					return CEquationTerm.NULL
 				else if !testUserFlag(pe,FLAG_RELATED)||!testUserFlag(pe,FLAG_REQUIRED):
 					//var it
 					if isBuiltin(pe,g_id_stdot):
 						assert(isExpr(readPool(pe+EXPR_OFS_ARGS+0),EFLAG_VARIABLE)&&getVariable(readPool(pe+EXPR_OFS_ARGS+0))==readPool(pobjfn_dup+FUNCTION_OFS_PVAR_RETURN))
 						setnop(pe)
-						return NULL
+						return CEquationTerm.NULL
 					if isBuiltin(pe,g_id_dot):
 						peobj=readPool(pe+EXPR_OFS_ARGS+0)
 						if isExpr(peobj,EFLAG_VARIABLE):
@@ -4320,15 +4329,15 @@ auto coreInit()
 							//param member load - ignore it since the value won't be used at all
 							//it would be used in order 0
 							//setnop(pe)
-							return NULL
+							return CEquationTerm.NULL
 					if Platform.BUILD=="debug":
 						if isSpecial(pe)&&!isArithmetic(pe):
-							Writeln('bad-unrelated: ',dumpExpr(pe,NULL))
+							Writeln('bad-unrelated: ',dumpExpr(pe,__zero(fcolorer_callback)))
 						if DEBUG_DUMP_DERIV:
-							Writeln('unrelated: ',dumpExpr(pe,NULL))
+							Writeln('unrelated: ',dumpExpr(pe,__zero(fcolorer_callback)))
 					if isBuiltin(readPool(pe+EXPR_OFS_CALLER),g_id_block):
 						//the shit isn't even stored, don't bother
-						return NULL
+						return CEquationTerm.NULL
 					pequ=new CEquationTerm
 					pv_temp=makevar(pobjfn_dup)
 					as_cstores.push(call(g_id_store,exprvar(pv_temp),pe))
@@ -4406,13 +4415,13 @@ auto coreInit()
 						if val_power.tid!=g_vtid_CNS:
 							errorAtExpr(ETYPE_ERROR,readPool(pe+EXPR_OFS_ARGS+1),"'@1' is not a constant, only rational constant powers are allowed in an ANM-decomposed function".Replace(["@1",citeexpr(readPool(pe+EXPR_OFS_ARGS+1))]))
 							errored=1
-							return NULL
+							return CEquationTerm.NULL
 						dval_power=castConst(Util.ctNumber(val_power.val),getBuiltinType(const_type(CTYPE_FLOAT,64)))
 						dpower=__longlong_as_double(dval_power.val_bin)
 						if abs(dpower)<1e-7:
 							errorAtExpr(ETYPE_ERROR,pe,"panic: we should have optimized out this - 'powd(something,0.0)'")
 							errored=1
-							return NULL
+							return CEquationTerm.NULL
 						A=0
 						B=0
 						for Bi=1:99
@@ -4425,7 +4434,7 @@ auto coreInit()
 						if !B:
 							errorAtExpr(ETYPE_ERROR,readPool(pe+EXPR_OFS_ARGS+1),"'@1' is not rational (tried a divisor of 1-99), only rational constant powers are allowed in an ANM-decomposed function".Replace(["@1",citeexpr(readPool(pe+EXPR_OFS_ARGS+1))]))
 							errored=1
-							return NULL
+							return CEquationTerm.NULL
 						if A<0:
 							A=-A
 							B=-B
@@ -4438,7 +4447,7 @@ auto coreInit()
 						return equPowerTo(evid_root,A)
 					errorAtExpr(ETYPE_ERROR,pe,"unsupported operation '@1' in ANM code".Replace(["@1",citeexpr(pe)]))
 					if Platform.BUILD=="debug":
-						Writeln('bad-related: ',dumpExpr(pe,NULL))
+						Writeln('bad-related: ',dumpExpr(pe,__zero(fcolorer_callback)))
 						assert(0)
 			else if isExpr(pe,EFLAG_VARIABLE):
 				pobj_var=getVariable(pe)
@@ -4447,13 +4456,13 @@ auto coreInit()
 					pequ.terms=[TQuadTerm(){'var_a':equVariableId(pobj_var,1),'var_b':-1,'const_id':0}]
 				else
 					if DEBUG_DUMP_DERIV:
-						Writeln('var-unrelated: ',dumpExpr(pe,NULL))
+						Writeln('var-unrelated: ',dumpExpr(pe,__zero(fcolorer_callback)))
 					pequ.terms=[TQuadTerm(){'var_a':-1,'var_b':-1,'const_id':cnsVariableId(pobj_var,0,0,0)}]
 				pequ.pe=exprvar(pobj_var)
 				return pequ
 			else if isExpr(pe,EFLAG_CONST):
 				if DEBUG_DUMP_DERIV:
-					Writeln('const-unrelated: ',dumpExpr(pe,NULL))
+					Writeln('const-unrelated: ',dumpExpr(pe,__zero(fcolorer_callback)))
 				cid=readPool(pe)&~EFLAG_MASK
 				pequ=new CEquationTerm
 				pequ.terms=[TQuadTerm(){'var_a':-1,'var_b':-1,'const_id':cnsVariableId(cid,1,0,0)}]
@@ -4461,14 +4470,14 @@ auto coreInit()
 				return pequ
 			else
 				//if Platform.BUILD=="debug":
-				//	Writeln('unrecognized thingy: ',dumpExpr(pe,NULL))
-				return NULL
-			return NULL
+				//	Writeln('unrecognized thingy: ',dumpExpr(pe,__zero(fcolorer_callback)))
+				return CEquationTerm.NULL
+			return CEquationTerm.NULL
 		evid_params=new int[var_list_params.n]
 		foreach pobj_var,J in var_list_params
 			evid_params[J]=equVariableId(pobj_var,1)
 		if DEBUG_DUMP_DERIV:
-			Writeln('before generateEquations:\n=======================\n',dumpExpr(code,NULL))
+			Writeln('before generateEquations:\n=======================\n',dumpExpr(code,__zero(fcolorer_callback)))
 		generateEquations(code)
 		if errored:
 			setnop(pecall)
@@ -4493,7 +4502,7 @@ auto coreInit()
 		writePool(pobjfn_dup+FUNCTION_OFS_PVAR_RETURN,pv_const_array)
 		writePool(pv_const_array+VAR_OFS_ID,g_id_return)
 		//Writeln('shit:')
-		//Writeln(dumpExpr(g_pe_top,NULL))
+		//Writeln(dumpExpr(g_pe_top,__zero(fcolorer_callback)))
 		//assert(0)
 		//generate equations as a packed int array, and pass to external equation generator / interpreter - could use the "__C(@decl)" approach
 		//__C(@decl) generator function
@@ -4527,7 +4536,7 @@ auto coreInit()
 		writePool(pobjfn_dup+FUNCTION_OFS_FLAGS,(readPool(pobjfn_dup+FUNCTION_OFS_FLAGS)&~FFLAG_IS_SYMDERIV_TEMP)|FFLAG_IS_SYMDERIV)
 		if DEBUG_DUMP_DERIV:
 			Writeln('=========ANM decomposed')
-			Writeln(dumpExpr(pe_code_new,NULL))
+			Writeln(dumpExpr(pe_code_new,__zero(fcolorer_callback)))
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_ANM_decompose,fANMdecompose_onreach,fANMdecompose_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL|FFLAG_DEPENDS_ON_OTHER_CODE)
@@ -4568,7 +4577,7 @@ auto coreInit()
 			val=getExprValue(pe_argi)
 			if val.tid==g_vtid_RTVAR:
 				all_cns=0
-			//Writeln(i,' ',dumpExpr(pe_argi,NULL))
+			//Writeln(i,' ',dumpExpr(pe_argi,__zero(fcolorer_callback)))
 			t=getExprType(pe_argi)
 			if !t:return 0
 			if tisclass(t)&&!tisfunction(t):
@@ -4582,7 +4591,7 @@ auto coreInit()
 			ts[i+1]=t
 		pobjfn=readCtUniqueInEvalFlow(pecall,ts)
 		if pobjfn:
-			insertCallAt(pecall,0,function(){return exprctval(pobjfn)})
+			insertCallAt(pecall,0,function(PExpression pe){return exprctval(pobjfn)})
 			sccpQueueEval(pecall)
 		return 1
 	//////////////////////////////////////
@@ -4605,7 +4614,7 @@ auto coreInit()
 		if logic_val==2:
 			return TSCCPValue(){'tid':g_vtid_RTVAR,'val':getBuiltinType(const_type(CTYPE_INT,32))}
 		else
-			return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,32),(i64)!logic_val)}
+			return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,32),i64(!logic_val))}
 	}
 	flogicnot_oncgen=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
@@ -4719,8 +4728,8 @@ auto coreInit()
 		t=getExprType(pe_opr0)
 		if t:
 			//cast and switch to operator+ once we get the type
-			sccpQueueReach(insertCallAt(pecall,~1,function(){return call(g_id_cast,exprctval(t),pe_opr1)}))
-			sccpQueueReach(insertCallAt(pecall,0,function(){return exprctval(getBuiltin(g_id_operator_add))}))
+			sccpQueueReach(insertCallAt(pecall,~1,function(PExpression pe){return call(g_id_cast,exprctval(t),pe_opr1)}))
+			sccpQueueReach(insertCallAt(pecall,0,function(PExpression pe){return exprctval(getBuiltin(g_id_operator_add))}))
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_operator_add_generic_int,fcompiler_callback.NULL,fadd_gen_int_oneval,fcompiler_callback.NULL,FFLAG_ARITHMETIC|FFLAG_IS_PURE)
@@ -4770,7 +4779,7 @@ auto coreInit()
 		else if stemplate.StartsWith("@decl:"):
 			//declare a struct and obtain a pointer
 			sdecl=g_c_scope_stack.back().outer_code_buffer
-			sdecl.push(stemplate[6:].Replace("@1",'s7_v'+toBase32(pecall)))
+			sdecl.push(stemplate[6:].Replace(["@1",'s7_v'+toBase32(pecall)]))
 			sdecl.push(';')
 			if expr_oplevel:
 				g_code_buffer.push('(')
@@ -4824,17 +4833,6 @@ auto coreInit()
 				return TSCCPValue(){'tid':g_vtid_UNINIT}
 			n_args=getFCallNArgs(pecall)
 			if n_args!=2:
-				/*
-				if optoken=='-'&&n_args==1:
-					//translate into 0-
-					pe_opr=readPool(pecall+EXPR_OFS_ARGS+0)
-					t=getExprType(pe_opr)
-					if !t:return TSCCPValue(){'tid':g_vtid_UNINIT}
-					pe_neg_impl=indcall([readPool(pecall+EXPR_OFS_FUNCTION),call(g_id_cast,exprctval(t),expriptr(0)),pe_opr])
-					pecaller=readPool(pecall+EXPR_OFS_CALLER)
-					sccpQueueReach(insertCallAt(pecaller,pecall,function(){return pe_neg_impl}))
-					return TSCCPValue(){'tid':g_vtid_UNINIT}
-				*/
 				return TSCCPValue(){'tid':g_vtid_UNINIT}
 			pe_opr_a=readPool(pecall+EXPR_OFS_ARGS+0);val_a=getExprValue(pe_opr_a)
 			pe_opr_b=readPool(pecall+EXPR_OFS_ARGS+1);val_b=getExprValue(pe_opr_b)
@@ -4847,7 +4845,7 @@ auto coreInit()
 						if !pobjfn_fn_or:
 							return TSCCPValue(){'tid':g_vtid_UNINIT}
 						//just replace the op
-						insertCallAt(pecall,0,function(){return exprctval(pobjfn_fn_or)})
+						insertCallAt(pecall,0,function(PExpression pe){return exprctval(pobjfn_fn_or)})
 						sccpQueueEval(pecall)
 						return TSCCPValue(){'tid':g_vtid_UNINIT}
 			if val_a.tid==g_vtid_CNS&&val_b.tid==g_vtid_CNS:
@@ -4876,7 +4874,7 @@ auto coreInit()
 					]))
 					return TSCCPValue(){'tid':g_vtid_UNINIT}
 				//if !tisbuiltin(t_result):
-				//	Writeln(dumpExpr(pecall,function(){return -1}))
+				//	Writeln(dumpExpr(pecall,function(PExpression pe){return -1}))
 				//	Writeln(ca.type,' ',cb.type,' ',ta,' ',tb,' ',t_result)
 				ca=castConst(ca,t_result)
 				cb=castConst(cb,t_result)
@@ -4945,7 +4943,7 @@ auto coreInit()
 				t_result=ta
 			else
 				t_result=typeMerge(pecall,ta,tb,pe_opr_a,pe_opr_b,1)
-			//Writeln(parser.Canonical.dumpExpr(pecall,function(){return -1}))
+			//Writeln(parser.Canonical.dumpExpr(pecall,function(PExpression pe){return -1}))
 			//Writeln(dumpType(ta),' ',dumpType(tb))
 			if !t_result:
 				return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -5088,7 +5086,7 @@ auto resolveNames(PExpression g_pe_top,int is_initial_resolve)
 				has_local_scope=1
 			else if fid==g_id_store:
 				pe_var=readPool(pe+EXPR_OFS_ARGS+0)
-				//Writeln('store translation? ',dumpExpr(pe_var,NULL))
+				//Writeln('store translation? ',dumpExpr(pe_var,__zero(fcolorer_callback)))
 				if isExpr(pe_var,EFLAG_FCALL):
 					n_args_pevar=readPool(pe_var)&~EFLAG_MASK
 					as=new PExpression[n_args_pevar+2]
@@ -5105,13 +5103,13 @@ auto resolveNames(PExpression g_pe_top,int is_initial_resolve)
 						writePool(pe_stored_func,EFLAG_VARIABLE|catid(g_id_set_,getVariable(pe_stored_func)))
 					else
 						bk=g_names_resolved;g_names_resolved=1
-						errorAtExpr(ETYPE_ERROR,pe_var,"cannot assign a value to expression '@1'".Replace("@1",citeexpr(pe_var)))
+						errorAtExpr(ETYPE_ERROR,pe_var,"cannot assign a value to expression '@1'".Replace(["@1",citeexpr(pe_var)]))
 						g_names_resolved=bk
 						writePool(pe,EFLAG_CONST+getid_const(const_type(CTYPE_INT,32),0LL))
 						return
-					pecaller=readPool(pe+EXPR_OFS_CALLER)
 					pestfunc=fillepos(indcall(as),readPool(pe+1),readPool(pe+2))
-					resolveVariablesDfs(insertCallAt(pecaller,pe,function(){return pestfunc}))
+					pecaller=readPool(pe+EXPR_OFS_CALLER)
+					resolveVariablesDfs(insertCallAt(pecaller,pe,function(PExpression pe){return pestfunc}))
 					return
 			//do it here: resolveVariablesDfs needs to check for has_local_scope guys itself, so we can't resolve it early
 			resolveVariablesDfs(readPool(pe+EXPR_OFS_FUNCTION))
@@ -5125,7 +5123,7 @@ auto resolveNames(PExpression g_pe_top,int is_initial_resolve)
 			if !pv:
 				//undeclared variable
 				bk=g_names_resolved;g_names_resolved=1
-				errorAtExpr(ETYPE_ERROR,pe,"undeclared variable '@1'".Replace("@1",getIdString(id)))
+				errorAtExpr(ETYPE_ERROR,pe,"undeclared variable '@1'".Replace(["@1",getIdString(id)]))
 				g_names_resolved=bk
 				writePool(pe,EFLAG_CONST+getid_const(const_type(CTYPE_INT,32),0LL))
 			else if readPool(pv)==g_tid_TNameSpace:
@@ -5181,10 +5179,10 @@ auto resolveNames(PExpression g_pe_top,int is_initial_resolve)
 						assert(isBuiltin(pe_cur,g_id_dot))
 						pe_new=exprvar(pv)
 					pecaller=readPool(pe_cur+EXPR_OFS_CALLER)
-					insertCallAt(pecaller,pe_cur,function(){return pe_new})
+					insertCallAt(pecaller,pe_cur,function(PExpression pe){return pe_new})
 				else
 					pecaller=readPool(pe_cur+EXPR_OFS_CALLER)
-					insertCallAt(pecaller,pe_cur,function(){return expriptr(0)})
+					insertCallAt(pecaller,pe_cur,function(PExpression pe){return expriptr(0)})
 			else
 				writePool(pe,pv|EFLAG_VARIABLE)
 	local_scope_children=new PExpression[]
@@ -5218,13 +5216,13 @@ auto resolveNames(PExpression g_pe_top,int is_initial_resolve)
 						//tuple ass - get rid of the new, ass the original rvalues
 						//as becomes useless later
 						//destroy the tuple flag, remove the final var
-						//Writeln('tuple ass!!! '+dumpExpr(pe_var,NULL))
-						insertCallAt(pe_var,~0,function(){return expriptr(0)})
+						//Writeln('tuple ass!!! '+dumpExpr(pe_var,__zero(fcolorer_callback)))
+						insertCallAt(pe_var,~0,function(PExpression pe){return expriptr(0)})
 						writePool(pe_var,EFLAG_FCALL+n_args_pevar-1)
 						//modify the new
 						pe_new=readPool(pe_var+EXPR_OFS_ARGS+1)
 						assert(isBuiltinR(pe_new,g_id_store))
-						insertCallAt(pe_new,~1,function(){return readPool(pe+EXPR_OFS_ARGS+1)})
+						insertCallAt(pe_new,~1,function(PExpression pe){return readPool(pe+EXPR_OFS_ARGS+1)})
 						//reverse the ass direction
 						for i=2:n_args_pevar-2
 							pe_store_dot_i=readPool(pe_var+EXPR_OFS_ARGS+i)
@@ -5237,10 +5235,10 @@ auto resolveNames(PExpression g_pe_top,int is_initial_resolve)
 							assert(!!pv_temp)
 							writePool(pe_store_dot_i+EXPR_OFS_ARGS+0,pe_value_i)
 							writePool(pe_store_dot_i+EXPR_OFS_ARGS+1,pe_dot_i)
-						//Writeln('tuple assed!!! '+dumpExpr(pe_var,NULL))
+						//Writeln('tuple assed!!! '+dumpExpr(pe_var,__zero(fcolorer_callback)))
 						//replace the original store
 						pecaller=readPool(pe+EXPR_OFS_CALLER)
-						findStoreDfs(pf_owner,pf_return_scope,insertCallAt(pecaller,pe,function(){return pe_var}))
+						findStoreDfs(pf_owner,pf_return_scope,insertCallAt(pecaller,pe,function(PExpression pe){return pe_var}))
 						return
 				else if isExpr(pe_var,EFLAG_VARIABLE):
 					id=getVariable(pe_var)
@@ -5292,14 +5290,14 @@ auto resolveNames(PExpression g_pe_top,int is_initial_resolve)
 						pobj_space_next=readPool(pobj_space+2+r*2+1)
 						if !pobj_space_next:
 							serr=getBadNamespace()
-							errorAtExpr(ETYPE_ERROR,pe_argi,"'@1' is not a namespace".Replace("@1",serr))
+							errorAtExpr(ETYPE_ERROR,pe_argi,"'@1' is not a namespace".Replace(["@1",serr]))
 							writePool(pe,EFLAG_STRING+g_id_import)
 							return
 						else
 							pobj_space=pobj_space_next
 					else
 						serr=getBadNamespace()
-						errorAtExpr(ETYPE_ERROR,pe_argi,"undeclared namespace '@1'".Replace("@1",serr))
+						errorAtExpr(ETYPE_ERROR,pe_argi,"undeclared namespace '@1'".Replace(["@1",serr]))
 						writePool(pe,EFLAG_STRING+g_id_import)
 						return
 				writePool(pe,EFLAG_STRING+g_id_import)
@@ -5393,7 +5391,7 @@ auto resolveNames(PExpression g_pe_top,int is_initial_resolve)
 				p_param_values=int(g_ctobject_pool.n)
 				writePool(pf_owner_new+FUNCTION_OFS_PPARAM_VALUE_SLOTS,p_param_values)
 				assert(sizeof(TSCCPValue)/sizeof(int)==2)
-				g_ctobject_pool.addn(n_funcargs*3)
+				g_ctobject_pool.resize(p_param_values+n_funcargs*3)
 				for i=0:n_funcargs-1
 					writePool(p_param_values+i*3,g_vtid_UNINIT)
 					writePool(p_param_values+i*3+2,all_pe_ldparam[i])
@@ -5442,7 +5440,7 @@ auto resolveNames(PExpression g_pe_top,int is_initial_resolve)
 				for i=0:n_args-1
 					resolveVariablesDfs(readPool(pe+EXPR_OFS_ARGS+i))
 				//call pass 1 at each local scope
-				//Writeln(dumpExpr(pe,NULL))
+				//Writeln(dumpExpr(pe,__zero(fcolorer_callback)))
 				//restore context
 				for i=saved_names.n-1:-1:n0_saved_names
 					svitem=saved_names[i]
@@ -5451,8 +5449,8 @@ auto resolveNames(PExpression g_pe_top,int is_initial_resolve)
 				if fid==g_id_namespace:
 					//replace the namespace with a normal scoped block
 					writePool(pe,EFLAG_FCALL+2)
-					insertCallAt(pe,0,function(){return exprvar(g_id_block)})
-					insertCallAt(pe,~0,function(){return exprstr(g_id_block)})
+					insertCallAt(pe,0,function(PExpression pe){return exprvar(g_id_block)})
+					insertCallAt(pe,~0,function(PExpression pe){return exprstr(g_id_block)})
 	resolveDfs(0,0,g_pe_top,0)
 	resolveVariablesDfs(g_pe_top)
 	g_names_resolved=1
@@ -5478,7 +5476,7 @@ auto registerConst(int id,int tid,int val)
 //struct TCompilerPrimitive
 //	fcompiler_callback onreach
 //	fcompiler_callback oneval
-g_compiler_callbacks=[(fcompiler_callback)NULL]
+g_compiler_callbacks=[fcompiler_callback.NULL]
 auto registerCompilerCallback(fcompiler_callback f)
 	if !f:return 0
 	n0=int(g_compiler_callbacks.n)
@@ -5540,7 +5538,7 @@ auto sccpQueueEval(PExpression pecaller)
 			if !testUserFlag(pecaller,QUEUE_FLAG_REACH):
 				if !isBuiltin(pecaller,g_id_ldparam):
 					Writeln("root="+dumpExpr(g_pe_top,fcolor_reach_eval))
-					Writeln("cannot eval unreached: "+dumpExpr(pecaller,NULL))
+					Writeln("cannot eval unreached: "+dumpExpr(pecaller,__zero(fcolorer_callback)))
 					assert(0)
 		setUserFlag(pecaller,QUEUE_FLAG_EVAL)
 		//assert(testUserFlag(pecaller,QUEUE_FLAG_REACH))
@@ -5550,7 +5548,7 @@ auto sccpQueueEval(PExpression pecaller)
 		if !testUserFlag(pecaller,QUEUE_FLAG_ONREACH_CALLED):
 			if DEBUG_REACH_LOG:
 				//Writeln(FormatAsText('re-reach ',pecaller,' ',dumpExpr(pecaller,fcolor_reach_eval)))
-				Writeln(FormatAsText('re-reach ',pecaller,' ',dumpExpr(pecaller,NULL)))
+				Writeln(FormatAsText('re-reach ',pecaller,' ',dumpExpr(pecaller,__zero(fcolorer_callback))))
 			assert(testUserFlag(pecaller,QUEUE_FLAG_REACH)||isBuiltin(pecaller,g_id_ldparam))
 			queueReachChild(pecaller)
 		return 1
@@ -5571,7 +5569,7 @@ auto queueEvalUsers(PCTObject pobj_var)
 			//		Writeln('==============')
 			//		Writeln(dumpExpr(g_pe_top,fcolor_reach_eval))
 			//		Writeln('==============')
-			//		Writeln(dumpExpr(peuser,NULL))
+			//		Writeln(dumpExpr(peuser,__zero(fcolorer_callback)))
 			if !isExpr(peuser,EFLAG_FCALL):
 				//nuked expr
 				assert(readPool(peuser)==EFLAG_STRING+g_empty_id)
@@ -5589,7 +5587,7 @@ auto queueEvalFunction(PCTObject pobjfn)
 		Writeln('queueEvalFunction ',g_value_time,' ',getIdString(readPoolTyped(pobjfn,TFunction).id_name))
 	for(plistitem=readPool(pobjfn+FUNCTION_OFS_FUSER);plistitem;plistitem=readPool(plistitem))
 		peuser=readPool(plistitem+1)
-		//Writeln('>> ',dumpExpr(peuser,NULL))
+		//Writeln('>> ',dumpExpr(peuser,__zero(fcolorer_callback)))
 		if peuser&0x80000000:
 			sccpQueueEval(peuser&0x7fffffff)
 		else
@@ -5597,7 +5595,7 @@ auto queueEvalFunction(PCTObject pobjfn)
 			if pecaller:
 				sccpQueueEval(pecaller)
 	peuser=readPoolTyped(pobjfn,TFunction).pe_decl
-	//Writeln('>> ',dumpExpr(peuser,NULL))
+	//Writeln('>> ',dumpExpr(peuser,__zero(fcolorer_callback)))
 	pecaller=readPool(peuser+EXPR_OFS_CALLER)
 	if pecaller:
 		sccpQueueEval(pecaller)
@@ -5775,7 +5773,7 @@ auto mergeValues(PExpression pe,TSCCPValue val_old,TSCCPValue val_new0,PExpressi
 		//NULL merge, cast NULL to the proper type
 		t=getValueTypeEx(pe,val_old)
 		if t:
-			val_new.val=getid_const(CTYPE_TYPED_NULL,t)
+			val_new.val=getid_const(CTYPE_TYPED_NULL,i64(t))
 	val_final=val_old
 	if val_old.tid==g_vtid_UNINIT:
 		val_final=val_new
@@ -5810,7 +5808,7 @@ auto mergeValues(PExpression pe,TSCCPValue val_old,TSCCPValue val_new0,PExpressi
 			if val_final.val&&readPool(val_final.val)==g_tid_TFunction:
 				id_ccnv=getCcnv(val_final.val)
 				if id_ccnv==g_id_inline||id_ccnv==g_id_inline_loopbody:
-					Writeln(dumpExpr(pe,NULL))
+					Writeln(dumpExpr(pe,__zero(fcolorer_callback)))
 					assert(0)
 		if val_old.tid==g_vtid_CTVAL&&!t_old:
 			setFunctionUsed(val_old.val)
@@ -5882,7 +5880,7 @@ auto queueReachChild(PExpression pe)
 		else
 			sccpQueueReach(pe_func)
 			if DEBUG_REACH_LOG:
-				Writeln('unknown func, skipping child reach - ',dumpExpr(pe,NULL))
+				Writeln('unknown func, skipping child reach - ',dumpExpr(pe,__zero(fcolorer_callback)))
 		return
 	setUserFlag(pe,QUEUE_FLAG_ONREACH_CALLED)
 	cb_onreach=readPool(pobjfn+FUNCTION_OFS_ONREACH)
@@ -5920,7 +5918,10 @@ auto sccpProcessReaches()
 					writePool(pe+EXPR_OFS_NEXT_V_USER,readPool(pobj+VAR_OFS_USER_QUEUE))
 					writePool(pobj+VAR_OFS_USER_QUEUE,pe)
 			continue
-		assert((flags&EFLAG_MASK)==EFLAG_FCALL)
+		if (flags&EFLAG_MASK)!=EFLAG_FCALL:
+			//produced by setnopNested
+			assert(flags==EFLAG_STRING+g_empty_id)
+			continue
 		//er=readPoolTyped(pe,TExpression)
 		//we can only reach anything once
 		//unsetUserFlag(pe,QUEUE_FLAG_REACH)
@@ -5969,8 +5970,6 @@ auto sccp(PExpression g_pe_top)
 			if DEBUG_EVAL_LOG:
 				//if !isSpecial(pe):
 				Writeln(FormatAsText('eval ',pe,' ',dumpExpr(pe,fcolor_abbrv_blocks)))
-			//if g_dump_eval:
-			//	Writeln('eval ',pe,' ',dumpExpr(pe,function(){return -1}))
 			//er=readPoolTyped(pe,TExpression)
 			unsetUserFlag(pe,QUEUE_FLAG_EVAL)
 			/////////////////
@@ -5998,7 +5997,7 @@ auto sccp(PExpression g_pe_top)
 					val_new=invokeCallbackObject(cb_oneval,pe,0)
 					if Platform.BUILD=="debug":
 						if !(val_new.tid>=g_vtid_UNINIT&&val_new.tid<=g_vtid_CTVAL):
-							Writeln(dumpCode(g_pe_top,NULL))
+							Writeln(dumpCode(g_pe_top,__zero(fcolorer_callback)))
 							Writeln(FormatAsText('bad value after cb ',pe,' ',dumpExpr(pe,fcolor_abbrv_blocks),' ',val_new.tid,' ',getIdString(val_new.tid)))
 							assert(0)
 				else
@@ -6027,13 +6026,13 @@ auto sccp(PExpression g_pe_top)
 						auto pecaller=readPool(pe+EXPR_OFS_CALLER)
 						if n_args==1:
 							peopr=readPool(pe+EXPR_OFS_ARGS+0)
-							insertCallAt(pe,~0,function(){return expriptr(0)})
+							insertCallAt(pe,~0,function(PExpression pe){return expriptr(0)})
 						else
 							peopr=expriptr(0)
-						insertCallAt(pe,0,function(){return expriptr(0)})
+						insertCallAt(pe,0,function(PExpression pe){return expriptr(0)})
 						//writePool(pecallee+EXPR_OFS_CALLER,0)
 						//writePool(peopr+EXPR_OFS_CALLER,0)
-						sccpQueueReach(insertCallAt(pecaller,pe,function(){return call(g_id_cast,pecallee,peopr)}))
+						sccpQueueReach(insertCallAt(pecaller,pe,function(PExpression pe){return call(g_id_cast,pecallee,peopr)}))
 						continue
 					else
 						errorAtExpr(ETYPE_ERROR,pe,"builtin-type '@1' cannot be constructed from @2 arguments".Replace(["@1",dumpType(pobj),"@2",string(n_args)]))
@@ -6141,7 +6140,7 @@ auto evalCodeDependingFunctions()
 			g_cdf_unchanged_count++
 			if g_cdf_unchanged_count>=3:
 				foreach pe in cdf_set
-					errorAtExpr(ETYPE_ERROR,pe,"failed to translate code-depending function @1".Replace("@1",citeexpr(pe)))
+					errorAtExpr(ETYPE_ERROR,pe,"failed to translate code-depending function @1".Replace(["@1",citeexpr(pe)]))
 					setnop(pe)
 				return 0//force-continue
 		else
@@ -6195,14 +6194,14 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 				//ignore class members
 				//variables accessed elsewhere are striked out here
 				if DEBUG_DUMP_FLATTEN:
-					Writeln('unflattenable (generic): '+dumpExpr(pe,NULL))
+					Writeln('unflattenable (generic): '+dumpExpr(pe,__zero(fcolorer_callback)))
 				setUserFlag(pobj_var,VAR_USER_UNFLATTENABLE)
 				return 0
 			t=readPool(pobj_var+1)
 			pecaller=readPool(pe+EXPR_OFS_CALLER)
 			if !testUserFlag(pecaller,QUEUE_FLAG_REACH):
 				if DEBUG_DUMP_FLATTEN:
-					Writeln('unflattenable (caller unreached): '+dumpExpr(pecaller,NULL))
+					Writeln('unflattenable (caller unreached): '+dumpExpr(pecaller,__zero(fcolorer_callback)))
 				setUserFlag(pobj_var,VAR_USER_UNFLATTENABLE)
 				return 0
 			if (isBuiltin(pecaller,g_id_dot)||isBuiltin(pecaller,g_id_stdot))&&readPool(pecaller+EXPR_OFS_ARGS+0)==pe:
@@ -6214,7 +6213,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 					//but not method calls or CTVAL hack dots
 					//Writeln('method call: '+dumpExpr(pecaller_caller,fcolor_abbrv_blocks))
 					if DEBUG_DUMP_FLATTEN:
-						Writeln('unflattenable (method call): '+dumpExpr(pe,NULL)+" "+dumpExpr(pecaller,NULL))
+						Writeln('unflattenable (method call): '+dumpExpr(pe,__zero(fcolorer_callback))+" "+dumpExpr(pecaller,__zero(fcolorer_callback)))
 					setUserFlag(pobj_var,VAR_USER_UNFLATTENABLE)
 				else if readPool(pecaller)==EFLAG_FCALL+3:
 					//stdot
@@ -6226,7 +6225,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 						if readPool(pobj_member)==g_vtid_UNINIT:
 							//guilty
 							//if DEBUG_DUMP_FLATTEN:
-							//	Writeln('unflattenable (unresolved value): '+dumpExpr(pe,NULL)+" "+dumpExpr(pecaller,NULL))
+							//	Writeln('unflattenable (unresolved value): '+dumpExpr(pe,__zero(fcolorer_callback))+" "+dumpExpr(pecaller,__zero(fcolorer_callback)))
 							//assert(0)
 							errorAtExpr(ETYPE_LOW_LEVEL_ERROR,pe_value,"unresolved expression '@1'".Replace(["@1",citeexpr(pe_value)]))
 							setUserFlag(pobj_var,VAR_USER_UNFLATTENABLE)
@@ -6247,17 +6246,17 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 						if isExpr(pe_value,EFLAG_FCALL)&&getExprValueAs(readPool(pe_value+EXPR_OFS_FUNCTION),g_vtid_CTVAL)==t:
 							if testUserFlag(pobj_var,VAR_USER_GOT_NEW):
 								if DEBUG_DUMP_FLATTEN:
-									Writeln('unflattenable (multiple new): '+dumpExpr(pe,NULL))
+									Writeln('unflattenable (multiple new): '+dumpExpr(pe,__zero(fcolorer_callback)))
 								setUserFlag(pobj_var,VAR_USER_UNFLATTENABLE)
 							else
 								setUserFlag(pobj_var,VAR_USER_GOT_NEW)
 						else
 							if DEBUG_DUMP_FLATTEN:
-								Writeln('unflattenable (not newed): '+dumpExpr(pe,NULL))
+								Writeln('unflattenable (not newed): '+dumpExpr(pe,__zero(fcolorer_callback)))
 							setUserFlag(pobj_var,VAR_USER_UNFLATTENABLE)
 					else
 						if DEBUG_DUMP_FLATTEN:
-							Writeln('unflattenable (class referenced): '+dumpExpr(pe,NULL))
+							Writeln('unflattenable (class referenced): '+dumpExpr(pe,__zero(fcolorer_callback)))
 						setUserFlag(pobj_var,VAR_USER_UNFLATTENABLE)
 				else
 					//for structs, it's ok to ass to anything else... where we need to default up the non-flattened - store the flattened back and do the ass as is
@@ -6270,7 +6269,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 						pe_value=readPool(pecaller+EXPR_OFS_ARGS+1)
 						if isBuiltin(pe_value,g_id_cast):
 							if DEBUG_DUMP_FLATTEN:
-								Writeln('unflattenable (memory struct): '+dumpExpr(pe,NULL))
+								Writeln('unflattenable (memory struct): '+dumpExpr(pe,__zero(fcolorer_callback)))
 							setUserFlag(pobj_var,VAR_USER_UNFLATTENABLE)
 						if isBuiltin(pe_value,g_id_dot):
 							for(;;)
@@ -6282,7 +6281,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 											//we can flatten members of symderiv's param
 											break
 								if DEBUG_DUMP_FLATTEN:
-									Writeln('unflattenable (member of another class): '+dumpExpr(pe,NULL))
+									Writeln('unflattenable (member of another class): '+dumpExpr(pe,__zero(fcolorer_callback)))
 								setUserFlag(pobj_var,VAR_USER_UNFLATTENABLE)
 								break
 				return 0
@@ -6293,7 +6292,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 				//typeof/has_member are fine
 				return 0
 			if DEBUG_DUMP_FLATTEN:
-				Writeln('unflattenable (unrecognized function): '+dumpExpr(pe,NULL)+" "+dumpExpr(pecaller,NULL))
+				Writeln('unflattenable (unrecognized function): '+dumpExpr(pe,__zero(fcolorer_callback))+" "+dumpExpr(pecaller,__zero(fcolorer_callback)))
 			setUserFlag(pobj_var,VAR_USER_UNFLATTENABLE)
 		else
 			if !testUserFlag(pe,QUEUE_FLAG_REACH):
@@ -6378,11 +6377,6 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 					//we need to set the type - no one sets it *for* us before it's needed
 					//well, we must generate one - using transformCode?
 					//it's defined during the memcpies
-					//pe_parent_definition=readPool(pobj_var+VAR_OFS_DEFINING_STORE)
-					//assert(!!pe_parent_definition)
-					//pe_my_definition=call(g_id_store,exprvar(pobj_ret),indcall([exprctval(t)]))
-					//transformCode(pe_parent_definition,NULL, [pe_my_definition],0,NULL)
-					//writePool(pobj_ret+VAR_OFS_DEFINING_STORE,pe_my_definition)
 					///////
 					writePool(pobj_ret+0,g_vtid_RTVAR)
 					writePool(pobj_ret+1,t)
@@ -6429,21 +6423,21 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 								need_renaming=1
 								rename_map[pobj_var_target]=pobj_ret
 								if DEBUG_DUMP_FLATTEN:
-									Writeln('make into renaming: ',dumpExpr(pecaller,NULL))
+									Writeln('make into renaming: ',dumpExpr(pecaller,__zero(fcolorer_callback)))
 								setnop(pecaller)
 								return 0
 						//flatten it
 						if is_class_owned:
 							//class member, keep the original write
 							if is_write:
-								transformCode(pe,NULL, NULL,call(g_id_store,exprvar(pobj_ret),readPool(pe+EXPR_OFS_ARGS+2)),[call(g_id_stdot,exprvar(pobj_var),exprctval(pobj_member),exprvar(pobj_ret))])
+								transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,call(g_id_store,exprvar(pobj_ret),readPool(pe+EXPR_OFS_ARGS+2)),[call(g_id_stdot,exprvar(pobj_var),exprctval(pobj_member),exprvar(pobj_ret))])
 							else
-								transformCode(pe,NULL, NULL,exprvar(pobj_ret),[call(g_id_dummy_use,exprvar(pobj_var))])
+								transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,exprvar(pobj_ret),[call(g_id_dummy_use,exprvar(pobj_var))])
 						else
 							if is_write:
-								freplacer=function(){return call(g_id_store,exprvar(pobj_ret),readPool(pe+EXPR_OFS_ARGS+2))}
+								freplacer=function(PExpression pe){return call(g_id_store,exprvar(pobj_ret),readPool(pe+EXPR_OFS_ARGS+2))}
 							else
-								freplacer=function(){return exprvar(pobj_ret)}
+								freplacer=function(PExpression pe){return exprvar(pobj_ret)}
 							pe=sccpQueueReach(insertCallAt(pecaller,pe,freplacer))
 						//we need to continue processing for nested flattens
 		if isBuiltin(pe,g_id_store)||isBuiltin(pe,g_id_stdot):
@@ -6460,7 +6454,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 				//need to translate this store
 				if !testUserFlag(pobj_tar,VAR_USER_UNFLATTENABLE):
 					//if readPool(pobj_tar)!=g_vtid_RTVAR:
-					//	Writeln("!!! "+dumpExpr(pe,NULL))
+					//	Writeln("!!! "+dumpExpr(pe,__zero(fcolorer_callback)))
 					assert(readPool(pobj_tar)==g_vtid_RTVAR)
 					t_tar=readPool(pobj_tar+1)
 					//Writeln(dumpExpr(pe,fcolor_abbrv_blocks))
@@ -6470,7 +6464,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 						assert(readPool(pobj_src)==g_vtid_RTVAR)
 						t_src=readPool(pobj_src+1)
 						if DEBUG_DUMP_FLATTEN:
-							Writeln('flat-memcpy(both): ',dumpExpr(pe,NULL),' ',t_tar,' ',dumpType(t_tar),' ',t_src,' ',dumpType(t_src))
+							Writeln('flat-memcpy(both): ',dumpExpr(pe,__zero(fcolorer_callback)),' ',t_tar,' ',dumpType(t_tar),' ',t_src,' ',dumpType(t_src))
 						if t_src!=t_tar:
 							//error, ignore it
 							return 1
@@ -6495,7 +6489,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 							//	writePool(pv_tar+VAR_OFS_DEFINING_STORE,pe_cpy)
 							as.push(pe_cpy)
 						pecaller=readPool(pe+EXPR_OFS_CALLER)
-						sccpQueueReach(insertCallAt(pecaller,pe,function(){return vcall(g_id_block,as)}))
+						sccpQueueReach(insertCallAt(pecaller,pe,function(PExpression pe){return vcall(g_id_block,as)}))
 					else
 						if isExpr(pe_value,EFLAG_FCALL)&&getExprFunction(pe_value)==t_tar:
 							//Writeln(FormatAsText('new ',dumpExpr(pe,fcolor_abbrv_blocks)))
@@ -6559,7 +6553,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 							//assert(tisstruct(t_tar))
 							assert(tisclass(t_tar))
 						if DEBUG_DUMP_FLATTEN:
-							Writeln('flat-memcpy(tar-only): ',dumpExpr(pe,NULL))
+							Writeln('flat-memcpy(tar-only): ',dumpExpr(pe,__zero(fcolorer_callback)))
 						//read back from tar after the store, also, tar itself can no longer be eliminated
 						//we could get a class new here
 						setUserFlag(pobj_tar,VAR_USER_KEEP_ORIGINAL)
@@ -6584,12 +6578,12 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 							//if !readPool(pv_tar+VAR_OFS_DEFINING_STORE):
 							//	writePool(pv_tar+VAR_OFS_DEFINING_STORE,pe_cpy)
 							as.push(pe_cpy)
-						transformCode(pe,NULL, NULL,0,as)
+						transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,0,as)
 				else
 					t_src=readPool(pobj_src+1)
 					assert(tisstruct(t_src))
 					if DEBUG_DUMP_FLATTEN:
-						Writeln('flat-memcpy(src-only): ',dumpExpr(pe,NULL),' ',dumpType(t_src))
+						Writeln('flat-memcpy(src-only): ',dumpExpr(pe,__zero(fcolorer_callback)),' ',dumpType(t_src))
 					//directly write to tar
 					as=new PExpression[]
 					if isBuiltin(pe,g_id_stdot):
@@ -6611,7 +6605,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 						vtid=readPool(pobj_member)
 						if vtid!=g_vtid_RTVAR:continue
 						as.push(call(g_id_stdot,exprvar(pv_temp),exprctval(pobj_member),exprvar(getFlattenedVariable(pobj_src,pobj_member,0))))
-					transformCode(pe,NULL, as,expriptr(0),NULL)
+					transformCode(pe,__zero(ftransformer_callback), as,expriptr(0),PExpression[].NULL)
 		else if isBuiltin(pe,g_id_assert_ctval):
 			//ignore assert_ctval
 			return 0
@@ -6624,7 +6618,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 					if pobj_var&&!testUserFlag(pobj_var,VAR_USER_UNFLATTENABLE)&&readPool(pobj_var)==g_vtid_RTVAR&&tisstruct(readPool(pobj_var+1)):
 						//the meta stuff should be made constant if the variable is about to disappear
 						pesubstitute=poolCode(TCnsExpression(){'flags_cid':val.val+((val.tid==g_vtid_CNS)?EFLAG_CONST:EFLAG_CTVAL)})
-						transformCode(pe,NULL, NULL,pesubstitute,NULL)
+						replaceExpr(pe,pesubstitute)
 						return 0
 		return 1
 	}
@@ -6643,7 +6637,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 		dfsExpr(pe_top,frename_vars)
 	if DEBUG_DUMP_FLATTEN:
 		//Writeln(g_ctobject_pool.n)
-		Writeln(">>> after flatten\n"+dumpExpr(pe_top,NULL))
+		Writeln(">>> after flatten\n"+dumpExpr(pe_top,__zero(fcolorer_callback)))
 	//expand the monitored variable lists
 	//tbegin(tm_flatten_step2)
 	if monitoring_base:
@@ -6716,16 +6710,16 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 					if tisbuiltin(t_member):
 						cid=getid_const(readPool(t_member+1),0LL)
 					else
-						cid=getid_const(CTYPE_TYPED_NULL,t_member)
+						cid=getid_const(CTYPE_TYPED_NULL,i64(t_member))
 					as.push(call(g_id_store,exprvar(pobj_flattened),exprcns(cid)))
-					//Writeln('zero out, cid=',cid,' type=',t_member,':',dumpType(t_member),' ',getBuiltinType(const_type(CTYPE_FLOAT,64)),' ',dumpExpr(as.back(),NULL))
+					//Writeln('zero out, cid=',cid,' type=',t_member,':',dumpType(t_member),' ',getBuiltinType(const_type(CTYPE_FLOAT,64)),' ',dumpExpr(as.back(),__zero(fcolorer_callback)))
 			if isBuiltin(pe_func,g_id_function):
 				//it's a tuple construction, keep the function BUT STILL ZERO OUT THE MEMBERS
 				//pecaller=readPool(pe+EXPR_OFS_CALLER)
 				//sccpQueueReach(insertCallAt(pecaller,pe,function(){return pe_func}))
-				transformCode(pe,NULL, as,pe_func,NULL)
+				transformCode(pe,__zero(ftransformer_callback), as,pe_func,PExpression[].NULL)
 			else
-				transformCode(pe,NULL, as,0,NULL)
+				transformCode(pe,__zero(ftransformer_callback), as,0,PExpression[].NULL)
 				setnop(pe)
 		else
 			if DEBUG_DUMP_FLATTEN:
@@ -6805,7 +6799,7 @@ auto grandsccp()
 				did=1
 				sccp(0)
 				//cleaning up the nop is *worth* it
-				g_pe_top=dfsFlattenBlocks(NULL,g_pe_top,0,0)
+				g_pe_top=dfsFlattenBlocks(PExpression[].NULL,g_pe_top,0,0).x
 				if DEBUG_DUMP_PASSES:{Writeln('[WORKED]')}
 			else
 				if DEBUG_DUMP_PASSES:{Writeln('dry fire')}
@@ -7013,11 +7007,11 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 				//variables can get dupped
 				pe_ret=fillepos(exprvar(getVariable(pe_ret)),readPool(pe_ret+EXPR_OFS_EPOS),readPool(pe_ret+EXPR_OFS_EPOS+1))
 				if DEBUG_DUMP_SSA:
-					Writeln('  unpredictable var - ',dumpExpr(pe_ret,NULL))
+					Writeln('  unpredictable var - ',dumpExpr(pe_ret,__zero(fcolorer_callback)))
 				return pe_ret
 			g_unpredictable_values[gvn_id-UNPREDICTABLE_VID_BASE]=0
 			if DEBUG_DUMP_SSA:
-				Writeln('  unpredictable - ',dumpExpr(pe_ret,NULL))
+				Writeln('  unpredictable - ',dumpExpr(pe_ret,__zero(fcolorer_callback)))
 			return pe_ret
 		else
 			pobj_var=g_gvn_values[gvn_id].pv_backing
@@ -7029,7 +7023,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 				pe_previous=(pobj_var&0x7fffffff)
 				pobj_var=makevar(pf_curblock)
 				if DEBUG_DUMP_SSA:
-					Writeln('CSE: ',dumpExpr(readPool(pe_previous+EXPR_OFS_CALLER),NULL),' ',dumpObject(pobj_var))
+					Writeln('CSE: ',dumpExpr(readPool(pe_previous+EXPR_OFS_CALLER),__zero(fcolorer_callback)),' ',dumpObject(pobj_var))
 				if pe_previous>=p_newly_generated_point:
 					//just-generated code got CSEed, smash!
 					if DEBUG_DUMP_SSA:
@@ -7039,12 +7033,12 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 				else
 					if DEBUG_DUMP_SSA:
 						Writeln('  transformCode')
-					transformCode(pe_previous,function(){return fillepos(call(g_id_store,exprvar(pobj_var),pe_previous),g_gvn_values[gvn_id].epos,-1)}, NULL,exprvar(pobj_var),NULL)
+					transformCode(pe_previous,function(PExpression pe){return fillepos(call(g_id_store,exprvar(pobj_var),pe_previous),g_gvn_values[gvn_id].epos,-1)}, PExpression[].NULL,exprvar(pobj_var),PExpression[].NULL)
 				g_gvn_values[gvn_id].pv_backing=pobj_var
 			if pobj_var:
 				pe_ret=fillepos(exprvar(pobj_var),g_gvn_values[gvn_id].epos,-1)
 				if DEBUG_DUMP_SSA:
-					Writeln('  var - ',dumpExpr(pe_ret,NULL))
+					Writeln('  var - ',dumpExpr(pe_ret,__zero(fcolorer_callback)))
 				return pe_ret
 			gvn_key=g_gvn_values[gvn_id].key
 			if gvn_key.x==g_fakectval_gvn_cns:
@@ -7074,7 +7068,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 				if g_gvn_values[gvn_id].pv_backing<=0:
 					g_gvn_values[gvn_id].pv_backing=0x80000000+pe_ret
 			if DEBUG_DUMP_SSA:
-				Writeln('  ',dumpExpr(pe_ret,NULL))
+				Writeln('  ',dumpExpr(pe_ret,__zero(fcolorer_callback)))
 			return fillepos(pe_ret,g_gvn_values[gvn_id].epos,-1)
 	auto solidifyTentativeBacking(PExpression pe)
 		gvn_id=tentative_backing_gvnid[pe]
@@ -7083,7 +7077,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 		if DEBUG_DUMP_SSA:
 			if g_gvn_values[gvn_id].pv_backing==0x80000000+pe:
 				//if !is_different_from_code:
-				Writeln('solidify the tentative backing: ',gvn_id,' ',dumpExpr(pe,NULL))
+				Writeln('solidify the tentative backing: ',gvn_id,' ',dumpExpr(pe,__zero(fcolorer_callback)))
 		if isExpr(pe,EFLAG_FCALL):
 			n_args=getFCallNArgs(pe)
 			for i=-1:n_args-1
@@ -7096,7 +7090,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 			g_gvn_values[gvn_id].pv_backing=0
 			if DEBUG_DUMP_SSA:
 				//if !is_different_from_code:
-				Writeln('wipe out the stale backing: ',gvn_id,' ',dumpExpr(pe,NULL))
+				Writeln('wipe out the stale backing: ',gvn_id,' ',dumpExpr(pe,__zero(fcolorer_callback)))
 		if isExpr(pe,EFLAG_FCALL):
 			n_args=getFCallNArgs(pe)
 			for i=-1:n_args-1
@@ -7111,12 +7105,12 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 				if isExpr(pe,EFLAG_VARIABLE)&&is_different_from_code:
 					//variable renaming case
 					//n0=g_ctobject_pool.n
-					if DEBUG_DUMP_PASSES&&DEBUG_DUMP_GVN_DETAILS:{Writeln('>>> replace ',dumpExpr(pe,NULL))}
+					if DEBUG_DUMP_PASSES&&DEBUG_DUMP_GVN_DETAILS:{Writeln('>>> replace ',dumpExpr(pe,__zero(fcolorer_callback)))}
 					p_newly_generated_point=int(g_ctobject_pool.n)
 					as_just_generated_cse=new PExpression[]
 					pe_replacement=gvn_generate(gvn_id,1)
-					transformCode(pe,NULL, as_just_generated_cse,pe_replacement,NULL)
-					if DEBUG_DUMP_PASSES&&DEBUG_DUMP_GVN_DETAILS:{Writeln('<<< into ',dumpExpr(pe_replacement,NULL))}
+					transformCode(pe,__zero(ftransformer_callback), as_just_generated_cse,pe_replacement,PExpression[].NULL)
+					if DEBUG_DUMP_PASSES&&DEBUG_DUMP_GVN_DETAILS:{Writeln('<<< into ',dumpExpr(pe_replacement,__zero(fcolorer_callback)))}
 					did=1
 					//else
 					//	g_ctobject_pool'n':n0
@@ -7128,14 +7122,14 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 				return
 			//wipe out the backing vars first
 			if DEBUG_DUMP_SSA:
-				Writeln('gvn_replace ',dumpExpr(pe,NULL))
-			if DEBUG_DUMP_PASSES&&DEBUG_DUMP_GVN_DETAILS:{if !did:Write(dumpExpr(pe,NULL),' -> ')}
+				Writeln('gvn_replace ',dumpExpr(pe,__zero(fcolorer_callback)))
+			if DEBUG_DUMP_PASSES&&DEBUG_DUMP_GVN_DETAILS:{if !did:Write(dumpExpr(pe,__zero(fcolorer_callback)),' -> ')}
 			wipeoutStaleBackingExpr(pe)
 			p_newly_generated_point=int(g_ctobject_pool.n)
 			as_just_generated_cse=new PExpression[]
 			pe_replacement=gvn_generate(gvn_id,1)
-			transformCode(pe,NULL, as_just_generated_cse,pe_replacement,NULL)
-			if DEBUG_DUMP_PASSES&&DEBUG_DUMP_GVN_DETAILS:{if !did:Write(dumpExpr(pe_replacement,NULL),' ')}
+			transformCode(pe,__zero(ftransformer_callback), as_just_generated_cse,pe_replacement,PExpression[].NULL)
+			if DEBUG_DUMP_PASSES&&DEBUG_DUMP_GVN_DETAILS:{if !did:Write(dumpExpr(pe_replacement,__zero(fcolorer_callback)),' ')}
 			did=1
 	inline gvnkeyIsBuiltin(int3 gvn_key,int id)
 		return gvn_key.x==getBuiltin(id)
@@ -7178,7 +7172,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 							//linear merging: a+b*a, b*a+c*a
 							if gvnkeyIsBuiltin(gvn_key,g_id_operator_add)||gvnkeyIsBuiltin(gvn_key,g_id_operator_sub):
 								if DEBUG_DUMP_SSA:
-									Writeln('test linear merging ',dumpExpr(pe,NULL))
+									Writeln('test linear merging ',dumpExpr(pe,__zero(fcolorer_callback)))
 								key_arg0=g_gvn_values[gvn_key.y].key
 								if key_arg0.x==g_id_operator_mul&&key_arg0.y>0&&key_arg0.z>0&&gvnIsCns(key_arg0.z):
 									tmp=key_arg0.y
@@ -7372,7 +7366,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 	auto bbssa(PExpression pe0)
 		pe=pe0
 		if !testUserFlag(pe,QUEUE_FLAG_REACH)&&isExpr(pe,EFLAG_FCALL):
-			//Writeln('unreach ',dumpExpr(pe,NULL))
+			//Writeln('unreach ',dumpExpr(pe,__zero(fcolorer_callback)))
 			is_referring_to_unpredictable=1
 			return make_unpredictable(0)
 		if isExpr(pe,EFLAG_VARIABLE):
@@ -7396,7 +7390,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 							//sccpQueueEval(pe)
 							//writePool(pe,EFLAG_VARIABLE+pobj_var_renamed)
 							//for the queue
-							transformCode(pe,NULL, NULL,exprvar(pobj_var_renamed),NULL)
+							replaceExpr(pe,exprvar(pobj_var_renamed))
 						return ssa_names[ssa_vid].gvn_id
 		else if isExpr(pe,EFLAG_FCALL):
 			is_store=0
@@ -7439,7 +7433,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 						bid=(flag0&USER_FLAG_MASK)
 						if bid!=USER_FLAG_MASK&&bid:
 							if DEBUG_DUMP_SSA:
-								Writeln('SSA-friendly store ',dumpExpr(pe,NULL))
+								Writeln('SSA-friendly store ',dumpExpr(pe,__zero(fcolorer_callback)))
 							if !(bid&FLAG_SSA_RENAMED):
 								//mode switch to SSA, but the variable name remains unchanged
 								bid--
@@ -7449,10 +7443,10 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 									//copyprop
 									pv_current=getGvnVariable(pe_value,gvn_id_value)
 									if DEBUG_DUMP_SSA:
-										Writeln('1st-copy-prop rename: ',dumpExpr(pe,NULL),' ',string.ToHex(gvn_id_value),' ',dumpObject(pv_current))
+										Writeln('1st-copy-prop rename: ',dumpExpr(pe,__zero(fcolorer_callback)),' ',string.ToHex(gvn_id_value),' ',dumpObject(pv_current))
 									//the ANM/deriv returns should have been protected this way
 									if readPool(pobj_var+VAR_OFS_ID)==g_id_return:
-										transformCode(pe_value,NULL, NULL,exprvar(pv_current),NULL)
+										replaceExpr(pe_value,exprvar(pv_current))
 									else
 										setnop(pe)
 								ssa_names.push(TSSAName(){'pv_original':pobj_var,'pv_current':pv_current,'gvn_id':gvn_id_value})
@@ -7465,10 +7459,10 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 									ssa_names[ssa_vid].pv_current=getGvnVariable(pe_value,gvn_id_value)
 									ssa_names[ssa_vid].gvn_id=gvn_id_value
 									if DEBUG_DUMP_SSA:
-										Writeln('copy-prop rename: ',dumpExpr(pe,NULL),' ',dumpObject(ssa_names[ssa_vid].pv_current))
+										Writeln('copy-prop rename: ',dumpExpr(pe,__zero(fcolorer_callback)),' ',dumpObject(ssa_names[ssa_vid].pv_current))
 									//the ANM/deriv returns should have been protected this way
 									if readPool(pobj_var+VAR_OFS_ID)==g_id_return:
-										transformCode(pe_value,NULL, NULL,exprvar(ssa_names[ssa_vid].pv_current),NULL)
+										replaceExpr(pe_value,exprvar(ssa_names[ssa_vid].pv_current))
 									else
 										setnop(pe)
 								else
@@ -7478,13 +7472,13 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 									ssa_names[ssa_vid].pv_current=pv_dup
 									ssa_names[ssa_vid].gvn_id=gvn_id_value
 									if DEBUG_DUMP_SSA:
-										Writeln('rename: ',dumpExpr(pe,NULL),' ',dumpObject(ssa_names[ssa_vid].pv_current))
+										Writeln('rename: ',dumpExpr(pe,__zero(fcolorer_callback)),' ',dumpObject(ssa_names[ssa_vid].pv_current))
 									writePool(pv_dup+VAR_OFS_ID,readPool(pobj_var+VAR_OFS_ID))
 									//writePool(pe_var,EFLAG_VARIABLE+pv_dup)
 									//transformCode(pe_var,NULL, NULL,exprvar(pv_dup),NULL)
 									//sccpQueueEval(pe)
 									//we gotta replace pe for the queue
-									pe_renamed=transformCode(pe,NULL, NULL,call(g_id_store,exprvar(pv_dup),pe_value),NULL)
+									pe_renamed=replaceExpr(pe,call(g_id_store,exprvar(pv_dup),pe_value))
 									setnop(pe)
 									pe=pe_renamed
 									if DEBUG_DUMP_PASSES&&DEBUG_DUMP_GVN_DETAILS:{if !did:Write('SSA rename')}
@@ -7495,11 +7489,11 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 							if gvn_id_value&UNPREDICTABLE_VID_BASE:
 								g_unpredictable_values[gvn_id_value-UNPREDICTABLE_VID_BASE]=exprvar(ssa_names[ssa_vid].pv_current)
 								if DEBUG_DUMP_SSA:
-									Writeln('GVN-backing-var-set-unp ',string.ToHex(gvn_id_value),' ',dumpExpr(pe,NULL))
+									Writeln('GVN-backing-var-set-unp ',string.ToHex(gvn_id_value),' ',dumpExpr(pe,__zero(fcolorer_callback)))
 							else
 								//if remove_single_use:
 								//	if DEBUG_DUMP_SSA:
-								//		Writeln('single-use variable removed ',dumpExpr(pe,NULL))
+								//		Writeln('single-use variable removed ',dumpExpr(pe,__zero(fcolorer_callback)))
 								//	//don't touch pe, wait for it to get deadelimed
 								//	//wipe it out so that no one CSEs the shit
 								//	//if is_different_from_code:
@@ -7508,13 +7502,13 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 									//avoid replacing the backing var
 									g_gvn_values[gvn_id_value].pv_backing=ssa_names[ssa_vid].pv_current
 									if DEBUG_DUMP_SSA:
-										Writeln('GVN-backing-var-set ',string.ToHex(gvn_id_value),' ',dumpExpr(pe,NULL))
+										Writeln('GVN-backing-var-set ',string.ToHex(gvn_id_value),' ',dumpExpr(pe,__zero(fcolorer_callback)))
 								else
 									if DEBUG_DUMP_SSA:
 										Writeln('backing-var remained as ',dumpObject(g_gvn_values[gvn_id_value].pv_backing)," even though it's assigned to ",dumpObject(ssa_names[ssa_vid].pv_current))
 						else
 							if DEBUG_DUMP_SSA:
-								Writeln('SSA-hostile store ',dumpExpr(pe,NULL))
+								Writeln('SSA-hostile store ',dumpExpr(pe,__zero(fcolorer_callback)))
 					gvn_id_ret=make_unpredictable(pe)
 				else if is_pure&&n_args<=2:
 					assert(!is_store)
@@ -7525,9 +7519,9 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 					gvn_id_ret=gvn_peephole(gvn_key,pe)
 					if DEBUG_DUMP_SSA:
 						if gvn_id_ret&UNPREDICTABLE_VID_BASE:
-							Writeln('GVN number ',gvn_id_ret,' ',dumpExpr(pe,NULL),' (peephole)',is_different_from_code?" ***":"")
+							Writeln('GVN number ',gvn_id_ret,' ',dumpExpr(pe,__zero(fcolorer_callback)),' (peephole)',is_different_from_code?" ***":"")
 						else
-							Writeln('GVN number ',gvn_id_ret,' ',dumpExpr(pe,NULL),' (peephole)',is_different_from_code?" ***":"",' ',g_gvn_values[gvn_id_ret].key)
+							Writeln('GVN number ',gvn_id_ret,' ',dumpExpr(pe,__zero(fcolorer_callback)),' (peephole)',is_different_from_code?" ***":"",' ',g_gvn_values[gvn_id_ret].key)
 				else if is_pure:
 					arg_values=new int[]
 					arg_values.push(g_id_gvn_ctunique)
@@ -7542,7 +7536,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 					gvn_key.z=ctUnique(arg_values)
 					gvn_id_ret=get_gvn_id(gvn_key,readPool(pe+EXPR_OFS_EPOS))
 					if DEBUG_DUMP_SSA:
-						Writeln('GVN number ',gvn_id_ret,' ',dumpExpr(pe,NULL))
+						Writeln('GVN number ',gvn_id_ret,' ',dumpExpr(pe,__zero(fcolorer_callback)))
 				else
 					for i=-1:n_args-1
 						bk=is_different_from_code
@@ -7579,13 +7573,13 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 					//tentative backing - must set this on is_different_from_code - we need to do a dfs wipe later
 					if DEBUG_DUMP_SSA:
 						//if !is_different_from_code:
-						Writeln('set tentative backing: ',gvn_id_ret,' ',dumpExpr(pe,NULL))
+						Writeln('set tentative backing: ',gvn_id_ret,' ',dumpExpr(pe,__zero(fcolorer_callback)))
 					g_gvn_values[gvn_id_ret].pv_backing=0x80000000+pe
 				else
 					//non-trivial expression has an old value, CSE opportunity
 					if DEBUG_DUMP_SSA:
 						if !is_different_from_code:
-							Writeln('value not new in GVN: ',gvn_id_ret,' ',g_gvn_values[gvn_id_ret].pv_backing,' ',dumpExpr(pe,NULL))
+							Writeln('value not new in GVN: ',gvn_id_ret,' ',g_gvn_values[gvn_id_ret].pv_backing,' ',dumpExpr(pe,__zero(fcolorer_callback)))
 					is_different_from_code=1
 			assert(gvn_id_ret!=0)
 			return gvn_id_ret
@@ -7645,9 +7639,9 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 				if pe_use>0&&pe_use!=0x40000000:
 					//remove the single-use
 					if DEBUG_DUMP_SSA:
-						Writeln('remove: ',dumpExpr(pe,NULL),' ',dumpExpr(readPool(pe_use+EXPR_OFS_CALLER),NULL))
+						Writeln('remove: ',dumpExpr(pe,__zero(fcolorer_callback)),' ',dumpExpr(readPool(pe_use+EXPR_OFS_CALLER),__zero(fcolorer_callback)))
 					did=1
-					transformCode(pe_use,NULL,NULL,readPool(pe+EXPR_OFS_ARGS+1),NULL)
+					replaceExpr(pe_use,readPool(pe+EXPR_OFS_ARGS+1))
 					setnop(pe)
 		if DEBUG_DUMP_SSA:
 			Writeln('=== after SSA\n',dumpExpr(pe_bb,fcolor_ssa))
@@ -7853,12 +7847,12 @@ auto deadelim()
 					//if as_recurse.n==1:
 					//	transformCode(pe,NULL, NULL,as_recurse[0],NULL)
 					//else
-					transformCode(pe,NULL, NULL,vcall(g_id_block,as_recurse),NULL)
+					replaceExpr(pe,vcall(g_id_block,as_recurse))
 				else
 					setnop(pe)
 			else
 				if as:as.push(pe)
-	dfsPruneDead(g_pe_top,NULL)
+	dfsPruneDead(g_pe_top,PExpression[].NULL)
 	if DEBUG_DUMP_DEADELIM:
 		Writeln('=== after deadelim')
 		Writeln(dumpExpr(g_pe_top,fcolor_just_reach))
@@ -8067,7 +8061,7 @@ auto clearUserFlags(PExpression pe,int flag0)
 			writePool(pobj+VAR_OFS_USER_FLAGS,flag0|(readPool(pobj+VAR_OFS_USER_FLAGS)&~VAR_USER_FLAG_MASK))
 			//if g_ctobject_pool.n>371:
 			//	if !g_ctobject_pool[371]:
-			//		Writeln('smash! ',dumpExpr(pe,NULL))
+			//		Writeln('smash! ',dumpExpr(pe,__zero(fcolorer_callback)))
 			//	assert(!!g_ctobject_pool[371])
 	///////////
 
@@ -8138,14 +8132,14 @@ auto cloneFunction(PCTObject pobjfn)
 	pe_decl_old=readPool(pobjfn+FUNCTION_OFS_PEDECL)
 	pe_decl_cloned=readPool(pobjfn_cloned+FUNCTION_OFS_PEDECL)
 	//pe_decl_caller=readPool(pe_decl_old+EXPR_OFS_CALLER)
-	transformCode(pe_decl_old,ftransformer_callback.NULL, [pe_decl_cloned],pe_decl_old,PExpression[].NULL)
+	transformCode(pe_decl_old,__zero(ftransformer_callback), [pe_decl_cloned],pe_decl_old,PExpression[].NULL)
 	return pobjfn_cloned
 
 auto enableNameLookup(PCTObject pobjfn)
 	assert(readPool(pobjfn)==g_tid_TFunction)
 	if (getFFlag(pobjfn)&FFLAG_NAME_LOOKUP_READY):return
 	pecode=readPool(pobjfn+FUNCTION_OFS_CODE)
-	//Writeln("enableNameLookup ",dumpExpr(pecode,NULL))
+	//Writeln("enableNameLookup ",dumpExpr(pecode,__zero(fcolorer_callback)))
 	all_decls=new PCTObject[]
 	fscan_for_decls=function(PExpression pe){
 		if isBuiltin(pe,g_id_function):return 0
@@ -8311,7 +8305,7 @@ auto dfsFlattenBlocks(PExpression[] block_as,PExpression pe,int nest_depth, int 
 		//assert(n_args>0)
 		//pe_args=readPool(pe+EXPR_OFS_ARGS+0)
 		//bflags=getExprValueAs(pe_args,g_vtid_CNS)
-		//Writeln('scanning block: ',dumpExpr(pe,NULL))
+		//Writeln('scanning block: ',dumpExpr(pe,__zero(fcolorer_callback)))
 		if !pecaller||isStatementHost(pecaller)://||(bflags&(BFLAG_LOOP|BFLAG_BREAK_CONTINUE_USED)):
 			//it's a valid host
 			//Writeln('not-pulled ',pe,' ',pecaller,' ',pecaller?isStatementHost(pecaller):0)
@@ -8334,7 +8328,7 @@ auto dfsFlattenBlocks(PExpression[] block_as,PExpression pe,int nest_depth, int 
 			return int2(pe_ret,1)
 		else
 			//we should pull it out
-			//Writeln('pull out ',dumpExpr(pe,NULL))
+			//Writeln('pull out ',dumpExpr(pe,__zero(fcolorer_callback)))
 			for i=0:n_args-2
 				peargi=readPool(pe+EXPR_OFS_ARGS+i)
 				assert(readPool(peargi+EXPR_OFS_CALLER)==pe)
@@ -8549,7 +8543,7 @@ auto castConst(TConstValue ca,PCTObject t_result)
 	if ((ct_result&CTYPE_MASK)==CTYPE_INT):
 		ret.val_bin=i64(dval)
 	else if ((ct_result&CTYPE_MASK)==CTYPE_UINT):
-		ret.val_bin=u64(dval)
+		ret.val_bin=i64(u64(dval))
 	else
 		if (ct_result&CTYPE_MASK)!=CTYPE_FLOAT:
 			return TConstValue(){'type':CTYPE_INVALID}
@@ -8570,7 +8564,8 @@ USER_FLAG_RC_IS_SAFE_STORE=0x04000000
 USER_FLAG_RC_STORE_WITHOUT_ADDREF=0x02000000
 VAR_USER_FLAG_RC_SLOTID_MASK=0x03ffffff
 VAR_USER_FLAG_RC_SLOT_ALLOCATED=0x04000000
-auto ancestorMerge(const is_death,PExpression pe_old0,PExpression pe_new0,function(int):int fgetdepth,function(int):int fgetbirthid)
+famcallback=function(int):int
+auto ancestorMerge(const is_death,PExpression pe_old0,PExpression pe_new0,famcallback fgetdepth,famcallback fgetbirthid)
 	//return the merged and whether the new one can be considered as a safe-store
 	pe_old=pe_old0
 	pe_new=pe_new0
@@ -8618,8 +8613,7 @@ auto removeSCCPJunk()
 			id_ccnv=getExprValueAs(readPool(pe+EXPR_OFS_ARGS+0),g_vtid_STR)
 			if id_ccnv==g_id_inline||id_ccnv==g_id_inline_loopbody:
 				//remove all inline functions
-				pecaller=readPool(pe+EXPR_OFS_CALLER)
-				insertCallAt(pecaller,pe,function(){return expriptr(0)})
+				replaceExpr(pe,expriptr(0))
 				return 0
 			n_args=getFCallNArgs(pe)
 			for i=-1:n_args-1
@@ -8641,7 +8635,7 @@ auto removeSCCPJunk()
 						as.push(call(g_id_callstack,exprctval(pobjfn)))
 					as.push(pe_code)
 					as.push(pvar_return?call(g_id_C_return,exprvar(pvar_return)):call(g_id_C_return))
-					sccpQueueReach(insertCallAt(pe,~(n_args-1),function(){return vcall(g_id_block,as)}))
+					sccpQueueReach(insertCallAt(pe,~(n_args-1),function(PExpression pe){return vcall(g_id_block,as)}))
 					sccpProcessReaches()
 					//Writeln(">>> "+dumpExpr(pe,fcolor_reach_eval))
 			return 0
@@ -8760,7 +8754,7 @@ auto fixConstantTypes()
 					else
 						assert(val.tid==g_vtid_STR)
 						pe_new=indcall([exprctval(getStdObject(0,STDFN_MAKE_STRING)),exprstr(val.val),expriptr(getIdString(val.val).n)])
-						transformCode(pe,NULL, NULL,pe_new,NULL)
+						replaceExpr(pe,pe_new)
 						return 1
 			else if val.tid==g_vtid_RTVAR:
 				t=val.val
@@ -8859,7 +8853,7 @@ auto translateLambdas()
 				idfn=g_id_stlambda
 			//if g_names_resolved:
 			pobjfn=g_symbols[idfn].user_slot
-			insertCallAt(pe,0,function(){return exprvar(pobjfn)})
+			insertCallAt(pe,0,function(PExpression pe){return exprvar(pobjfn)})
 			//writePool(pe+EXPR_OFS_NAME_OR_VAR,pobjfn)
 			assert(!!pobj_member)
 			writePool(pe_member_name,EFLAG_CTVAL+pobj_member)
@@ -8902,7 +8896,7 @@ auto translateLambdas()
 					//if it's the global... it's simple
 					setFFlag(lambda_stack[0],FFLAG_LAMBDA_NEEDS_CONTEXT)
 				d_levels=(lambda_stack.n-1-their_level)
-				pe_levels=insertCallAt(pe,~0,function(){return expriptr(their_level==0?0x80000000:d_levels)})
+				pe_levels=insertCallAt(pe,~0,function(PExpression pe){return expriptr(their_level==0?0x80000000:d_levels)})
 			if getExprValueAs(pe_levels,g_vtid_CNS)==0&&!is_tentative:
 				//function pointer contexts are tentative: NULL is a good substitution
 				setFFlag(pobj_local_owner,FFLAG_LAMBDA_NEEDS_CONTEXT)
@@ -8945,7 +8939,7 @@ auto translateLambdas()
 					setUserFlag(pecontext,QUEUE_FLAG_REACH)
 					writePool(pecontext+EXPR_OFS_VALUE+0,readPool(pobj_var+0))
 					writePool(pecontext+EXPR_OFS_VALUE+1,readPool(pobj_var+1))
-					sccpQueueReach(insertCallAt(pecaller,pe,function(){return pecontext}))
+					sccpQueueReach(insertCallAt(pecaller,pe,function(PExpression pe){return pecontext}))
 				else if isBuiltin(pecaller,g_id_store)&&readPool(pecaller+EXPR_OFS_ARGS+0)==pe:
 					//g_id_stlambda
 					if getFFlag(pfowner)&FFLAG_IS_PARALLEL:
@@ -8957,7 +8951,7 @@ auto translateLambdas()
 					sccpQueueReach(insertCallAt(pecaller_caller,pecaller,faddstlambda))
 				else
 					//g_id_ldlambda
-					faddldlambda=function(){
+					faddldlambda=function(PExpression pe){
 						return call(g_id_ldlambda, pecontext, exprctval(pobj_var))
 					}
 					sccpQueueReach(insertCallAt(pecaller,pe,faddldlambda))
@@ -8994,7 +8988,7 @@ auto translateLambdas()
 				pe_func=readPool(pe+EXPR_OFS_FUNCTION)
 				if isBuiltin(pe_func,g_id_dot)||isBuiltin(pe_func,g_id_ldlambda)
 					//remove the false dot
-					sccpQueueReach(insertCallAt(pe,0,function(){return exprctval(pobjfn)}))
+					sccpQueueReach(insertCallAt(pe,0,function(PExpression pe){return exprctval(pobjfn)}))
 		return 1
 	}
 	dfsExpr(g_pe_top,fremove_false_dots)
@@ -9013,7 +9007,7 @@ auto translateLambdas()
 				if !(vflags&VAR_FLAG_LAMBDAED):
 					writePool(pobj_var+VAR_OFS_USER_FLAGS,vflags|VAR_FLAG_LAMBDAED)
 					//if getVariableType(pobj_var)==4967736:
-					//	Writeln(dumpExpr(pe,NULL))
+					//	Writeln(dumpExpr(pe,__zero(fcolorer_callback)))
 					//assert(getVariableType(pobj_var)!=4967736)
 					g_all_lambdas.push(pobj_var)
 		return 1
@@ -9064,7 +9058,7 @@ auto translateLambdas()
 						writePool(pv_temp+1,readPool(pobj_var+1))
 						setUserFlag(pv_temp,VAR_FLAG_PARAM)
 						writePool(pv_temp+VAR_OFS_DEFINING_STORE,pe_store_temp)
-						transformCode(pecaller,NULL, [pe_store_temp],call(g_id_stlambda, pecontext, exprctval(pobj_var), exprvar(pv_temp)),NULL)
+						transformCode(pecaller,__zero(ftransformer_callback), [pe_store_temp],call(g_id_stlambda, pecontext, exprctval(pobj_var), exprvar(pv_temp)),PExpression[].NULL)
 					else
 						pecaller_caller=readPool(pecaller+EXPR_OFS_CALLER)
 						faddstlambda=function(PExpression pestore){
@@ -9073,7 +9067,7 @@ auto translateLambdas()
 						sccpQueueReach(insertCallAt(pecaller_caller,pecaller,faddstlambda))
 				else
 					//g_id_ldlambda
-					faddldlambda=function(){
+					faddldlambda=function(PExpression pe){
 						return call(g_id_ldlambda, pecontext, exprctval(pobj_var))
 					}
 					sccpQueueReach(insertCallAt(pecaller,pe,faddldlambda))
@@ -9162,14 +9156,14 @@ auto translateLambdas()
 				//Writeln(dumpExpr(pecaller,fcolor_abbrv_blocks))
 				//Writeln(dumpExpr(pe,fcolor_abbrv_blocks))
 				//Writeln(dumpExpr(pe_new,fcolor_abbrv_blocks))
-				sccpQueueReach(insertCallAt(pecaller,pe,function(){return pe_new}))
+				sccpQueueReach(insertCallAt(pecaller,pe,function(PExpression pe){return pe_new}))
 				writePool(pobjfn+FUNCTION_OFS_PEDECL,pe_new)
 				//pe_recurse_into=pe_new
 				n_funcargs_old=(n_args-2)>>1
 				//add a parameter slot
 				p_param_values=readPool(pobjfn+FUNCTION_OFS_PPARAM_VALUE_SLOTS)
 				p_param_values_new=int(g_ctobject_pool.n)
-				g_ctobject_pool.addn((n_funcargs_old+1)*3)
+				g_ctobject_pool.resize(p_param_values_new+(n_funcargs_old+1)*3)
 				for i=0:n_funcargs_old*3-1
 					writePool(p_param_values_new+i,readPool(p_param_values+i))
 				writePool(p_param_values_new+n_funcargs_old*3+0,g_vtid_RTVAR)
@@ -9209,9 +9203,9 @@ auto translateLambdas()
 				t_return=getReturnType(pobjfn)
 				//if !t_return:
 				//	Writeln(dumpFunction(pobjfn),' ',testUserFlag(pe_decl,QUEUE_FLAG_REACH))
-				//	Writeln(dumpExpr(pe_decl,NULL))
+				//	Writeln(dumpExpr(pe_decl,__zero(fcolorer_callback)))
 				//	Writeln('-------------------')
-				//	Writeln(dumpExpr(g_pe_top,NULL))
+				//	Writeln(dumpExpr(g_pe_top,__zero(fcolorer_callback)))
 				pe_ldparam=call(g_id_ldparam,expriptr(n_funcargs_new-1),exprctval(t_return),exprstr(g_id_return))
 				assert(isBuiltin(pecaller,g_id_store))
 				if isBuiltin(pecaller,g_id_store):
@@ -9221,7 +9215,7 @@ auto translateLambdas()
 				writePool(p_param_values_new+(n_funcargs_new-1)*3+2,pe_ldparam)
 			else
 				pe_ldparam=exprvar(pv_this)
-			sccpQueueReach(insertCallAt(pecaller,pe,function(){return pe_ldparam}))
+			sccpQueueReach(insertCallAt(pecaller,pe,function(PExpression pe){return pe_ldparam}))
 			//we don't have to recurse any more
 			return
 		else
@@ -9271,11 +9265,11 @@ auto translateLambdas()
 				//Write('>>> ');Writeln(dumpExpr(pe_new,fcolor_abbrv_blocks))
 				if replace_caller:
 					pecaller_caller=readPool(pecaller+EXPR_OFS_CALLER)
-					sccpQueueReach(insertCallAt(pecaller_caller,pecaller,function(){return pe_new}))
+					sccpQueueReach(insertCallAt(pecaller_caller,pecaller,function(PExpression pe){return pe_new}))
 				else
 					//'return' the temp var
-					transformCode(pe,NULL, [pe_new],exprvar(pv_temp),NULL)
-					//sccpQueueReach(insertCallAt(pecaller,pe,function(){return call(g_id_block,pe_new,exprvar(pv_temp))}))
+					transformCode(pe,__zero(ftransformer_callback), [pe_new],exprvar(pv_temp),PExpression[].NULL)
+					//sccpQueueReach(insertCallAt(pecaller,pe,function(PExpression pe){return call(g_id_block,pe_new,exprvar(pv_temp))}))
 		//recurse
 		n_args=getFCallNArgs(pe_recurse_into)
 		queue_dfsTranslateStruct.push(int3(pe_recurse_into+EXPR_OFS_FUNCTION,n_args+1,pf_owner_recurse))
@@ -9366,9 +9360,9 @@ auto translateLambdas()
 				pe_to_merge=pe_loop?pe_loop:pecaller
 				//Writeln('merge birth ',dumpObject(str_var_slots[vslotid].pobj_var),' ',pecaller)
 				str_var_slots[vslotid].pe_non_loop_birth=ancestorMerge(0,str_var_slots[vslotid].pe_non_loop_birth,pe_to_merge,fgetdepth,fgetbirthid).x
-				str_var_slots[vslotid].pe_non_loop_death=ancestorMerge(1,str_var_slots[vslotid].pe_non_loop_death,pe_to_merge,fgetdepth,NULL).x
+				str_var_slots[vslotid].pe_non_loop_death=ancestorMerge(1,str_var_slots[vslotid].pe_non_loop_death,pe_to_merge,fgetdepth,__zero(famcallback)).x
 				str_var_slots[vslotid].pe_birth_before=ancestorMerge(0,str_var_slots[vslotid].pe_birth_before,pecaller,fgetdepth,fgetbirthid).x
-				str_var_slots[vslotid].pe_death_after=ancestorMerge(1,str_var_slots[vslotid].pe_death_after,pecaller,fgetdepth,NULL).x
+				str_var_slots[vslotid].pe_death_after=ancestorMerge(1,str_var_slots[vslotid].pe_death_after,pecaller,fgetdepth,__zero(famcallback)).x
 	dfsLiveRange(g_pe_top,0)
 	//Writeln('--- 51')
 	//actually do the copy-prop
@@ -9377,7 +9371,7 @@ auto translateLambdas()
 		if vslot.store_count==1&&vslot.pe_birth_before:
 			//the only store that writes it
 			//str_var_slots[vslotid_src].pe_death_after,' ',vslot.pe_birth_before,' ',
-			//Writeln('strcopyprop ',dumpObject(vslot.pobj_var),' ',dumpExpr(vslot.pe_birth_before,NULL))
+			//Writeln('strcopyprop ',dumpObject(vslot.pobj_var),' ',dumpExpr(vslot.pe_birth_before,__zero(fcolorer_callback)))
 			if isBuiltin(vslot.pe_birth_before,g_id_store)&&getVariable(readPool(vslot.pe_birth_before+EXPR_OFS_ARGS))==vslot.pobj_var:
 				pe_value=readPool(vslot.pe_birth_before+EXPR_OFS_ARGS+1)
 				if isExpr(pe_value,EFLAG_VARIABLE):
@@ -9393,9 +9387,9 @@ auto translateLambdas()
 							//death -> birth, do copyprop... replace all occurances using a dset
 							str_var_slots[I].pobj_var_rename_to=pv_src
 							str_var_slots[vslotid_src].pe_non_loop_birth=ancestorMerge(0,str_var_slots[vslotid_src].pe_non_loop_birth,str_var_slots[I].pe_non_loop_birth,fgetdepth,fgetbirthid).x
-							str_var_slots[vslotid_src].pe_non_loop_death=ancestorMerge(1,str_var_slots[vslotid_src].pe_non_loop_death,str_var_slots[I].pe_non_loop_death,fgetdepth,NULL).x
+							str_var_slots[vslotid_src].pe_non_loop_death=ancestorMerge(1,str_var_slots[vslotid_src].pe_non_loop_death,str_var_slots[I].pe_non_loop_death,fgetdepth,__zero(famcallback)).x
 							str_var_slots[vslotid_src].pe_birth_before=ancestorMerge(0,str_var_slots[vslotid_src].pe_birth_before,str_var_slots[I].pe_birth_before,fgetdepth,fgetbirthid).x
-							str_var_slots[vslotid_src].pe_death_after=ancestorMerge(1,str_var_slots[vslotid_src].pe_death_after,str_var_slots[I].pe_death_after,fgetdepth,NULL).x
+							str_var_slots[vslotid_src].pe_death_after=ancestorMerge(1,str_var_slots[vslotid_src].pe_death_after,str_var_slots[I].pe_death_after,fgetdepth,__zero(famcallback)).x
 							did=1
 	//Writeln('--- 52')
 	if did:
@@ -9549,7 +9543,7 @@ auto translateLambdas()
 		as=new PExpression[]
 		auto flushSlotGetters()
 			if !pe_insert_at_current||!as.n:return
-			transformCode(pe_insert_at_current,NULL,as,0,NULL)
+			transformCode(pe_insert_at_current,__zero(ftransformer_callback),as,0,PExpression[].NULL)
 			//pecaller=readPool(pe_insert_at_current+EXPR_OFS_CALLER)
 			//sccpQueueReach(insertCallAt(pecaller,pe_insert_at_current,function(PExpression pe_original){as.push(pe_original);return vcall(g_id_block,as)}))
 		foreach aj,I in alloc_jobs
@@ -9567,7 +9561,7 @@ auto translateLambdas()
 		as=new PExpression[]
 		auto flushStructDestructors()
 			if !pe_insert_at_current||!as.n:return
-			transformCode(pe_insert_at_current,NULL,NULL,0,as)
+			transformCode(pe_insert_at_current,__zero(ftransformer_callback),PExpression[].NULL,0,as)
 			//pecaller=readPool(pe_insert_at_current+EXPR_OFS_CALLER)
 			//sccpQueueReach(insertCallAt(pecaller,pe_insert_at_current,function(PExpression pe_original){as[0]=pe_original;return vcall(g_id_block,as)}))
 		foreach aj,I in alloc_jobs
@@ -9601,7 +9595,7 @@ auto translateLambdas()
 			if vflags&VAR_USER_FLAG_RC_SLOT_ALLOCATED
 				vslotids.push(vflags&VAR_USER_FLAG_RC_SLOTID_MASK)
 	//Writeln('--- 54')
-	dfsRealAllocation(g_pe_top,NULL)
+	dfsRealAllocation(g_pe_top,int[].NULL)
 	//generate the explicit destructions... detect copy from NULL
 	//Writeln('--- 6')
 	ftest_null_copy=function(PExpression pe){
@@ -9616,7 +9610,7 @@ auto translateLambdas()
 						//struct NULL copy
 						as=new PExpression[]
 						implementDestructor(as,pv_tar,t)
-						transformCode(pe,NULL, as,exprstr(g_empty_id),NULL)
+						transformCode(pe,__zero(ftransformer_callback), as,exprstr(g_empty_id),PExpression[].NULL)
 						return 0
 			//return 1
 		return 1
@@ -9673,10 +9667,10 @@ auto translateLambdas()
 					pv_src=makevar(getOwningFunction(pe))
 					writePool(pv_src+0,g_vtid_RTVAR)
 					writePool(pv_src+1,t)
-					sccpQueueReach(insertCallAt(pe,isBuiltin(pe,g_id_stlambda)?~2:~1,function(){return exprvar(pv_src)}))
+					sccpQueueReach(insertCallAt(pe,isBuiltin(pe,g_id_stlambda)?~2:~1,function(PExpression pe){return exprvar(pv_src)}))
 					pe_store_src=call(g_id_store,exprvar(pv_src),pe_value)
 					writePool(pv_src+VAR_OFS_DEFINING_STORE,pe_store_src)
-					transformCode(pe,NULL, [pe_store_src],0,NULL)
+					transformCode(pe,__zero(ftransformer_callback), [pe_store_src],0,PExpression[].NULL)
 				if Platform.BUILD=="debug":
 					if !pv_src:
 						Writeln("error: "+dumpExpr(pe_value,fcolor_abbrv_blocks))
@@ -9703,7 +9697,7 @@ auto translateLambdas()
 							t_this=getValueType(getExprValue(pe_this))
 							writePool(pv_this,g_vtid_RTVAR)
 							writePool(pv_this+1,t_this)
-							sccpQueueReach(insertCallAt(pe,~0,function(){return exprvar(pv_this)}))
+							sccpQueueReach(insertCallAt(pe,~0,function(PExpression pe){return exprvar(pv_this)}))
 							as_memcpy.push(call(g_id_store,exprvar(pv_this),pe_this))
 							writePool(pv_this+VAR_OFS_DEFINING_STORE,as_memcpy.back())
 				str_member_list=new PCTObject[]
@@ -9732,7 +9726,7 @@ auto translateLambdas()
 							as_memcpy.push(call(g_id_stlambda,pe_tar,exprctval(pv_member),call(g_id_ldlambda,pe_src,exprctval(pv_member))))
 				implementMemcpy(t)
 				pecaller=readPool(pe+EXPR_OFS_CALLER)
-				sccpQueueReach(insertCallAt(pecaller,pe,function(){return vcall(g_id_block,as_memcpy)}))
+				sccpQueueReach(insertCallAt(pecaller,pe,function(PExpression pe){return vcall(g_id_block,as_memcpy)}))
 				setnop(pe)
 				return
 			n_args=(flags&~EFLAG_MASK)
@@ -9851,7 +9845,7 @@ auto createCallGraphDfs(PExpression pe,PCTObject[] edges_caller)
 	if pobjfn_decled:
 		g_all_functions.push(pobjfn_decled)
 		edges_caller_args.Sort()
-		edges_caller_args.Unique(function(int a,int b){return (a>>1)==(b>>1)})
+		edges_caller_args.UniqueBy(inline(int a){return (a>>1)})
 		writePool(pobjfn_decled+FUNCTION_OFS_PCALL_GRAPH_EDGES,int(g_ctobject_pool.n))
 		writePool(pobjfn_decled+FUNCTION_OFS_NCALL_GRAPH_EDGES,int(edges_caller_args.n))
 		g_ctobject_pool.push(edges_caller_args)
@@ -10042,7 +10036,7 @@ auto genRefcnt()
 					//NULL it immediately afterwards
 					//pe_null_store=call(g_id_store,exprvar(pv_temp),exprcns(getid_const(CTYPE_TYPED_NULL,(i64)t_return)))
 					//queue_no_addref.push(pe_null_store)
-					transformCode(pe,fstore_temp, NULL,exprvar(pv_temp),NULL)
+					transformCode(pe,fstore_temp, PExpression[].NULL,exprvar(pv_temp),PExpression[].NULL)
 					//transformCode(pe,fstore_temp, NULL,exprvar(pv_temp),[pe_null_store])
 					//pe_recurse_into=sccpQueueReach(insertCallAt(pecaller,pe,fstore_temp))
 		eflags=readPool(pe_recurse_into)
@@ -10100,7 +10094,7 @@ auto genRefcnt()
 					if DEBUG_DUMP_RC:
 						if !rc_slots[slotid].is_rc_atomic_block:
 							Writeln('is_rc_atomic_block: ',dumpExpr(pe,fcolor_abbrv_blocks))
-					rc_slots[slotid].is_rc_atomic_block=1
+					rc_slots[slotid].is_rc_atomic_block=i8(1)
 					p_args++
 					id_word=getExprValueAs(readPool(pe+EXPR_OFS_ARGS+p_args),g_vtid_STR)
 				if id_word==g_id_blockex:
@@ -10116,13 +10110,13 @@ auto genRefcnt()
 						if DEBUG_DUMP_RC:
 							if !rc_slots[slotid].is_rc_atomic_block:
 								Writeln('is_rc_atomic_block: ',slotid,' ',dumpExpr(pe,fcolor_abbrv_blocks),' -> ',dumpExpr(pe_block_level,fcolor_abbrv_blocks))
-						rc_slots[slotid].is_rc_atomic_block=1
+						rc_slots[slotid].is_rc_atomic_block=i8(1)
 			n_args=getFCallNArgs(pe)
 			for i=-1:n_args-1
 				rcdfsIdentifyAtomicBlocks(readPool(pe+EXPR_OFS_ARGS+i),current_labels_recurse)
 			if id_word_restore:
 				current_labels_recurse[id_word_restore]=0
-	rcdfsIdentifyAtomicBlocks(g_pe_top,NULL)
+	rcdfsIdentifyAtomicBlocks(g_pe_top,PExpression[int].NULL)
 	//allocate per-variable slots and do the merging
 	/*
 	always-NULL analysis:
@@ -10172,7 +10166,7 @@ auto genRefcnt()
 						rc_var_slots.push(TRCVarSlot(){'pobj_var':pobj_var})
 						writePool(pobj_var+VAR_OFS_USER_FLAGS,vflags)
 					vslotid=(vflags&VAR_USER_FLAG_RC_SLOTID_MASK)
-					amret=ancestorMerge(1,rc_var_slots[vslotid].pe_store_unsafe_beyond,pe,fgetdepth,NULL)
+					amret=ancestorMerge(1,rc_var_slots[vslotid].pe_store_unsafe_beyond,pe,fgetdepth,__zero(famcallback))
 					(pe_merged,is_safe)=(amret.x,amret.y)
 					rc_var_slots[vslotid].pe_store_unsafe_beyond=pe_merged
 					if is_safe&&is_safe_store_possible:
@@ -10196,7 +10190,7 @@ auto genRefcnt()
 							rc_var_slots.push(TRCVarSlot(){'pobj_var':pobj_var})
 							writePool(pobj_var+VAR_OFS_USER_FLAGS,vflags)
 						vslotid=(vflags&VAR_USER_FLAG_RC_SLOTID_MASK)
-						pe_merged=ancestorMerge(1,rc_var_slots[vslotid].pe_death_merged,pe_loop?pe_loop:pecaller,fgetdepth,NULL).x
+						pe_merged=ancestorMerge(1,rc_var_slots[vslotid].pe_death_merged,pe_loop?pe_loop:pecaller,fgetdepth,__zero(famcallback)).x
 						rc_var_slots[vslotid].pe_death_merged=pe_merged
 					pobj_var=readPool(pobj_var+VAR_OFS_FLATTENING_OWNER)
 					//if pobj_var:
@@ -10243,7 +10237,7 @@ auto genRefcnt()
 						pobj_var=pv_temp
 						pecaller=readPool(pe+EXPR_OFS_CALLER)
 						old_user_flags=readPool(pe+EXPR_OFS_USER_FLAGS)
-						pe_rcpoint=sccpQueueReach(insertCallAt(pecaller,pe,function(){return call(g_id_store,exprvar(pv_temp),peobj)}))
+						pe_rcpoint=sccpQueueReach(insertCallAt(pecaller,pe,function(PExpression pe){return call(g_id_store,exprvar(pv_temp),peobj)}))
 						writePool(pv_temp+VAR_OFS_DEFINING_STORE,pe_rcpoint)
 						writePool(pe_rcpoint+EXPR_OFS_USER_FLAGS,old_user_flags)
 					all_rcs.push(TRefcntLine(){'pe':pe_rcpoint,"v":pobj_var,'delta':delta})
@@ -10297,7 +10291,7 @@ auto genRefcnt()
 								t_this=getValueType(getExprValue(pe_this))
 								writePool(pv_this,g_vtid_RTVAR)
 								writePool(pv_this+1,t_this)
-								sccpQueueReach(insertCallAt(pe,~0,function(){return exprvar(pv_this)}))
+								sccpQueueReach(insertCallAt(pe,~0,function(PExpression pe){return exprvar(pv_this)}))
 								as_backup.push(call(g_id_store,exprvar(pv_this),pe_this))
 								writePool(pv_this+VAR_OFS_DEFINING_STORE,as_backup.back())
 								as_backup.push(call(g_id_store,exprvar(pv_temp),call(g_id_ldlambda,exprvar(pv_this),exprctval(pobj_var))))
@@ -10309,7 +10303,7 @@ auto genRefcnt()
 							t_value=getValueType(getExprValue(pe_value))
 							writePool(pv_value,g_vtid_RTVAR)
 							writePool(pv_value+1,t_value)
-							sccpQueueReach(insertCallAt(pe,~2,function(){return exprvar(pv_value)}))
+							sccpQueueReach(insertCallAt(pe,~2,function(PExpression pe){return exprvar(pv_value)}))
 							as_backup.push(call(g_id_store,exprvar(pv_value),pe_value))
 							writePool(pv_value+VAR_OFS_DEFINING_STORE,as_backup.back())
 						////////
@@ -10328,7 +10322,7 @@ auto genRefcnt()
 					foreach pe_added in as_backup
 						setUserFlag(pe_added,USER_FLAG_RC_IS_SAFE_STORE|USER_FLAG_RC_STORE_WITHOUT_ADDREF)
 					setUserFlag(pe,USER_FLAG_RC_IS_SAFE_STORE|USER_FLAG_RC_STORE_WITHOUT_ADDREF)
-					pe_recurse_into=transformCode(pe,NULL, as_backup,0,NULL)
+					pe_recurse_into=transformCode(pe,__zero(ftransformer_callback), as_backup,0,PExpression[].NULL)
 		eflags=readPool(pe_recurse_into)
 		if (eflags&EFLAG_MASK)==EFLAG_FCALL:
 			n_args=eflags&~EFLAG_MASK
@@ -10361,7 +10355,7 @@ auto genRefcnt()
 		if Platform.BUILD=="debug":
 			all_rcs.back().debug_id_source=getid('last_use_release')
 		//NULL out the supposedly "dead" variable, released or not
-		null_outs.push(TRefcntLine(){'pe':vslot.pe_death_merged,"v":vslot.pobj_var,'delta':0x80000000,'need_null_out':1})
+		null_outs.push(TRefcntLine(){'pe':vslot.pe_death_merged,"v":vslot.pobj_var,'delta':0x80000000,'need_null_out':i8(1)})
 		if Platform.BUILD=="debug":
 			null_outs.back().debug_id_source=getid('last_use_null_out')
 	//function begin/end
@@ -10421,7 +10415,7 @@ auto genRefcnt()
 			var_in_rc.clear()
 		current_rcs.Sort(function(rcia,rcib){return rcia.v<rcib.v})
 		current_rcs_merged=new TRefcntLine[]
-		rc_current=TRefcntLine(){'is_cancel_only':1}
+		rc_current=TRefcntLine(){'is_cancel_only':i8(1)}
 		foreach rcitem in current_rcs
 			if DEBUG_DUMP_RC:
 				Write('    ')
@@ -10437,10 +10431,10 @@ auto genRefcnt()
 			if rc_current.v!=rcitem.v:
 				if rc_current.delta||!rc_current.is_cancel_only:
 					current_rcs_merged.push(rc_current)
-				rc_current=TRefcntLine(){'pe':pe,"v":rcitem.v,'is_cancel_only':1}
+				rc_current=TRefcntLine(){'pe':pe,"v":rcitem.v,'is_cancel_only':i8(1)}
 			rc_current.delta+=rcitem.delta
 			if rcitem.delta<0&&!rcitem.is_cancel_only:
-				rc_current.is_cancel_only=0
+				rc_current.is_cancel_only=i8(0)
 		if rc_current.delta||!rc_current.is_cancel_only:
 			current_rcs_merged.push(rc_current)
 		current_rcs_merged.Sort(function(rcia,rcib){return rcia.delta>rcib.delta||rcia.delta==rcib.delta&&rcia.v<rcib.v})
@@ -10457,9 +10451,9 @@ auto genRefcnt()
 				pe_dorc=call(g_id_release,pe_var,expriptr(rcitem.delta))
 			as_rc_current.push(pe_dorc)
 		if is_after:
-			transformCode(pe,NULL, NULL,0,as_rc_current)
+			transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,0,as_rc_current)
 		else
-			transformCode(pe,NULL, as_rc_current,0,NULL)
+			transformCode(pe,__zero(ftransformer_callback), as_rc_current,0,PExpression[].NULL)
 		current_rcs.clear()
 	auto rcdfsMergeAndGenerateRC(TRefcntLine[] current_rcs,PExpression pe)
 		flush_self=0
@@ -10515,7 +10509,7 @@ auto genRefcnt()
 				current_rcs.push(rcitem)
 				p_rc++
 		return flush_self|flush_children
-	rcdfsMergeAndGenerateRC(NULL,g_pe_top)
+	rcdfsMergeAndGenerateRC(TRefcntLine[].NULL,g_pe_top)
 	//Writeln('>>> after flushRC')
 	//Writeln(dumpExpr(g_pe_top,fcolor_reach_eval))
 	clearUserFlags(g_pe_top,0)
@@ -10564,12 +10558,12 @@ auto instrumentForDebugging()
 					pv_temp=makevar(pf_owner)
 					writePool(pv_temp+0,val.tid)
 					writePool(pv_temp+1,val.val)
-					sccpQueueReach(insertCallAt(pe,~i,function(){return exprvar(pv_temp)}))
+					sccpQueueReach(insertCallAt(pe,~i,function(PExpression pe){return exprvar(pv_temp)}))
 					if !as:as=new PExpression[]
 					as.push(call(g_id_store,exprvar(pv_temp),pe_argi))
 					writePool(pv_temp+VAR_OFS_DEFINING_STORE,as.back())
 				if as:
-					pe_new=transformCode(pe,NULL, as,0,NULL)
+					pe_new=transformCode(pe,__zero(ftransformer_callback), as,0,PExpression[].NULL)
 					dfsExprEx(pe_new,pf_owner,ftempify_args)
 					return 0
 				else
@@ -10659,7 +10653,7 @@ auto genCode(PExpression pe,int expr_oplevel)
 				//assert(0)
 				if Platform.BUILD=="debug":
 					//Writeln(dumpExpr(pe,fcolor_abbrv_blocks))
-					Writeln(dumpExpr(pe,NULL))
+					Writeln(dumpExpr(pe,__zero(fcolorer_callback)))
 				errorAtExpr(ETYPE_LOW_LEVEL_ERROR,pe,"unable to generate C code for '@1'".Replace(["@1",citeexpr(pe)]))
 				return
 			invokeCallbackObject(cb_oncgen,pe,expr_oplevel)
@@ -10718,20 +10712,20 @@ auto genCode(PExpression pe,int expr_oplevel)
 	case EFLAG_VARIABLE:
 		pobj_var=getVariable(pe)
 		if !pobj_var:
-			errorAtExpr(ETYPE_LOW_LEVEL_ERROR,pe,"unable to generate C code for undeclared variable '@1'".Replace("@1",citeexpr(pe)))
+			errorAtExpr(ETYPE_LOW_LEVEL_ERROR,pe,"unable to generate C code for undeclared variable '@1'".Replace(["@1",citeexpr(pe)]))
 			g_code_buffer.push('?err?')
 		else
 			if expr_oplevel==LEVEL_STORE_HACK:
 				dat_var=readPoolTyped(pobj_var,TSCCPValue)
 				t=getValueType(dat_var)
 				if !t:
-					errorAtExpr(ETYPE_LOW_LEVEL_ERROR,pe,"failed to deduce the type of variable '@1' (variable '@2')".Replace(["@1",citeexpr(pe),"@2",dumpExpr(pe,NULL)]))
+					errorAtExpr(ETYPE_LOW_LEVEL_ERROR,pe,"failed to deduce the type of variable '@1' (variable '@2')".Replace(["@1",citeexpr(pe),"@2",dumpExpr(pe,__zero(fcolorer_callback))]))
 				else
 					if Platform.BUILD=="debug":
 						if readPool(t)==g_tid_TFunction:
 							id_ccnv=getCcnv(t)
 							if id_ccnv==g_id_inline||id_ccnv==g_id_inline_loopbody:
-								Writeln(dumpExpr(pe,NULL))
+								Writeln(dumpExpr(pe,__zero(fcolorer_callback)))
 								assert(0)
 					if !(readPool(pobj_var+VAR_OFS_USER_FLAGS)&VAR_FLAG_LAMBDAED):
 						g_c_scope_stack.back().var_stores.push(pobj_var)
@@ -10877,7 +10871,7 @@ auto genAllCode()
 	json_headers=g_json_pool[getid("h_files")]
 	foreach id_header in g_c_headers
 		s_headers.push("#include \"")
-		s_headers.push(getIdString(id_header).Replace("\\","/"))
+		s_headers.push(getIdString(id_header).Replace(["\\","/"]))
 		s_headers.push("\"\n")
 		json_headers.push(id_header)
 	s_headers.push("typedef "+(Util.bitSize()==64?"long long":"int")+" s7_CT_iptr;")

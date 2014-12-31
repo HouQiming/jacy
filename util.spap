@@ -300,9 +300,9 @@ auto tnew(string s)
 	timer_names.push(s)
 	return int(timer_names.n)-1
 inline tbegin(int id)
-	if g_enable_timing:timers[id]-=System.Time.tick64
+	if g_enable_timing:timers[id]-=System.Time.tick64()
 inline tend(int id)
-	if g_enable_timing:timers[id]+=System.Time.tick64
+	if g_enable_timing:timers[id]+=System.Time.tick64()
 auto tprint()
 	if g_enable_timing:
 		foreach sname,I in timer_names
@@ -350,7 +350,7 @@ auto FormatCCode(string feed)
 				in_slash=0
 		else
 			if ch=='"'||ch=='\'':
-				in_str=ch
+				in_str=int(ch)
 			if ch=='('||ch=='[':
 				nbra++
 			if ch==']'||ch==')':
