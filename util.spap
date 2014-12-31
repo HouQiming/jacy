@@ -10,7 +10,7 @@ class CUniqueIDProvider(TTraits)
 	int[] a
 	iptr n
 	auto clear()
-		this.a=NULL
+		this.a=int[].NULL
 		this.n=0L
 	auto _grow_to(iptr sz)
 		auto a2=new int[sz?sz*2:8]
@@ -102,16 +102,16 @@ class TTraitSymbol
 	inline getHash(int id)
 		return g_symbols[id].hash
 	inline computeHash(string key)
-		return iptr(key.hash())
+		return iptr(key.__hash__())
 	inline isKeyEqual(int id,string key)
 		//could do: __optimize__ rule for this
 		return getIdString(id)==key
 	inline createNew(string key,iptr hash)
 		p=g_strings.n
 		n=key.n
-		g_strings.add(key)
+		g_strings.push(key)
 		ret=int(g_symbols.n)
-		g_symbols.add(TSymbol(){'hash':hash,'p_name':p,"n":n})
+		g_symbols.push(TSymbol(){'hash':hash,'p_name':p,"n":n})
 		return ret
 
 g_strings=new string
@@ -127,10 +127,10 @@ auto catid(int id0,int id1)
 auto gettempid(int id_name)
 	ret=int(g_symbols.n)
 	n0=g_strings.n
-	g_strings.add('$')
+	g_strings.push('$')
 	if id_name:
-		g_strings.add(new(getIdString(id_name)))
-	g_symbols.add(TSymbol(){'p_name':n0,"n":int(g_strings.n)-n0})
+		g_strings.push(new(getIdString(id_name)))
+	g_symbols.push(TSymbol(){'p_name':n0,"n":int(g_strings.n)-n0})
 	return ret
 
 if Platform.BUILD=="debug"
@@ -184,7 +184,7 @@ class TTraitConstValue
 		key2=key
 		//key2.oid=OID()
 		ret=int(g_const_values.n)
-		g_const_values.add(key2)
+		g_const_values.push(key2)
 		return ret
 
 g_const_values=[TConstValue()]
@@ -246,15 +246,15 @@ struct TSourceFile
 g_files=new TSourceFile[]
 g_feed=new u8[]
 auto loadSourceFile(int id_fn)
-	if !g_feed.n:g_feed.add(u8(0))
+	if !g_feed.n:g_feed.push(u8(0))
 	n0=g_feed.n
 	fn=getIdString(id_fn)
 	src=System.IO.ReadAllText(fn)
 	if !src:return -1L
-	g_feed.add(src[0:].ConvertToAsBinary(u8))
-	g_feed.add(u8(0))
-	g_feed.add(u8(0))//for safety
-	g_files.add(TSourceFile(){'id_fn':id_fn,'n0':n0,'sz':src.n})
+	g_feed.push(src[0:].ConvertToAsBinary(u8))
+	g_feed.push(u8(0))
+	g_feed.push(u8(0))//for safety
+	g_files.push(TSourceFile(){'id_fn':id_fn,'n0':n0,'sz':src.n})
 	return n0
 auto getLineInfo(int epos)
 	fid=int(g_files.Bisect(function(a){return a.n0<=epos})-1)
@@ -276,7 +276,7 @@ auto getLineInfo(int epos)
 	return (fret,lret,cret)
 
 inline error(int type,iptr epos0,iptr epos1,string serr)
-	g_errors.add(TErrorRecord(){'type':type,'epos0':int(epos0),'epos1':int(epos1),'id_estr':getid(serr)})
+	g_errors.push(TErrorRecord(){'type':type,'epos0':int(epos0),'epos1':int(epos1),'id_estr':getid(serr)})
 	if Platform.BUILD=="debug":
 		(id_fn0,ln0,col0)=getLineInfo(int(epos0))
 		(id_fn1,ln1,col1)=getLineInfo(int(epos1))
@@ -296,8 +296,8 @@ g_enable_dump=0
 timers=new i64[]
 timer_names=new string[]
 auto tnew(string s)
-	timers.add(0LL)
-	timer_names.add(s)
+	timers.push(0LL)
+	timer_names.push(s)
 	return int(timer_names.n)-1
 inline tbegin(int id)
 	if g_enable_timing:timers[id]-=System.Time.tick64
@@ -335,12 +335,12 @@ auto FormatCCode(string feed)
 	in_str=0
 	in_slash=0
 	auto nextline()
-		sret.add('\n')
+		sret.push('\n')
 		for j=0:indent-1
-			sret.add('  ')
+			sret.push('  ')
 	foreach ch,I in feed
 		if in_str:
-			sret.add(char(ch))
+			sret.push(char(ch))
 			if !in_slash:
 				if ch=='\\':
 					in_slash=1
@@ -358,7 +358,7 @@ auto FormatCCode(string feed)
 			if ch=='}':
 				if sret.n&&sret.back()==' ':sret.pop()
 				if sret.n&&sret.back()==' ':sret.pop()
-			sret.add(char(ch))
+			sret.push(char(ch))
 			if ch=='{':
 				indent++
 				nextline()
@@ -371,3 +371,6 @@ auto FormatCCode(string feed)
 			else if ch==';'&&!nbra:
 				nextline()
 	return sret
+
+auto toBase32(int a)
+	return formatNumber(a,{base:32})

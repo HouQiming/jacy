@@ -38,13 +38,13 @@ g_cbobj_template_instantiation_oneval=PCTObject(0)
 g_cbobj_generated_function_oncgen=PCTObject(0)
 g_cbobj_cimport_cgen=PCTObject(0)
 
-fdummy_callback=function(){return TSCCPValue(){'tid':g_vtid_UNINIT}}
+fdummy_callback=function(PExpression pecall,int expr_oplevel){return TSCCPValue(){'tid':g_vtid_UNINIT}}
 
 auto citeexpr(PExpression pe)
 	epos0=readPool(pe+1)
 	epos1=readPool(pe+2)
 	if !epos0:
-		return dumpExpr(pe,NULL)
+		return dumpExpr(pe,fcolorer_callback.NULL)
 	if epos1<0:
 		paepos=epos0
 		for(;;)
@@ -188,7 +188,9 @@ inline fstore_eval_core(PExpression pecall,PCTObject pobj_var,PExpression pe_val
 	
 auto fstore_eval_core_ex(PExpression pecall,PCTObject pobj_var,TSCCPValue val_new,int test_return)
 	vv=readPoolTyped(pobj_var,TVariable)
-	val_old=vv.current_value
+	val_old=TSCCPValue()
+	val_old.tid=vv.tid
+	val_old.val=vv.val
 	val_final=mergeValues(pecall,val_old,val_new, pobj_var|0x80000000,pecall)
 	//Writeln(getIdString(ervar.v.key),' <- ',getIdString(val_old.tid),' || ',getIdString(val_new.tid))
 	force_changed=0
@@ -219,7 +221,8 @@ auto fstore_eval_core_ex(PExpression pecall,PCTObject pobj_var,TSCCPValue val_ne
 				if !id_name:
 					writePool(pobjfn+FUNCTION_OFS_NAME,vid)
 	//write back and invalidate all users
-	vv.current_value=val_final
+	vv.tid=val_final.tid
+	vv.val=val_final.val
 	writePoolTyped(pobj_var,vv)
 	if DEBUG_EVAL_LOG:
 		Write('changed - queueeval ',dumpObject(pobj_var),' ',getIdString(val_old.tid),' -> ',getIdString(val_final.tid))
@@ -288,10 +291,14 @@ auto computeConstIfBranch(PExpression pecall,TSCCPValue val_cond)
 		cns_branch=1
 	return cns_branch
 
-inline transformCode(PExpression pesrc, function(PExpression):PExpression ftransformer, PExpression[] as_before,PExpression pe_replacement,PExpression[] as_after)
+ftransformer_callback=function(PExpression):PExpression
+inline transformCode(PExpression pesrc, ftransformer_callback ftransformer, PExpression[] as_before,PExpression pe_replacement,PExpression[] as_after)
 	return transformCodeEx(pesrc, ftransformer, as_before,pe_replacement,as_after, 1)
 
-auto transformCodeEx(PExpression pesrc, function(PExpression):PExpression ftransformer, PExpression[] as_before,PExpression pe_replacement,PExpression[] as_after, int queue_reach)
+inline replaceExpr(PExpression pesrc, PExpression pe_replacement)
+	return transformCode(pesrc,ftransformer_callback.NULL, PExpression[].NULL,pe_replacement,PExpression[].NULL)
+
+auto transformCodeEx(PExpression pesrc, ftransformer_callback ftransformer, PExpression[] as_before,PExpression pe_replacement,PExpression[] as_after, int queue_reach)
 	if !ftransformer&&(!as_before||!as_before.n)&&!pe_replacement&&(!as_after||!as_after.n):
 		return pesrc
 	pecaller=readPool(pesrc+EXPR_OFS_CALLER)
@@ -352,7 +359,7 @@ auto transformCodeEx(PExpression pesrc, function(PExpression):PExpression ftrans
 	/////
 	//todo: more efficient arg searching
 	pe_fnblock=exprvar(g_symbols[g_id_block].user_slot)
-	pe_new_block=poolCode(TExpression(){flags_n_args:'EFLAG_FCALL'})
+	pe_new_block=poolCode(TExpression(){'flags_n_args':EFLAG_FCALL})
 	g_ctobject_pool.push(pe_fnblock)
 	if as_before:g_ctobject_pool.push(as_before)
 	if pe_transformed:
@@ -373,7 +380,7 @@ auto transformCodeEx(PExpression pesrc, function(PExpression):PExpression ftrans
 	else
 		writePool(pe_new_block,int(EFLAG_FCALL+n_args))
 	//replace pe_block_level with pe_new_block
-	pe_new_block=insertCallAt(pe_block_level_caller,pe_block_level,function(){return pe_new_block})
+	pe_new_block=insertCallAt(pe_block_level_caller,pe_block_level,function(PExpression pe){return pe_new_block})
 	if queue_reach:
 		sccpQueueReach(pe_new_block)
 	for i=0:n_args-1
@@ -469,13 +476,13 @@ auto getLIObjectStringPair(PCTObject pobj)
 auto genLIString(string buf,int id)
 	if !readEPosHash(int2(0x80000000+id,0x80000002)):
 		g_debug_file_info_buffer.push('static const char s7_Df')
-		g_debug_file_info_buffer.push(string.ToBase(id,0,32))
+		g_debug_file_info_buffer.push(toBase32(id))
 		g_debug_file_info_buffer.push('[]="')
 		g_debug_file_info_buffer.push(genString(getIdString(id)))
 		g_debug_file_info_buffer.push('";')
 		writeEPosHash(int2(0x80000000+id,0x80000002),1)
 	buf.push("s7_Df")
-	buf.push(string.ToBase(id,0,32))
+	buf.push(toBase32(id))
 
 if Platform.BUILD=="debug":
 	g_li_arv=new int[int]
@@ -526,7 +533,7 @@ auto genLineInfoExpr(PExpression pecall)
 		g_li_arv=new int[int]
 	lid=getLineInfoId(paepos0)
 	g_code_buffer.push("s7_Dd.li=s7_DL+")
-	g_code_buffer.append_int(lid-1)
+	SWrite(g_code_buffer,lid-1)
 
 inline parameterTypeCheck(PCTObject t_expected,PCTObject t)
 	if t_expected==t:return 1
@@ -541,7 +548,7 @@ inline parameterTypeCheck(PCTObject t_expected,PCTObject t)
 auto getReturnLabel(PCTObject pf)
 	id_ret=readPool(pf+FUNCTION_OFS_RETURN_LABEL_CACHE)
 	if !id_ret:
-		id_ret=catid(g_id_return_,getid(string.ToBase(pf,0,32)))
+		id_ret=catid(g_id_return_,getid(toBase32(pf)))
 		writePool(pf+FUNCTION_OFS_RETURN_LABEL_CACHE,id_ret)
 	return id_ret
 
@@ -567,7 +574,7 @@ auto expr_C_const(string sdata)
 	vid=int(g_ctobject_pool.n)
 	s_c_code=new string
 	s_c_code.push("@raw:long long s7_CD")
-	s_c_code.push(string.ToBase(vid,0,32))
+	s_c_code.push(toBase32(vid))
 	s_c_code.push("[]={")
 	nalg=(sdata.n&-8)
 	buf64=sdata[:nalg-1].ConvertToAsBinary(i64)
@@ -641,11 +648,11 @@ auto coreInit()
 	g_fakectval_gvn_str=int(g_ctobject_pool.n);g_ctobject_pool.push(0)
 	//g_builtin_scope=ONew()
 	/////////////////////
-	freach_fn_only=function(PExpression pecall){
+	freach_fn_only=function(PExpression pecall,int expr_oplevel){
 		sccpQueueReach(readPool(pecall+EXPR_OFS_FUNCTION))
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	fexpand_inline_oneval=function(PExpression pecall){
+	fexpand_inline_oneval=function(PExpression pecall,int expr_oplevel){
 		//todo: translate some param epos intrinsic in g_id_report_error calls
 		//type check
 		//Writeln('fexpand_inline_oneval')
@@ -796,7 +803,7 @@ auto coreInit()
 				//translating the arguments
 				pv=getVariable(pe_store_i)
 				if pv&&readPool(pv+VAR_OFS_ID)==g_id_arguments:
-					as=(PExpression[])NULL
+					as=PExpression[].NULL
 					if !pv_arguments:
 						pv_arguments=makevar(pf_owner)
 						writePool(pv_arguments+VAR_OFS_ID,gettempid(g_id_arguments))
@@ -882,7 +889,7 @@ auto coreInit()
 		else
 			as_before=[pe_check,pe_expanded]
 		pecaller_original=readPool(pecall+EXPR_OFS_CALLER)
-		pe_final=transformCode(pecall,NULL, as_before,pe_return_value,NULL)
+		pe_final=transformCode(pecall,ftransformer_callback.NULL, as_before,pe_return_value,PExpression[].NULL)
 		//somehow we're needing this - test_js0.spap
 		if testUserFlag(pecaller_original,QUEUE_FLAG_REACH):
 			sccpQueueEval(pecaller_original)
@@ -946,7 +953,7 @@ auto coreInit()
 			//return TSCCPValue(){'tid':g_vtid_RTVAR,'val':treturn}
 			return val_return
 	}
-	fnormal_function_oneval=function(PExpression pecall){
+	fnormal_function_oneval=function(PExpression pecall,int expr_oplevel){
 		//__init__ test
 		pobjfn=getExprFunction(pecall)
 		assert(!!pobjfn)
@@ -984,7 +991,7 @@ auto coreInit()
 					writePool(as_init[1+i-n_funcargs]+EXPR_OFS_CALLER,0)
 				pe_init_call=fillepos(indcall(as_init),readPool(pecall+EXPR_OFS_EPOS+0),readPool(pecall+EXPR_OFS_EPOS+1))
 				if is_stored:
-					transformCode(pecaller,NULL, [pe_check],0,[pe_init_call])
+					transformCode(pecaller,ftransformer_callback.NULL, [pe_check],0,[pe_init_call])
 				else
 					transformCode(pecall,function(PExpression pe){return fillepos(call(g_id_store,exprvar(pv_temp),pe),readPool(pe+EXPR_OFS_EPOS+0),readPool(pe+EXPR_OFS_EPOS+1))}, [pe_check],exprvar(pv_temp),[pe_init_call])
 				return fget_function_return_value(pobjfn,pecall)
@@ -1040,7 +1047,7 @@ auto coreInit()
 					sccpQueueEval(pe_ldparam)
 		return fget_function_return_value(pobjfn,pecall)
 	}
-	ftemplate_instantiation_oneval=function(PExpression pecall){
+	ftemplate_instantiation_oneval=function(PExpression pecall,int expr_oplevel){
 		pobjfn=getExprFunction(pecall)
 		n_args=getFCallNArgs(pecall)
 		n_funcargs=getNumberOfArguments(pobjfn)
@@ -1232,7 +1239,7 @@ auto coreInit()
 		if pecaller:
 			//we may reach here with pecaller=0 for function types
 			sccpQueueEval(pecaller)
-			transformCode(pecall,NULL, as_checks,pecall_new,NULL)
+			transformCode(pecall,ftransformer_callback.NULL, as_checks,pecall_new,PExpression[].NULL)
 		else
 			return TSCCPValue(){'tid':g_vtid_CTVAL,'val':pobjfn_insted}
 		//Writeln('>>> after template transformCode');
@@ -1288,7 +1295,7 @@ auto coreInit()
 		if g_enable_debug_instrumentation&&!is_dtor:
 			g_code_buffer.push(')')
 	}
-	fgenerated_function_oncgen=function(PExpression pecall){
+	fgenerated_function_oncgen=function(PExpression pecall,int expr_oplevel){
 		//it should have been tested
 		pecallee=readPool(pecall+EXPR_OFS_FUNCTION)
 		pe_lambdactx=PExpression(0)
@@ -1304,7 +1311,7 @@ auto coreInit()
 	g_cbobj_function_used_oneval=registerCompilerCallback(fnormal_function_oneval)
 	g_cbobj_template_instantiation_oneval=registerCompilerCallback(ftemplate_instantiation_oneval)
 	g_cbobj_generated_function_oncgen=registerCompilerCallback(fgenerated_function_oncgen)
-	ffunction_onreach=function(PExpression pecall){
+	ffunction_onreach=function(PExpression pecall,int expr_oplevel){
 		//we reach all the types automatically, but nothing else
 		er=readPoolTyped(pecall,TExpression)
 		n_args=(er.flags_n_args&~EFLAG_MASK)
@@ -1315,7 +1322,7 @@ auto coreInit()
 		sccpQueueReach(pecode)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	ffunction_oneval=function(PExpression pecall){
+	ffunction_oneval=function(PExpression pecall,int expr_oplevel){
 		//we do not wait for the types, but we do wait for the ccnv
 		val_existing=getExprValue(pecall)
 		//duplicate evaluation not prevented... but we do need the eval
@@ -1400,7 +1407,7 @@ auto coreInit()
 					var_argnames[arg_id]=pobj_var
 					writePool(pobj_var+0,val0.tid)
 					writePool(pobj_var+1,val0.val)
-					transformCode(pe,NULL, NULL,exprvar(pobj_var),NULL)
+					replaceExpr(pe,exprvar(pobj_var))
 			return 1
 		}
 		dfsExpr(pecode,ffind_argnames)
@@ -1474,7 +1481,7 @@ auto coreInit()
 					assert(!!var_argnames[i>>1])
 					g_code_buffer.push(' ')
 					genVar(var_argnames[i>>1])
-					//g_code_buffer.push(string.ToBase(var_argnames[i>>1],0,32))
+					//g_code_buffer.push(toBase32(var_argnames[i>>1]))
 			if g_code_buffer.back()==',':
 				g_code_buffer.pop()
 			g_code_buffer.push('){')
@@ -1513,7 +1520,7 @@ auto coreInit()
 				genType(t)
 				if tisstruct(t):g_code_buffer.pop()
 				g_code_buffer.push(' m_')
-				g_code_buffer.push(string.ToBase(pobj_var,0,32))
+				g_code_buffer.push(toBase32(pobj_var))
 				g_code_buffer.push(';')
 			if !got_anything:
 				g_code_buffer.push('char dummy;')
@@ -1577,7 +1584,7 @@ auto coreInit()
 		if my_label&0x80000000:
 			//generate the return label
 			g_code_buffer.push('s7_lb')
-			g_code_buffer.push(string.ToBase(my_label&0x7fffffff,0,32))
+			g_code_buffer.push(toBase32(my_label&0x7fffffff))
 			g_code_buffer.push(':')
 		if g_enable_debug_instrumentation:
 			g_code_buffer.push("spapPopCallStack()")
@@ -1601,8 +1608,8 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	//returning counts as side effect
-	registerPrimitive(g_id_C_return,NULL,fdummy_callback,fc_return_oncgen,FFLAG_SPECIAL|FFLAG_RC_HAS_SIDE_EFFECT|FFLAG_IS_PRELIVE)
-	ffunction_type_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_C_return,fcompiler_callback.NULL,fdummy_callback,fc_return_oncgen,FFLAG_SPECIAL|FFLAG_RC_HAS_SIDE_EFFECT|FFLAG_IS_PRELIVE)
+	ffunction_type_oneval=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
 		pe_rettype=readPool(pecall+EXPR_OFS_ARGS+n_args-1)
 		val=getExprValue(pe_rettype)
@@ -1615,9 +1622,9 @@ auto coreInit()
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
 		return TSCCPValue(){'tid':g_vtid_CTVAL,'val':t_function}
 	}
-	registerPrimitive(g_id_function_type,NULL,ffunction_type_oneval,NULL,FFLAG_SPECIAL)
+	registerPrimitive(g_id_function_type,fcompiler_callback.NULL,ffunction_type_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
 	////////////
-	fexport_oneval=function(PExpression pecall){
+	fexport_oneval=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
 		assert(n_args==2)
 		id_export_name=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+0),g_vtid_STR)
@@ -1636,7 +1643,7 @@ auto coreInit()
 			writePoolTyped(pobjfn,fn)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	fexport_oncgen=function(PExpression pecall){
+	fexport_oncgen=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
 		assert(n_args==2)
 		id_export_name=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+0),g_vtid_STR)
@@ -1655,9 +1662,9 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	//g_id_export
-	registerPrimitive(g_id_export,NULL,fexport_oneval,fexport_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
+	registerPrimitive(g_id_export,fcompiler_callback.NULL,fexport_oneval,fexport_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
 	////////////
-	fcimport_eval=function(PExpression pecall){
+	fcimport_eval=function(PExpression pecall,int expr_oplevel){
 		pobjfn=getExprFunction(pecall)
 		if !pobjfn:
 			assert(0)
@@ -1673,7 +1680,7 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_RTVAR,'val':t}
 	}
 	cbobj_cimport_eval=registerCompilerCallback(fcimport_eval)
-	fcimport_cgen=function(PExpression pecall){
+	fcimport_cgen=function(PExpression pecall,int expr_oplevel){
 		pobjfn=getExprFunction(pecall)
 		if !pobjfn:
 			assert(0)
@@ -1721,7 +1728,7 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	g_cbobj_cimport_cgen=registerCompilerCallback(fcimport_cgen)
-	fcimport_oneval=function(PExpression pecall){
+	fcimport_oneval=function(PExpression pecall,int expr_oplevel){
 		val_existing=getExprValue(pecall)
 		if val_existing.tid==g_vtid_CTVAL||val_existing.tid==g_vtid_RTVAR:
 			//prevent duplicate evaluation
@@ -1738,9 +1745,9 @@ auto coreInit()
 				'obj_oncgen':g_cbobj_cimport_cgen
 			})}
 	}
-	registerPrimitive(g_id_c_function,NULL,fcimport_oneval,fdummy_callback,FFLAG_SPECIAL)
+	registerPrimitive(g_id_c_function,fcompiler_callback.NULL,fcimport_oneval,fdummy_callback,FFLAG_SPECIAL)
 	////////////
-	fstore_onreach=function(PExpression pecall){
+	fstore_onreach=function(PExpression pecall,int expr_oplevel){
 		er=readPoolTyped(pecall,TExpression)
 		n_args=(er.flags_n_args&~EFLAG_MASK)
 		if n_args!=2&&n_args!=3:
@@ -1760,7 +1767,7 @@ auto coreInit()
 		sccpQueueReach(readPool(pecall+((EXPR_OFS_ARGS)+1)))
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	fstore_oneval=function(PExpression pecall){
+	fstore_oneval=function(PExpression pecall,int expr_oplevel){
 		er=readPoolTyped(pecall,TExpression)
 		n_args=(er.flags_n_args&~EFLAG_MASK)
 		assert(n_args==2||n_args==3)
@@ -1799,7 +1806,7 @@ auto coreInit()
 	}
 	registerPrimitive(g_id_store,fstore_onreach,fstore_oneval,fstore_oncgen,FFLAG_SPECIAL)
 	////////////
-	fcast_oneval=function(PExpression pecall){
+	fcast_oneval=function(PExpression pecall,int expr_oplevel){
 		n_args=readPool(pecall)
 		if n_args!=2:
 			errorAtExpr(ETYPE_ERROR,pecall,"__cast has to take 2 parameters")
@@ -1810,6 +1817,8 @@ auto coreInit()
 		if !t_result:
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
 		val_src=getExprValue(pesrc)
+		if val_src.tid==g_vtid_UNINIT:
+			return TSCCPValue(){'tid':g_vtid_UNINIT}
 		if val_src.tid==g_vtid_CNS:
 			if tisbuiltin(t_result):
 				ca=Util.ctNumber(val_src.val)
@@ -1856,9 +1865,9 @@ auto coreInit()
 			g_code_buffer.push(')')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_cast,NULL,fcast_oneval,fcast_oncgen,FFLAG_SPECIAL)
+	registerPrimitive(g_id_cast,fcompiler_callback.NULL,fcast_oneval,fcast_oncgen,FFLAG_SPECIAL)
 	////////////
-	fblock_oneval=function(PExpression pecall){
+	fblock_oneval=function(PExpression pecall,int expr_oplevel){
 		//er=readPoolTyped(pecall,TExpression)
 		//n_args=(er.flags_n_args&~EFLAG_MASK)
 		//if n_args<1:return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -1877,7 +1886,7 @@ auto coreInit()
 					g_code_buffer.push(';')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_block,NULL,fblock_oneval,fblock_oncgen,FFLAG_SPECIAL)
+	registerPrimitive(g_id_block,fcompiler_callback.NULL,fblock_oneval,fblock_oncgen,FFLAG_SPECIAL)
 	////////////
 	fblockex_oncgen=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
@@ -1912,13 +1921,13 @@ auto coreInit()
 				my_label=g_current_labels[id_word2]
 				if my_label!=-1&&(my_label&0x80000000):
 					g_code_buffer.push('s7_lb')
-					g_code_buffer.push(string.ToBase(my_label&0x7fffffff,0,32))
+					g_code_buffer.push(toBase32(my_label&0x7fffffff))
 					g_code_buffer.push(':;')
 				g_current_labels[id_word2]=bk_label2
 			my_label=g_current_labels[id_word]
 			if my_label!=-1&&(my_label&0x80000000):
 				g_code_buffer.push('s7_lb')
-				g_code_buffer.push(string.ToBase(my_label&0x7fffffff,0,32))
+				g_code_buffer.push(toBase32(my_label&0x7fffffff))
 				g_code_buffer.push(':;')
 			g_current_labels[id_word]=bk_label
 		else
@@ -1930,7 +1939,7 @@ auto coreInit()
 				if !my_label:
 					errorAtExpr(ETYPE_ERROR,pecall,"can't find a corresponding scope for this '@1'".Replace(["@1",getIdString(id_word)]))
 				g_code_buffer.push('goto s7_lb')
-				g_code_buffer.push(string.ToBase(my_label&0x7fffffff,0,32))
+				g_code_buffer.push(toBase32(my_label&0x7fffffff))
 				g_code_buffer.push(';')
 				if !(my_label&0x80000000):
 					g_current_labels[id_word]=(my_label|0x80000000)
@@ -1939,7 +1948,7 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	//coulddo: separate break/continue/loop: break/continue has side effect, loop doesn't... but it's a bad idea to defer anything beyond a loop, even if it's pure
-	registerPrimitive(g_id_blockex,NULL,fdummy_callback,fblockex_oncgen,FFLAG_SPECIAL|FFLAG_STATEMENT_HOST|FFLAG_RC_HAS_SIDE_EFFECT|FFLAG_IS_PRELIVE)
+	registerPrimitive(g_id_blockex,fcompiler_callback.NULL,fdummy_callback,fblockex_oncgen,FFLAG_SPECIAL|FFLAG_STATEMENT_HOST|FFLAG_RC_HAS_SIDE_EFFECT|FFLAG_IS_PRELIVE)
 	////////////
 	fif_onreach=function(PExpression pecall,int expr_oplevel){
 		//reach the cond and the clause values, nothing else
@@ -2020,7 +2029,7 @@ auto coreInit()
 	}
 	registerPrimitive(g_id_if,fif_onreach,fif_oneval,fif_oncgen,FFLAG_SPECIAL|FFLAG_STATEMENT_HOST)
 	////////////
-	fassert_ctval_oneval=function(PExpression pecall){
+	fassert_ctval_oneval=function(PExpression pecall,int expr_oplevel){
 		er=readPoolTyped(pecall,TExpression)
 		n_args=(er.flags_n_args&~EFLAG_MASK)
 		if n_args<2:return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -2031,9 +2040,9 @@ auto coreInit()
 			errorAtExpr(ETYPE_ERROR,pearg0,new(getIdString(id_error)).Replace("@1",citeexpr(pearg0)))
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_assert_ctval,NULL,fassert_ctval_oneval,NULL,FFLAG_SPECIAL)
+	registerPrimitive(g_id_assert_ctval,fcompiler_callback.NULL,fassert_ctval_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
 	////////////
-	fldparam_oneval=function(PExpression pecall){
+	fldparam_oneval=function(PExpression pecall,int expr_oplevel){
 		er=readPoolTyped(pecall,TExpression)
 		n_args=(er.flags_n_args&~EFLAG_MASK)
 		assert(n_args==3)
@@ -2049,7 +2058,7 @@ auto coreInit()
 		//	return TSCCPValue(){'tid':g_vtid_UNINIT}
 		//return TSCCPValue(){'tid':g_vtid_RTVAR,'val':t}
 	}
-	registerPrimitive(g_id_ldparam,NULL,fldparam_oneval,NULL,FFLAG_SPECIAL)
+	registerPrimitive(g_id_ldparam,fcompiler_callback.NULL,fldparam_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
 	////////////
 	faliased_oneval=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
@@ -2060,9 +2069,9 @@ auto coreInit()
 		else
 			return TSCCPValue(){'tid':g_vtid_RTVAR,'val':t}
 	}
-	registerPrimitive(g_id_aliased,NULL,faliased_oneval,NULL,FFLAG_SPECIAL|FFLAG_RC_HAS_SIDE_EFFECT)
-	registerPrimitive(g_id_nop,NULL,NULL,NULL,FFLAG_BUILTIN_HACK)
-	registerPrimitive(g_id_dummy_use,NULL,NULL,NULL,FFLAG_BUILTIN_HACK)
+	registerPrimitive(g_id_aliased,fcompiler_callback.NULL,faliased_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL|FFLAG_RC_HAS_SIDE_EFFECT)
+	registerPrimitive(g_id_nop,fcompiler_callback.NULL,fcompiler_callback.NULL,fcompiler_callback.NULL,FFLAG_BUILTIN_HACK)
+	registerPrimitive(g_id_dummy_use,fcompiler_callback.NULL,fcompiler_callback.NULL,fcompiler_callback.NULL,FFLAG_BUILTIN_HACK)
 	//////////////////////////////////////
 	//dotting
 	fldlambda_oneval=function(PExpression pecall,int expr_oplevel){
@@ -2101,14 +2110,14 @@ auto coreInit()
 			g_code_buffer.push('&')
 		genCode(readPool(pecall+EXPR_OFS_ARGS+0),LEVEL_POSTFIX)
 		g_code_buffer.push('->m_')
-		g_code_buffer.push(string.ToBase(pobj_var,0,32))
+		g_code_buffer.push(toBase32(pobj_var))
 		if need_bracket:
 			g_code_buffer.push(')')
 		if debug_instrumented:
 			g_code_buffer.push(')')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_ldlambda,NULL,fldlambda_oneval,fldlambda_oncgen,FFLAG_SPECIAL)
+	registerPrimitive(g_id_ldlambda,fcompiler_callback.NULL,fldlambda_oneval,fldlambda_oncgen,FFLAG_SPECIAL)
 	fstlambda_oncgen=function(PExpression pecall,int expr_oplevel){
 		assert(!expr_oplevel)
 		if g_enable_debug_instrumentation:
@@ -2117,13 +2126,13 @@ auto coreInit()
 		genCode(readPool(pecall+EXPR_OFS_ARGS+0),LEVEL_POSTFIX)
 		g_code_buffer.push('->m_')
 		pobj_var=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
-		g_code_buffer.push(string.ToBase(pobj_var,0,32))
+		g_code_buffer.push(toBase32(pobj_var))
 		g_code_buffer.push('=')
 		genCode(readPool(pecall+EXPR_OFS_ARGS+2),LEVEL_ASSIGNMENT)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_stlambda,NULL,NULL,fstlambda_oncgen,FFLAG_SPECIAL)
-	fgetparentctx_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_stlambda,fcompiler_callback.NULL,fcompiler_callback.NULL,fstlambda_oncgen,FFLAG_SPECIAL)
+	fgetparentctx_oneval=function(PExpression pecall,int expr_oplevel){
 		pe_levels=readPool(pecall+EXPR_OFS_ARGS+0)
 		val=getExprValue(pe_levels)
 		if val.tid==g_vtid_CTVAL:
@@ -2159,7 +2168,7 @@ auto coreInit()
 				g_code_buffer.push('->p')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_get_lambda_context,NULL,fgetparentctx_oneval,fgetparentctx_oncgen,FFLAG_SPECIAL)
+	registerPrimitive(g_id_get_lambda_context,fcompiler_callback.NULL,fgetparentctx_oneval,fgetparentctx_oncgen,FFLAG_SPECIAL)
 	//return __get_lambda_context(0)
 	fdot_oneval=function(PExpression pecall,int expr_oplevel){
 		//__dot(obj,"member")
@@ -2191,7 +2200,7 @@ auto coreInit()
 						pe_tuple_bracket=call(g_id_tuple_bracket,peobj,pe_subscript)
 					else
 						pe_tuple_bracket=call(g_id_tuple_bracket,peobj,pe_subscript,readPool(pecaller+EXPR_OFS_ARGS+1))
-					transformCode(pecaller,NULL, NULL,pe_tuple_bracket,NULL)
+					replaceExpr(pecaller,pe_tuple_bracket)
 					return TSCCPValue(){'tid':g_vtid_UNINIT}
 		if id_member==g_id_call:
 			pecaller=readPool(pecall+EXPR_OFS_CALLER)
@@ -2204,7 +2213,7 @@ auto coreInit()
 						errorAtExpr(ETYPE_ERROR,pecaller,"indirect call '@1' can only take one tuple as argument".Replace("@1",citeexpr(pecaller)))
 						return TSCCPValue(){'tid':g_vtid_UNINIT}
 					pe_arg=readPool(pecaller+EXPR_OFS_ARGS+0)
-					transformCode(pecaller,NULL, NULL,call(g_id_tuple_call,peobj,pe_arg),NULL)
+					replaceExpr(pecaller,call(g_id_tuple_call,peobj,pe_arg))
 					return TSCCPValue(){'tid':g_vtid_UNINIT}
 		//actual member handling
 		pe_member_name=readPool(pecall+EXPR_OFS_ARGS+1)
@@ -2222,8 +2231,8 @@ auto coreInit()
 			writePool(pobj_member+VAR_OFS_USER_QUEUE,pecall)
 		return readPoolTyped(pobj_member,TSCCPValue)
 	}
-	registerPrimitive(g_id_dot,NULL,fdot_oneval,NULL,FFLAG_SPECIAL)
-	fstdot_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_dot,fcompiler_callback.NULL,fdot_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
+	fstdot_oneval=function(PExpression pecall,int expr_oplevel){
 		//__stdot(obj,"member",value)
 		pe_member_name=readPool(pecall+EXPR_OFS_ARGS+1)
 		if getExprValue(pe_member_name).tid==g_vtid_UNINIT:
@@ -2240,8 +2249,8 @@ auto coreInit()
 		pe_value=readPool(pecall+EXPR_OFS_ARGS+2)
 		return fstore_eval_core(pecall,pobj_member,pe_value,0)
 	}
-	registerPrimitive(g_id_stdot,NULL,fstdot_oneval,NULL,FFLAG_SPECIAL)
-	fdeclare_struct_slots_cgen=function(PExpression pecall){
+	registerPrimitive(g_id_stdot,fcompiler_callback.NULL,fstdot_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
+	fdeclare_struct_slots_cgen=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
 		id_mode=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS),g_vtid_STR)
 		if id_mode==g_id_struct:
@@ -2249,7 +2258,7 @@ auto coreInit()
 			sbak=g_code_buffer
 			g_code_buffer=g_structs_slots_buffer
 			g_code_buffer.push('struct s7_TS')
-			g_code_buffer.push(string.ToBase(pf_owner,0,32))
+			g_code_buffer.push(toBase32(pf_owner))
 			g_code_buffer.push('{')
 			for i=1:n_args-1
 				genCode(readPool(pecall+EXPR_OFS_ARGS+i),0)
@@ -2260,7 +2269,7 @@ auto coreInit()
 			g_code_buffer=sbak
 			//the function-level declaration buffer
 			g_local_decl_buffer.push('struct s7_TS')
-			g_local_decl_buffer.push(string.ToBase(pf_owner,0,32))
+			g_local_decl_buffer.push(toBase32(pf_owner))
 			g_local_decl_buffer.push(' s7_Bs;')
 		else
 			g_code_buffer.push('union{')
@@ -2270,12 +2279,12 @@ auto coreInit()
 				assert(g_code_buffer.back()=='*')
 				g_code_buffer.pop()
 				g_code_buffer.push(' m_')
-				g_code_buffer.push(string.ToBase(t,0,32))
+				g_code_buffer.push(toBase32(t))
 				g_code_buffer.push(';')
 			g_code_buffer.push('}')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_C_declare_struct_slots,NULL,NULL,fdeclare_struct_slots_cgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
+	registerPrimitive(g_id_C_declare_struct_slots,fcompiler_callback.NULL,fcompiler_callback.NULL,fdeclare_struct_slots_cgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
 	fget_struct_slot_cgen=function(PExpression pecall,int expr_oplevel){
 		str_slotid=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+0),g_vtid_CNS)
 		t=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
@@ -2289,7 +2298,7 @@ auto coreInit()
 		g_code_buffer.push('&s7_Bs.m_')
 		g_code_buffer.push(string(str_slotid))
 		g_code_buffer.push('.m_')
-		g_code_buffer.push(string.ToBase(t,0,32))
+		g_code_buffer.push(toBase32(t))
 		g_code_buffer.push(',0,sizeof(')
 		genType(t)
 		g_code_buffer.pop()
@@ -2298,10 +2307,10 @@ auto coreInit()
 			g_code_buffer.push(')')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_C_get_struct_slot,NULL,NULL,fget_struct_slot_cgen,FFLAG_SPECIAL)
+	registerPrimitive(g_id_C_get_struct_slot,fcompiler_callback.NULL,fcompiler_callback.NULL,fget_struct_slot_cgen,FFLAG_SPECIAL)
 	//create a tuple type and new it
-	registerPrimitive(g_id_uninit,NULL,fdummy_callback,NULL,FFLAG_SPECIAL)
-	ftuple_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_uninit,fcompiler_callback.NULL,fdummy_callback,fcompiler_callback.NULL,FFLAG_SPECIAL)
+	ftuple_oneval=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
 		if n_args==1&&getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+0),g_vtid_CNS):
 			//numbered tuple
@@ -2335,7 +2344,6 @@ auto coreInit()
 		pe_tuple_maker=indcall([call(g_id_function,exprstr(g_id_struct),vcall(g_id_block,as))])
 		resolveNames(pe_tuple_maker,0)
 		g_names_resolved=1
-		pecaller=readPool(pecall+EXPR_OFS_CALLER)
 		pobjfn_tuple=getExprValueAs(readPool(pe_tuple_maker+EXPR_OFS_FUNCTION),g_vtid_CTVAL)
 		assert(!!pobjfn_tuple&&readPool(pobjfn_tuple)==g_tid_TFunction)
 		if is_numeric_tuple:
@@ -2350,10 +2358,10 @@ auto coreInit()
 						id_typename=catid(id_typename,ids[i])
 				id_typename=catid(id_typename,getid(">"))
 				writePool(pobjfn_tuple+FUNCTION_OFS_NAME,id_typename)
-		sccpQueueReach(insertCallAt(pecaller,pecall,function(){return pe_tuple_maker}))
+		replaceExpr(pecall,pe_tuple_maker)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_tuple,NULL,ftuple_oneval,NULL,FFLAG_SPECIAL)
+	registerPrimitive(g_id_tuple,fcompiler_callback.NULL,ftuple_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
 	//////////////////////////////////////
 	//rc
 	auto genRefcntCCode(PExpression pecall,int expr_oplevel,int check_finalize)
@@ -2422,14 +2430,14 @@ auto coreInit()
 		genRefcntCCode(pecall,expr_oplevel,0)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_addref,NULL,NULL,faddref_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
+	registerPrimitive(g_id_addref,fcompiler_callback.NULL,fcompiler_callback.NULL,faddref_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
 	frelease_oncgen=function(PExpression pecall,int expr_oplevel){
 		genRefcntCCode(pecall,expr_oplevel,1)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_release,NULL,NULL,frelease_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
-	//registerPrimitive(g_id_rc_local_holder,NULL,fdummy_callback,NULL,FFLAG_SPECIAL)
-	fexplicitrc_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_release,fcompiler_callback.NULL,fcompiler_callback.NULL,frelease_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
+	//registerPrimitive(g_id_rc_local_holder,fcompiler_callback.NULL,fdummy_callback,fcompiler_callback.NULL,FFLAG_SPECIAL)
+	fexplicitrc_oneval=function(PExpression pecall,int expr_oplevel){
 		peobj=readPool(pecall+EXPR_OFS_ARGS+0)
 		val_obj=getExprValue(peobj)
 		if val_obj.tid==g_vtid_STR:
@@ -2446,7 +2454,7 @@ auto coreInit()
 				fstore_eval_core_ex(pecall,pobj_str_var,TSCCPValue(){'tid':g_vtid_RTVAR,'val':getStdObject(pecall,STDTYPE_STRING)},1)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_explicit_rc,NULL,fexplicitrc_oneval,NULL,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
+	registerPrimitive(g_id_explicit_rc,fcompiler_callback.NULL,fexplicitrc_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
 	fcfree_oncgen=function(PExpression pecall,int expr_oplevel){
 		if readPool(pecall+0)==2+EFLAG_FCALL:
 			//variant free - rtti call
@@ -2463,10 +2471,10 @@ auto coreInit()
 			g_code_buffer.push(')')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_C_free,NULL,NULL,fcfree_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
+	registerPrimitive(g_id_C_free,fcompiler_callback.NULL,fcompiler_callback.NULL,fcfree_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
 	//////////////////////////////////////
 	//exposed raw functionality
-	fcsizeof_oneval=function(PExpression pecall){
+	fcsizeof_oneval=function(PExpression pecall,int expr_oplevel){
 		if readPool(pecall+0)!=1+EFLAG_FCALL:
 			errorAtExpr(ETYPE_ERROR,pecall,"sizeof(expression) takes exactly 1 parameter")
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -2500,8 +2508,8 @@ auto coreInit()
 		g_code_buffer.push(')')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_sizeof,NULL,fcsizeof_oneval,fcsizeof_oncgen,FFLAG_SPECIAL)
-	fmemory_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_sizeof,fcompiler_callback.NULL,fcsizeof_oneval,fcsizeof_oncgen,FFLAG_SPECIAL)
+	fmemory_oneval=function(PExpression pecall,int expr_oplevel){
 		assert(readPool(pecall+0)==2+EFLAG_FCALL)
 		t=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+0),g_vtid_CTVAL)
 		if !t:
@@ -2530,7 +2538,7 @@ auto coreInit()
 			g_code_buffer.push(')')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_memory,NULL,fmemory_oneval,fmemory_oncgen,FFLAG_SPECIAL)
+	registerPrimitive(g_id_memory,fcompiler_callback.NULL,fmemory_oneval,fmemory_oncgen,FFLAG_SPECIAL)
 	fset_memory_oncgen=function(PExpression pecall,int expr_oplevel){
 		assert(readPool(pecall+0)==3+EFLAG_FCALL)
 		assert(expr_oplevel==0)
@@ -2547,10 +2555,10 @@ auto coreInit()
 		genCode(readPool(pecall+EXPR_OFS_ARGS+2),LEVEL_SELECT)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_set_memory,NULL,fdummy_callback,fset_memory_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
+	registerPrimitive(g_id_set_memory,fcompiler_callback.NULL,fdummy_callback,fset_memory_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
 	//////////////////////////////////////
 	//template utility
-	fis_type_oneval=function(PExpression pecall){
+	fis_type_oneval=function(PExpression pecall,int expr_oplevel){
 		if readPool(pecall+0)!=2+EFLAG_FCALL:
 			errorAtExpr(ETYPE_ERROR,pecall,"__is_type('meta-type',expression) takes exactly 2 parameters")
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -2566,12 +2574,12 @@ auto coreInit()
 		if id_meta_type==g_id_builtin:return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,32),i64(tisbuiltin(t)))}
 		if id_meta_type==g_id_int:return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,32),i64((tisctype(t,CTYPE_INT)||tisctype(t,CTYPE_UINT))))}
 		if id_meta_type==g_id_float:return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,32),i64(tisctype(t,CTYPE_FLOAT)))}
-		errorAtExpr(ETYPE_ERROR,readPool(pecall+EXPR_OFS_ARGS),"invalid meta-type category '@1' for __is_type".Replace("@1",getIdString(id_meta_type)))
+		errorAtExpr(ETYPE_ERROR,readPool(pecall+EXPR_OFS_ARGS),"invalid meta-type category '@1' for __is_type".Replace(["@1",getIdString(id_meta_type)]))
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_is_type,NULL,fis_type_oneval,NULL,FFLAG_SPECIAL)
+	registerPrimitive(g_id_is_type,fcompiler_callback.NULL,fis_type_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
 	//todo: an entire parameter type list?
-	fparameter_count_oneval=function(PExpression pecall){
+	fparameter_count_oneval=function(PExpression pecall,int expr_oplevel){
 		if readPool(pecall+0)!=1+EFLAG_FCALL:
 			errorAtExpr(ETYPE_ERROR,pecall,"__parameter_count(function) takes exactly 1 parameter")
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -2581,8 +2589,8 @@ auto coreInit()
 		pe_decl=readPool(pobjfn+FUNCTION_OFS_PEDECL)
 		return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,32),i64(((readPool(pe_decl)&~EFLAG_MASK)-2)>>1))}
 	}
-	registerPrimitive(g_id_parameter_count,NULL,fparameter_count_oneval,NULL,FFLAG_SPECIAL)
-	finline_clone_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_parameter_count,fcompiler_callback.NULL,fparameter_count_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
+	finline_clone_oneval=function(PExpression pecall,int expr_oplevel){
 		if readPool(pecall+0)!=1+EFLAG_FCALL:
 			errorAtExpr(ETYPE_ERROR,pecall,"__inline_clone(function) takes exactly 1 parameter")
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -2624,8 +2632,8 @@ auto coreInit()
 			writePool(pobjfn_cloned+FUNCTION_OFS_ONCGEN,0)
 		return TSCCPValue(){'tid':g_vtid_CTVAL,'val':pobjfn_cloned}
 	}
-	registerPrimitive(g_id_inline_clone,NULL,finline_clone_oneval,NULL,FFLAG_SPECIAL)
-	ftypeof_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_inline_clone,fcompiler_callback.NULL,finline_clone_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
+	ftypeof_oneval=function(PExpression pecall,int expr_oplevel){
 		if readPool(pecall+0)!=1+EFLAG_FCALL:
 			errorAtExpr(ETYPE_ERROR,pecall,"typeof(expression) takes exactly 1 parameter")
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -2644,18 +2652,17 @@ auto coreInit()
 		else
 			return TSCCPValue(){'tid':g_vtid_CTVAL,'val':t}
 	}
-	registerPrimitive(g_id_typeof,NULL,ftypeof_oneval,NULL,FFLAG_SPECIAL)
-	farraytype_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_typeof,fcompiler_callback.NULL,ftypeof_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
+	farraytype_oneval=function(PExpression pecall,int expr_oplevel){
 		assert(readPool(pecall+0)==1+EFLAG_FCALL)
 		pe_opr=readPool(pecall+EXPR_OFS_ARGS+0)
 		t_array=getStdObject(pecall,STDTYPE_ARRAY)
 		if !t_array:return TSCCPValue(){'tid':g_vtid_UNINIT}
-		pecaller=readPool(pecall+EXPR_OFS_CALLER)
-		sccpQueueReach(insertCallAt(pecaller,pecall,function(){return indcall([exprctval(t_array),pe_opr])}))
+		replaceExpr(pecall,indcall([exprctval(t_array),pe_opr]))
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_array_type,NULL,farraytype_oneval,NULL,FFLAG_SPECIAL)
-	ftuple_call_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_array_type,fcompiler_callback.NULL,farraytype_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
+	ftuple_call_oneval=function(PExpression pecall,int expr_oplevel){
 		peobj=readPool(pecall+EXPR_OFS_ARGS+0)
 		pe_arg=readPool(pecall+EXPR_OFS_ARGS+1)
 		//translate it to a better form
@@ -2667,7 +2674,7 @@ auto coreInit()
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
 		//generate the indirect call
 		pv_this=rcGetVariableIfExprIsOne(pe_arg)
-		as=(PExpression[])NULL
+		as=PExpression[].NULL
 		if !pv_this:
 			pf_owner=getOwningFunction(pecall)
 			pv_this=makevar(pf_owner)
@@ -2682,11 +2689,11 @@ auto coreInit()
 			id_member=readPool(p_members+i)
 			if id_member==g_id_length||id_member==g_id_this||id_member==g_id_return:continue
 			as_indcall.push(call(g_id_dot,exprvar(pv_this),exprstr(id_member)))
-		transformCode(pecall,NULL,as,indcall(as_indcall),NULL)
+		transformCode(pecall,ftransformer_callback.NULL,as,indcall(as_indcall),PExpression[].NULL)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_tuple_call,NULL,ftuple_call_oneval,NULL,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
-	ftuple_bracket_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_tuple_call,fcompiler_callback.NULL,ftuple_call_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
+	ftuple_bracket_oneval=function(PExpression pecall,int expr_oplevel){
 		peobj=readPool(pecall+EXPR_OFS_ARGS+0)
 		pe_subscript=readPool(pecall+EXPR_OFS_ARGS+1)
 		val_subscript=getExprValue(pe_subscript)
@@ -2697,11 +2704,11 @@ auto coreInit()
 					//replace with a tuple dot and remove the call
 					//writePool(readPool(pecall+EXPR_OFS_ARGS+1),EFLAG_STRING+getTupleId(cns_subscript))
 					//pecaller_caller=readPool(pecaller+EXPR_OFS_CALLER)
-					transformCode(pecall,NULL,[lockValueCheck(pe_subscript,g_id_error_int_cannot_change)],call(g_id_dot,peobj,exprstr(getTupleId(cns_subscript))),NULL)
+					transformCode(pecall,ftransformer_callback.NULL,[lockValueCheck(pe_subscript,g_id_error_int_cannot_change)],call(g_id_dot,peobj,exprstr(getTupleId(cns_subscript))),PExpression[].NULL)
 				else
 					//replace with a stdot call and add an object slot
 					pe_stdot_value=readPool(pecall+EXPR_OFS_ARGS+2)
-					transformCode(pecall,NULL,[lockValueCheck(pe_subscript,g_id_error_int_cannot_change)],call(g_id_stdot,peobj,exprstr(getTupleId(cns_subscript)),pe_stdot_value),NULL)
+					transformCode(pecall,ftransformer_callback.NULL,[lockValueCheck(pe_subscript,g_id_error_int_cannot_change)],call(g_id_stdot,peobj,exprstr(getTupleId(cns_subscript)),pe_stdot_value),PExpression[].NULL)
 				return TSCCPValue(){'tid':g_vtid_UNINIT}
 			else
 				errorAtExpr(ETYPE_ERROR,pe_subscript,"invalid tuple subscript '@1'".Replace(["@1",citeexpr(pe_subscript)]))
@@ -2712,8 +2719,8 @@ auto coreInit()
 		errorAtExpr(ETYPE_ERROR,pe_subscript,"tuple subscript '@1' in '@2' must be a constant".Replace(["@1",citeexpr(pe_subscript),"@2",citeexpr(pecall)]))
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_tuple_bracket,NULL,ftuple_bracket_oneval,NULL,FFLAG_SPECIAL)
-	flist_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_tuple_bracket,fcompiler_callback.NULL,ftuple_bracket_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
+	flist_oneval=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
 		t_all=PCTObject(0)
 		pe_argi_previous=PExpression(0)
@@ -2743,11 +2750,11 @@ auto coreInit()
 		as[0]=call(g_id_store,exprvar(pobj_var),indcall([call(g_id_array_type,exprctval(t_all)),expriptr(n_args),exprcns(getid_const(const_type(CTYPE_INT,16),0LL))]))
 		for i=0:n_args-1
 			as[i+1]=indcall([call(g_id_dot,exprvar(pobj_var),exprstr(g_id_set_operator_bracket)),expriptr(i),readPool(pecall+EXPR_OFS_ARGS+i)])
-		transformCode(pecall,NULL, as,exprvar(pobj_var),NULL)
+		transformCode(pecall,ftransformer_callback.NULL, as,exprvar(pobj_var),PExpression[].NULL)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_list,NULL,flist_oneval,NULL,FFLAG_SPECIAL)
-	fhas_member_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_list,fcompiler_callback.NULL,flist_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
+	fhas_member_oneval=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
 		if n_args!=2:
 			errorAtExpr(ETYPE_ERROR,pecall,"__has_member(object,'name') takes exactly 2 arguments")
@@ -2769,8 +2776,8 @@ auto coreInit()
 		//Writeln('>>> ',lookupFunctionVariable(t_object,id_name),' ',getIdString(id_name))
 		return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,32),i64(lookupFunctionVariable(t_object,id_name)))}
 	}
-	registerPrimitive(g_id_has_member,NULL,fhas_member_oneval,NULL,FFLAG_SPECIAL)
-	fmember_list_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_has_member,fcompiler_callback.NULL,fhas_member_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
+	fmember_list_oneval=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
 		if n_args!=1:
 			errorAtExpr(ETYPE_ERROR,pecall,"__member_list(object) takes exactly 1 object/type argument")
@@ -2802,15 +2809,15 @@ auto coreInit()
 		as.push(call(g_id_store,exprvar(pv_return_new),pe_tuple))
 		foreach id,I in id_all_members
 			as.push(call(g_id_stdot,exprvar(pv_return_new),exprstr(getTupleId(int(I))),exprstr(id)))
-		transformCode(pecall,NULL, as,exprvar(pv_return_new),NULL)
+		transformCode(pecall,ftransformer_callback.NULL, as,exprvar(pv_return_new),PExpression[].NULL)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_member_list,NULL,fmember_list_oneval,NULL,FFLAG_SPECIAL)
-	fis_variable_onreach=function(PExpression pecall){
+	registerPrimitive(g_id_member_list,fcompiler_callback.NULL,fmember_list_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
+	fis_variable_onreach=function(PExpression pecall,int expr_oplevel){
 		sccpQueueReach(readPool(pecall+EXPR_OFS_ARGS+0))
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	fis_variable_oneval=function(PExpression pecall){
+	fis_variable_oneval=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
 		if n_args!=2:
 			errorAtExpr(ETYPE_ERROR,pecall,"__is_variable(variable,{}) takes exactly 2 arguments")
@@ -2824,7 +2831,7 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_is_variable,fis_variable_onreach,fis_variable_oneval,fdummy_callback,FFLAG_SPECIAL|FFLAG_STATEMENT_HOST)
-	fget_rtti_oneval=function(PExpression pecall){
+	fget_rtti_oneval=function(PExpression pecall,int expr_oplevel){
 		return TSCCPValue(){'tid':g_vtid_RTVAR,'val':getBuiltinType(const_type(CTYPE_INT,Util.bitSize()))}
 	}
 	fget_rtti_oncgen=function(PExpression pecall,int expr_oplevel){
@@ -2843,18 +2850,18 @@ auto coreInit()
 			g_code_buffer.push('->s7rtti')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_get_rtti,NULL,fget_rtti_oneval,fget_rtti_oncgen,FFLAG_SPECIAL)
-	fforce_reach_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_get_rtti,fcompiler_callback.NULL,fget_rtti_oneval,fget_rtti_oncgen,FFLAG_SPECIAL)
+	fforce_reach_oneval=function(PExpression pecall,int expr_oplevel){
 		pobjfn=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+0),g_vtid_CTVAL)
 		if pobjfn:setFunctionUsed(pobjfn)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_reach,NULL,fforce_reach_oneval,fdummy_callback,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
-	fforce_alive_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_reach,fcompiler_callback.NULL,fforce_reach_oneval,fdummy_callback,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
+	fforce_alive_oneval=function(PExpression pecall,int expr_oplevel){
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_force_alive,NULL,fforce_alive_oneval,fdummy_callback,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
-	fforce_var_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_force_alive,fcompiler_callback.NULL,fforce_alive_oneval,fdummy_callback,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
+	fforce_var_oneval=function(PExpression pecall,int expr_oplevel){
 		assert(readPool(pecall)==EFLAG_FCALL+1)
 		pe_opr=readPool(pecall+EXPR_OFS_ARGS+0)
 		t=getExprType(pe_opr)
@@ -2867,8 +2874,8 @@ auto coreInit()
 		genCode(pe_opr,expr_oplevel)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_force_var,NULL,fforce_var_oneval,fforce_var_oncgen,FFLAG_SPECIAL)
-	freport_error=function(PExpression pecall){
+	registerPrimitive(g_id_force_var,fcompiler_callback.NULL,fforce_var_oneval,fforce_var_oncgen,FFLAG_SPECIAL)
+	freport_error=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
 		if n_args<1:
 			errorAtExpr(ETYPE_ERROR,pecall,"__error('format',...) has to take at least one parameter")
@@ -2878,7 +2885,7 @@ auto coreInit()
 		if !id_serror&&getExprValue(pe_format).tid!=g_vtid_UNINIT:
 			errorAtExpr(ETYPE_ERROR,pecall,"__error('format',...) has to take a format string as the first parameter")
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
-		serror=getIdString(id_serror)
+		serror=new(getIdString(id_serror))
 		s_to_replace=new string[]
 		for i=1:n_args-1
 			s_to_replace.push("@"+string(i))
@@ -2889,7 +2896,7 @@ auto coreInit()
 			if val.tid==g_vtid_CNS:
 				sret=dumpConst(Util.g_const_values[val.val])
 			else if val.tid==g_vtid_STR:
-				sret=getIdString(val.val)
+				sret=new(getIdString(val.val))
 			else if val.tid==g_vtid_CTVAL:
 				sret=dumpObject(val.val)
 			else
@@ -2899,8 +2906,8 @@ auto coreInit()
 		errorAtExpr(ETYPE_ERROR,pecall,serror)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_report_error,NULL,freport_error,fdummy_callback,FFLAG_SPECIAL)
-	farray_or_map_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_report_error,fcompiler_callback.NULL,freport_error,fdummy_callback,FFLAG_SPECIAL)
+	farray_or_map_oneval=function(PExpression pecall,int expr_oplevel){
 		assert(readPool(pecall)==EFLAG_FCALL+2)
 		peobj=readPool(pecall+EXPR_OFS_ARGS+0)
 		pe_subscript=readPool(pecall+EXPR_OFS_ARGS+1)
@@ -2919,8 +2926,8 @@ auto coreInit()
 			transformCode(pecall,NULL, NULL,indcall([indcall([exprctval(t_array),peobj]),pe_subscript,exprcns(getid_const(const_type(CTYPE_INT,16),0LL))]),NULL)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_array_or_map,NULL,farray_or_map_oneval,NULL,FFLAG_SPECIAL)
-	fnew_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_array_or_map,fcompiler_callback.NULL,farray_or_map_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
+	fnew_oneval=function(PExpression pecall,int expr_oplevel){
 		assert(readPool(pecall)==EFLAG_FCALL+1)
 		pe_type=readPool(pecall+EXPR_OFS_ARGS+0)
 		val=getExprValue(pe_type)
@@ -2938,8 +2945,8 @@ auto coreInit()
 			sccpQueueEval(pecall)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_new,NULL,fnew_oneval,NULL,FFLAG_SPECIAL)
-	fset_fflag=function(PExpression pecall){
+	registerPrimitive(g_id_new,fcompiler_callback.NULL,fnew_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
+	fset_fflag=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
 		if n_args!=2:
 			errorAtExpr(ETYPE_ERROR,pecall,"set___fflag(function,value) has to take exactly two parameters")
@@ -2960,10 +2967,10 @@ auto coreInit()
 		setnop(pecall)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_set_fflag,NULL,fset_fflag,NULL,FFLAG_SPECIAL)
+	registerPrimitive(g_id_set_fflag,fcompiler_callback.NULL,fset_fflag,fcompiler_callback.NULL,FFLAG_SPECIAL)
 	//////////////////////////////////////
 	//meta state
-	fmeta_state_oneval=function(PExpression pecall){
+	fmeta_state_oneval=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
 		if n_args!=1:
 			errorAtExpr(ETYPE_ERROR,pecall,"__meta_state('name') has to take exactly one string parameter")
@@ -2979,8 +2986,8 @@ auto coreInit()
 		else
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_meta_state,NULL,fmeta_state_oneval,NULL,FFLAG_SPECIAL)
-	fset_meta_state_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_meta_state,fcompiler_callback.NULL,fmeta_state_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
+	fset_meta_state_oneval=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
 		if n_args!=2:
 			errorAtExpr(ETYPE_ERROR,pecall,"set___meta_state('name',value) has to take exactly two parameters")
@@ -2997,8 +3004,8 @@ auto coreInit()
 			return TSCCPValue(){'tid':g_vtid_CTVAL,'val':pobj_ret}
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_set_meta_state,NULL,fset_meta_state_oneval,fdummy_callback,FFLAG_SPECIAL)
-	fgenerate_json_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_set_meta_state,fcompiler_callback.NULL,fset_meta_state_oneval,fdummy_callback,FFLAG_SPECIAL)
+	fgenerate_json_oneval=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
 		if n_args!=2:
 			errorAtExpr(ETYPE_ERROR,pecall,"__generate_json('category','file') has to take exactly two parameters")
@@ -3021,8 +3028,8 @@ auto coreInit()
 		setnop(pecall)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_generate_json,NULL,fgenerate_json_oneval,fdummy_callback,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
-	fprototype_matches_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_generate_json,fcompiler_callback.NULL,fgenerate_json_oneval,fdummy_callback,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
+	fprototype_matches_oneval=function(PExpression pecall,int expr_oplevel){
 		assert(readPool(pecall)==EFLAG_FCALL+3)
 		pe_arg_tuple=readPool(pecall+EXPR_OFS_ARGS+0)
 		pobjfn_proto=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
@@ -3071,14 +3078,14 @@ auto coreInit()
 					return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,32),0LL)}
 			p_args++
 		//Writeln('match')
-		transformCode(pecall,NULL, NULL,expriptr(1),NULL)
+		replaceExpr(pecall,expriptr(1))
 		return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,32),1LL)}
 	}
-	registerPrimitive(g_id_prototype_matches,NULL,fprototype_matches_oneval,NULL,FFLAG_SPECIAL)
+	registerPrimitive(g_id_prototype_matches,fcompiler_callback.NULL,fprototype_matches_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
 	if ENABLE_FEM_DSL:{
 	//////////////////////////////////////
 	//symbolic derivatives
-	fderiv_onreach=function(PExpression pecall){
+	fderiv_onreach=function(PExpression pecall,int expr_oplevel){
 		er=readPoolTyped(pecall,TExpression)
 		n_args=(er.flags_n_args&~EFLAG_MASK)
 		if n_args<2:
@@ -3600,8 +3607,8 @@ auto coreInit()
 			Writeln("after symderiv transformation: "+dumpExpr(readPool(pobjfn_dup+FUNCTION_OFS_PEDECL),fcolor_just_reach))
 		return TSCCPValue(){'tid':g_vtid_CTVAL,'val':pobjfn_dup}
 	}
-	registerPrimitive(g_id_symderiv,fderiv_onreach,fsymderiv_oneval,NULL,FFLAG_SPECIAL|FFLAG_DEPENDS_ON_OTHER_CODE)
-	finline_deriv_oneval=function(PExpression pecall){
+	registerPrimitive(g_id_symderiv,fderiv_onreach,fsymderiv_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL|FFLAG_DEPENDS_ON_OTHER_CODE)
+	finline_deriv_oneval=function(PExpression pecall,int expr_oplevel){
 		//directly expand the thing
 		//Writeln(parser.Canonical.dumpExpr(pecall,function(){return -1}))
 		peexpr=readPool(pecall+(EXPR_OFS_ARGS+0))
@@ -3673,8 +3680,8 @@ auto coreInit()
 		//return getExprValue(pe_replace)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(getid("_deriv"),NULL,finline_deriv_oneval,NULL,FFLAG_BUILTIN_HACK)
-	fdeclare_deriv_oneval=function(PExpression pecall){
+	registerPrimitive(getid("_deriv"),fcompiler_callback.NULL,finline_deriv_oneval,fcompiler_callback.NULL,FFLAG_BUILTIN_HACK)
+	fdeclare_deriv_oneval=function(PExpression pecall,int expr_oplevel){
 		USER_FLAG_DERIVCB_RELEVANT=1
 		//////////////
 		n_args=getFCallNArgs(pecall)
@@ -3850,10 +3857,10 @@ auto coreInit()
 		setnop(pecall)
 		return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,32),1LL)}
 	}
-	registerPrimitive(getid("set__deriv"),NULL,fdeclare_deriv_oneval,fdummy_callback,FFLAG_BUILTIN_HACK)
+	registerPrimitive(getid("set__deriv"),fcompiler_callback.NULL,fdeclare_deriv_oneval,fdummy_callback,FFLAG_BUILTIN_HACK)
 	//////////////////////////////////////
 	//quadratic decomposition
-	fANMdecompose_onreach=function(PExpression pecall){
+	fANMdecompose_onreach=function(PExpression pecall,int expr_oplevel){
 		er=readPoolTyped(pecall,TExpression)
 		n_args=(er.flags_n_args&~EFLAG_MASK)
 		if n_args<2:
@@ -4481,7 +4488,7 @@ auto coreInit()
 		//clearUserFlags(code,0)
 		pe_decl=readPool(pobjfn_dup+FUNCTION_OFS_PEDECL)
 		n_args_decl=getFCallNArgs(pe_decl)
-		sccpQueueReach(insertCallAt(pe_decl,~(n_args_decl-1),function(){return pe_code_new}))
+		sccpQueueReach(insertCallAt(pe_decl,~(n_args_decl-1),function(PExpression pe){return pe_code_new}))
 		writePool(pobjfn_dup+FUNCTION_OFS_CODE,pe_code_new)
 		writePool(pobjfn_dup+FUNCTION_OFS_PVAR_RETURN,pv_const_array)
 		writePool(pv_const_array+VAR_OFS_ID,g_id_return)
@@ -4510,25 +4517,25 @@ auto coreInit()
 		//Writeln(buf_terms)
 		//Writeln(buf_pequ)
 		//Writeln(evid_ret)
-		transformCode(pecall,NULL,NULL,indcall([exprctval(pobjfn_ANM_decomposed_result),
+		replaceExpr(pecall,indcall([exprctval(pobjfn_ANM_decomposed_result),
 			pe_const_terms,expriptr(buf_terms.n),
 			pe_const_pequ,expriptr(buf_pequ.n),
 			pe_const_evid,expriptr(evid_ret.n),
 			pe_const_evid_params,expriptr(evid_params.n),
 			expriptr(consts.n),expriptr(evid_realvar.n),
-			exprctval(pobjfn_dup)]),NULL)
+			exprctval(pobjfn_dup)]))
 		writePool(pobjfn_dup+FUNCTION_OFS_FLAGS,(readPool(pobjfn_dup+FUNCTION_OFS_FLAGS)&~FFLAG_IS_SYMDERIV_TEMP)|FFLAG_IS_SYMDERIV)
 		if DEBUG_DUMP_DERIV:
 			Writeln('=========ANM decomposed')
 			Writeln(dumpExpr(pe_code_new,NULL))
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_ANM_decompose,fANMdecompose_onreach,fANMdecompose_oneval,NULL,FFLAG_SPECIAL|FFLAG_DEPENDS_ON_OTHER_CODE)
+	registerPrimitive(g_id_ANM_decompose,fANMdecompose_onreach,fANMdecompose_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL|FFLAG_DEPENDS_ON_OTHER_CODE)
 	}
 	//////////////////////////////////////
 	//operator overloading
 	auto enableOverloading(int id_opr)
-		fadd_overload_oneval=function(PExpression pecall){
+		fadd_overload_oneval=function(PExpression pecall,int expr_oplevel){
 			n_args=getFCallNArgs(pecall)
 			pe_fn=readPool(pecall+EXPR_OFS_ARGS+n_args-1)
 			pobjfn=getExprValueAs(pe_fn,g_vtid_CTVAL)
@@ -4543,16 +4550,15 @@ auto coreInit()
 				if tisclass(t)&&!tisfunction(t):is_valid=1
 				ts[i+1]=t
 			if !is_valid:
-				errorAtExpr(ETYPE_ERROR,pecall,"overloaded operator '@1' is invalid - there must be at least one object-typed operand".Replace("@1",citeexpr(pecall)))
+				errorAtExpr(ETYPE_ERROR,pecall,"overloaded operator '@1' is invalid - there must be at least one object-typed operand".Replace(["@1",citeexpr(pecall)]))
 				return TSCCPValue(){'tid':g_vtid_UNINIT}
 			writePool(pobjfn+FUNCTION_OFS_NAME,id_opr)
 			writeCtUniqueInEvalFlow(ts,pobjfn)
-			pecaller=readPool(pecall+EXPR_OFS_CALLER)
-			sccpQueueReach(insertCallAt(pecaller,pecall,function(){return pe_fn}))
+			replaceExpr(pecall,pe_fn)
 			setnop(pecall)
 			return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,32),1LL)}
 		}
-		registerPrimitive(catid(g_id_set_,id_opr),NULL,fadd_overload_oneval,NULL,FFLAG_SPECIAL)
+		registerPrimitive(catid(g_id_set_,id_opr),fcompiler_callback.NULL,fadd_overload_oneval,fcompiler_callback.NULL,FFLAG_SPECIAL)
 	auto checkOverload(int id_opr,PExpression pecall)
 		n_args=getFCallNArgs(pecall)
 		need_check=0
@@ -4589,7 +4595,7 @@ auto coreInit()
 			return 1
 		return 2
 	}
-	flogicnot_oneval=function(PExpression pecall){
+	flogicnot_oneval=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
 		assert(n_args==1)
 		val_a=getExprValue(readPool(pecall+EXPR_OFS_ARGS+0))
@@ -4614,7 +4620,7 @@ auto coreInit()
 			g_code_buffer.push(')')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_operator_logic_not,NULL,flogicnot_oneval,flogicnot_oncgen,FFLAG_ARITHMETIC|FFLAG_IS_PURE)
+	registerPrimitive(g_id_operator_logic_not,fcompiler_callback.NULL,flogicnot_oneval,flogicnot_oncgen,FFLAG_ARITHMETIC|FFLAG_IS_PURE)
 	fbitnot_oneval=function(PExpression pecall,int expr_oplevel){
 		if checkOverload(g_id_operator_bit_not,pecall):
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -4654,7 +4660,7 @@ auto coreInit()
 			g_code_buffer.push(')')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_operator_bit_not,NULL,fbitnot_oneval,fbitnot_oncgen,FFLAG_ARITHMETIC|FFLAG_IS_PURE)
+	registerPrimitive(g_id_operator_bit_not,fcompiler_callback.NULL,fbitnot_oneval,fbitnot_oncgen,FFLAG_ARITHMETIC|FFLAG_IS_PURE)
 	enableOverloading(g_id_operator_bit_not)
 	fnegation_oneval=function(PExpression pecall,int expr_oplevel){
 		if checkOverload(g_id_operator_neg,pecall):
@@ -4699,10 +4705,10 @@ auto coreInit()
 			g_code_buffer.push(')')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_operator_neg,NULL,fnegation_oneval,fnegation_oncgen,FFLAG_ARITHMETIC|FFLAG_IS_PURE)
+	registerPrimitive(g_id_operator_neg,fcompiler_callback.NULL,fnegation_oneval,fnegation_oncgen,FFLAG_ARITHMETIC|FFLAG_IS_PURE)
 	enableOverloading(g_id_operator_neg)
 	//////
-	fadd_gen_int_oneval=function(PExpression pecall){
+	fadd_gen_int_oneval=function(PExpression pecall,int expr_oplevel){
 		if checkOverload(g_id_operator_add_generic_int,pecall):
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
 		n_args=getFCallNArgs(pecall)
@@ -4717,11 +4723,11 @@ auto coreInit()
 			sccpQueueReach(insertCallAt(pecall,0,function(){return exprctval(getBuiltin(g_id_operator_add))}))
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_operator_add_generic_int,NULL,fadd_gen_int_oneval,NULL,FFLAG_ARITHMETIC|FFLAG_IS_PURE)
+	registerPrimitive(g_id_operator_add_generic_int,fcompiler_callback.NULL,fadd_gen_int_oneval,fcompiler_callback.NULL,FFLAG_ARITHMETIC|FFLAG_IS_PURE)
 	enableOverloading(g_id_operator_add_generic_int)
 	//////////////////////////////////////
 	//raw C
-	fcwrap_oneval=function(PExpression pecall){
+	fcwrap_oneval=function(PExpression pecall,int expr_oplevel){
 		n_args=getFCallNArgs(pecall)
 		if n_args<2:
 			errorAtExpr(ETYPE_ERROR,pecall,"__C(type,'code',...) takes at least 2 arguments")
@@ -4752,7 +4758,7 @@ auto coreInit()
 				//hack for func
 				pe_argi=exprctval(val.val)
 			genCode(pe_argi,LEVEL_POSTFIX)
-			replace_args.push("@"+string.ToBase(i-1,0,32))
+			replace_args.push("@"+toBase32(i-1))
 			replace_args.push(g_code_buffer)
 		g_code_buffer=sbk
 		if replace_args.n:
@@ -4764,12 +4770,12 @@ auto coreInit()
 		else if stemplate.StartsWith("@decl:"):
 			//declare a struct and obtain a pointer
 			sdecl=g_c_scope_stack.back().outer_code_buffer
-			sdecl.push(stemplate[6:].Replace("@1",'s7_v'+string.ToBase(pecall,0,32)))
+			sdecl.push(stemplate[6:].Replace("@1",'s7_v'+toBase32(pecall)))
 			sdecl.push(';')
 			if expr_oplevel:
 				g_code_buffer.push('(')
 			g_code_buffer.push('(void*)&s7_v')
-			g_code_buffer.push(string.ToBase(pecall,0,32))
+			g_code_buffer.push(toBase32(pecall))
 			if expr_oplevel:
 				g_code_buffer.push(')')
 		else if stemplate.StartsWith("@raw:"):
@@ -4777,7 +4783,7 @@ auto coreInit()
 			g_c_global_buffer.push(stemplate[5:])
 			vid=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+2),g_vtid_CNS)
 			g_code_buffer.push('s7_CD')
-			g_code_buffer.push(string.ToBase(vid,0,32))
+			g_code_buffer.push(toBase32(vid))
 		else
 			if expr_oplevel:
 				g_code_buffer.push('(')
@@ -4786,8 +4792,8 @@ auto coreInit()
 				g_code_buffer.push(')')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_C_wrap,NULL,fcwrap_oneval,fcwrap_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
-	registerPrimitive(g_id_C_wrap_pure,NULL,fcwrap_oneval,fcwrap_oncgen,FFLAG_SPECIAL|FFLAG_IS_PURE)
+	registerPrimitive(g_id_C_wrap,fcompiler_callback.NULL,fcwrap_oneval,fcwrap_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
+	registerPrimitive(g_id_C_wrap_pure,fcompiler_callback.NULL,fcwrap_oneval,fcwrap_oncgen,FFLAG_SPECIAL|FFLAG_IS_PURE)
 	//////////////////////////////////////
 	//debug
 	fcallstack_oncgen=function(PExpression pecall,int expr_oplevel){
@@ -4803,17 +4809,17 @@ auto coreInit()
 			g_code_buffer.push("spapPopCallStack();")
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_callstack,NULL,NULL,fcallstack_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
+	registerPrimitive(g_id_callstack,fcompiler_callback.NULL,fcompiler_callback.NULL,fcallstack_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
 	fset_callstack_oncgen=function(PExpression pecall,int expr_oplevel){
 		genLineInfoExpr(pecall)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_set_callstack,NULL,NULL,fset_callstack_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
+	registerPrimitive(g_id_set_callstack,fcompiler_callback.NULL,fcompiler_callback.NULL,fset_callstack_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
 	//////////////////////////////////////
 	//the operators: promote both sides, grand switch, do the op
 	inline CreateArithOperator(string opname,char optoken,int level,const fop,const IS_INT_ONLY,const IS_CMP)
 		id_opr=getid("operator"+string(opname))
-		auto fop_oneval=function(PExpression pecall){
+		auto fop_oneval=function(PExpression pecall,int expr_oplevel){
 			if checkOverload(id_opr,pecall):
 				return TSCCPValue(){'tid':g_vtid_UNINIT}
 			n_args=getFCallNArgs(pecall)
@@ -5005,7 +5011,7 @@ auto coreInit()
 				g_code_buffer.push(')')
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
 		}
-		registerPrimitive(id_opr,NULL,fop_oneval,fop_oncgen,FFLAG_ARITHMETIC|FFLAG_IS_PURE)
+		registerPrimitive(id_opr,fcompiler_callback.NULL,fop_oneval,fop_oncgen,FFLAG_ARITHMETIC|FFLAG_IS_PURE)
 		enableOverloading(id_opr)
 	CreateArithOperator("*",'*',40,function(a,b){return a*b},0,0)
 	CreateArithOperator("/",'/',40,function(a,b){return a/b},0,0)
@@ -5465,7 +5471,8 @@ auto registerPrimitive(int id,fcompiler_callback fonreach,fcompiler_callback fon
 auto registerConst(int id,int tid,int val)
 	value=poolObject(TVariable(){
 		'id':id,
-		'current_value':TSCCPValue(){'tid':tid,'val':val}})
+		'tid':tid,
+		'val':val})
 	g_symbols[id].user_slot=value
 
 //struct TCompilerPrimitive
@@ -5485,14 +5492,12 @@ auto registerCompilerCallback(fcompiler_callback f)
 auto varWrap(PCTObject v)
 	//create a VARIABLE that is a TFunction that exports those two objects
 	//do we need TFunction? positive
-	return poolObject(TVariable(){
-		'current_value':TSCCPValue(){'tid':g_vtid_CTVAL,'val':v}})
+	return poolObject(TVariable(){'tid':g_vtid_CTVAL,'val':v})
 
 auto cnsWrap(int cid)
 	//create a VARIABLE that is a TFunction that exports those two objects
 	//do we need TFunction? positive
-	return poolObject(TVariable(){
-		'current_value':TSCCPValue(){'tid':g_vtid_CNS,'val':cid}})
+	return poolObject(TVariable(){'tid':g_vtid_CNS,'val':cid})
 
 auto createConstant(int cns)
 	return cnsWrap(getid_const(const_type(CTYPE_INT,32),i64(cns)))
@@ -5791,6 +5796,8 @@ auto mergeValues(PExpression pe,TSCCPValue val_old,TSCCPValue val_new0,PExpressi
 				setFunctionUsed(val_new.val)
 				setParameterSlotTypes(val_new.val)
 				//queueEvalFunction(val_new.val)
+			if !val_final.val:
+				val_final=val_old
 	else if val_old.tid!=val_new.tid:
 		//Writeln(getIdString(val_old.tid),' | ',getIdString(val_new.tid))
 		val_final.tid=g_vtid_RTVAR
@@ -5819,10 +5826,14 @@ auto mergeValues(PExpression pe,TSCCPValue val_old,TSCCPValue val_new0,PExpressi
 		if Util.ctNumber(val_old.val)!=Util.ctNumber(val_new.val):
 			val_final.tid=g_vtid_RTVAR
 			val_final.val=typeMerge(pe,getValueType(val_old),getValueType(val_new),pe_old,pe_new,0)
+			if !val_final.val:
+				val_final=val_old
 	else if val_old.tid==g_vtid_STR:
 		//strings are interned
 		val_final.tid=g_vtid_RTVAR
 		val_final.val=getStdObject(pe,STDTYPE_STRING)
+		if !val_final.val:
+			val_final=val_old
 	else if val_old.tid==g_vtid_CTVAL:
 		//where val is a PCTObject
 		//meta functions should refuse double-evaluation
@@ -5933,7 +5944,7 @@ auto sccp(PExpression g_pe_top)
 	if Platform.BUILD=="debug":
 		g_counters_sccp_calls++
 	if g_pe_top:sccpQueueReach(g_pe_top)
-	Q0=(PExpression[])NULL
+	Q0=PExpression[].NULL
 	q0head=0
 	while g_sccp_queue_reach.n||g_sccp_queue_eval.n
 		//sweep first, eval later
@@ -6125,7 +6136,7 @@ auto evalCodeDependingFunctions()
 	//Writeln('g_sccp_queue_eval=',g_sccp_queue_eval.n)
 	ret=evalcdf_dfs(g_pe_top)
 	if !changed&&cdf_set.n>0:
-		h=cdf_set.hash()
+		h=uptr(cdf_set.__hash__())
 		if g_cdf_hash==h:
 			g_cdf_unchanged_count++
 			if g_cdf_unchanged_count>=3:
@@ -7792,7 +7803,7 @@ auto deadelim()
 			if !testUserFlag(pe,QUEUE_FLAG_REACH):return
 			if isBuiltin(pe,g_id_nop):return
 			n_args=getFCallNArgs(pe)
-			as_recurse=(PExpression[])NULL
+			as_recurse=PExpression[].NULL
 			dead_parent=0
 			if isBuiltin(pe,g_id_function):
 				//test the return value - if it gets dead, we remove it
@@ -8036,12 +8047,12 @@ auto createRootExpression(string s_main_function_name)
 					else
 						Writeln('...;')
 			dumpNamespace(0,g_root_namespace)
-	g_top_level_exprs=NULL
+	g_top_level_exprs=PExpression[].NULL
 	//resolve names
 	//Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
 	resolveNames(g_pe_top,1)
 	//flatten nested blocks
-	g_pe_top=flattenAfterParsing(NULL,g_pe_top)
+	g_pe_top=flattenAfterParsing(PExpression[].NULL,g_pe_top)
 
 auto clearUserFlags(PExpression pe,int flag0)
 	writePool(pe+EXPR_OFS_USER_FLAGS,flag0|(readPool(pe+EXPR_OFS_USER_FLAGS)&~USER_FLAG_MASK))
@@ -8127,7 +8138,7 @@ auto cloneFunction(PCTObject pobjfn)
 	pe_decl_old=readPool(pobjfn+FUNCTION_OFS_PEDECL)
 	pe_decl_cloned=readPool(pobjfn_cloned+FUNCTION_OFS_PEDECL)
 	//pe_decl_caller=readPool(pe_decl_old+EXPR_OFS_CALLER)
-	transformCode(pe_decl_old,NULL, [pe_decl_cloned],pe_decl_old,NULL)
+	transformCode(pe_decl_old,ftransformer_callback.NULL, [pe_decl_cloned],pe_decl_old,PExpression[].NULL)
 	return pobjfn_cloned
 
 auto enableNameLookup(PCTObject pobjfn)
@@ -8404,12 +8415,12 @@ auto dfsFlattenBlocks(PExpression[] block_as,PExpression pe,int nest_depth, int 
 
 auto flattenBlocks()
 	//g_pe_top=dfsFlattenBlocks(NULL,g_pe_top,0,1)
-	g_pe_top=dfsFlattenBlocks(NULL,g_pe_top,0,0).x
+	g_pe_top=dfsFlattenBlocks(PExpression[].NULL,g_pe_top,0,0).x
 	
 auto cleanup()
-	g_pe_top=dfsFlattenBlocks(NULL,g_pe_top,0,1).x
+	g_pe_top=dfsFlattenBlocks(PExpression[].NULL,g_pe_top,0,1).x
 	if Platform.BUILD=="debug":
-		dfsExpr(g_pe_top,function(){g_counters_final_code_size++;return 1;})
+		dfsExpr(g_pe_top,function(PExpression pe){g_counters_final_code_size++;return 1;})
 
 ////////////////////////////////////
 //the type system
@@ -8598,7 +8609,6 @@ auto ancestorMerge(const is_death,PExpression pe_old0,PExpression pe_new0,functi
 			pe_new=pecaller_new
 
 auto removeSCCPJunk()
-	fremove_junk=(function(PExpression pe):int)NULL
 	fremove_junk=function(PExpression pe){
 		if isBuiltin(pe,g_id_assert_ctval):
 			//remove the assert_ctval guys
@@ -8802,7 +8812,6 @@ auto translateLambdas()
 	lambda_stack=new PCTObject[]
 	//Writeln('--- 1')
 	g_all_lambdas=new PCTObject[]
-	fscan_for_lambdas=(function(PExpression pe):int)NULL
 	fscan_for_lambdas=function(PExpression pe){
 		//if !testUserFlag(pe,QUEUE_FLAG_REACH)&&!isExpr(pe,EFLAG_VARIABLE):
 		//	return 0
@@ -9849,7 +9858,7 @@ auto createCallGraphDfs(PExpression pe,PCTObject[] edges_caller)
 
 auto createCallGraph()
 	g_all_functions=new PCTObject[]
-	createCallGraphDfs(g_pe_top,NULL)
+	createCallGraphDfs(g_pe_top,PCTObject[].NULL)
 	g_all_functions.Sort()
 	g_all_functions.Unique()
 	//count the inverse edges
@@ -10545,7 +10554,7 @@ auto instrumentForDebugging()
 			cbobj_oncgen=readPool(pobjfn+FUNCTION_OFS_ONCGEN)
 			if cbobj_oncgen==g_cbobj_cimport_cgen||cbobj_oncgen==g_cbobj_generated_function_oncgen:
 				//tempify all args
-				as=(PExpression[])NULL
+				as=PExpression[].NULL
 				n_args=getFCallNArgs(pe)
 				for i=-1:n_args-1
 					pe_argi=readPool(pe+EXPR_OFS_ARGS+i)
@@ -10668,17 +10677,17 @@ auto genCode(PExpression pe,int expr_oplevel)
 			//ft=readPoolTyped(t_raw_function_type,TFunctionType)
 			g_c_ftypes.push(t_raw_function_type)
 			g_code_buffer.push('((s7_TF')
-			g_code_buffer.push(string.ToBase(t_raw_function_type,0,32))
+			g_code_buffer.push(toBase32(t_raw_function_type))
 			g_code_buffer.push(')')
 			genCode(pecallee,LEVEL_POSTFIX)
 			g_code_buffer.push('->m_')
-			g_code_buffer.push(string.ToBase(lookupFunctionVariable(pftype,g_id_ptr_fn),0,32))
+			g_code_buffer.push(toBase32(lookupFunctionVariable(pftype,g_id_ptr_fn)))
 			g_code_buffer.push(')(')
 			//if ft.flags&FFLAG_LAMBDA_NEEDS_PARENT_POINTER_ARG:
 			//	g_code_buffer.push('s7_BL,')
 			genCode(pecallee,LEVEL_POSTFIX)
 			g_code_buffer.push('->m_')
-			g_code_buffer.push(string.ToBase(lookupFunctionVariable(pftype,g_id_ptr_this),0,32))
+			g_code_buffer.push(toBase32(lookupFunctionVariable(pftype,g_id_ptr_this)))
 			for i=0:n_args-1
 				g_code_buffer.push(',')
 				genCode(readPool(pe+EXPR_OFS_ARGS+i),LEVEL_ASSIGNMENT)
@@ -10730,7 +10739,7 @@ auto genCode(PExpression pe,int expr_oplevel)
 				//is-lambda test when generating variables
 				assert(0)
 				g_code_buffer.push('s7_BL->m_')
-				g_code_buffer.push(string.ToBase(pobj_var,0,32))
+				g_code_buffer.push(toBase32(pobj_var))
 			else
 				genVar(pobj_var)
 		break
@@ -10751,14 +10760,14 @@ auto genFunctionName(PCTObject pobjfn)
 		genFilteredName(fn.id_name)
 	else
 		g_code_buffer.push("s7_f")
-		g_code_buffer.push(string.ToBase(pobjfn,0,32))
+		g_code_buffer.push(toBase32(pobjfn))
 		if fn.id_name&&g_readable_c_code:
 			g_code_buffer.push('_')
 			genFilteredName(fn.id_name)
 
 auto genVar(PCTObject pobj_var)
 	g_code_buffer.push('s7_v')
-	g_code_buffer.push(string.ToBase(pobj_var,0,32))
+	g_code_buffer.push(toBase32(pobj_var))
 	if g_readable_c_code:
 		id_name=readPool(pobj_var+VAR_OFS_ID)
 		if id_name:
@@ -10803,7 +10812,7 @@ auto cgPopScope()
 
 auto genClassName(PCTObject t)
 	g_code_buffer.push("struct s7_TL")
-	g_code_buffer.push(string.ToBase(t,0,32))
+	g_code_buffer.push(toBase32(t))
 	if g_readable_c_code:
 		id_name=readPool(t+FUNCTION_OFS_NAME)
 		if id_name:
@@ -10877,7 +10886,7 @@ auto genAllCode()
 		//avoid duplication
 		auto s=g_struct_code_per_type[t]
 		if !s:return
-		g_struct_code_per_type[t]=NULL
+		g_struct_code_per_type[t]=string.NULL
 		//generate depends first
 		plambda_vars=readPool(t+FUNCTION_OFS_PLAMBDA_VARS)
 		nlambda_vars=readPool(t+FUNCTION_OFS_NLAMBDA_VARS)
@@ -10904,7 +10913,7 @@ auto genAllCode()
 		else
 			g_code_buffer.push('void')
 		g_code_buffer.push('(*s7_TF')
-		g_code_buffer.push(string.ToBase(t_raw_function_type,0,32))
+		g_code_buffer.push(toBase32(t_raw_function_type))
 		g_code_buffer.push(')(void*')
 		for j=0:ft.n_args-1
 			g_code_buffer.push(',')

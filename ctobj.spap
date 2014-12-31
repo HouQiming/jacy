@@ -152,17 +152,18 @@ inline poolObject(auto a)
 
 inline getTypeDescription(const T)
 	if T==TExpression:return g_desc_TExpression
-	if T==TVarExpression:return g_desc_TVarExpression
-	if T==TCnsExpression:return g_desc_TCnsExpression
-	if T==TExprHeader:return g_desc_TExprHeader
-	if T==TFunction:return g_desc_TFunction
-	if T==TSCCPValue:return g_desc_TSCCPValue
-	if T==TVariable:return g_desc_TVariable
-	if T==TCtUniqueEvalQueue:return g_desc_TCtUniqueEvalQueue
-	if T==TFunctionType:return g_desc_TFunctionType
-	if T==TNameSpace:return g_desc_TNameSpace
-	if T==TAdvancedEpos:return g_desc_TAdvancedEpos
-	__error("type @1 doesn't have a description",T)
+	else if T==TVarExpression:return g_desc_TVarExpression
+	else if T==TCnsExpression:return g_desc_TCnsExpression
+	else if T==TExprHeader:return g_desc_TExprHeader
+	else if T==TFunction:return g_desc_TFunction
+	else if T==TSCCPValue:return g_desc_TSCCPValue
+	else if T==TVariable:return g_desc_TVariable
+	else if T==TCtUniqueEvalQueue:return g_desc_TCtUniqueEvalQueue
+	else if T==TFunctionType:return g_desc_TFunctionType
+	else if T==TNameSpace:return g_desc_TNameSpace
+	else if T==TAdvancedEpos:return g_desc_TAdvancedEpos
+	else
+		__error("type @1 doesn't have a description",T)
 
 //coulddo: pre-fetched pointer in release mode
 inline readPool(iptr p)
@@ -502,17 +503,17 @@ auto dfsExpr(PExpression pe,function(PExpression):int fcallback)
 
 inline setUserFlag(PExpression pe,int flag)
 	if EXPR_OFS_USER_FLAGS!=VAR_OFS_USER_FLAGS:
-		__error("EXPR_OFS_USER_FLAGS and VAR_OFS_USER_FLAGS have to be equal")
+		__error("EXPR_OFS_USER_FLAGS and VAR_OFS_USER_FLAGS have to be equal, but @1!=@2",EXPR_OFS_USER_FLAGS,VAR_OFS_USER_FLAGS)
 	writePool(pe+EXPR_OFS_USER_FLAGS,readPool(pe+EXPR_OFS_USER_FLAGS)|flag)
 
 inline unsetUserFlag(PExpression pe,int flag)
 	if EXPR_OFS_USER_FLAGS!=VAR_OFS_USER_FLAGS:
-		__error("EXPR_OFS_USER_FLAGS and VAR_OFS_USER_FLAGS have to be equal")
+		__error("EXPR_OFS_USER_FLAGS and VAR_OFS_USER_FLAGS have to be equal, but @1!=@2",EXPR_OFS_USER_FLAGS,VAR_OFS_USER_FLAGS)
 	writePool(pe+EXPR_OFS_USER_FLAGS,readPool(pe+EXPR_OFS_USER_FLAGS)&~flag)
 
 inline testUserFlag(PExpression pe,int flag)
 	if EXPR_OFS_USER_FLAGS!=VAR_OFS_USER_FLAGS:
-		__error("EXPR_OFS_USER_FLAGS and VAR_OFS_USER_FLAGS have to be equal")
+		__error("EXPR_OFS_USER_FLAGS and VAR_OFS_USER_FLAGS have to be equal, but @1!=@2",EXPR_OFS_USER_FLAGS,VAR_OFS_USER_FLAGS)
 	return (readPool(pe+EXPR_OFS_USER_FLAGS)&flag)
 
 auto cloneFunctionEx(PCTObject pobjfn,PCTObject[PCTObject] var_map,int flags)
@@ -539,7 +540,7 @@ auto cloneFunctionEx(PCTObject pobjfn,PCTObject[PCTObject] var_map,int flags)
 	fn.pparam_value_slots=p_param_values
 	assert(g_desc_TSCCPValue.length==2)
 	n_funcargs=(n_args-2)>>1
-	g_ctobject_pool.addn(n_funcargs*3)
+	g_ctobject_pool.resize(p_param_values+n_funcargs*3)
 	all_pe_ldparam=new PExpression[n_funcargs]
 	n_found=0
 	ffind_ldparams=function(PExpression pe){
@@ -589,7 +590,7 @@ auto cloneExpr(PExpression pe)
 
 auto setnop(PExpression pe)
 	//this one is safer in that pe args remain enumerable
-	insertCallAt(pe,0,function(){return exprvar(g_symbols[g_id_nop].user_slot)})
+	insertCallAt(pe,0,function(PExpression pe){return exprvar(g_symbols[g_id_nop].user_slot)})
 	writePool(pe,EFLAG_FCALL)
 
 auto setnopNested(PExpression pe)
@@ -611,24 +612,18 @@ struct TDynamicObject
 g_tid_TDynamicObject=getid("TDynamicObject")
 
 g_shared_hash=new CSharedMemberHash
-auto readGlobalI2Hash(int2 key)
-	slot=g_shared_hash._find(0,key)
-	if slot<0:return 0
-	return g_shared_hash.a[slot].value;
+inline readGlobalI2Hash(int2 key)
+	return g_shared_hash[key]
 
-auto writeGlobalI2Hash(int2 key,PCTObject value)
-	slot=g_shared_hash._find(1,key)
-	g_shared_hash.a[slot].value=value
+inline writeGlobalI2Hash(int2 key,PCTObject value)
+	g_shared_hash[key]=value
 
 g_epos_hash=new CSharedMemberHash
-auto readEPosHash(int2 key)
-	slot=g_epos_hash._find(0,key)
-	if slot<0:return 0
-	return g_epos_hash.a[slot].value;
+inline readEPosHash(int2 key)
+	return g_epos_hash[key]
 
-auto writeEPosHash(int2 key,PCTObject value)
-	slot=g_epos_hash._find(1,key)
-	g_epos_hash.a[slot].value=value
+inline writeEPosHash(int2 key,PCTObject value)
+	g_epos_hash[key]=value
 
 /////////////////////////////////////////////////////////////
 //CCNV_NORMAL=0
@@ -948,7 +943,7 @@ auto dumpType(PCTObject t)
 		else
 			return dumpFunction(t)
 	//assert(0)
-	return "<invalid-type-"+string.ToHex(t)+">"
+	return "<invalid-type-"+formatNumber(t,{base:16,align:8})+">"
 
 auto dumpFunction(PCTObject pobjfn)
 	pe_decl=readPool(pobjfn+FUNCTION_OFS_PEDECL)
@@ -1219,7 +1214,8 @@ g_files_to_parse=new int[]
 g_dependency_edges=new int2[]
 g_dumpexpr_name_usage=new PCTObject[int]
 g_dump_additional_text=new string
-auto dumpExprEx(PExpression pe,function(PExpression pe):int fcolorer,int indent)
+fcolorer_callback=function(PExpression pe):int
+auto dumpExprEx(PExpression pe, fcolorer_callback fcolorer,int indent)
 	if !pe:
 		g_id_errored=1
 		return "<null-expr>"
@@ -1340,7 +1336,7 @@ auto dumpExprEx(PExpression pe,function(PExpression pe):int fcolorer,int indent)
 	}
 	return ""
 tm_dump=tnew("dump")
-auto dumpExpr(PExpression pe,function(PExpression pe):int fcolorer)
+auto dumpExpr(PExpression pe,fcolorer_callback fcolorer)
 	tbegin(tm_dump)
 	ret=dumpExprEx(pe,fcolorer,0)
 	tend(tm_dump)
@@ -1351,7 +1347,7 @@ auto dumpExpr(PExpression pe,function(PExpression pe):int fcolorer)
 //	foreach sline in scode[:scode.n-2].TokenizeIncludingEmpty("\n")
 //		ret.push("  "+sline+"\n")
 //	return ret
-auto dumpCode(PExpression code,function(PExpression pe):int fcolorer){
+auto dumpCode(PExpression code,fcolorer_callback fcolorer){
 	return "=======================================\n"+dumpExpr(code,fcolorer)
 }
 auto dumpObject(PCTObject pobj)

@@ -20,10 +20,10 @@ module CharSet
 		for(;s<e.n;s++)
 			if s+1<e.n&&e[s+1]=='-':
 				for(i=u32(u8(e[s]));i<=u32(u8(e[s+2]));i++)
-					ok[i>>5]|=(1u<<(i&31u));
+					ok[i>>5]|=(1u<<int(i&31u));
 				s+=2
 			else
-				ok[e[s]>>5]|=(1u<<(u32(u8(e[s]))&31u));
+				ok[e[s]>>5]|=(1u<<int(u32(u8(e[s]))&31u));
 		if inv:
 			for i=0:7
 				ok[i]=~ok[i]
@@ -173,7 +173,7 @@ auto tokenize(iptr ptr_start,int g_ignore_indents)
 		matcher=int(ch0==')'?'(':(ch0=='}'?'{':(ch0==']'?'[':'{')))
 		errored=0
 		err_pos=0
-		estr=(string)NULL
+		estr=string.NULL
 		while brastk.n&&brastk.back().ch!=matcher:
 			//compensate for the unmatching bracket
 			if !errored:
