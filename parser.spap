@@ -1,16 +1,15 @@
-module:parser
 import "System.spap"
 import "ctobj.spap"
 import "util.spap"
 import System.Algorithm.*
 import System.Console.*
-import util.*
-import ctobj.*
+import Util.*
+import Ctobj.*
 
 //////////////////////////////////////
 //tokenization
 module CharSet
-	u32[] charset(string e)
+	auto charset(string e)
 		ok=new u32[8]
 		for i=0:7
 			ok[i]=0
@@ -20,11 +19,11 @@ module CharSet
 			inv=1;s++
 		for(;s<e.n;s++)
 			if s+1<e.n&&e[s+1]=='-':
-				for(i=(u32)(u8)e[s];i<=(u32)(u8)e[s+2];i++)
+				for(i=u32(u8(e[s]));i<=u32(u8(e[s+2]));i++)
 					ok[i>>5]|=(1u<<(i&31u));
 				s+=2
 			else
-				ok[e[s]>>5]|=(1u<<((u32)(u8)e[s]&31u));
+				ok[e[s]>>5]|=(1u<<(u32(u8(e[s]))&31u));
 		if inv:
 			for i=0:7
 				ok[i]=~ok[i]
@@ -37,54 +36,53 @@ module CharSet
 	spaces=charset("\r\t ")
 	spaces_newline=charset("\r\n\t ")
 	newlines=charset("\r\n")
-	inline int has(u32[] ok,int c)
+	inline has(u32[] ok,int c)
 		return !(c&0xffffff00)&&((ok[c>>5]>>(c&31))&1u);
 
-const
-	TOK_TYPE=0x20000000
-	TOK_TYPE_MASK=-TOK_TYPE
-	TOK_CONST=1*TOK_TYPE
-	TOK_ID=2*TOK_TYPE
-	TOK_STRING=3*TOK_TYPE
-	TOK_EOF=4*TOK_TYPE
-	TOK_AA=int('e')
-	TOK_OO=int('f')
-	TOK_ADD_EQ=int('i')
-	TOK_SUB_EQ=int('j')
-	TOK_MUL_EQ=int('k')
-	TOK_DIV_EQ=int('l')
-	TOK_ADD_ADD=int('m')
-	TOK_SUB_SUB=int('n')
-	////////////////
-	TOK_MOD_EQ=int('o')
-	TOK_OR_EQ=int('p')
-	TOK_AND_EQ=int('q')
-	TOK_XOR_EQ=int('r')
-	TOK_LSHIFT_EQ=int('s')
-	TOK_RSHIFT_EQ=int('t')
+TOK_TYPE=0x20000000
+TOK_TYPE_MASK=-TOK_TYPE
+TOK_CONST=1*TOK_TYPE
+TOK_ID=2*TOK_TYPE
+TOK_STRING=3*TOK_TYPE
+TOK_EOF=4*TOK_TYPE
+TOK_AA=int('e')
+TOK_OO=int('f')
+TOK_ADD_EQ=int('i')
+TOK_SUB_EQ=int('j')
+TOK_MUL_EQ=int('k')
+TOK_DIV_EQ=int('l')
+TOK_ADD_ADD=int('m')
+TOK_SUB_SUB=int('n')
+////////////////
+TOK_MOD_EQ=int('o')
+TOK_OR_EQ=int('p')
+TOK_AND_EQ=int('q')
+TOK_XOR_EQ=int('r')
+TOK_LSHIFT_EQ=int('s')
+TOK_RSHIFT_EQ=int('t')
 g_sta_tr0=[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,-1,-1,-1,4,10,-1,3,-1,4,5,-1,6,-1,4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,7,9,8,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,1,-1,-1,4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,11,-1,2,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
 struct TToken
 	int tok
 	int epos0,epos1
-TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
+auto tokenize(iptr ptr_start,int g_ignore_indents)
 	//we want feed to be zero-terminated
 	//merge all files to one big vector, add zeroes, and pass in the starting location
 	feed=g_feed
 	ptr=ptr_start
-	inline void skipchars(u32[] cs)
+	inline skipchars(u32[] cs)
 		while ptr<feed.n
 			ch=int(u8(feed[ptr]))
 			if !CharSet.has(cs,ch):return
 			ptr++
-	inline void parseOperator()
+	inline parseOperator()
 		ptr0=ptr
-		state=(int)g_sta_tr0[(int)feed[ptr]];ptr++
+		state=int(g_sta_tr0[int(feed[ptr])]);ptr++
 		switch state{
 		default:
 			ptr=ptr0
 			return
 		case 1:
-			ch=(int)feed[ptr];ptr++
+			ch=int(feed[ptr]);ptr++
 			if ch==']':return
 			ptr=ptr0
 			return
@@ -92,51 +90,51 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 			return;
 		case 3:
 			//operator() should be allowed
-			ch=(int)feed[ptr];ptr++
+			ch=int(feed[ptr]);ptr++
 			if ch==')':return
 			ptr=ptr0
 			return
 		case 4:
-			ch=(int)feed[ptr];ptr++
+			ch=int(feed[ptr]);ptr++
 			if ch=='=':return
 			ptr--;return;
 		case 5:
-			ch=(int)feed[ptr];ptr++
+			ch=int(feed[ptr]);ptr++
 			if ch=='+':return
 			if ch=='=':return
 			ptr--;return;
 		case 6:
-			ch=(int)feed[ptr];ptr++
+			ch=int(feed[ptr]);ptr++
 			if ch=='-':return
 			if ch=='=':return
 			ptr--;return;
 		case 7:
-			ch=(int)feed[ptr];ptr++
+			ch=int(feed[ptr]);ptr++
 			if ch=='<':{state=4;break}
 			if ch=='=':return
 			ptr--;return;
 		case 8:
-			ch=(int)feed[ptr];ptr++
+			ch=int(feed[ptr]);ptr++
 			if ch=='=':return
 			if ch=='>':{state=4;break}
 			ptr--;return;
 		case 9:
-			ch=(int)feed[ptr];ptr++
+			ch=int(feed[ptr]);ptr++
 			if ch=='=':return
 			ptr--;return;
 		case 10:
-			ch=(int)feed[ptr];ptr++
+			ch=int(feed[ptr]);ptr++
 			if ch=='&':return
 			if ch=='=':return
 			ptr--;return;
 		case 11:
-			ch=(int)feed[ptr];ptr++
+			ch=int(feed[ptr]);ptr++
 			if ch=='=':return
 			if ch=='|':return
 			ptr--;return;
 		}
 		assert(state==4)
-		ch=(int)feed[ptr];ptr++
+		ch=int(feed[ptr]);ptr++
 		if ch=='=':return
 		ptr--;
 		return;
@@ -150,8 +148,8 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 	ignore_indents=g_ignore_indents
 	last_significant_newline_position=-1L
 	last_line_comment_position=-1L
-	inline void left_bracket(int ch0)
-		brastk.add(TBracket(){.ch=ch0;.pos=ptr;})
+	inline left_bracket(int ch0)
+		brastk.push(TBracket(){ch:ch0,pos:ptr})
 		if ch0=='{':
 			ignore_indents=g_ignore_indents
 			if !ignore_indents:
@@ -159,19 +157,19 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 					ind0=inds.back()
 				else
 					ind0=0
-				inds.add(ind0|0x80000000)
+				inds.push(ind0|0x80000000)
 		else
 			ignore_indents=1
-	inline void pop_indents()
+	inline pop_indents()
 		//add } accordingly
 		//ignore the last dedent
 		while inds.n&&!(inds.back()&0x80000000)
 			if !(inds.back()&0x40000000):
-				toks.add(TToken{.tok='}';.epos0=(int)ptr;.epos1=(int)ptr})
+				toks.push(TToken(){tok:'}',epos0:int(ptr),epos1:int(ptr)})
 			inds.pop()
 		if inds.n:
 			inds.pop()
-	int right_bracket(int ch0)
+	auto right_bracket(int ch0)
 		matcher=int(ch0==')'?'(':(ch0=='}'?'{':(ch0==']'?'[':'{')))
 		errored=0
 		err_pos=0
@@ -181,16 +179,16 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 			if !errored:
 				if ch0==0:
 					//EOF
-					error(ETYPE_ERROR,ptr,ptr,"the opening '@1' is not properly closed".Replace("@1",string((char)brastk.back().ch)))
+					error(ETYPE_ERROR,ptr,ptr,"the opening '@1' is not properly closed".Replace(["@1",string(char(brastk.back().ch))]))
 				else
-					error(ETYPE_ERROR,ptr,ptr+1,"the opening '@1' doesn't match the closing '@2'".Replace(["@1",string((char)brastk.back().ch),"@2",string((char)ch0)]))
+					error(ETYPE_ERROR,ptr,ptr+1,"the opening '@1' doesn't match the closing '@2'".Replace(["@1",string(char(brastk.back().ch)),"@2",string(char(ch0))]))
 				err_pos=int(brastk.back().pos)
 				estr=new string
 				errored=1
 			ch_poped=brastk.back().ch
-			matcher_ch_poped=(char)(ch_poped=='('?')':(ch_poped=='{'?'}':']'))
-			estr.add(matcher_ch_poped)
-			toks.add(TToken{.tok=matcher_ch_poped;.epos0=(int)ptr;.epos1=(int)ptr+1})
+			matcher_ch_poped=char(ch_poped=='('?')':(ch_poped=='{'?'}':']'))
+			estr.push(matcher_ch_poped)
+			toks.push(TToken(){'tok':matcher_ch_poped,'epos0':int(ptr),'epos1':int(ptr)+1})
 			brastk.pop()
 			if ch_poped=='{'&&!g_ignore_indents:
 				pop_indents()
@@ -199,9 +197,9 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 				epos_pop_to=brastk.back().pos+1
 			else
 				epos_pop_to=ptr_start
-			error(ETYPE_NOTE,ptr,ptr,FormatAsText("inserting '",estr,"'"))
+			error(ETYPE_NOTE,ptr,ptr,"inserting '@1'".Replace(["@1",estr]))
 			if brastk.n:
-				error(ETYPE_NOTE,err_pos,err_pos+1,"the opening '@1' was here".Replace("@1",string((char)brastk.back().ch)))
+				error(ETYPE_NOTE,err_pos,err_pos+1,"the opening '@1' was here".Replace(["@1",string(char(brastk.back().ch))]))
 			else
 				error(ETYPE_NOTE,err_pos,err_pos+1,"the opening bracket was not found")
 			//error(ETYPE_NOTE,epos_pop_to,epos_pop_to,FormatAsText("automatically matching dangling opening brackets until here"))
@@ -212,7 +210,7 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 				pop_indents()
 		else
 			if !errored&&ch0:
-				error(ETYPE_ERROR,ptr,ptr+1,FormatAsText("the closing '",(char)ch0,"' does not close any opening bracket"))
+				error(ETYPE_ERROR,ptr,ptr+1,"the closing '@1' does not close any opening bracket".Replace("@1",string(char(ch0))))
 				return 0
 		if brastk.n&&brastk.back().ch!='{':
 			ignore_indents=1
@@ -252,7 +250,7 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 			ch=int(feed[ptr])
 			if isfloat:
 				if ch=='f':
-					val=(i64)__float_as_int(feed[efeed0:ptr-1].ConvertToAsBinary(char).as(float))
+					val=i64(__float_as_int(feed[efeed0:ptr-1].ConvertToAsBinary(char).as(float)))
 					cid=getid_const(const_type(CTYPE_FLOAT,32),val)
 					ptr++
 				else
@@ -277,7 +275,7 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 						ch=int(feed[ptr])
 						t=const_type(t&CTYPE_MASK,64)
 					else
-						t=const_type(t&CTYPE_MASK,util.bitSize())
+						t=const_type(t&CTYPE_MASK,Util.bitSize())
 				if ch=='u':
 					ptr++
 					ch=int(feed[ptr])
@@ -285,14 +283,14 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 				val_represented=val
 				if t==const_type(CTYPE_UINT,32):
 					val_represented=(i64)(u32)val_represented
-				elif t==const_type(CTYPE_INT,32):
+				else if t==const_type(CTYPE_INT,32):
 					val_represented=(i64)(i32)val_represented
 				if val_represented!=val:
 					if (val_represented^val)!=0xFFFFFFFF00000000LL||!ishex:
 						//we ignore sign-only difference for hex values
 						error(ETYPE_WARNING,efeed0_real,ptr,"the number '"+cite_raw(efeed0_real,ptr)+"' has been clamped to value "+string(val_represented))
 				cid=getid_const(t,val)
-			toks.add(TToken{.tok=TOK_CONST+cid;.epos0=(int)efeed0;.epos1=(int)ptr})
+			toks.push(TToken(){'tok':TOK_CONST+cid,'epos0':int(efeed0),'epos1':int(ptr)})
 			continue
 		//id
 		if CharSet.has(CharSet.idhead,ch):
@@ -303,18 +301,16 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 				//operator state machine
 				parseOperator()
 			id=getid(cite_raw(s,ptr))
-			toks.add(TToken{.tok=TOK_ID+id;.epos0=(int)s;.epos1=(int)ptr})
+			toks.push(TToken(){'tok':TOK_ID+id,'epos0':int(s),'epos1':int(ptr)})
 			continue
 		ch0=ch
 		epos0_ch0=ptr
-		ptr++;ch=(int)feed[ptr]
+		ptr++;ch=int(feed[ptr])
 		//is_at_str=0
+		if !ch0:break
 		switch ch0{
 		default:
 			break;//nothing
-		case 0:
-			//we're done
-			goto done
 		case '[','(','{':
 			left_bracket(ch0)
 			break;
@@ -343,14 +339,14 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 			if(ch=='='){ptr++;ch0=TOK_LE;}else
 			if(ch=='<')
 				ptr++;ch0=TOK_LL;
-				if feed[ptr]==(u8)'=':
+				if feed[ptr]==u8('='):
 					ptr++;ch0=TOK_LSHIFT_EQ;
 			break;
 		case '>':
 			if(ch=='='){ptr++;ch0=TOK_GE;}else\
 			if(ch=='>')
 				ptr++;ch0=TOK_GG;
-				if feed[ptr]==(u8)'=':
+				if feed[ptr]==u8('='):
 					ptr++;ch0=TOK_RSHIFT_EQ;
 			break;
 		case '!':{if(ch=='='){ptr++;ch0=TOK_NE;}break;}
@@ -382,22 +378,22 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 			app=0
 			ind=0
 			for(ind=0;;)
-				ch=(int)feed[ptr];
+				ch=int(feed[ptr]);
 				if !CharSet.has(CharSet.spaces_newline,ch):break
 				ptr++
 				if ch=='\r':
 					//nothing
-				elif ch=='\n':
+				else if ch=='\n':
 					ind=0;app=0
 				else
 					if ch=='\t':{app|=1}else app|=2;
 					ind++;
 				if app==3:
 					app=7
-					error(ETYPE_ERROR,(int)epos0,ptr,"space and tab can't be mixed in indentation")
+					error(ETYPE_ERROR,int(epos0),ptr,"space and tab can't be mixed in indentation")
 			if !feed[ptr]:
 				ind=0
-			if (int)feed[ptr]=='}':
+			if int(feed[ptr])=='}':
 				//auto-pop to 0x80000000 during the latter }
 				//pop_indents()
 				continue
@@ -407,20 +403,20 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 					if ind0<ind:
 						if inds.n&&(inds.back()&0x80000000)&&toks.back().tok==int('{'):
 							//ignore the first indent immediately following a {
-							inds.add(ind|0x40000000)
+							inds.push(ind|0x40000000)
 							last_significant_newline_position=toks.n
 							continue
-						inds.add(ind)
+						inds.push(ind)
 						ch0=int('{')
 					else
 						//don't pop past the {
 						while inds.n&&(inds.back()&0xbfffffff)>ind:
 							inds.pop();
-							toks.add(TToken{.tok='}';.epos0=int(ptr);.epos1=int(ptr)})
+							toks.push(TToken(){'tok':'}','epos0':int(ptr),'epos1':int(ptr)})
 						if !inds.n:
 							if ind:
 								error(ETYPE_ERROR,epos0_ch0,ptr,FormatAsText("indentation mismatch - this line is indented less than the first line in the file"))
-						elif (inds.back()&0x3fffffff)!=ind:
+						else if (inds.back()&0x3fffffff)!=ind:
 							//indentation mismatch
 							error(ETYPE_ERROR,epos0_ch0,ptr,FormatAsText("indentation mismatch - @1 expected but @2 provided").Replace(["@1",string(inds.back()),"@2",string(ind)]))
 						last_significant_newline_position=toks.n
@@ -432,22 +428,13 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 						ch_lastline=toks.back().tok
 						if ch_lastline==int(';')||ch_lastline==int(',')||ch_lastline==int('{'):
 							continue
-					if toks.n==last_line_comment_position:
+					if toks.n=last_line_comment_position:
 						//line comments shouldn't generate ;, but they should generate {}
 						continue
 			last_significant_newline_position=toks.n+1
 			break
 		//char/string literal
-		//case '@':
-		//	if(ch=='"'||ch=='\'')
-		//		ch0=ch
-		//		ptr++
-		//		ch=(int)feed[ptr]
-		//		is_at_str=1
-		//		goto is_string
-		//	break
 		case '"','\'':
-			:is_string
 			//is_python_str=0
 			//if ch==ch0:
 			//	if ptr<feed.n-1&&(int)feed[ptr+1]==(int)ch0:
@@ -459,56 +446,57 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 			isrecover=0
 			str=new string
 			for(;;)
-				c=(int)feed[ptr];ptr++
+				c=int(feed[ptr]);ptr++
 				if c==0:
 					if isrecover:
 						ptr--
 						break
 					ptr--
-					error(ETYPE_ERROR,(int)efeed0,ptr,"this string is not properly enclosed")
+					error(ETYPE_ERROR,int(efeed0),ptr,"this string is not properly enclosed")
 					ptr=efeed0
 					isrecover=1
 					str.clear()
 					continue
 				if c=='\\'://&&!is_at_str:
-					ch=(int)feed[ptr]
+					ch=int(feed[ptr])
 					if ch=='\r'||ch=='\n':
-						ptr++;ch=(int)feed[ptr]
+						ptr++;ch=int(feed[ptr])
 						if ch=='\r'||ch=='\n':
-							ptr++;ch=(int)feed[ptr]
+							ptr++;ch=int(feed[ptr])
 						continue
 					c=ch;ptr++;
 					switch c{
 					case 'n':
-						c=(int)'\n';break;
+						c=int('\n');break;
 					case 'r':
-						c=(int)'\r';break;
+						c=int('\r');break;
 					case 't':
-						c=(int)'\t';break;
+						c=int('\t');break;
 					case 'b':
-						c=(int)'\b';break;
+						c=int('\b');break;
 					case 'e':
-						c=27;break;
+						c=27;
+						break;
 					case 'x','u':
 						chu=0
 						for j=0:(ch0=='u'?3:1)
-							chj=(int)feed[ptr]
+							chj=int(feed[ptr])
 							if chj:ptr++
 							si=((chj-'0')&0x1f)
 							if si>=0x10:si-=7
 							chu=chu*16+(si&0xf)
 						if ch0=='x':
-							str.add(char(chu))
+							str.push(char(chu))
 						else
 							if chu>=2048:
-								str.add(char(((chu>>12)&0xf)+0xe0))
-								str.add(char(0x80+((chu>>6)&63)))
-								str.add(char(0x80+(chu&63)))
-							elif chu>=128:
-								str.add(char((chu>>6)+0xc0))
-								str.add(char(0x80+(chu&63)))
+								str.push(char(((chu>>12)&0xf)+0xe0))
+								str.push(char(0x80+((chu>>6)&63)))
+								str.push(char(0x80+(chu&63)))
+							else if chu>=128:
+								str.push(char((chu>>6)+0xc0))
+								str.push(char(0x80+(chu&63)))
 							else
-								str.add(char(chu))
+								str.push(char(chu))
 						continue
 					default:
 						if CharSet.has(CharSet.digits,c):
@@ -532,12 +520,12 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 						break;
 					if isrecover&&(c=='\r'||c=='\n'):break
 				//:goodchar0
-				str.add((char)c)
+				str.push(char(c))
 			if ch0=='\''&&str.n==1:
 				//char
-				toks.add(TToken{.tok=TOK_CONST+getid_const(const_type(CTYPE_INT,8),(i64)str[0]);.epos0=(int)efeed0-1;.epos1=(int)ptr})
+				toks.push(TToken(){'tok':TOK_CONST+getid_const(const_type(CTYPE_INT,8),i64(str[0])),'epos0':int(efeed0)-1,'epos1':int(ptr)})
 			else
-				toks.add(TToken{.tok=TOK_STRING+getid(str);.epos0=(int)efeed0-1;.epos1=(int)ptr})
+				toks.push(TToken(){'tok':TOK_STRING+getid(str),'epos0':int(efeed0)-1,'epos1':int(ptr)})
 			continue
 		//comments
 		case '/':
@@ -545,7 +533,7 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 			if ch=='/':
 				ptr++
 				for(;;)
-					ch=(int)feed[ptr]
+					ch=int(feed[ptr])
 					if ch==0||ch=='\n':break
 					ptr++
 				if last_significant_newline_position==toks.n:
@@ -555,7 +543,7 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 				ptr++
 				auto c=0;
 				for(;;)
-					ch=(int)feed[ptr]
+					ch=int(feed[ptr])
 					if ch==0:break
 					ptr++
 					if ch=='/'&&c=='*':break;
@@ -564,20 +552,19 @@ TToken[] tokenize(iptr ptr_start,int g_ignore_indents)
 			}
 			break;
 		}
-		toks.add(TToken{.tok=ch0;.epos0=int(epos0_ch0);.epos1=int(ptr)})
-	:done
+		toks.push(TToken(){'tok':ch0,'epos0':int(epos0_ch0),'epos1':int(ptr)})
 	//////////////////
 	while brastk.n:
 		right_bracket(0)
 	pop_indents()
-	toks.add(TToken{.tok=TOK_EOF;.epos0=int(ptr);.epos1=int(ptr)})
+	toks.push(TToken(){'tok':TOK_EOF,'epos0':int(ptr),'epos1':int(ptr)})
 	return toks
 
-string dumpToken(int tok)
+auto dumpToken(int tok)
 	assert(tok!='\n')
 	switch(tok&TOK_TYPE_MASK){
 	case TOK_CONST:
-		val=util.g_const_values[tok&~TOK_TYPE_MASK]
+		val=Util.g_const_values[tok&~TOK_TYPE_MASK]
 		return dumpConst(val)
 	case TOK_ID:
 		return getIdString(tok&~TOK_TYPE_MASK)
@@ -610,37 +597,37 @@ string dumpToken(int tok)
 	}
 	return string(char(tok))
 
-string dumpTokenArray(TToken[] toks)
+auto dumpTokenArray(TToken[] toks)
 	ret=new string
 	ind=0
 	foreach toki in toks
 		s2=dumpToken(toki.tok)
-		if ret.n&&s2.n&&CharSet.has(CharSet.idbody,(int)(u8)s2[0]):
-			if CharSet.has(CharSet.idbody,(int)(u8)ret.back()):
-				ret.add(' ')
-			elif ret.back()=='}':
-				ret.add('\n')
+		if ret.n&&s2.n&&CharSet.has(CharSet.idbody,int(u8(s2[0]))):
+			if CharSet.has(CharSet.idbody,int(u8(ret.back()))):
+				ret.push(' ')
+			else if ret.back()=='}':
+				ret.push('\n')
 				for j=0:ind-1
-					ret.add('  ')
+					ret.push('  ')
 		if toki.tok=='}':
 			if ind>0:ind--
 			if ret.n&&ret.back()==' '&&ret[ret.n-2]==' ':
 				ret.pop()
 				ret.pop()
 			else
-				ret.add('\n')
+				ret.push('\n')
 				for j=0:ind-1
-					ret.add('  ')
-		ret.add(s2)
+					ret.push('  ')
+		ret.push(s2)
 		if toki.tok=='{'||toki.tok==';':
 			if toki.tok=='{':
 				ind++
-			ret.add('\n')
+			ret.push('\n')
 			for j=0:ind-1
-				ret.add('  ')
+				ret.push('  ')
 	return ret
 
-void test_tokenizer()
+auto test_tokenizer()
 	//Write(dumpTokenArray(tokenize(loadSourceFile("test\\ttokenizer.spap"),0)))
 	Write(dumpTokenArray(tokenize(loadSourceFile(getid("test\\tparser.spap")),0)))
 
@@ -651,74 +638,71 @@ struct TOperator
 	int priority
 g_operators=new TOperator[128]
 g_inited=0
-void initParser()
+auto initParser()
 	if g_inited:return
 	g_inited=1
 	/////////////////////
-	g_operators[TOK_EQ]=TOperator{.id=getid("operator"+dumpToken(TOK_EQ));.priority=60}
-	g_operators[TOK_NE]=TOperator{.id=getid("operator"+dumpToken(TOK_NE));.priority=60}
-	g_operators[TOK_LE]=TOperator{.id=getid("operator"+dumpToken(TOK_LE));.priority=60}
-	g_operators[TOK_GE]=TOperator{.id=getid("operator"+dumpToken(TOK_GE));.priority=60}
-	g_operators[TOK_AA]=TOperator{.id=getid("operator"+dumpToken(TOK_AA));.priority=70}
-	g_operators[TOK_OO]=TOperator{.id=getid("operator"+dumpToken(TOK_OO));.priority=75}
-	g_operators[TOK_LL]=TOperator{.id=getid("operator"+dumpToken(TOK_LL));.priority=52}
-	g_operators[TOK_GG]=TOperator{.id=getid("operator"+dumpToken(TOK_GG));.priority=52}
-	g_operators[TOK_ADD_EQ]=TOperator{s="operator"+dumpToken(TOK_ADD_EQ);.id=getid(s);.id2=getid(s[:s.n-2]);.priority=LEVEL_ASSIGNMENT}
-	g_operators[TOK_SUB_EQ]=TOperator{s="operator"+dumpToken(TOK_SUB_EQ);.id=getid(s);.id2=getid(s[:s.n-2]);.priority=LEVEL_ASSIGNMENT}
-	g_operators[TOK_MUL_EQ]=TOperator{s="operator"+dumpToken(TOK_MUL_EQ);.id=getid(s);.id2=getid(s[:s.n-2]);.priority=LEVEL_ASSIGNMENT}
-	g_operators[TOK_DIV_EQ]=TOperator{s="operator"+dumpToken(TOK_DIV_EQ);.id=getid(s);.id2=getid(s[:s.n-2]);.priority=LEVEL_ASSIGNMENT}
-	g_operators[TOK_MOD_EQ]=TOperator{s="operator"+dumpToken(TOK_MOD_EQ);.id=getid(s);.id2=getid(s[:s.n-2]);.priority=LEVEL_ASSIGNMENT}
-	g_operators[TOK_OR_EQ]=TOperator{s="operator"+dumpToken(TOK_OR_EQ);.id=getid(s);.id2=getid(s[:s.n-2]);.priority=LEVEL_ASSIGNMENT}
-	g_operators[TOK_AND_EQ]=TOperator{s="operator"+dumpToken(TOK_AND_EQ);.id=getid(s);.id2=getid(s[:s.n-2]);.priority=LEVEL_ASSIGNMENT}
-	g_operators[TOK_XOR_EQ]=TOperator{s="operator"+dumpToken(TOK_XOR_EQ);.id=getid(s);.id2=getid(s[:s.n-2]);.priority=LEVEL_ASSIGNMENT}
-	g_operators[TOK_LSHIFT_EQ]=TOperator{s="operator"+dumpToken(TOK_LSHIFT_EQ);.id=getid(s);.id2=getid(s[:s.n-2]);.priority=LEVEL_ASSIGNMENT}
-	g_operators[TOK_RSHIFT_EQ]=TOperator{s="operator"+dumpToken(TOK_RSHIFT_EQ);.id=getid(s);.id2=getid(s[:s.n-2]);.priority=LEVEL_ASSIGNMENT}
-	g_operators[TOK_ADD_ADD]=TOperator{.id=getid("operator"+dumpToken(TOK_ADD_ADD));.priority=LEVEL_POSTFIX}
-	g_operators[TOK_SUB_SUB]=TOperator{.id=getid("operator"+dumpToken(TOK_SUB_SUB));.priority=LEVEL_POSTFIX}
-	g_operators[((int)'+')]=TOperator{.id=getid("operator+");.priority=50}
-	g_operators[((int)'-')]=TOperator{.id=getid("operator-");.priority=50}
-	g_operators[((int)'*')]=TOperator{.id=getid("operator*");.priority=40}
-	g_operators[((int)'/')]=TOperator{.id=getid("operator/");.priority=40}
-	g_operators[((int)'%')]=TOperator{.id=getid("operator%");.priority=40}
-	g_operators[((int)'&')]=TOperator{.id=getid("operator&");.priority=54}
-	g_operators[((int)'|')]=TOperator{.id=getid("operator|");.priority=56}
-	g_operators[((int)'^')]=TOperator{.id=getid("operator^");.priority=55}
-	g_operators[((int)'[')]=TOperator{.id=getid("operator[]");.priority=LEVEL_POSTFIX}
-	g_operators[((int)'~')]=TOperator{.id=getid("operator~");.priority=LEVEL_PREFIX}
-	g_operators[((int)'!')]=TOperator{.id=getid("operator!");.priority=LEVEL_PREFIX}
-	g_operators[((int)'<')]=TOperator{.id=getid("operator<");.priority=60}
-	g_operators[((int)'>')]=TOperator{.id=getid("operator>");.priority=60}
-	g_operators[((int)'?')]=TOperator{.id=getid("__select");.priority=LEVEL_SELECT}
-	g_operators[((int)'=')]=TOperator{.id=g_id_store;.priority=LEVEL_ASSIGNMENT}
+	g_operators[TOK_EQ]=TOperator(){'id':getid("operator"+dumpToken(TOK_EQ)),'priority':60}
+	g_operators[TOK_NE]=TOperator(){'id':getid("operator"+dumpToken(TOK_NE)),'priority':60}
+	g_operators[TOK_LE]=TOperator(){'id':getid("operator"+dumpToken(TOK_LE)),'priority':60}
+	g_operators[TOK_GE]=TOperator(){'id':getid("operator"+dumpToken(TOK_GE)),'priority':60}
+	g_operators[TOK_AA]=TOperator(){'id':getid("operator"+dumpToken(TOK_AA)),'priority':70}
+	g_operators[TOK_OO]=TOperator(){'id':getid("operator"+dumpToken(TOK_OO)),'priority':75}
+	g_operators[TOK_LL]=TOperator(){'id':getid("operator"+dumpToken(TOK_LL)),'priority':52}
+	g_operators[TOK_GG]=TOperator(){'id':getid("operator"+dumpToken(TOK_GG)),'priority':52}
+	s="operator"+dumpToken(TOK_ADD_EQ);g_operators[TOK_ADD_EQ]=TOperator(){'id':getid(s),'id2':getid(s[:s.n-2]),'priority':LEVEL_ASSIGNMENT}
+	s="operator"+dumpToken(TOK_SUB_EQ);g_operators[TOK_SUB_EQ]=TOperator(){'id':getid(s),'id2':getid(s[:s.n-2]),'priority':LEVEL_ASSIGNMENT}
+	s="operator"+dumpToken(TOK_MUL_EQ);g_operators[TOK_MUL_EQ]=TOperator(){'id':getid(s),'id2':getid(s[:s.n-2]),'priority':LEVEL_ASSIGNMENT}
+	s="operator"+dumpToken(TOK_DIV_EQ);g_operators[TOK_DIV_EQ]=TOperator(){'id':getid(s),'id2':getid(s[:s.n-2]),'priority':LEVEL_ASSIGNMENT}
+	s="operator"+dumpToken(TOK_MOD_EQ);g_operators[TOK_MOD_EQ]=TOperator(){'id':getid(s),'id2':getid(s[:s.n-2]),'priority':LEVEL_ASSIGNMENT}
+	s="operator"+dumpToken(TOK_OR_EQ);g_operators[TOK_OR_EQ]=TOperator(){'id':getid(s),'id2':getid(s[:s.n-2]),'priority':LEVEL_ASSIGNMENT}
+	s="operator"+dumpToken(TOK_AND_EQ);g_operators[TOK_AND_EQ]=TOperator(){'id':getid(s),'id2':getid(s[:s.n-2]),'priority':LEVEL_ASSIGNMENT}
+	s="operator"+dumpToken(TOK_XOR_EQ);g_operators[TOK_XOR_EQ]=TOperator(){'id':getid(s),'id2':getid(s[:s.n-2]),'priority':LEVEL_ASSIGNMENT}
+	s="operator"+dumpToken(TOK_LSHIFT_EQ);g_operators[TOK_LSHIFT_EQ]=TOperator(){'id':getid(s),'id2':getid(s[:s.n-2]),'priority':LEVEL_ASSIGNMENT}
+	s="operator"+dumpToken(TOK_RSHIFT_EQ);g_operators[TOK_RSHIFT_EQ]=TOperator(){'id':getid(s),'id2':getid(s[:s.n-2]),'priority':LEVEL_ASSIGNMENT}
+	g_operators[TOK_ADD_ADD]=TOperator(){'id':getid("operator"+dumpToken(TOK_ADD_ADD)),'priority':LEVEL_POSTFIX}
+	g_operators[TOK_SUB_SUB]=TOperator(){'id':getid("operator"+dumpToken(TOK_SUB_SUB)),'priority':LEVEL_POSTFIX}
+	g_operators[(int('+'))]=TOperator(){'id':getid("operator+"),'priority':50}
+	g_operators[(int('-'))]=TOperator(){'id':getid("operator-"),'priority':50}
+	g_operators[(int('*'))]=TOperator(){'id':getid("operator*"),'priority':40}
+	g_operators[(int('/'))]=TOperator(){'id':getid("operator/"),'priority':40}
+	g_operators[(int('%'))]=TOperator(){'id':getid("operator%"),'priority':40}
+	g_operators[(int('&'))]=TOperator(){'id':getid("operator&"),'priority':54}
+	g_operators[(int('|'))]=TOperator(){'id':getid("operator|"),'priority':56}
+	g_operators[(int('^'))]=TOperator(){'id':getid("operator^"),'priority':55}
+	g_operators[(int('['))]=TOperator(){'id':getid("operator[]"),'priority':LEVEL_POSTFIX}
+	g_operators[(int('~'))]=TOperator(){'id':getid("operator~"),'priority':LEVEL_PREFIX}
+	g_operators[(int('!'))]=TOperator(){'id':getid("operator!"),'priority':LEVEL_PREFIX}
+	g_operators[(int('<'))]=TOperator(){'id':getid("operator<"),'priority':60}
+	g_operators[(int('>'))]=TOperator(){'id':getid("operator>"),'priority':60}
+	g_operators[(int('?'))]=TOperator(){'id':getid("__select"),'priority':LEVEL_SELECT}
+	g_operators[(int('='))]=TOperator(){'id':g_id_store,'priority':LEVEL_ASSIGNMENT}
 
 g_system_unit_path=System.Env.GetExecutablePath()+"../../units/"
-//If __ENABLED__('codegen.check'):
-//Else
-//	g_system_unit_path=System.Env.GetExecutablePath()+"../units/"
-int scanForSystemUnit(int id_namespace)
+auto scanForSystemUnit(int id_namespace)
 	s0=getIdString(id_namespace)
 	s=new string
 	foreach ch0 in s0
 		ch=int(u8(ch0))
 		if ch>='A'&&ch<='Z':
 			if s.n&&(s.back()>='a'&&s.back()<='z'||s.back()>='A'&&s.back()<='Z'):
-				s.add('-')
-			s.add(char(ch+0x20))
+				s.push('-')
+			s.push(char(ch+0x20))
 		else
-			s.add(ch0)
+			s.push(ch0)
 	fn=g_system_unit_path+s+".spap"
 	if System.IO.FileExists(fn):
 		return getid(fn)
 	return 0
 	
-int addSourceFile(int id_fn0)
+auto addSourceFile(int id_fn0)
 	id_fn=getid(System.Env.NormalizeFileName(getIdString(id_fn0)))
 	if !g_parsed_files[id_fn]:
 		g_parsed_files[id_fn]=1
-		g_files_to_parse.add(id_fn)
+		g_files_to_parse.push(id_fn)
 	return id_fn
 
-PExpression parseC0(int id_fn_current,TToken[] toks)
+auto parseC0(int id_fn_current,TToken[] toks)
 	if !toks.n:return expriptr(0)
 	if g_enable_dump:
 		Writeln('============raw tokens')
@@ -745,7 +729,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 				need_to_capitalize=0
 			else
 				need_to_capitalize=(chi!='_')
-			sunit_name_default.add((char)chi)
+			sunit_name_default.push(char(chi))
 		else
 			need_to_capitalize=1
 	if sunit_name_default[0]>='0'&&sunit_name_default[0]<='9':
@@ -758,34 +742,34 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 	//we should parse it into the code structures here
 	ptr=0L
 	g_current_function_ccnv=0
-	inline int peek()
+	inline peek()
 		return toks[ptr].tok
 	//the inlines were a bit excessive...
-	int wantid()
+	auto wantid()
 		auto tok=peek()
 		if ((tok&TOK_TYPE_MASK)==TOK_ID)
 			ptr++
 			return tok&~TOK_TYPE_MASK
 		else
 			return 0
-	int want(int tok)
+	auto want(int tok)
 		if peek()==tok:
 			ptr++
 			return 1
 		else
 			return 0
-	int eof()
+	auto eof()
 		return peek()==TOK_EOF
 	//////////////////////////////////
-	PExpression parseMap(PExpression pe0,int epos0)
+	auto parseMap(PExpression pe0,int epos0)
 		as_member_setter=new PExpression[]
 		vtemp=gettempid(0)
 		if !pe0:
 			as_tuple_maker=new PExpression[]
-			as_member_setter.add(exprstr(g_id_tuple))
-			as_member_setter.add(0)
+			as_member_setter.push(exprstr(g_id_tuple))
+			as_member_setter.push(0)
 		else
-			as_member_setter.add(call(g_id_store,fillepos(exprvar(vtemp),readPool(pe0+1),readPool(pe0+2)),pe0))
+			as_member_setter.push(call(g_id_store,fillepos(exprvar(vtemp),readPool(pe0+1),readPool(pe0+2)),pe0))
 		while !want(int('}'))&&!eof()
 			auto tok=peek()
 			ep0_id=toks[ptr].epos0
@@ -793,7 +777,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 			if ((tok&TOK_TYPE_MASK)==TOK_ID)
 				id_name=(tok&~TOK_TYPE_MASK)
 				ptr++
-			elif ((tok&TOK_TYPE_MASK)==TOK_STRING)
+			else if ((tok&TOK_TYPE_MASK)==TOK_STRING)
 				id_name=(tok&~TOK_TYPE_MASK)
 				ptr++
 			else
@@ -803,44 +787,44 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 				error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"':' is expected")
 			pe_value=expr(LEVEL_MAX)
 			if id_name&&pe_value:
-				if !pe0:as_tuple_maker.add(exprstr(id_name))
+				if !pe0:as_tuple_maker.push(exprstr(id_name))
 			ep1_value=toks[ptr-1].epos1
-			as_member_setter.add(fillepos(call(g_id_store,fillepos(call(g_id_dot,exprvar(vtemp),exprstr(id_name)),ep0_id,ep1_id),pe_value),ep0_id,ep1_value))
+			as_member_setter.push(fillepos(call(g_id_store,fillepos(call(g_id_dot,exprvar(vtemp),exprstr(id_name)),ep0_id,ep1_id),pe_value),ep0_id,ep1_value))
 			if peek()!='}'&&!want(int(',')):
 				error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"',' is expected")
 		epos1=toks[max(ptr-1,0)].epos1
 		if !pe0:
 			as_member_setter[1]=call(g_id_store,exprvar(vtemp),vcall(g_id_tuple,as_tuple_maker))
-		as_member_setter.add(exprvar(vtemp))
+		as_member_setter.push(exprvar(vtemp))
 		pe_map=fillepos(vcall(g_id_block,as_member_setter),epos0,epos1)
 		return pe_map
-	PExpression parseTuple(PExpression pe0,int epos0)
+	auto parseTuple(PExpression pe0,int epos0)
 		as_member_setter=new PExpression[]
 		as_tuple_maker=new PExpression[]
-		as_member_setter.add(exprstr(g_id_tuple))
-		as_member_setter.add(0)
+		as_member_setter.push(exprstr(g_id_tuple))
+		as_member_setter.push(0)
 		vtemp=gettempid(0)
 		n=0
 		id=getTupleId(n)
-		as_tuple_maker.add(exprstr(id))
-		as_member_setter.add(call(g_id_store,call(g_id_dot,exprvar(vtemp),exprstr(id)),pe0))
+		as_tuple_maker.push(exprstr(id))
+		as_member_setter.push(call(g_id_store,call(g_id_dot,exprvar(vtemp),exprstr(id)),pe0))
 		n++
 		while want(int(','))
 			if peek()==int(')'):break
 			pe_value=expr(LEVEL_MAX)
 			id=getTupleId(n)
-			as_tuple_maker.add(exprstr(id))
-			as_member_setter.add(call(g_id_store,call(g_id_dot,exprvar(vtemp),exprstr(id)),pe_value))
+			as_tuple_maker.push(exprstr(id))
+			as_member_setter.push(call(g_id_store,call(g_id_dot,exprvar(vtemp),exprstr(id)),pe_value))
 			n++
 		if !want(int(')')):
 			error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"')' is expected")
 		epos1=toks[ptr-1].epos1
 		as_member_setter[1]=call(g_id_store,exprvar(vtemp),vcall(g_id_tuple,as_tuple_maker))
-		as_member_setter.add(exprvar(vtemp))
+		as_member_setter.push(exprvar(vtemp))
 		pe_tuple=fillepos(vcall(g_id_block,as_member_setter),epos0,epos1)
 		return pe_tuple
 	//////////////////////////////////
-	PExpression parseFunction(int id0)
+	auto parseFunction(int id0)
 		//function
 		epos0=toks[ptr-1].epos0
 		ccnv=id0
@@ -860,7 +844,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 				if ((toks[ptr].tok&TOK_TYPE_MASK)==TOK_ID&&ptr+1<toks.n&&(toks[ptr+1].tok==','||toks[ptr+1].tok==')'))||(id0==g_id_class||id0==g_id_struct):
 					pe_type=exprstr(id0==g_id_class||id0==g_id_struct?g_id_const:g_id_auto)
 					id_param=wantid()
-				elif toks[ptr].tok==TOK_ID+g_id_auto||toks[ptr].tok==TOK_ID+g_id_const:
+				else if toks[ptr].tok==TOK_ID+g_id_auto||toks[ptr].tok==TOK_ID+g_id_const:
 					pe_type=exprstr(wantid())
 					id_param=wantid()
 				else
@@ -875,8 +859,8 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 					epos1_id_param=toks[ptr-1].epos1
 				if !want(int(','))&&!peek()==int(')'):
 					error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"unknown things after function parameter")
-				es_args.add(pe_type)
-				es_args.add(fillepos(exprstr(id_param),epos0_id_param,epos1_id_param))
+				es_args.push(pe_type)
+				es_args.push(fillepos(exprstr(id_param),epos0_id_param,epos1_id_param))
 				if ptr<=ptr_bk:
 					//error...
 					if toks[ptr].tok!=TOK_EOF:ptr++
@@ -891,7 +875,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 					fillepos(call(g_id_store,exprvar(g_id_this),call(g_id_get_lambda_context,expriptr(0)),expriptr(0)),epos0,epos1),
 					pe_fbody,
 					fillepos(call(g_id_store,exprvar(g_id_return),exprvar(g_id_this),expriptr(0)),epos0,epos1))
-			es_args.add(pe_fbody)
+			es_args.push(pe_fbody)
 			id_call=g_id_function
 		else
 			id_call=g_id_function_type
@@ -903,29 +887,29 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 					writePool(es_args[i+1],EFLAG_STRING+g_empty_id)
 			if want(int(':')):
 				//return type
-				es_args.add(expr(LEVEL_PREFIX))
+				es_args.push(expr(LEVEL_PREFIX))
 			else
-				es_args.add(expriptr(0))
+				es_args.push(expriptr(0))
 		epos1=toks[ptr-1].epos1
 		pe=fillepos(vcall(id_call,es_args),epos0,epos1)
 		if id_name:
 			pe=fillepos(call(g_id_store,exprvar(id_name),pe,expriptr(0)),epos0,epos1)
 		return pe
-	PExpression atom()
+	auto atom()
 		auto lex=peek()
 		if (lex&TOK_TYPE_MASK)==TOK_CONST:
-			ret=poolCode(TCnsExpression{.flags_cid=EFLAG_CONST+(lex&~TOK_TYPE_MASK);.epos0=toks[ptr].epos0;.epos1=toks[ptr].epos1})
+			ret=fillepos(exprcns(lex&~TOK_TYPE_MASK),toks[ptr].epos0,toks[ptr].epos1)
 			ptr++
 			return ret
-		elif (lex&TOK_TYPE_MASK)==TOK_STRING:
-			ret=poolCode(TCnsExpression{.flags_cid=EFLAG_STRING+(lex&~TOK_TYPE_MASK);.epos0=toks[ptr].epos0;.epos1=toks[ptr].epos1})
+		else if (lex&TOK_TYPE_MASK)==TOK_STRING:
+			ret=fillepos(exprstr(lex&~TOK_TYPE_MASK),toks[ptr].epos0,toks[ptr].epos1)
 			ptr++
 			return ret
-		elif (lex&TOK_TYPE_MASK)==TOK_ID:
+		else if (lex&TOK_TYPE_MASK)==TOK_ID:
 			id0=wantid()
 			if id0==g_id_function||id0==g_id_inline||id0==g_id_class||id0==g_id_struct:
 				return parseFunction(id0)
-			elif id0==g_id_module:
+			else if id0==g_id_module:
 				epos0=toks[ptr-1].epos0
 				id_namespace=wantid()
 				if !id_namespace:
@@ -939,7 +923,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 				epos1=toks[ptr-1].epos1
 				pe=fillepos(makeNamespace(id_namespace,pe_codeblock),epos0,epos1)
 				return pe
-			elif id0==g_id_new:
+			else if id0==g_id_new:
 				epos0=toks[ptr-1].epos0
 				pe=postexpr()
 				if isBuiltinR(pe,g_id_block):
@@ -947,9 +931,9 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 					return pe
 				else
 					return fillepos(call(g_id_new,pe),epos0,readPool(pe+2))
-			ret=poolCode(TVarExpression{.flags_var=EFLAG_VARIABLE|id0;.epos0=toks[ptr-1].epos0;.epos1=toks[ptr-1].epos1})
+			ret=fillepos(exprvar(id0),toks[ptr-1].epos0,toks[ptr-1].epos1)
 			return ret
-		elif lex=='(':
+		else if lex=='(':
 			ep0=toks[ptr].epos0
 			ptr++
 			//ret=expr(LEVEL_MAX)
@@ -966,7 +950,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 			if !want(int(')')):
 				error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"need a ')' here")
 			return ret
-		elif lex=='[':
+		else if lex=='[':
 			epos0=toks[ptr].epos0
 			ptr++
 			es=new int[]
@@ -979,12 +963,12 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 					error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"a ',' is expected between list/map elements")
 					ptr++
 					continue
-				es.add(pe)
+				es.push(pe)
 				ep1=toks[ptr].epos1
 			//list construction
 			ret=fillepos(vcall(g_id_list,es),epos0,ep1)
 			return ret
-		elif lex=='{':
+		else if lex=='{':
 			//statement list
 			ep0=toks[ptr].epos0
 			ptr++
@@ -993,7 +977,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 				if toks[ptr+1].tok==':'&&toks[ptr].tok!=TOK_ID+g_id_default:
 					return parseMap(0,ep0)
 			auto code=statementList(0)
-			//ret=poolCode(TCnsExpression{.flags_cid=EFLAG_CODEBLOCK+code;.epos0=toks[ptr].epos0;.epos1=toks[ptr].epos1})
+			//ret=poolCode(TCnsExpression{.flags_cid=EFLAG_CODEBLOCK+code;'epos0':toks[ptr].epos0;'epos1':toks[ptr].epos1})
 			if !want(int('}')):
 				//assert(0)
 				error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"need a '}' here")
@@ -1004,16 +988,16 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 		writePool(ret+1,toks[ptr].epos0)
 		writePool(ret+2,toks[ptr].epos1)
 		return ret
-	inline int isvar(PExpression pe_var)
+	inline isvar(PExpression pe_var)
 		return (readPool(pe_var)&EFLAG_MASK)==EFLAG_VARIABLE
-	PExpression modify(int is_before,PExpression pe_var,function(PExpression):PExpression fupdater)
+	auto modify(int is_before,PExpression pe_var,function(PExpression):PExpression fupdater)
 		if isvar(pe_var)&&is_before:
 			code_update=call(g_id_store,cloneExpr(pe_var),fupdater(cloneExpr(pe_var)))
 			if is_before==2:
 				return code_update
 			else
 				return call(g_id_block,code_update,pe_var)
-		elif isvar(pe_var)||(readPool(pe_var)&EFLAG_MASK)==EFLAG_FCALL:
+		else if isvar(pe_var)||(readPool(pe_var)&EFLAG_MASK)==EFLAG_FCALL:
 			vtemp=gettempid(0)
 			//todo: modify should only clone the topmost level
 			pe_clone=cloneExpr(pe_var)
@@ -1022,7 +1006,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 					call(g_id_store,exprvar(vtemp),pe_clone),
 					call(g_id_store,exprvar(vtemp),fupdater(exprvar(vtemp))),
 					call(g_id_store,pe_var,exprvar(vtemp)))
-			elif is_before:
+			else if is_before:
 				return call(g_id_block,
 					call(g_id_store,exprvar(vtemp),pe_clone),
 					call(g_id_store,exprvar(vtemp),fupdater(exprvar(vtemp))),
@@ -1035,7 +1019,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 					exprvar(vtemp))
 		error(ETYPE_ERROR,readPool(pe_var+1),readPool(pe_var+2),"cannot modify constant expression '@1'".Replace("@1",cite_raw(readPool(pe_var+1),readPool(pe_var+2))))
 		return pe_var
-	PExpression postexpr()
+	auto postexpr()
 		//Write('+')
 		ea=atom()
 		for(;;)
@@ -1053,7 +1037,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 					writePool(ea+2,toks[ptr-1].epos1)
 					continue
 				epos0=readPool(ea+1)
-				ec=(PExpression)0
+				ec=PExpression(0)
 				if want(int(':')):
 					eb=expriptr(0)
 					ec=expr(LEVEL_SELECT)
@@ -1082,14 +1066,13 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 				if !want(int(']')):
 					writePool(ea+2,toks[ptr].epos0)
 					error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos1,"'[' - ']' mismatch: need a ']' here")
-					assert(0)
 					break
 				continue
 			if !isBuiltinR(ea,g_id_block)&&!isBuiltinR(ea,g_id_store)&&want(int('(')):
 				epos0=readPool(ea+1)
 				epos1=readPool(ea+2)
 				es=new int[]
-				es.add(ea)
+				es.push(ea)
 				while !want(int(')'))&&!eof():
 					//Write('.')
 					//pe=expr(LEVEL_MAX)
@@ -1098,7 +1081,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 						error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"a ',' is expected between function parameters")
 						//ptr++
 						continue
-					es.add(pe)
+					es.push(pe)
 				epos1=toks[ptr-1].epos1
 				ea=indcall(es)
 				writePool(ea+1,epos0)
@@ -1120,7 +1103,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 					continue
 				if id==g_id_null:
 					//typed NULL case
-					ea=call(g_id_cast,ea,exprcns(getid_const(CTYPE_POINTER,(i64)0)))
+					ea=call(g_id_cast,ea,exprcns(getid_const(CTYPE_POINTER,0LL)))
 				else
 					ea=call(g_id_dot,ea,exprstr(id))
 				writePool(ea+1,epos0)
@@ -1128,7 +1111,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 				continue
 			break
 		return ea
-	PExpression preexpr()
+	auto preexpr()
 		//-~!
 		tok=peek()
 		switch tok{
@@ -1157,12 +1140,12 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 			return ea;
 		}
 		return postexpr()
-	PExpression expr(int lv0)
+	auto expr(int lv0)
 		ea=preexpr();lv=-1
 		for(;;)
 			//Write('e')
 			op=peek()
-			if (u32)op>=128u:break
+			if u32(op)>=128u:break
 			fop=g_operators[op]
 			f=fop.id
 			lv2=fop.priority
@@ -1204,14 +1187,17 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 			if lv==LEVEL_ASSIGNMENT:break
 		return ea
 	//////////////////////////////////
-	void statement_end()
+	auto statement_end()
 		if ptr>0&&toks[ptr-1].tok=='}':
 			//a {} ender shouldn't go any further
 			return
 		if !want(int(';')):
 			if peek()!=TOK_EOF&&peek()!='}':
+				//if ptr>0&&toks[ptr-1].tok==')':
+				//	error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,'C-style cast is not allowed, please use type(value)')
+				//else
 				error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,'unexpected end of statement')
-	PExpression statement()
+	auto statement()
 		//code_before=0
 		//code_after=0
 		epos0_statement=toks[ptr].epos0
@@ -1231,7 +1217,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 			epos1_statement=toks[max(ptr-1,0)].epos1
 			pe=fillepos(pe,epos0_statement,epos1_statement)
 			return pe
-		elif id==g_id_for||id==g_id_foreach_lang||id==g_id_while:
+		else if id==g_id_for||id==g_id_foreach_lang||id==g_id_while:
 			if id!=g_id_foreach_lang&&(id==g_id_while||want(int('('))):
 				//C-style
 				erred=0
@@ -1273,14 +1259,14 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 				es_loopbody=new PExpression[]
 				if pe_inc:
 					if pe_cond:
-						es_loopbody.add(call(g_id_if,pe_cond,call(g_id_block),expriptr(0),call(g_id_block,call(g_id_blockex,exprstr(g_id_break)))))
-					es_loopbody.add(call(g_id_blockex,exprstr(g_id_blockex),exprstr(g_id_continue),call(g_id_block,exprstr(g_id_block),pe_body)))
-					es_loopbody.add(pe_inc)
+						es_loopbody.push(call(g_id_if,pe_cond,call(g_id_block),expriptr(0),call(g_id_block,call(g_id_blockex,exprstr(g_id_break)))))
+					es_loopbody.push(call(g_id_blockex,exprstr(g_id_blockex),exprstr(g_id_continue),call(g_id_block,exprstr(g_id_block),pe_body)))
+					es_loopbody.push(pe_inc)
 					pe=call(g_id_blockex,exprstr(g_id_for),exprstr(g_id_blockex),exprstr(g_id_break),vcall(g_id_block,es_loopbody))
 				else
 					if pe_cond:
-						es_loopbody.add(call(g_id_if,pe_cond,call(g_id_block),expriptr(0),call(g_id_block,call(g_id_blockex,exprstr(g_id_break)))))
-					es_loopbody.add(pe_body)
+						es_loopbody.push(call(g_id_if,pe_cond,call(g_id_block),expriptr(0),call(g_id_block,call(g_id_blockex,exprstr(g_id_break)))))
+					es_loopbody.push(pe_body)
 					pe=call(g_id_blockex,exprstr(g_id_for),exprstr(g_id_blockex),exprstr(g_id_break),exprstr(g_id_continue),vcall(g_id_block,es_loopbody))
 				if pe_init:
 					pe=call(g_id_block,pe_init,pe)
@@ -1290,7 +1276,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 				for(;;)
 					id_var=wantid()
 					if !id_var:break
-					vars.add(id_var)
+					vars.push(id_var)
 					if !want(int(',')):break
 				if vars.n==1&&id==g_id_for&&want(int('=')):
 					//intslice for
@@ -1313,26 +1299,26 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 				want(int(':'))
 				pe_body=statement()
 				as=new PExpression[]
-				as.add(exprstr(g_id_inline_loopbody))
+				as.push(exprstr(g_id_inline_loopbody))
 				foreach id_var in vars
-					as.add(exprstr(g_id_auto))
-					as.add(exprstr(id_var))
-				as.add(pe_body)
+					as.push(exprstr(g_id_auto))
+					as.push(exprstr(id_var))
+				as.push(pe_body)
 				pe_inline_body=vcall(g_id_function,as)
 				pe=indcall([call(g_id_dot,pe_container,exprstr(g_id_foreach)),pe_inline_body])
 			return pe
-		elif id==g_id_break:
+		else if id==g_id_break:
 			pe=call(g_id_blockex,exprstr(g_id_break))
-		elif id==g_id_continue:
+		else if id==g_id_continue:
 			pe=call(g_id_blockex,exprstr(g_id_continue))
-		elif id==g_id_return:
+		else if id==g_id_return:
 			//the return variable should be always new, but it should have been at the function level
 			if peek()==';'||peek()=='}'
 				pe=call(g_id_blockex,exprstr(g_id_return))
 			else
 				pe=expr(LEVEL_MAX)
 				pe=call(g_id_block,call(g_id_store,exprvar(g_id_return),pe),call(g_id_blockex,exprstr(g_id_return)))
-		elif id==g_id_auto:
+		else if id==g_id_auto:
 			if peek()!=TOK_EOF&&toks[ptr+1].tok=='(':
 				//function-like
 				ptr--
@@ -1359,11 +1345,11 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 					if id_var==g_id_this:
 						error(ETYPE_ERROR,epos0,epos1_id,"'this' can't be redeclared")
 					else
-						as.add(pe)
+						as.push(pe)
 					if !want(int(',')):break
 				epos1_all=toks[ptr-1].epos1
 				pe=fillepos(vcall(g_id_block,as),epos0_all,epos1_all)
-		elif id==g_id_import:
+		else if id==g_id_import:
 			tid=(toks[ptr].tok&TOK_TYPE_MASK)
 			if tid==TOK_ID:
 				id0=toks[ptr].tok&~TOK_TYPE_MASK
@@ -1373,7 +1359,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 					id_fn=scanForSystemUnit(id0)
 					ptr++
 					if id_fn:
-						g_dependency_edges.add(int2(id_fn_current,addSourceFile(id_fn)))
+						g_dependency_edges.push(int2(id_fn_current,addSourceFile(id_fn)))
 					else
 						error(ETYPE_ERROR,toks[ptr-1].epos0,toks[ptr-1].epos1,"can't find system unit @1".Replace(["@1",getIdString(id0)]))
 					pe=expriptr(0)
@@ -1387,7 +1373,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 						pe_id=exprstr(id)
 						writePool(pe_id+1,toks[ptr-1].epos0)
 						writePool(pe_id+2,toks[ptr-1].epos1)
-						as.add(pe_id)
+						as.push(pe_id)
 					if !want(int('*')):
 						error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"import namespace.* has to end with .*")
 					if !as.n:
@@ -1401,8 +1387,8 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 						writePool(pe+2,epos1)
 						id_fn=scanForSystemUnit(id0)
 						if id_fn:
-							g_dependency_edges.add(int2(id_fn_current,addSourceFile(id_fn)))
-			elif tid==TOK_STRING:
+							g_dependency_edges.push(int2(id_fn_current,addSourceFile(id_fn)))
+			else if tid==TOK_STRING:
 				//add the file to the parsing queue
 				id_fn=(toks[ptr].tok&~TOK_TYPE_MASK)
 				ptr++
@@ -1419,9 +1405,9 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 						fn_test=g_system_unit_path+fn_unit
 						if System.IO.FileExists(fn_test):
 							id_fn=getid(fn_test)
-				g_dependency_edges.add(int2(id_fn_current,addSourceFile(id_fn)))
+				g_dependency_edges.push(int2(id_fn_current,addSourceFile(id_fn)))
 				pe=expriptr(0)
-		elif id==g_id_switch:
+		else if id==g_id_switch:
 			pecond=expr(LEVEL_SELECT)
 			want(int(':'))
 			if !want(int('{')):
@@ -1429,9 +1415,9 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 				pe=expriptr(0)
 			else
 				as_if=new PExpression[]
-				as_if.add(exprvar(g_id_if))
-				as_if.add(pecond)
-				as_if.add(0)
+				as_if.push(exprvar(g_id_if))
+				as_if.push(pecond)
+				as_if.push(0)
 				as_cases=new PExpression[]
 				as_default_group=(PExpression[])NULL
 				is_current_batch_default=0
@@ -1441,11 +1427,11 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 					if want(TOK_ID+g_id_case):
 						//Writeln('case ')
 						if as_cases.n:
-							as_cases.add(exprstr(g_id_case))
-						as_cases.add(expr(LEVEL_SELECT))
+							as_cases.push(exprstr(g_id_case))
+						as_cases.push(expr(LEVEL_SELECT))
 						while want(int(','))
-							as_cases.add(exprstr(g_id_case))
-							as_cases.add(expr(LEVEL_SELECT))
+							as_cases.push(exprstr(g_id_case))
+							as_cases.push(expr(LEVEL_SELECT))
 						want(int(':'))
 					else if want(TOK_ID+g_id_default):
 						//Writeln('default ')
@@ -1462,17 +1448,17 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 							is_current_batch_default=1
 						if is_current_batch_default:
 							if as_cases.n:
-								as_cases.add(exprstr(g_id_case))
+								as_cases.push(exprstr(g_id_case))
 							as_default_group=as_cases
 							as_if[2]=pe_body
 							as_cases=new PExpression[]
 						else
-							as_if.add(as_cases)
-							as_if.add(pe_body)
+							as_if.push(as_cases)
+							as_if.push(pe_body)
 							as_cases.clear()
 						is_current_batch_default=0
 				if as_default_group:
-					as_if.add(as_default_group)
+					as_if.push(as_default_group)
 				else
 					as_if[2]=expriptr(0)
 				pe=call(g_id_blockex,exprstr(g_id_blockex),exprstr(g_id_break),call(g_id_block,exprstr(g_id_block),indcall(as_if)))
@@ -1481,7 +1467,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 				return pe
 		else
 			if id:ptr--
-			if want((int)';'):
+			if want(int(';')):
 				return expriptr(0)
 			if peek()==int('{'):
 				pe=atom()//avoid {}| stupidness
@@ -1508,7 +1494,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 							if id_var==g_id_this:
 								error(ETYPE_ERROR,epos0,epos1_id,"'this' can't be redeclared")
 							else
-								as.add(pe)
+								as.push(pe)
 							if want(int(','))
 								id_var=wantid()
 							else
@@ -1521,27 +1507,27 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 			statement_end()
 		epos1_statement=toks[max(ptr-1,0)].epos1
 		pe=fillepos(pe,epos0_statement,epos1_statement)
-		//return cat(cat(code_before,poolCode(TExprStatement{.flags_expr=pe|STATEMENT_EXPR})),code_after)
+		//return cat(cat(code_before,poolCode(TExprStatement{'flags_expr':pe|STATEMENT_EXPR})),code_after)
 		return pe
-	PExpression statementList(int is_top)
+	auto statementList(int is_top)
 		epos0_statement=toks[ptr].epos0
 		as=new int[]
 		if is_top:
-			//as.add(exprstr(getid("__block")))
-			//as.add(call(g_id_store,exprvar(g_id_this),call(g_id_get_lambda_context,expriptr(0)),expriptr(0)))
+			//as.push(exprstr(getid("__block")))
+			//as.push(call(g_id_store,exprvar(g_id_this),call(g_id_get_lambda_context,expriptr(0)),expriptr(0)))
 			if id_unit!=g_id_builtin_unit:
 				//always import __builtin
 				assert(g_files_to_parse.n>1)
-				as.add(call(g_id_import,exprstr(g_id_builtin_unit)))
-				g_dependency_edges.add(int2(id_fn_current,g_files_to_parse[0]))
+				as.push(call(g_id_import,exprstr(g_id_builtin_unit)))
+				g_dependency_edges.push(int2(id_fn_current,g_files_to_parse[0]))
 		while peek()!=TOK_EOF&&peek()!='}':
-			as.add(statement())
+			as.push(statement())
 		epos1_statement=toks[max(ptr-1,0)].epos1
 		//if is_top:
-		//	//as.add(exprstr(getid("__block")))
-		//	as.add(call(g_id_store,exprvar(g_id_return),exprvar(g_id_this),expriptr(0)))
+		//	//as.push(exprstr(getid("__block")))
+		//	as.push(call(g_id_store,exprvar(g_id_return),exprvar(g_id_this),expriptr(0)))
 		return fillepos(vcall(g_id_block,as),epos0_statement,epos1_statement)
-	PExpression makeNamespace(int id_unit,PExpression pe_codeblock)
+	auto makeNamespace(int id_unit,PExpression pe_codeblock)
 		//return call(g_id_store,exprvar(id_unit),indcall([call(g_id_function,exprstr(g_id_class),pe_codeblock)]),exprstr(g_id_namespace))
 		return call(g_id_namespace,exprstr(id_unit),pe_codeblock,expriptr(0))
 	pe_codeblock=statementList(1)
@@ -1549,7 +1535,7 @@ PExpression parseC0(int id_fn_current,TToken[] toks)
 	pe_file=makeNamespace(id_unit,pe_codeblock)
 	return pe_file
 
-int parseAll()
+auto parseAll()
 	head=0L
 	while head<g_files_to_parse.n
 		assert(g_top_level_exprs.n==head)
@@ -1559,14 +1545,18 @@ int parseAll()
 		if ptr_src<0:
 			Writeln("fatal error: cannot open '@1'".Replace("@1",getIdString(id_fn)))
 			return 0
-		g_top_level_exprs.add(parseC0(id_fn,tokenize(ptr_src,0)))
+		g_top_level_exprs.push(parseC0(id_fn,tokenize(ptr_src,0)))
 		head++
 	n=g_files_to_parse.n
 	fn_to_seq=new int[int]
 	foreach id,I in g_files_to_parse
 		fn_to_seq[id]=int(I+1)
 	degs=new int[n]
-	g_dependency_edges=[ei foreach ei in g_dependency_edges if ei.x!=ei.y]
+	new_edges=new int2[]
+	foreach ei in g_dependency_edges
+		if ei.x!=ei.y:
+			new_edges.push(ei)
+	g_dependency_edges=new_edges
 	for i=0:g_dependency_edges.n-1
 		g_dependency_edges[i].x=fn_to_seq[g_dependency_edges[i].x]-1
 		g_dependency_edges[i].y=fn_to_seq[g_dependency_edges[i].y]-1
@@ -1593,11 +1583,11 @@ int parseAll()
 		for i=pedges[best_i].x:pedges[best_i].y-1
 			degs[g_dependency_edges[i].x]--
 			//Writeln('-- ',getIdString(g_files_to_parse[g_dependency_edges[i].x]),' ',degs[g_dependency_edges[i].x])
-		top_level_exprs_sorted.add(g_top_level_exprs[best_i])
+		top_level_exprs_sorted.push(g_top_level_exprs[best_i])
 	g_top_level_exprs=top_level_exprs_sorted
 	return 1
 
-void test_parser()
+auto test_parser()
 	toks=tokenize(loadSourceFile(getid("test\\tcanonical.spap")),0)
 	//Writeln(dumpTokenArray(toks))
 	code=parseC0(g_empty_id,toks)

@@ -1,268 +1,265 @@
-module:ctobj
-import "System.spap"
+import "system.spap"
 import "util.spap"
 import System.Algorithm.*
 import System.Console.*
-import util.*
+import Util.*
 
 //the layouts of int stuff are significant, DO NOT TOUCH THEM!
-typedef int PExpression
-typedef int PCTObject
-const
-	DEBUG_TRAP_VARIABLE=0
-	////////
-	EFLAG_MULTIPLIER=0x20000000
-	EFLAG_MASK=-EFLAG_MULTIPLIER
-	EFLAG_FCALL=0*EFLAG_MULTIPLIER
-	EFLAG_VARIABLE=1*EFLAG_MULTIPLIER
-	EFLAG_CONST=2*EFLAG_MULTIPLIER
-	EFLAG_STRING=3*EFLAG_MULTIPLIER
-	EFLAG_CTVAL=4*EFLAG_MULTIPLIER
-	//EFLAG_PLACEHOLDER=5*EFLAG_MULTIPLIER
-	//////////
-	USER_FLAG_ACTIVATED=0x08000000
-	USER_FLAG_MASK=0x0fffffff
-	QUEUE_FLAG_REACH=0x80000000
-	QUEUE_FLAG_EVAL=0x40000000
-	QUEUE_FLAG_USERS=0x20000000
-	QUEUE_FLAG_DOT=QUEUE_FLAG_USERS//0x10000000
-	QUEUE_FLAG_ONREACH_CALLED=0x10000000
-	VAR_USER_FLAG_MASK=0x0fffffff
-	VAR_FLAG_LAMBDAED=0x80000000
-	VAR_FLAG_PARAM=0x40000000
-	VAR_FLAG_FLATTENED_STRUCT_MEMBER=0x20000000
-	//VAR_FLAG_FLATTENED=0x20000000
-	//USER_FLAG_IN_EXPR=0x08000000
-	//EFLAG_CODEBLOCK=4*EFLAG_MULTIPLIER
-	//////////
-	//operator levels
-	LEVEL_STORE_HACK=-1
-	LEVEL_FUNCTION_HACK=-2
-	LEVEL_MAX=100
-	LEVEL_PREFIX=15
-	LEVEL_POSTFIX=10
-	LEVEL_ASSIGNMENT=90
-	LEVEL_SELECT=80
-	//////////
-	//operator names
-	TOK_EQ=int('a')
-	TOK_NE=int('b')
-	TOK_LE=int('c')
-	TOK_GE=int('d')
-	TOK_LL=int('g')
-	TOK_GG=int('h')
-	//////////
-	//block flags
-	//BFLAG_LOOP=1
-	//BFLAG_BREAK=2
-	//BFLAG_CONTINUE=4
-	//BFLAG_END_BREAK=8
-	//BFLAG_END_CONTINUE=16
+PExpression=int
+PCTObject=int
+DEBUG_TRAP_VARIABLE=0
+////////
+EFLAG_MULTIPLIER=0x20000000
+EFLAG_MASK=-EFLAG_MULTIPLIER
+EFLAG_FCALL=0*EFLAG_MULTIPLIER
+EFLAG_VARIABLE=1*EFLAG_MULTIPLIER
+EFLAG_CONST=2*EFLAG_MULTIPLIER
+EFLAG_STRING=3*EFLAG_MULTIPLIER
+EFLAG_CTVAL=4*EFLAG_MULTIPLIER
+//EFLAG_PLACEHOLDER=5*EFLAG_MULTIPLIER
+//////////
+USER_FLAG_ACTIVATED=0x08000000
+USER_FLAG_MASK=0x0fffffff
+QUEUE_FLAG_REACH=0x80000000
+QUEUE_FLAG_EVAL=0x40000000
+QUEUE_FLAG_USERS=0x20000000
+QUEUE_FLAG_DOT=QUEUE_FLAG_USERS//0x10000000
+QUEUE_FLAG_ONREACH_CALLED=0x10000000
+VAR_USER_FLAG_MASK=0x0fffffff
+VAR_FLAG_LAMBDAED=0x80000000
+VAR_FLAG_PARAM=0x40000000
+VAR_FLAG_FLATTENED_STRUCT_MEMBER=0x20000000
+//VAR_FLAG_FLATTENED=0x20000000
+//USER_FLAG_IN_EXPR=0x08000000
+//EFLAG_CODEBLOCK=4*EFLAG_MULTIPLIER
+//////////
+//operator levels
+LEVEL_STORE_HACK=-1
+LEVEL_FUNCTION_HACK=-2
+LEVEL_MAX=100
+LEVEL_PREFIX=15
+LEVEL_POSTFIX=10
+LEVEL_ASSIGNMENT=90
+LEVEL_SELECT=80
+//////////
+//operator names
+TOK_EQ=int('a')
+TOK_NE=int('b')
+TOK_LE=int('c')
+TOK_GE=int('d')
+TOK_LL=int('g')
+TOK_GG=int('h')
+//////////
+//block flags
+//BFLAG_LOOP=1
+//BFLAG_BREAK=2
+//BFLAG_CONTINUE=4
+//BFLAG_END_BREAK=8
+//BFLAG_END_CONTINUE=16
 //struct TResolvedName
 //	//PCTObject owner
 //	int key
 //	PCTObject v
 //		%get{return .key}
-//		%set{.key=value}
+//		%set{'key':value}
 struct TExpression
 	int flags_n_args
 	int epos0,epos1,caller,user_flags
 	PExpression next_v_user
-	TSCCPValue val
-	//PCTObject scope
+	int v_tid
+	PCTObject v_val
 	//then it's a list of args
+g_desc_TExpression=('flags_n_args','epos0','epos1','caller','user_flags','next_v_user','v_tid','v_val')
 //dotting is a function
 struct TVarExpression
 	int flags_var
 	int epos0,epos1,caller,user_flags
-	//TResolvedName v
 	PExpression next_v_user
+g_desc_TVarExpression=('flags_var','epos0','epos1','caller','user_flags','next_v_user')
 struct TCnsExpression
 	int flags_cid
 	int epos0,epos1,caller,user_flags
-	//TSCCPValue val
+g_desc_TCnsExpression=('flags_cid','epos0','epos1','caller','user_flags')
 struct TExprHeader
 	int flags
 	int epos0,epos1,flags2_caller,user_flags
+g_desc_TExprHeader=('flags','epos0','epos1','caller','user_flags')
 
-const
-	//EXPR_OFS_VAR=(sizeof(TExprHeader))/sizeof(int)
-	//EXPR_OFS_NEXT_V_USER=EXPR_OFS_VAR+(sizeof(TResolvedName))/sizeof(int)
-	EXPR_OFS_NEXT_V_USER=int(sizeof(TExprHeader)/sizeof(int))
-	EXPR_OFS_VALUE=EXPR_OFS_NEXT_V_USER+1//(sizeof(TExprHeader))/sizeof(int)+1
-	EXPR_OFS_CALLER=3
-	EXPR_OFS_USER_FLAGS=4
-	EXPR_OFS_FUNCTION=int(sizeof(TExpression)/sizeof(int))
-	EXPR_OFS_ARGS=EXPR_OFS_FUNCTION+1
-	EXPR_OFS_EPOS=1
-	VAR_OFS_USER_QUEUE=int(sizeof(TSCCPValue)/sizeof(int))+0
-	VAR_OFS_STORE_QUEUE=int(sizeof(TSCCPValue)/sizeof(int))+1
-	VAR_OFS_USER_FLAGS=int(sizeof(TSCCPValue)/sizeof(int))+2
-	VAR_OFS_VALUE_TIME=int(sizeof(TSCCPValue)/sizeof(int))+3
-	VAR_OFS_ID=int(sizeof(TSCCPValue)/sizeof(int))+4
-	VAR_OFS_OWNER=int(sizeof(TSCCPValue)/sizeof(int))+5
-	VAR_OFS_DEFINING_STORE=int(sizeof(TSCCPValue)/sizeof(int))+6
-	VAR_OFS_FLATTENING_OWNER=int(sizeof(TSCCPValue)/sizeof(int))+7
+//EXPR_OFS_VAR=(sizeof(TExprHeader))/sizeof(int)
+//EXPR_OFS_NEXT_V_USER=EXPR_OFS_VAR+(sizeof(TResolvedName))/sizeof(int)
+EXPR_OFS_NEXT_V_USER=int(g_desc_TExprHeader.length)
+EXPR_OFS_VALUE=EXPR_OFS_NEXT_V_USER+1//(sizeof(TExprHeader))/sizeof(int)+1
+EXPR_OFS_CALLER=3
+EXPR_OFS_USER_FLAGS=4
+EXPR_OFS_FUNCTION=int(g_desc_TExpression.length)
+EXPR_OFS_ARGS=EXPR_OFS_FUNCTION+1
+EXPR_OFS_EPOS=1
+VAR_OFS_USER_QUEUE=int(g_desc_TSCCPValue.length)+0
+VAR_OFS_STORE_QUEUE=int(g_desc_TSCCPValue.length)+1
+VAR_OFS_USER_FLAGS=int(g_desc_TSCCPValue.length)+2
+VAR_OFS_VALUE_TIME=int(g_desc_TSCCPValue.length)+3
+VAR_OFS_ID=int(g_desc_TSCCPValue.length)+4
+VAR_OFS_OWNER=int(g_desc_TSCCPValue.length)+5
+VAR_OFS_DEFINING_STORE=int(g_desc_TSCCPValue.length)+6
+VAR_OFS_FLATTENING_OWNER=int(g_desc_TSCCPValue.length)+7
 
 //safety space for NULL lisp access
 g_ctobject_pool=[0,0,0,0]
 
-inline PExpression poolCode(auto a)
-	#flavor "system"
-	typedef typeof(a) T
-	ret=(int)g_ctobject_pool.n
-	If T==TExpression:
-		a.val.tid=g_vtid_UNINIT
-	Elif T==TCnsExpression||T==TVarExpression:
+inline poolCode(auto a)
+	T=typeof(a)
+	ret=int(g_ctobject_pool.n)
+	if T==TExpression:
+		a.v_tid=g_vtid_UNINIT
+	else if T==TCnsExpression||T==TVarExpression:
 		//nothing
-	Else
-		#blame (a,"unsupported expression type")
-	const
-		N_ITERS=Array(typeof(a)).ELEMENT_SIZE/sizeof(int)
-	For i=0:int(N_ITERS)-1
-		g_ctobject_pool.add(((int*)a)[i])
+	else
+		__error("unsupported expression type @1",T)
+	desc=getTypeDescription(T)
+	g_ctobject_pool.resize(ret+desc.length)
+	for i in crange(desc.length)
+		g_ctobject_pool[ret+i]=__dot(a,desc[i])
 	return ret
 
-inline PExpression poolObject(auto a)
-	#flavor "system"
-	typedef typeof(a) T
-	ret=(int)g_ctobject_pool.n
-	If T==TDynamicObject:
+inline poolObject(auto a)
+	T=typeof(a)
+	ret=int(g_ctobject_pool.n)
+	if T==TDynamicObject:
 		a.tid=g_tid_TDynamicObject
-	Elif T==TFunction:
+	else if T==TFunction:
 		a.tid=g_tid_TFunction
-	Elif T==TCompilerFunction:
-		a.tid=g_tid_TCompilerFunction
-	Elif T==TParserCallback:
-		a.tid=g_tid_TParserCallback
-	Elif T==TCtUniqueEvalQueue:
+	else if T==TCtUniqueEvalQueue:
 		a.tid=g_tid_TCtUniqueEvalQueue
-	Elif T==TSCCPValue:
+	else if T==TSCCPValue:
 		//nothing
-	Elif T==TVariable:
+	else if T==TVariable:
 		//nothing
-	Elif T==TBuiltinType:
+	else if T==TBuiltinType:
 		a.tid=g_tid_TBuiltinType
-	Elif T==TFunctionType:
+	else if T==TFunctionType:
 		a.tid=g_tid_TFunctionType
-	Elif T==TNameSpace:
+	else if T==TNameSpace:
 		a.tid=g_tid_TNameSpace
-	Elif T==TAdvancedEpos:
+	else if T==TAdvancedEpos:
 		a.tid=g_tid_TAdvancedEpos
-	Else
-		#blame (a,"unsupported object type")
-	const
-		N_ITERS=Array(typeof(a)).ELEMENT_SIZE/sizeof(int)
-	For i=0:int(N_ITERS)-1
-		g_ctobject_pool.add(((int*)a)[i])
+	else
+		__error("unsupported object type @1",T)
+	desc=getTypeDescription(T)
+	g_ctobject_pool.resize(ret+desc.length)
+	for i in crange(desc.length)
+		g_ctobject_pool[ret+i]=__dot(a,desc[i])
 	return ret
 
-inline auto readPoolTyped(iptr p,typename T)
-	#flavor "system"
-	If T==TExpression||T==TVarExpression||T==TCnsExpression||T==TExprHeader||T==TFunction||T==TCompilerFunction||T==TSCCPValue||T==TVariable||T==TCtUniqueEvalQueue||T==TParserCallback||T==TFunctionType:
-		//nothing
-	Else
-		#blame (T,"unsupported type")
+inline getTypeDescription(const T)
+	if T==TExpression:return g_desc_TExpression
+	if T==TVarExpression:return g_desc_TVarExpression
+	if T==TCnsExpression:return g_desc_TCnsExpression
+	if T==TExprHeader:return g_desc_TExprHeader
+	if T==TFunction:return g_desc_TFunction
+	if T==TSCCPValue:return g_desc_TSCCPValue
+	if T==TVariable:return g_desc_TVariable
+	if T==TCtUniqueEvalQueue:return g_desc_TCtUniqueEvalQueue
+	if T==TFunctionType:return g_desc_TFunctionType
+	if T==TNameSpace:return g_desc_TNameSpace
+	if T==TAdvancedEpos:return g_desc_TAdvancedEpos
+	__error("type @1 doesn't have a description",T)
+
+//coulddo: pre-fetched pointer in release mode
+inline readPool(iptr p)
+	return g_ctobject_pool[p]
+
+inline readPoolTyped(iptr p,const T)
+	desc=getTypeDescription(T)
 	a=T()
-	const
-		N_ITERS=Array(typeof(a)).ELEMENT_SIZE/sizeof(int)
-	For i=0:int(N_ITERS)-1
-		((int*)a)[i]=g_ctobject_pool[p+i]
+	for i in crange(desc.length)
+		__dot(a,desc[i])=readPool(p+i)
 	return a
-	
-inline void writePool(iptr p,int a)
+
+inline writePool(iptr p,int a)
 	g_ctobject_pool[p]=a
 	//if g_ctobject_pool.n>371:
 	//	assert(!!g_ctobject_pool[371])
 
-inline void writePoolTyped(iptr p,auto a0)
-	#flavor "system"
-	a=a0
-	const
-		N_ITERS=Array(typeof(a)).ELEMENT_SIZE/sizeof(int)
-	For i=0:int(N_ITERS)-1
-		g_ctobject_pool[p+i]=((int*)a)[i]
+inline writePoolTyped(iptr p,auto a)
+	desc=getTypeDescription(typeof(a))
+	for i in crange(desc.length)
+		writePool(p+i,__dot(a,desc[i]))
 	
 g_names_resolved=0
-inline PExpression call(int id, ......)
+inline call(int id)
 	if g_names_resolved:
 		id_or_pobj=g_symbols[id].user_slot
 		assert(!!id_or_pobj)
 	else
 		id_or_pobj=id
 	pe_func=exprvar(id_or_pobj)
-	n0=poolCode(TExpression{.flags_n_args=(va_count)|EFLAG_FCALL})
-	g_ctobject_pool.add(pe_func)
-	For i=0:va_count-1
-		typedef typeof(va_arg(i)) T
-		If T!=int:
-			#blame (va_arg(i),"call can only take ints")
-		Else
-			g_ctobject_pool.add(va_arg(i))
-			assert(!!va_arg(i))
-			writePool(va_arg(i)+EXPR_OFS_CALLER,n0)
+	n0=poolCode(TExpression(){'flags_n_args':(arguments.length-1)|EFLAG_FCALL})
+	g_ctobject_pool.push(pe_func)
+	arguments0=arguments
+	for i in crange(arguments0.length)
+		T=typeof(arguments0[i])
+		if T!=int:
+			__error("call can only take ints, not the @1-th argument, which is @2",i,T)
+		else
+			g_ctobject_pool.push(arguments0[i])
+			assert(!!arguments0[i])
+			writePool(arguments0[i]+EXPR_OFS_CALLER,n0)
 	writePool(pe_func+EXPR_OFS_CALLER,n0)
-	If __ENABLED__('codegen.check'):
-		if g_names_resolved&&id==g_id_store&&va_count==3:
-			pe_value=readPool((int)n0+EXPR_OFS_ARGS+1)
-			assert(0)
-			if isExpr(pe_value,EFLAG_CTVAL):
-				if isVariable(readPool(pe_value)&~EFLAG_MASK):
-					//dot name should never get pulled
-					assert(0)
-	return (int)n0
+	//if Platform.BUILD=="debug":
+	//	if g_names_resolved&&id==g_id_store&&va_count==3:
+	//		pe_value=readPool(int(n0)+EXPR_OFS_ARGS+1)
+	//		assert(0)
+	//		if isExpr(pe_value,EFLAG_CTVAL):
+	//			if isVariable(readPool(pe_value)&~EFLAG_MASK):
+	//				//dot name should never get pulled
+	//				assert(0)
+	return int(n0)
 
-PExpression vcall(int id, int[] as)
+auto vcall(int id, int[] as)
 	if g_names_resolved:
 		id_or_pobj=g_symbols[id].user_slot
 		assert(!!id_or_pobj)
 	else
 		id_or_pobj=id
 	pe_func=exprvar(id_or_pobj)
-	n0=poolCode(TExpression{.flags_n_args=int(as.n)|EFLAG_FCALL})
-	g_ctobject_pool.add(pe_func)
-	g_ctobject_pool.add(as)
+	n0=poolCode(TExpression(){'flags_n_args':int(as.n)|EFLAG_FCALL})
+	g_ctobject_pool.push(pe_func)
+	g_ctobject_pool.push(as)
 	foreach pa in as
 		assert(!!pa)
 		writePool(pa+EXPR_OFS_CALLER,n0)
 	writePool(pe_func+EXPR_OFS_CALLER,n0)
-	return (int)n0
+	return int(n0)
 
-PExpression indcall(int[] as)
+auto indcall(int[] as)
 	assert(as.n>0)
-	n0=poolCode(TExpression{.flags_n_args=int(as.n-1)|EFLAG_FCALL})
-	g_ctobject_pool.add(as)
+	n0=poolCode(TExpression(){'flags_n_args':int(as.n-1)|EFLAG_FCALL})
+	g_ctobject_pool.push(as)
 	foreach pa in as
 		assert(!!pa)
 		writePool(pa+EXPR_OFS_CALLER,n0)
-	return (int)n0
+	return int(n0)
 
-inline PExpression exprcns(int cid)
+inline exprcns(int cid)
 	//n0=g_ctobject_pool.n
-	//g_ctobject_pool.add(EFLAG_CONST+cid)
-	return (int)poolCode(TCnsExpression{.flags_cid=EFLAG_CONST+cid})
+	//g_ctobject_pool.push(EFLAG_CONST+cid)
+	return int(poolCode(TCnsExpression(){'flags_cid':EFLAG_CONST+cid}))
 
-inline PExpression exprctval(PCTObject ctval)
+inline exprctval(PCTObject ctval)
 	assert(!!ctval)
-	return (int)poolCode(TCnsExpression{.flags_cid=EFLAG_CTVAL+ctval})
+	return int(poolCode(TCnsExpression(){'flags_cid':EFLAG_CTVAL+ctval}))
 
-inline PExpression exprstr(int id)
-	//n0=g_ctobject_pool.n
-	//g_ctobject_pool.add(EFLAG_STRING+id)
-	return (int)poolCode(TCnsExpression{.flags_cid=EFLAG_STRING+id})
+inline exprstr(int id)
+	return int(poolCode(TCnsExpression(){'flags_cid':EFLAG_STRING+id}))
 
-inline PExpression exprvar(int vid)
-	//n0=g_ctobject_pool.n
-	//g_ctobject_pool.add(EFLAG_VARIABLE)
-	//g_ctobject_pool.add(0)
-	//g_ctobject_pool.add(vid)
-	return (int)poolCode(TVarExpression{.flags_var=EFLAG_VARIABLE|vid})
+inline exprvar(int vid)
+	return int(poolCode(TVarExpression(){'flags_var':EFLAG_VARIABLE|vid}))
 
-inline PExpression expriptr(iptr val)
+inline expriptr(iptr val)
 	assert(iptr(int(val))==val)
-	return exprcns(getid_const(const_type(CTYPE_INT,util.bitSize()),(i64)val))
+	return exprcns(getid_const(const_type(CTYPE_INT,Util.bitSize()),i64(val)))
 
-PExpression fillepos(PExpression pe,int ep0,int ep1)
+auto fillepos(PExpression pe,int ep0,int ep1)
 	if !readPool(pe+1):
 		flags=readPool(pe)
 		if (flags&EFLAG_MASK)==EFLAG_FCALL:
@@ -273,7 +270,7 @@ PExpression fillepos(PExpression pe,int ep0,int ep1)
 		writePool(pe+2,ep1)
 	return pe
 
-PExpression wipeepos(PExpression pe)
+auto wipeepos(PExpression pe)
 	flags=readPool(pe)
 	if (flags&EFLAG_MASK)==EFLAG_FCALL:
 		n_args=flags&~EFLAG_MASK
@@ -283,17 +280,17 @@ PExpression wipeepos(PExpression pe)
 	writePool(pe+2,0)
 	return pe
 
-PCTObject makevar(PCTObject pf_owner)
+auto makevar(PCTObject pf_owner)
 	assert(!!pf_owner)
-	ret=poolObject(TVariable{.current_value.tid=g_vtid_UNINIT;.owner_function=pf_owner;.id=g_tempvar_id})
-	If DEBUG_TRAP_VARIABLE:
+	ret=poolObject(TVariable(){'tid':g_vtid_UNINIT,'owner_function':pf_owner,'id':g_tempvar_id})
+	if DEBUG_TRAP_VARIABLE:
 		assert(ret!=DEBUG_TRAP_VARIABLE)
 	return ret
 
-inline int isExpr(PExpression pe,int flag)
+inline isExpr(PExpression pe,int flag)
 	return (readPool(pe)&EFLAG_MASK)==flag
 
-PCTObject getAsFunction(PCTObject pobj0)
+auto getAsFunction(PCTObject pobj0)
 	pobj=pobj0
 	if !pobj:return 0
 	if readPool(pobj)==g_vtid_CTVAL:
@@ -305,14 +302,14 @@ PCTObject getAsFunction(PCTObject pobj0)
 		return pobj
 	return 0
 	
-PCTObject getExprFunction(PExpression pe)
+auto getExprFunction(PExpression pe)
 	assert(isExpr(pe,EFLAG_FCALL))
 	return getAsFunction(getExprValueAs(readPool(pe+EXPR_OFS_FUNCTION),g_vtid_CTVAL))
 
-inline PCTObject getBuiltin(int fid)
+inline getBuiltin(int fid)
 	return readPool(g_symbols[fid].user_slot+1)
 
-inline PCTObject getVariable(PExpression pe)
+inline getVariable(PExpression pe)
 	pobj=readPool(pe)
 	assert((pobj&EFLAG_MASK)==EFLAG_VARIABLE)
 	pobj&=~EFLAG_MASK
@@ -322,37 +319,37 @@ inline PCTObject getVariable(PExpression pe)
 	//return 0
 	return pobj
 
-TSCCPValue getExprValue(PExpression pe)
+auto getExprValue(PExpression pe)
 	flags=readPool(pe)
 	switch flags&EFLAG_MASK{
 	case EFLAG_CONST:
-		return TSCCPValue{.tid=g_vtid_CNS;.val=(flags&~EFLAG_MASK)}
+		return TSCCPValue(){'tid':g_vtid_CNS,'val':(flags&~EFLAG_MASK)}
 	case EFLAG_CTVAL:
 		//if !(flags&~EFLAG_MASK):
 		//	Writeln('<<<!!!>>>')
 		//	g_id_errored=1
-		return TSCCPValue{.tid=g_vtid_CTVAL;.val=(flags&~EFLAG_MASK)}
+		return TSCCPValue(){'tid':g_vtid_CTVAL,'val':(flags&~EFLAG_MASK)}
 	case EFLAG_FCALL:
 		return readPoolTyped(pe+EXPR_OFS_VALUE,TSCCPValue)
 	case EFLAG_STRING:
-		return TSCCPValue{.tid=g_vtid_STR;.val=(flags&~EFLAG_MASK)}
+		return TSCCPValue(){'tid':g_vtid_STR,'val':(flags&~EFLAG_MASK)}
 	case EFLAG_VARIABLE:
 		pobj=getVariable(pe)
 		//if isVariable(pobj):
 		return readPoolTyped(pobj,TSCCPValue)
-		//return TSCCPValue{.tid=g_vtid_UNINIT}
+		//return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	assert(0)
-	return TSCCPValue{.tid=g_vtid_UNINIT}
+	return TSCCPValue(){'tid':g_vtid_UNINIT}
 
-int getExprValueAs(PExpression pe,int vtid)
+auto getExprValueAs(PExpression pe,int vtid)
 	val0=getExprValue(pe)
 	if val0.tid==g_vtid_UNINIT:return 0
 	if val0.tid==vtid:
 		if vtid==g_vtid_CNS:
-			cns=util.ctNumber(val0.val)
+			cns=Util.ctNumber(val0.val)
 			if (cns.type&CTYPE_MASK)==CTYPE_INT||(cns.type&CTYPE_MASK)==CTYPE_UINT:
-				return (int)cns.val_bin
+				return int(cns.val_bin)
 		if vtid==g_vtid_STR:
 			return val0.val
 		if vtid==g_vtid_CTVAL:
@@ -360,12 +357,12 @@ int getExprValueAs(PExpression pe,int vtid)
 		assert(0)
 	return 0
 
-int getCcnv(PCTObject pobjfn)
+auto getCcnv(PCTObject pobjfn)
 	pe_decl=readPool(pobjfn+FUNCTION_OFS_PEDECL)
 	return getExprValueAs(readPool(pe_decl+(EXPR_OFS_ARGS)+0),g_vtid_STR)
 
 tm_insertCallAt=tnew("insertCallAt")
-PExpression insertCallAt(PExpression pecall,PExpression pesrc,function(PExpression):PExpression fmakecall)
+auto insertCallAt(PExpression pecall,PExpression pesrc,function(PExpression):PExpression fmakecall)
 	tbegin(tm_insertCallAt)
 	nargs_caller=readPool(pecall)
 	assert((nargs_caller&EFLAG_MASK)==EFLAG_FCALL)
@@ -382,7 +379,7 @@ PExpression insertCallAt(PExpression pecall,PExpression pesrc,function(PExpressi
 			assert(0)
 			tend(tm_insertCallAt)
 			return 0
-	assert((u32)arg_id<(u32)nargs_caller||arg_id==-1)
+	assert(u32(arg_id)<u32(nargs_caller)||arg_id==-1)
 	peold=readPool(pecall+EXPR_OFS_ARGS+arg_id)
 	epos0=readPool(peold+1)
 	epos1=readPool(peold+2)
@@ -397,41 +394,43 @@ PExpression insertCallAt(PExpression pecall,PExpression pesrc,function(PExpressi
 	tend(tm_insertCallAt)
 	return penew
 	
-const
-	CLONE_WIPE_TO_UNREACHED=1
-	//CLONE_WIPE_TO_RESOLVED=2
-	//CLONE_UNRESOLVED=2
-	//CLONE_REBIND_CONTEXT=2
-	CLONE_VARS=4
-	CLONE_KEEP_VAR_IDS=8
-	CLONE_EXPR_IS_CALLED_BY_CLONE_FUNCTION=16
-PExpression cloneExprEx(PExpression pe,PCTObject[PCTObject] var_map,int flags)
+CLONE_WIPE_TO_UNREACHED=1
+//CLONE_WIPE_TO_RESOLVED=2
+//CLONE_UNRESOLVED=2
+//CLONE_REBIND_CONTEXT=2
+CLONE_VARS=4
+CLONE_KEEP_VAR_IDS=8
+CLONE_EXPR_IS_CALLED_BY_CLONE_FUNCTION=16
+auto cloneExprEx(PExpression pe,PCTObject[PCTObject] var_map,int flags)
 	n=0
-	as=(int[])NULL
+	as=int[].NULL
 	pe_flags=g_ctobject_pool[pe]
 	switch(pe_flags&EFLAG_MASK){
 	case EFLAG_CONST,EFLAG_STRING,EFLAG_CTVAL:
-		n=sizeof(TCnsExpression)/sizeof(int)
+		n=g_desc_TCnsExpression.length
 		break
 	case EFLAG_VARIABLE:
-		n=sizeof(TVarExpression)/sizeof(int)
+		n=g_desc_TVarExpression.length
 		assert(n>1)
 		break
 	case EFLAG_FCALL:
-		n=sizeof(TExpression)/sizeof(int)
+		n=g_desc_TExpression.length
 		if isBuiltin(pe,g_id_function)&&!(flags&CLONE_EXPR_IS_CALLED_BY_CLONE_FUNCTION):
 			if readPool(pe+EXPR_OFS_VALUE)==g_vtid_CTVAL:
 				pobjfn_cloned=cloneFunctionEx(readPool(pe+EXPR_OFS_VALUE+1),var_map,flags)
 				return readPool(pobjfn_cloned+FUNCTION_OFS_PEDECL)
 		nargs=g_ctobject_pool[pe]
-		as=[cloneExprEx(g_ctobject_pool[pe+EXPR_OFS_ARGS+i],var_map,flags&~CLONE_EXPR_IS_CALLED_BY_CLONE_FUNCTION) for i=-1:nargs-1]
+		as=new PExpression[nargs+1]
+		for i=-1:nargs-1
+			as[i+1]=cloneExprEx(g_ctobject_pool[pe+EXPR_OFS_ARGS+i],var_map,flags&~CLONE_EXPR_IS_CALLED_BY_CLONE_FUNCTION)
+		//as=[cloneExprEx(g_ctobject_pool[pe+EXPR_OFS_ARGS+i],var_map,flags&~CLONE_EXPR_IS_CALLED_BY_CLONE_FUNCTION) for i=-1:nargs-1]
 		break
 	}
-	n0=(int)g_ctobject_pool.n
+	n0=int(g_ctobject_pool.n)
 	g_ctobject_pool.resize(n0+n)
 	copy(g_ctobject_pool[n0:],g_ctobject_pool[pe:pe+n-1])
 	if as:
-		g_ctobject_pool.add(as)
+		g_ctobject_pool.push(as)
 		//caller fix
 		foreach pearg in as
 			writePool(pearg+EXPR_OFS_CALLER,n0)
@@ -445,8 +444,8 @@ PExpression cloneExprEx(PExpression pe,PCTObject[PCTObject] var_map,int flags)
 				//only clone the owner-known variables
 				pv_cloned=var_map[pv_original]
 				if !pv_cloned:
-					If DEBUG_TRAP_VARIABLE:
-						if (int)g_ctobject_pool.n==DEBUG_TRAP_VARIABLE:
+					if DEBUG_TRAP_VARIABLE:
+						if int(g_ctobject_pool.n)==DEBUG_TRAP_VARIABLE:
 							Writeln(dumpExpr(readPool(pe+EXPR_OFS_CALLER),NULL))
 							Writeln(pv_original)
 							assert(0)
@@ -459,7 +458,7 @@ PExpression cloneExprEx(PExpression pe,PCTObject[PCTObject] var_map,int flags)
 					var_map[pv_original]=pv_cloned
 				//writePool(n0+EXPR_OFS_VAR,pv_cloned)
 				writePool(n0,EFLAG_VARIABLE+pv_cloned)
-		elif isBuiltin(pe,g_id_store):
+		else if isBuiltin(pe,g_id_store):
 			pevar=readPool(pe+EXPR_OFS_ARGS)
 			if isExpr(pevar,EFLAG_VARIABLE):
 				pv=getVariable(pevar)
@@ -476,13 +475,13 @@ PExpression cloneExprEx(PExpression pe,PCTObject[PCTObject] var_map,int flags)
 		case EFLAG_FCALL:
 			writePool(n0+EXPR_OFS_NEXT_V_USER,0)
 			writePool(n0+EXPR_OFS_USER_FLAGS,0)
-			writePoolTyped(n0+EXPR_OFS_VALUE,TSCCPValue{.tid=g_vtid_UNINIT})
+			writePoolTyped(n0+EXPR_OFS_VALUE,TSCCPValue(){'tid':g_vtid_UNINIT})
 			break
 		}
 	//linked list stuff has to be cleared
 	return n0
 
-void dfsExprEx(PExpression pe,PCTObject pf_owner,function(PExpression,PCTObject):int fcallback)
+auto dfsExprEx(PExpression pe,PCTObject pf_owner,function(PExpression,PCTObject):int fcallback)
 	if !fcallback(pe,pf_owner):return
 	flags=readPool(pe)
 	if (flags&EFLAG_MASK)==EFLAG_FCALL:
@@ -493,7 +492,7 @@ void dfsExprEx(PExpression pe,PCTObject pf_owner,function(PExpression,PCTObject)
 		for i=-1:nargs-1
 			dfsExprEx(readPool(pe+EXPR_OFS_ARGS+i),pf_owner_recurse,fcallback)
 
-void dfsExpr(PExpression pe,function(PExpression):int fcallback)
+auto dfsExpr(PExpression pe,function(PExpression):int fcallback)
 	if !fcallback(pe):return
 	flags=readPool(pe)
 	if (flags&EFLAG_MASK)==EFLAG_FCALL:
@@ -501,22 +500,22 @@ void dfsExpr(PExpression pe,function(PExpression):int fcallback)
 		for i=-1:nargs-1
 			dfsExpr(readPool(pe+EXPR_OFS_ARGS+i),fcallback)
 
-inline void setUserFlag(PExpression pe,int flag)
-	If EXPR_OFS_USER_FLAGS!=VAR_OFS_USER_FLAGS:
-		#blame (pe,"EXPR_OFS_USER_FLAGS and VAR_OFS_USER_FLAGS have to be equal")
+inline setUserFlag(PExpression pe,int flag)
+	if EXPR_OFS_USER_FLAGS!=VAR_OFS_USER_FLAGS:
+		__error("EXPR_OFS_USER_FLAGS and VAR_OFS_USER_FLAGS have to be equal")
 	writePool(pe+EXPR_OFS_USER_FLAGS,readPool(pe+EXPR_OFS_USER_FLAGS)|flag)
 
-inline void unsetUserFlag(PExpression pe,int flag)
-	If EXPR_OFS_USER_FLAGS!=VAR_OFS_USER_FLAGS:
-		#blame (pe,"EXPR_OFS_USER_FLAGS and VAR_OFS_USER_FLAGS have to be equal")
+inline unsetUserFlag(PExpression pe,int flag)
+	if EXPR_OFS_USER_FLAGS!=VAR_OFS_USER_FLAGS:
+		__error("EXPR_OFS_USER_FLAGS and VAR_OFS_USER_FLAGS have to be equal")
 	writePool(pe+EXPR_OFS_USER_FLAGS,readPool(pe+EXPR_OFS_USER_FLAGS)&~flag)
 
-inline int testUserFlag(PExpression pe,int flag)
-	If EXPR_OFS_USER_FLAGS!=VAR_OFS_USER_FLAGS:
-		#blame (pe,"EXPR_OFS_USER_FLAGS and VAR_OFS_USER_FLAGS have to be equal")
+inline testUserFlag(PExpression pe,int flag)
+	if EXPR_OFS_USER_FLAGS!=VAR_OFS_USER_FLAGS:
+		__error("EXPR_OFS_USER_FLAGS and VAR_OFS_USER_FLAGS have to be equal")
 	return (readPool(pe+EXPR_OFS_USER_FLAGS)&flag)
 
-PCTObject cloneFunctionEx(PCTObject pobjfn,PCTObject[PCTObject] var_map,int flags)
+auto cloneFunctionEx(PCTObject pobjfn,PCTObject[PCTObject] var_map,int flags)
 	//we're assuming that the cloned function is unreached
 	fn=readPoolTyped(pobjfn,TFunction)
 	ret=poolObject(fn)
@@ -536,14 +535,14 @@ PCTObject cloneFunctionEx(PCTObject pobjfn,PCTObject[PCTObject] var_map,int flag
 	fn.pvar_return=var_map[fn.pvar_return]
 	fn.flags&=~(FFLAG_NAME_LOOKUP_READY|FFLAG_CGEN_QUEUED)
 	//param slots
-	p_param_values=(int)g_ctobject_pool.n
+	p_param_values=int(g_ctobject_pool.n)
 	fn.pparam_value_slots=p_param_values
-	assert(sizeof(TSCCPValue)/sizeof(int)==2)
+	assert(g_desc_TSCCPValue.length==2)
 	n_funcargs=(n_args-2)>>1
 	g_ctobject_pool.addn(n_funcargs*3)
 	all_pe_ldparam=new PExpression[n_funcargs]
 	n_found=0
-	ffind_ldparams=function(PExpression pe):int{
+	ffind_ldparams=function(PExpression pe){
 		if n_found>=n_funcargs:return 0
 		if isBuiltin(pe,g_id_ldparam):
 			paramid=getExprValueAs(readPool(pe+EXPR_OFS_ARGS+0),g_vtid_CNS)
@@ -551,7 +550,7 @@ PCTObject cloneFunctionEx(PCTObject pobjfn,PCTObject[PCTObject] var_map,int flag
 				//_deriv case
 				pecaller=readPool(pe+EXPR_OFS_CALLER)
 				if !isBuiltin(pecaller,g_id_store):return 1
-			If __ENABLED__('codegen.check'):
+			if Platform.BUILD=="debug":
 				if all_pe_ldparam[paramid]:
 					Writeln("it was: "+dumpExpr(all_pe_ldparam[paramid],fcolor_abbrv_blocks))
 					Writeln("it is : "+dumpExpr(pe,fcolor_abbrv_blocks))
@@ -564,7 +563,7 @@ PCTObject cloneFunctionEx(PCTObject pobjfn,PCTObject[PCTObject] var_map,int flag
 	}
 	dfsExpr(pe_decl_cloned,ffind_ldparams)
 	for i=0:n_funcargs-1
-		If __ENABLED__('codegen.check'):
+		if Platform.BUILD=="debug":
 			if !all_pe_ldparam[i]:
 				Writeln("param id: "+string(i))
 				Writeln("function: "+dumpExpr(pe_decl_cloned,fcolor_reach_eval))
@@ -572,7 +571,7 @@ PCTObject cloneFunctionEx(PCTObject pobjfn,PCTObject[PCTObject] var_map,int flag
 		writePool(p_param_values+i*3,g_vtid_UNINIT)
 		writePool(p_param_values+i*3+2,all_pe_ldparam[i])
 	writePoolTyped(ret,fn)
-	writePoolTyped(pe_decl_cloned+EXPR_OFS_VALUE,TSCCPValue{.tid=g_vtid_CTVAL;.val=ret})
+	writePoolTyped(pe_decl_cloned+EXPR_OFS_VALUE,TSCCPValue(){'tid':g_vtid_CTVAL,'val':ret})
 	//__block the two versions of declaration
 	//Writeln(parser.Canonical.dumpExpr(pe_decl_caller,function(){return -1}))
 	//Writeln(parser.Canonical.dumpExpr(pe_decl_caller,function(){return -1}))
@@ -585,15 +584,15 @@ PCTObject cloneFunctionEx(PCTObject pobjfn,PCTObject[PCTObject] var_map,int flag
 	//Writeln(parser.Canonical.dumpExpr(pe_block,function(){return -1}))
 	return ret
 
-PExpression cloneExpr(PExpression pe)
+auto cloneExpr(PExpression pe)
 	return cloneExprEx(pe,new PCTObject[PCTObject], g_names_resolved?CLONE_WIPE_TO_UNREACHED:0)
 
-void setnop(PExpression pe)
+auto setnop(PExpression pe)
 	//this one is safer in that pe args remain enumerable
 	insertCallAt(pe,0,function(){return exprvar(g_symbols[g_id_nop].user_slot)})
 	writePool(pe,EFLAG_FCALL)
 
-void setnopNested(PExpression pe)
+auto setnopNested(PExpression pe)
 	flags=readPool(pe)
 	if (flags&EFLAG_MASK)==EFLAG_FCALL:
 		nargs=(flags&~EFLAG_MASK)
@@ -604,101 +603,96 @@ void setnopNested(PExpression pe)
 /////////////////////////////////////////////
 //compile-time values
 //todo: improve the memory layout later
-const
-	CTOBJ_NUMBER=0x40000000
-	CTOBJ_STRING=0x80000000
-	CTOBJ_TYPE_MASK=0xC0000000
+CTOBJ_NUMBER=0x40000000
+CTOBJ_STRING=0x80000000
+CTOBJ_TYPE_MASK=0xC0000000
 struct TDynamicObject
 	int tid,oid
 g_tid_TDynamicObject=getid("TDynamicObject")
 
 g_shared_hash=new CSharedMemberHash
-PCTObject readGlobalI2Hash(int2 key)
+auto readGlobalI2Hash(int2 key)
 	slot=g_shared_hash._find(0,key)
 	if slot<0:return 0
 	return g_shared_hash.a[slot].value;
 
-void writeGlobalI2Hash(int2 key,PCTObject value)
+auto writeGlobalI2Hash(int2 key,PCTObject value)
 	slot=g_shared_hash._find(1,key)
 	g_shared_hash.a[slot].value=value
 
 g_epos_hash=new CSharedMemberHash
-PCTObject readEPosHash(int2 key)
+auto readEPosHash(int2 key)
 	slot=g_epos_hash._find(0,key)
 	if slot<0:return 0
 	return g_epos_hash.a[slot].value;
 
-void writeEPosHash(int2 key,PCTObject value)
+auto writeEPosHash(int2 key,PCTObject value)
 	slot=g_epos_hash._find(1,key)
 	g_epos_hash.a[slot].value=value
 
 /////////////////////////////////////////////////////////////
-const
-	//CCNV_NORMAL=0
-	//CCNV_INLINE=1
-	//CCNV_IMPORTED=2
-	//CCNV_CLASS=3
-	//CCNV_STRUCT=4
-	FFLAG_SPECIAL=1
-	FFLAG_BUILTIN_HACK=2
-	//FFLAG_TYPE=2
-	FFLAG_C_HEADER_INCLUDED=4
-	FFLAG_STATEMENT_HOST=8
-	FFLAG_ARITHMETIC=16
-	FFLAG_EXPORTED=32
-	FFLAG_NAME_LOOKUP_READY=64
-	FFLAG_LAMBDA_NEEDS_CONTEXT=128
-	FFLAG_LAMBDA_NEEDS_PARENT_POINTER=256
-	FFLAG_LAMBDA_NEEDS_PARENT_POINTER_ARG=512
-	FFLAG_RC_HAS_SIDE_EFFECT=1024
-	FFLAG_IMPORTED=2048
-	FFLAG_IS_TUPLE=4096
-	FFLAG_IS_SYMDERIV_TEMP=8192
-	FFLAG_IS_SYMDERIV=16384
-	FFLAG_DEPENDS_ON_OTHER_CODE=32768//these are only evaled at the end of each main sccp iteration
-	FFLAG_LAMBDA_NEEDS_RTTI=1<<16
-	FFLAG_IS_FUNCTION=1<<17
-	FFLAG_HAS_FPTR_TAKEN=1<<18
-	FFLAG_IS_PURE=1<<19
-	FFLAG_IS_PRELIVE=1<<20
-	FFLAG_IS_PARALLEL=1<<21
-	FFLAG_TEMP_IMPURE=0x80000000
-	FFLAG_TEMP_UNFLATTENABLE=0x80000000
-	FFLAG_CGEN_QUEUED=0x80000000
-	//////////
-	FFLAG_BUILTIN=FFLAG_SPECIAL|FFLAG_ARITHMETIC|FFLAG_BUILTIN_HACK
-	FFLAG_NOT_USER_DEFINED=FFLAG_BUILTIN|FFLAG_IMPORTED
-	//////////
-	FUNCTION_OFS_FLAGS=1
-	FUNCTION_OFS_FUSER=2
-	FUNCTION_OFS_VALUE_TIME=3
-	FUNCTION_OFS_PVAR_RETURN=4
-	FUNCTION_OFS_PLAMBDA_VARS=5
-	FUNCTION_OFS_NLAMBDA_VARS=6
-	FUNCTION_OFS_PCALL_GRAPH_EDGES=7
-	FUNCTION_OFS_NCALL_GRAPH_EDGES=8
-	FUNCTION_OFS_PINV_CALL_GRAPH_EDGES=9
-	FUNCTION_OFS_NINV_CALL_GRAPH_EDGES=10
-	FUNCTION_OFS_FINALIZER=11
-	FUNCTION_OFS_PEDECL=12
-	FUNCTION_OFS_CODE=13
-	FUNCTION_OFS_NEST_DEPTH=14
-	FUNCTION_OFS_NAME=15
-	FUNCTION_OFS_PPARAM_VALUE_SLOTS=16
-	FUNCTION_OFS_ONREACH=17
-	FUNCTION_OFS_ONEVAL=18
-	FUNCTION_OFS_ONCGEN=19
-	FUNCTION_OFS_TEMP_SLOT=20
-	FUNCTION_OFS_PMEMBER_LIST=21
-	FUNCTION_OFS_NMEMBER_LIST=22
-	FUNCTION_OFS_T_RAW_FUNCTION_TYPE=23
-	FUNCTION_OFS_RETURN_LABEL_CACHE=24
-	FUNCTION_OFS_TEMPLATE=25
-	FUNCTION_OFS_TEMPLATE_EPOS0=26
-	FUNCTION_OFS_TEMPLATE_EPOS1=27
-struct TParameter
-	PExpression er_type
-	int id
+//CCNV_NORMAL=0
+//CCNV_INLINE=1
+//CCNV_IMPORTED=2
+//CCNV_CLASS=3
+//CCNV_STRUCT=4
+FFLAG_SPECIAL=1
+FFLAG_BUILTIN_HACK=2
+//FFLAG_TYPE=2
+FFLAG_C_HEADER_INCLUDED=4
+FFLAG_STATEMENT_HOST=8
+FFLAG_ARITHMETIC=16
+FFLAG_EXPORTED=32
+FFLAG_NAME_LOOKUP_READY=64
+FFLAG_LAMBDA_NEEDS_CONTEXT=128
+FFLAG_LAMBDA_NEEDS_PARENT_POINTER=256
+FFLAG_LAMBDA_NEEDS_PARENT_POINTER_ARG=512
+FFLAG_RC_HAS_SIDE_EFFECT=1024
+FFLAG_IMPORTED=2048
+FFLAG_IS_TUPLE=4096
+FFLAG_IS_SYMDERIV_TEMP=8192
+FFLAG_IS_SYMDERIV=16384
+FFLAG_DEPENDS_ON_OTHER_CODE=32768//these are only evaled at the end of each main sccp iteration
+FFLAG_LAMBDA_NEEDS_RTTI=1<<16
+FFLAG_IS_FUNCTION=1<<17
+FFLAG_HAS_FPTR_TAKEN=1<<18
+FFLAG_IS_PURE=1<<19
+FFLAG_IS_PRELIVE=1<<20
+FFLAG_IS_PARALLEL=1<<21
+FFLAG_TEMP_IMPURE=0x80000000
+FFLAG_TEMP_UNFLATTENABLE=0x80000000
+FFLAG_CGEN_QUEUED=0x80000000
+//////////
+FFLAG_BUILTIN=FFLAG_SPECIAL|FFLAG_ARITHMETIC|FFLAG_BUILTIN_HACK
+FFLAG_NOT_USER_DEFINED=FFLAG_BUILTIN|FFLAG_IMPORTED
+//////////
+FUNCTION_OFS_FLAGS=1
+FUNCTION_OFS_FUSER=2
+FUNCTION_OFS_VALUE_TIME=3
+FUNCTION_OFS_PVAR_RETURN=4
+FUNCTION_OFS_PLAMBDA_VARS=5
+FUNCTION_OFS_NLAMBDA_VARS=6
+FUNCTION_OFS_PCALL_GRAPH_EDGES=7
+FUNCTION_OFS_NCALL_GRAPH_EDGES=8
+FUNCTION_OFS_PINV_CALL_GRAPH_EDGES=9
+FUNCTION_OFS_NINV_CALL_GRAPH_EDGES=10
+FUNCTION_OFS_FINALIZER=11
+FUNCTION_OFS_PEDECL=12
+FUNCTION_OFS_CODE=13
+FUNCTION_OFS_NEST_DEPTH=14
+FUNCTION_OFS_NAME=15
+FUNCTION_OFS_PPARAM_VALUE_SLOTS=16
+FUNCTION_OFS_ONREACH=17
+FUNCTION_OFS_ONEVAL=18
+FUNCTION_OFS_ONCGEN=19
+FUNCTION_OFS_TEMP_SLOT=20
+FUNCTION_OFS_PMEMBER_LIST=21
+FUNCTION_OFS_NMEMBER_LIST=22
+FUNCTION_OFS_T_RAW_FUNCTION_TYPE=23
+FUNCTION_OFS_RETURN_LABEL_CACHE=24
+FUNCTION_OFS_TEMPLATE=25
+FUNCTION_OFS_TEMPLATE_EPOS0=26
+FUNCTION_OFS_TEMPLATE_EPOS1=27
 struct TFunction
 	int tid
 	int flags
@@ -721,37 +715,38 @@ struct TFunction
 	int return_label_cache
 	PCTObject pf_template
 	int template_epos0,template_epos1
-g_value_time=1
 g_tid_TFunction=getid("TFunction")
-struct TCompilerFunction
-	int tid
-	int cbid
-g_tid_TCompilerFunction=getid("TCompilerFunction")
+g_desc_TFunction=('tid','flags','first_function_user','value_time','pvar_return','plambda_vars','nlambda_vars','pcall_graph_edges','ncall_graph_edges','pinv_call_graph_edges','ninv_call_graph_edges','fn_finalizer','pe_decl','code','nest_depth','id_name','pparam_value_slots','obj_onreach','obj_oneval','obj_oncgen','temp_slot','pmember_list','nmember_list','t_raw_function_type','return_label_cache','pf_template','template_epos0','template_epos1')
+g_value_time=1
+//struct TCompilerFunction
+//	int tid
+//	int cbid
+//g_tid_TCompilerFunction=getid("TCompilerFunction")
 struct TBuiltinType
 	int tid
 	int t
 g_tid_TBuiltinType=getid("TBuiltinType")
+g_desc_TBuiltinType=('tid','t')
 struct TFunctionType
 	int tid
 	int t_ret
 	int n_args
 	int p_arg_types
-	//todo
+	//////////////
 	int flags
 g_tid_TFunctionType=getid("TFunctionType")
+g_desc_TFunctionType=('tid','t_ret','n_args','p_arg_types','flags')
 struct TCtUniqueEvalQueue
 	int tid
 	PExpression pe
 	PCTObject next
 g_tid_TCtUniqueEvalQueue=getid("TCtUniqueEvalQueue")
-struct TParserCallback
-	int tid
-	int cbid
-g_tid_TParserCallback=getid("TParserCallback")
+g_desc_TCtUniqueEvalQueue=('tid','pe','next')
 struct TNameSpace
 	int tid
 	int n_members
 g_tid_TNameSpace=getid("TNameSpace")
+g_desc_TNameSpace=('tid','n_members')
 struct TAdvancedEpos
 	int tid
 	//mode 1
@@ -764,6 +759,7 @@ struct TAdvancedEpos
 	//PCTObject pobj_inline_function//the function
 	//could merge 2 and 3
 g_tid_TAdvancedEpos=getid("TAdvancedEpos")
+g_desc_TAdvancedEpos=('tid','epos0','epos1')
 //struct TEposCallstack
 //	int tid
 //g_tid_TEposCallstack=getid("TEposCallstack")
@@ -772,8 +768,11 @@ g_tid_TAdvancedEpos=getid("TAdvancedEpos")
 struct TSCCPValue
 	int tid
 	PCTObject val
+g_desc_TSCCPValue=('tid','val')
 struct TVariable
-	TSCCPValue current_value
+	//TSCCPValue current_value
+	int tid
+	PCTObject val
 	PExpression first_v_user
 	PExpression first_v_store
 	int user_flags
@@ -783,6 +782,8 @@ struct TVariable
 	PExpression pe_defining_store
 	////////////////////
 	PCTObject pv_flattening_owner
+g_desc_TVariable=('tid','val','first_v_user','first_v_store','user_flags','value_time','id','owner_function','pe_defining_store','pv_flattening_owner')
+
 //g_vtid_UNREACHED=getid("TSCCPValue_UNREACHED") //where val is 0
 g_vtid_UNINIT=getid("TSCCPValue_UNINIT") //where val is 0
 g_vtid_RTVAR=getid("TSCCPValue_RTVAR") //where val is the type
@@ -791,12 +792,12 @@ g_vtid_STR=getid("TSCCPValue_STR") //where val is an id
 g_vtid_CTVAL=getid("TSCCPValue_CTVAL") //where val is a PCTObject
 g_expr_errored=new int[PExpression]
 
-inline int isVariable(PCTObject pobj)
+inline isVariable(PCTObject pobj)
 	if !pobj:return 0
 	vtid=readPool(pobj)
 	return vtid>=g_vtid_UNINIT&&vtid<=g_vtid_CTVAL
 
-inline int isFunction(PCTObject pobj)
+inline isFunction(PCTObject pobj)
 	if !pobj:return 0
 	vtid=readPool(pobj)
 	return vtid==g_tid_TFunction
@@ -808,51 +809,52 @@ struct TCTUniqueItem
 	PCTObject value
 
 class TTraitCTUnique
-	typedef int[] TKey
-	static inline iptr getHash(int id)
+	TKey=int[]
+	inline getHash(int id)
 		return g_ctunique_items[id].hash
-	static inline iptr computeHash(int[] key)
-		return (iptr)key.hash()
-	static inline iptr isKeyEqual(int id,int[] key)
+	inline computeHash(int[] key)
+		return iptr(key.hash())
+	inline isKeyEqual(int id,int[] key)
 		return g_ctunique_items[id].key==key
-	static inline int createNew(int[] key,iptr hash)
-		ret=(int)g_ctunique_items.n
-		g_ctunique_items.add(TCTUniqueItem{.key=key;.hash=hash;})
+	inline createNew(int[] key,iptr hash)
+		ret=int(g_ctunique_items.n)
+		g_ctunique_items.push(TCTUniqueItem(){'key':key,'hash':hash})
 		return ret
 
-g_ctunique_items=[TCTUniqueItem{}]
+g_ctunique_items=[TCTUniqueItem()]
 g_ctunique_provider=new CUniqueIDProvider(TTraitCTUnique)
 
-int& ctUnique(int[] key)
-	get{return g_ctunique_items[g_ctunique_provider._find(1,key)].value}
-	set{g_ctunique_items[g_ctunique_provider._find(1,key)].value=value}
+auto ctUnique(int[] key)
+	return g_ctunique_items[g_ctunique_provider._find(1,key)].value
 
-const
-	STDTYPE_BOX=0
-	STDTYPE_ARRAY=1
-	STDTYPE_STRING=2
-	STDTYPE_VARIANT=3
-	STDFN_FUNCTIONAL_OR=4
-	STDTYPE_FUNCTION_IMPL=5
-	STDFN_MAKE_FUNCTION=6
-	STDFN_MAKE_STRING=7
-	STDTYPE_MAP=8
-	STDFN_CLONE=9
+auto set_ctUnique(int[] key,int value)
+	g_ctunique_items[g_ctunique_provider._find(1,key)].value=value
+
+STDTYPE_BOX=0
+STDTYPE_ARRAY=1
+STDTYPE_STRING=2
+STDTYPE_VARIANT=3
+STDFN_FUNCTIONAL_OR=4
+STDTYPE_FUNCTION_IMPL=5
+STDFN_MAKE_FUNCTION=6
+STDFN_MAKE_STRING=7
+STDTYPE_MAP=8
+STDFN_CLONE=9
 g_builtin_types=new PCTObject[CTYPE_COUNT]
 //g_string_type=(PCTObject)0
 //g_variant_type=(PCTObject)0
 
-PCTObject getBuiltinType(int ctype)
+auto getBuiltinType(int ctype)
 	ret=g_builtin_types[ctype]
 	if !ret:
-		ret=poolObject(TBuiltinType{.t=ctype})
+		ret=poolObject(TBuiltinType(){"t":ctype})
 		g_builtin_types[ctype]=ret
 	return ret
 
-inline int getFFlag(PCTObject pobjfn)
+inline getFFlag(PCTObject pobjfn)
 	return readPool(pobjfn+FUNCTION_OFS_FLAGS)
 
-void setFFlag(PCTObject pobjfn,int flag)
+auto setFFlag(PCTObject pobjfn,int flag)
 	//if flag&FFLAG_LAMBDA_NEEDS_PARENT_POINTER_ARG:
 	//if flag&FFLAG_LAMBDA_NEEDS_CONTEXT:
 	//	if readPool(pobjfn+FUNCTION_OFS_NAME)==getid("glClear"):
@@ -860,41 +862,41 @@ void setFFlag(PCTObject pobjfn,int flag)
 	writePool(pobjfn+FUNCTION_OFS_FLAGS,readPool(pobjfn+FUNCTION_OFS_FLAGS)|flag)
 
 ///////////////////////////////
-inline int tisbuiltin(PCTObject t)
+inline tisbuiltin(PCTObject t)
 	return t&&readPool(t)==g_tid_TBuiltinType
 
-inline int tisclass(PCTObject t)
+inline tisclass(PCTObject t)
 	if t&&readPool(t)==g_tid_TFunction:
 		id=getCcnv(t)
 		if id==g_id_class||id==g_id_struct:
 			return 1
 	return 0
 
-inline int tisrealclass(PCTObject t)
+inline tisrealclass(PCTObject t)
 	return t&&readPool(t)==g_tid_TFunction&&getCcnv(t)==g_id_class
 
-inline int tisstruct(PCTObject t)
+inline tisstruct(PCTObject t)
 	return t&&readPool(t)==g_tid_TFunction&&getCcnv(t)==g_id_struct
 
-inline int tistuple(PCTObject t)
+inline tistuple(PCTObject t)
 	return tisstruct(t)&&(getFFlag(t)&FFLAG_IS_TUPLE)
 
-inline int tisrawfunction(PCTObject t)
+inline tisrawfunction(PCTObject t)
 	return t&&readPool(t)==g_tid_TFunctionType
 
-inline int tisfunction(PCTObject t)
+inline tisfunction(PCTObject t)
 	return tisstruct(t)&&(getFFlag(t)&FFLAG_IS_FUNCTION)
 
-inline int objistype(PCTObject t)
+inline objistype(PCTObject t)
 	return tisbuiltin(t)||tisclass(t)
 
-int tisctype(PCTObject t,int std_mask)
+auto tisctype(PCTObject t,int std_mask)
 	if !t||readPool(t)!=g_tid_TBuiltinType:return 0
 	ct=readPool(t+1)
 	ct_mask=ct&CTYPE_MASK
 	return ct_mask==std_mask
 
-int isBuiltinR(PExpression pe,int id_builtin)
+auto isBuiltinR(PExpression pe,int id_builtin)
 	if (readPool(pe)&EFLAG_MASK)!=EFLAG_FCALL:return 0
 	auto pe_func=readPool(pe+EXPR_OFS_FUNCTION)
 	auto fid=0
@@ -902,11 +904,11 @@ int isBuiltinR(PExpression pe,int id_builtin)
 		fid=getVariable(pe_func)
 	return fid==id_builtin
 
-inline PCTObject getRawFunctionType(PCTObject pobj_ftype)
+inline getRawFunctionType(PCTObject pobj_ftype)
 	assert(tisfunction(pobj_ftype))
 	return readPool(pobj_ftype+FUNCTION_OFS_T_RAW_FUNCTION_TYPE)
 	
-string dumpType(PCTObject t)
+auto dumpType(PCTObject t)
 	if t&&tisbuiltin(t):
 		ct=readPool(t+1)
 		if ct==CTYPE_POINTER:
@@ -930,14 +932,14 @@ string dumpType(PCTObject t)
 	if tisfunction(t):
 		ft=readPoolTyped(getRawFunctionType(t),TFunctionType)
 		s=new string
-		s.add("function(")
+		s.push("function(")
 		for i=0:ft.n_args-1
-			if i:s.add(',')
-			s.add(dumpType(readPool(ft.p_arg_types+i)))
-		s.add(')')
+			if i:s.push(',')
+			s.push(dumpType(readPool(ft.p_arg_types+i)))
+		s.push(')')
 		if ft.t_ret:
-			s.add(':')
-			s.add(dumpType(ft.t_ret))
+			s.push(':')
+			s.push(dumpType(ft.t_ret))
 		return s
 	if tisclass(t):
 		id_name=readPool(t+FUNCTION_OFS_NAME)
@@ -948,89 +950,89 @@ string dumpType(PCTObject t)
 	//assert(0)
 	return "<invalid-type-"+string.ToHex(t)+">"
 
-string dumpFunction(PCTObject pobjfn)
+auto dumpFunction(PCTObject pobjfn)
 	pe_decl=readPool(pobjfn+FUNCTION_OFS_PEDECL)
 	n_args=(readPool(pe_decl)&~EFLAG_MASK)
 	id_ccnv=getExprValueAs(readPool(pe_decl+EXPR_OFS_ARGS+0),g_vtid_STR)
 	assert(!!id_ccnv)
 	s=new string
-	s.add(getIdString(id_ccnv))
+	s.push(getIdString(id_ccnv))
 	id_name=readPool(pobjfn+FUNCTION_OFS_NAME)
 	if id_name:
-		s.add(' ')
-		s.add(getIdString(id_name))
-	s.add('(')
+		s.push(' ')
+		s.push(getIdString(id_name))
+	s.push('(')
 	for i=1:2:n_args-2
 		if i>1:
-			s.add(',')
+			s.push(',')
 		pe_type=readPool(pe_decl+EXPR_OFS_ARGS+i+0)
 		id_arg=getExprValueAs(readPool(pe_decl+EXPR_OFS_ARGS+i+1),g_vtid_STR)
 		val=getExprValue(pe_type)
 		if val.tid==g_vtid_CTVAL:
 			if val.val==pobjfn:
-				s.add("__this_type__")
+				s.push("__this_type__")
 			else
-				s.add(dumpType(val.val))
-		elif val.tid==g_vtid_STR:
-			s.add(getIdString(val.val))
+				s.push(dumpType(val.val))
+		else if val.tid==g_vtid_STR:
+			s.push(getIdString(val.val))
 		if id_arg:
-			s.add(' ')
-			s.add(getIdString(id_arg))
-	s.add(')')
+			s.push(' ')
+			s.push(getIdString(id_arg))
+	s.push(')')
 	return s
 	
-string genString(string s0)
+auto genString(string s0)
 	s=new string
 	hex="0123456789ABCDEF"
 	foreach ch0 in s0
 		ch=(int)(u8)ch0
 		if ch>=0:
 			if ch=='\\':
-				s.add('\\')
-				s.add('\\')
-			elif ch=='\r':
-				s.add('\\')
-				s.add('r')
-			elif ch=='\n':
-				s.add('\\')
-				s.add('n')
-			elif ch=='\t':
-				s.add('\\')
-				s.add('t')
-			elif ch=='"':
-				s.add('\\')
-				s.add('"')
-			elif ch>=32&&ch<127:
-				s.add((char)ch)
+				s.push('\\')
+				s.push('\\')
+			else if ch=='\r':
+				s.push('\\')
+				s.push('r')
+			else if ch=='\n':
+				s.push('\\')
+				s.push('n')
+			else if ch=='\t':
+				s.push('\\')
+				s.push('t')
+			else if ch=='"':
+				s.push('\\')
+				s.push('"')
+			else if ch>=32&&ch<127:
+				s.push(char(ch))
 			else
-				s.add('\\')
-				s.add('x')
-				s.add(hex[(ch>>4)&15])
-				s.add(hex[ch&15])
+				s.push('\\')
+				s.push('x')
+				s.push(hex[(ch>>4)&15])
+				s.push(hex[ch&15])
 	return s
 
-string dumpConst(TConstValue val)
+auto dumpConst(TConstValue val)
 	if val.type==CTYPE_TYPED_NULL:
 		return "NULL:"+dumpType(PCTObject(val.val_bin))
 	if val.type==CTYPE_POINTER&&!val.val_bin:
 		return "NULL"
 	if (val.type&CTYPE_MASK)==CTYPE_FLOAT:
 		if (val.type&~CTYPE_MASK)==(32>>3)-1:
-			return string(__int_as_float((int)val.val_bin))+"f"
+			return string(__int_as_float(int(val.val_bin)))+"f"
 		else
 			return string(__longlong_as_double(val.val_bin))
 	if (val.type&~CTYPE_MASK)<=(32>>3)-1:
-		if (i32)val.val_bin<32768&&(i32)val.val_bin>=-32768&&((val.type&CTYPE_MASK)==CTYPE_INT)||(u32)(i32)val.val_bin<32768u&&((val.type&CTYPE_MASK)==CTYPE_UINT):
-			sret=string((i32)val.val_bin)
+		if int(val.val_bin)<32768&&int(val.val_bin)>=-32768&&((val.type&CTYPE_MASK)==CTYPE_INT)||u32(int(val.val_bin))<32768u&&((val.type&CTYPE_MASK)==CTYPE_UINT):
+			sret=string(int(val.val_bin))
 		else
-			sret="0x"+string.ToBase((u32)(i32)val.val_bin,8,16)
+			sret="0x"+string.ToBase(u32(int(val.val_bin)),8,16)
 	else
-		sret="0x"+string.ToBase((u64)val.val_bin,16,16)+"LL"
+		sret="0x"+string.ToBase(u64(val.val_bin),16,16)+"LL"
 	if (val.type&CTYPE_MASK)==CTYPE_UINT:
 		return sret+"u"
 	return sret
 
-int dump_getObjectName(PCTObject pobj0)
+auto dump_getObjectName(PCTObject pobj0)
 	pobj=pobj0
 	for(;;)
 		if !pobj:return getid("<NULL>")
@@ -1197,14 +1199,17 @@ g_id_callstack=getid("__callstack")
 g_id_set_callstack=getid("__set_callstack")
 
 g_tuple_ids=new int[]
-int getTupleId(int n)
+auto getTupleId(int n)
 	while g_tuple_ids.n<=n:
 		n0=g_tuple_ids.n
-		g_tuple_ids.add(getid("_"+string((int)n0)))
+		g_tuple_ids.push(getid("_"+string(int(n0))))
 	return g_tuple_ids[n]
 
-PExpression makeTuple(int n)
-	return vcall(g_id_tuple,[exprstr(getTupleId(i)) for i=0:n-1])
+auto makeTuple(int n)
+	as=new PExpression[n]
+	for i=0:n-1
+		as[i]=exprstr(getTupleId(i))
+	return vcall(g_id_tuple,as)
 
 /////////////////////
 g_top_level_exprs=new PExpression[]
@@ -1214,7 +1219,7 @@ g_files_to_parse=new int[]
 g_dependency_edges=new int2[]
 g_dumpexpr_name_usage=new PCTObject[int]
 g_dump_additional_text=new string
-string dumpExprEx(PExpression pe,function(PExpression pe):int fcolorer,int indent)
+auto dumpExprEx(PExpression pe,function(PExpression pe):int fcolorer,int indent)
 	if !pe:
 		g_id_errored=1
 		return "<null-expr>"
@@ -1225,10 +1230,10 @@ string dumpExprEx(PExpression pe,function(PExpression pe):int fcolorer,int inden
 	col=fcolorer?fcolorer(pe):-1
 	if col==-2:
 		return "..."
-	elif col==-3:
+	else if col==-3:
 		sprecolor=g_dump_additional_text
 		spostcolor=""
-	elif col!=-1:
+	else if col!=-1:
 		//color_tran=[0,4,2,6,1,5,3,7]
 		//if col&8:
 		//	sprecolor="\x1b["+string(30+color_tran[(col&7)])+";01m"
@@ -1250,54 +1255,54 @@ string dumpExprEx(PExpression pe,function(PExpression pe):int fcolorer,int inden
 		n=(flags&~EFLAG_MASK)
 		if g_names_resolved&&isBuiltin(pe,g_id_block)||readPool(readPool(pe+EXPR_OFS_FUNCTION))==EFLAG_VARIABLE+g_id_block:
 			sret=new string
-			sret.add(sprecolor)
-			sret.add('{')
-			sret.add(spostcolor)
-			sret.add('\n')
+			sret.push(sprecolor)
+			sret.push('{')
+			sret.push(spostcolor)
+			sret.push('\n')
 			for i=0:n-1
 				pe_argi=readPool(pe+EXPR_OFS_ARGS+i)
-				If __ENABLED__('codegen.check'):
+				if Platform.BUILD=="debug":
 					if readPool(pe_argi+EXPR_OFS_CALLER)!=pe:
-						sret.add('[bad-caller]')
+						sret.push('[bad-caller]')
 						g_id_errored=1
 				for j=0:indent
-					sret.add(' ')
-				sret.add(dumpExprEx(pe_argi,fcolorer,min(indent+1,10)))
-				sret.add(';\n')
+					sret.push(' ')
+				sret.push(dumpExprEx(pe_argi,fcolorer,min(indent+1,10)))
+				sret.push(';\n')
 			for j=0:indent-1
-				sret.add(' ')
-			sret.add(sprecolor)
-			sret.add('}')
-			sret.add(spostcolor)
+				sret.push(' ')
+			sret.push(sprecolor)
+			sret.push('}')
+			sret.push(spostcolor)
 		else
 			pefunc=readPool(pe+EXPR_OFS_FUNCTION)
 			sret=new string
 			if !isVariable(pe+EXPR_OFS_VALUE):
-				sret.add('[bad-value-'+getIdString(readPool(pe+EXPR_OFS_VALUE))+"]")
-			sret.add(sprecolor)
-			If __ENABLED__('codegen.check'):
+				sret.push('[bad-value-'+getIdString(readPool(pe+EXPR_OFS_VALUE))+"]")
+			sret.push(sprecolor)
+			if Platform.BUILD=="debug":
 				if readPool(pefunc+EXPR_OFS_CALLER)!=pe:
-					sret.add('[bad-func-caller]')
+					sret.push('[bad-func-caller]')
 					g_id_errored=1
-			sret.add(dumpExprEx(pefunc,function(PExpression pe_x){if pe_x==pefunc:{return -1;}else{return fcolorer?fcolorer(pe_x):-1}},indent))
-			sret.add(spostcolor)
-			sret.add('(')
+			sret.push(dumpExprEx(pefunc,function(PExpression pe_x){if pe_x==pefunc:{return -1;}else{return fcolorer?fcolorer(pe_x):-1}},indent))
+			sret.push(spostcolor)
+			sret.push('(')
 			for i=0:n-1
-				if i:sret.add(',')
+				if i:sret.push(',')
 				pe_argi=readPool(pe+EXPR_OFS_ARGS+i)
-				If __ENABLED__('codegen.check'):
+				if Platform.BUILD=="debug":
 					if readPool(pe_argi+EXPR_OFS_CALLER)!=pe:
-						sret.add('[bad-caller]')
+						sret.push('[bad-caller]')
 						g_id_errored=1
-				sret.add(dumpExprEx(pe_argi,fcolorer,indent))
-			sret.add(')')
+				sret.push(dumpExprEx(pe_argi,fcolorer,indent))
+			sret.push(')')
 		return sret
 	//case EFLAG_CODEBLOCK:
 	//	code=flags&~EFLAG_MASK
 	//	return "{\n"+dump_indent(dumpCode(code))+"}"
 	case EFLAG_CONST:
 		cid=flags&~EFLAG_MASK
-		return dumpConst(util.g_const_values[cid])
+		return dumpConst(Util.g_const_values[cid])
 	case EFLAG_STRING:
 		return FormatAsText('"',genString(getIdString(flags&~EFLAG_MASK)),'"')
 	case EFLAG_VARIABLE:
@@ -1335,7 +1340,7 @@ string dumpExprEx(PExpression pe,function(PExpression pe):int fcolorer,int inden
 	}
 	return ""
 tm_dump=tnew("dump")
-string dumpExpr(PExpression pe,function(PExpression pe):int fcolorer)
+auto dumpExpr(PExpression pe,function(PExpression pe):int fcolorer)
 	tbegin(tm_dump)
 	ret=dumpExprEx(pe,fcolorer,0)
 	tend(tm_dump)
@@ -1344,35 +1349,35 @@ string dumpExpr(PExpression pe,function(PExpression pe):int fcolorer)
 //	if !scode.n:return scode
 //	ret=new string
 //	foreach sline in scode[:scode.n-2].TokenizeIncludingEmpty("\n")
-//		ret.add("  "+sline+"\n")
+//		ret.push("  "+sline+"\n")
 //	return ret
-string dumpCode(PExpression code,function(PExpression pe):int fcolorer){
+auto dumpCode(PExpression code,function(PExpression pe):int fcolorer){
 	return "=======================================\n"+dumpExpr(code,fcolorer)
 }
-string dumpObject(PCTObject pobj)
+auto dumpObject(PCTObject pobj)
 	if !pobj:
 		return "<NULL>"
 	tid=readPool(pobj)
 	sret="<"+getIdString(tid)+"-"+string(pobj)
 	if tid==g_vtid_CTVAL:
-		sret.add(':')
-		sret.add(dumpObject(readPool(pobj+1)))
-	elif tid==g_vtid_RTVAR:
+		sret.push(':')
+		sret.push(dumpObject(readPool(pobj+1)))
+	else if tid==g_vtid_RTVAR:
 		vid=readPool(pobj+VAR_OFS_ID)
 		if vid:
-			sret.add(':')
-			sret.add(getIdString(vid))
-	elif tid==g_tid_TFunction:
+			sret.push(':')
+			sret.push(getIdString(vid))
+	else if tid==g_tid_TFunction:
 		id_name=readPool(pobj+FUNCTION_OFS_NAME)
 		//if isFunctionAClass(pobj):
 		//	sret="<class-"+string(pobj)
 		if id_name:
-			sret.add(':')
-			sret.add(getIdString(id_name))
-		//sret.add(dumpExpr(fn.pe_decl,NULL))
-	elif tid==g_tid_TBuiltinType:
+			sret.push(':')
+			sret.push(getIdString(id_name))
+		//sret.push(dumpExpr(fn.pe_decl,NULL))
+	else if tid==g_tid_TBuiltinType:
 		return dumpType(pobj)
-	elif tid==g_tid_TAdvancedEpos:
+	else if tid==g_tid_TAdvancedEpos:
 		epos0=readPool(pobj+1)
 		epos1=readPool(pobj+2)
 		if epos0&0x80000000:
@@ -1381,24 +1386,24 @@ string dumpObject(PCTObject pobj)
 				sret=new("eposi<")
 			else
 				sret=new("eposf<")
-			sret.add(dumpObject(epos0&0x7fffffff))
-			sret.add(',')
-			sret.add(dumpObject(epos1))
+			sret.push(dumpObject(epos0&0x7fffffff))
+			sret.push(',')
+			sret.push(dumpObject(epos1))
 		else
 			//it's a normal epos
-			id_fn0,ln0,col0=getLineInfo(epos0)
-			id_fn1,ln1,col1=getLineInfo(epos1)
+			(id_fn0,ln0,col0)=getLineInfo(epos0)
+			(id_fn1,ln1,col1)=getLineInfo(epos1)
 			assert(id_fn0==id_fn1)
 			if ln0==ln1:
 				sret=FormatAsText('<',getIdString(id_fn0),':',ln0+1,',',col0+1,'-',col1+1)
 			else
 				sret=FormatAsText('<',getIdString(id_fn0),':',ln0+1,',',col0+1,'-',ln1+1,',',col1+1)
-	sret.add('>')
+	sret.push('>')
 	return sret
 
-int fcolor_just_reach(PExpression pe)
+auto fcolor_just_reach(PExpression pe)
 	val=getExprValue(pe)
-	if val.tid==ctobj.g_vtid_UNINIT:
+	if val.tid==g_vtid_UNINIT:
 		if !testUserFlag(pe,QUEUE_FLAG_REACH):
 			if isExpr(pe,EFLAG_FCALL)&&!isBuiltin(pe,g_id_ldparam):
 				return -2
@@ -1410,10 +1415,10 @@ int fcolor_just_reach(PExpression pe)
 		return -1
 	return -1
 
-int fcolor_reach_eval(PExpression pe)
+auto fcolor_reach_eval(PExpression pe)
 	val=getExprValue(pe)
-	//if val.tid==ctobj.g_vtid_UNREACHED:return -1
-	if val.tid==ctobj.g_vtid_UNINIT:
+	//if val.tid==g_vtid_UNREACHED:return -1
+	if val.tid==g_vtid_UNINIT:
 		if !testUserFlag(pe,QUEUE_FLAG_REACH):
 			if isExpr(pe,EFLAG_FCALL)&&!isBuiltin(pe,g_id_ldparam)://isBuiltin(pe,g_id_block):
 				return -2
@@ -1425,24 +1430,24 @@ int fcolor_reach_eval(PExpression pe)
 	if !testUserFlag(pe,QUEUE_FLAG_REACH)&&(isExpr(pe,EFLAG_FCALL)||isExpr(pe,EFLAG_VARIABLE)):
 		g_dump_additional_text="'XXX'"
 		return -3
-	if val.tid==ctobj.g_vtid_CNS||val.tid==ctobj.g_vtid_STR:
+	if val.tid==g_vtid_CNS||val.tid==g_vtid_STR:
 		g_dump_additional_text="'CNS'"
 		return -3
-	if val.tid==ctobj.g_vtid_CTVAL:
+	if val.tid==g_vtid_CTVAL:
 		g_dump_additional_text="'fnc'"
 		return -3
 	g_dump_additional_text="'var'"
 	return -3
 
-int fcolor_abbrv_blocks(PExpression pe)
+auto fcolor_abbrv_blocks(PExpression pe)
 	if isBuiltin(pe,g_id_block):return -2
 	return fcolor_reach_eval(pe)
 
-int fcolor_resolve(PExpression pe)
+auto fcolor_resolve(PExpression pe)
 	if isBuiltinR(pe,g_id_function)||isBuiltinR(pe,g_id_namespace)||isBuiltinR(pe,g_id_block):return -2
 	return -1
 
-int fcolor_epos(PExpression pe)
+auto fcolor_epos(PExpression pe)
 	epos0=readPool(pe+1)
 	//epos1=readPool(pe+2)
 	if !epos0:
@@ -1450,28 +1455,10 @@ int fcolor_epos(PExpression pe)
 		return -3
 	return fcolor_reach_eval(pe)
 
-If __ENABLED__('codegen.check'):
-	int isBuiltin(PExpression pe,int id_builtin)
-		assert(!EFLAG_FCALL)
-		if (u32)readPool(pe)>=(u32)EFLAG_MULTIPLIER:
-			return 0
-		else
-			eflag=readPool(readPool(pe+EXPR_OFS_FUNCTION))
-			vslot=g_symbols[id_builtin].user_slot
-			return eflag==EFLAG_VARIABLE+vslot||eflag==EFLAG_CTVAL+readPool(vslot+1)
-	int readPool(iptr p)
-		If __ENABLED__('codegen.check'):
-			if p<=0:
-				Writeln('readPool(',p,')')
-		assert(p>0)
-		return g_ctobject_pool[p]
-Else	
-	inline int readPool(iptr p)
-		return g_ctobject_pool[p]
-	inline int isBuiltin(PExpression pe,int id_builtin)
-		if (u32)readPool(pe)>=(u32)EFLAG_MULTIPLIER:
-			return 0
-		else
-			eflag=readPool(readPool(pe+EXPR_OFS_FUNCTION))
-			vslot=g_symbols[id_builtin].user_slot
-			return eflag==EFLAG_VARIABLE+vslot||eflag==EFLAG_CTVAL+readPool(vslot+1)
+inline isBuiltin(PExpression pe,int id_builtin)
+	if u32(readPool(pe))>=u32(EFLAG_MULTIPLIER):
+		return 0
+	else
+		eflag=readPool(readPool(pe+EXPR_OFS_FUNCTION))
+		vslot=g_symbols[id_builtin].user_slot
+		return eflag==EFLAG_VARIABLE+vslot||eflag==EFLAG_CTVAL+readPool(vslot+1)
