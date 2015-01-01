@@ -121,7 +121,8 @@ inline poolCode(auto a)
 		g_ctobject_pool[ret+i]=__dot(a,desc[i])
 	return ret
 
-inline poolObject(auto a)
+inline poolObject(auto a0)
+	a=a0
 	T=typeof(a)
 	ret=int(g_ctobject_pool.n)
 	if T==TDynamicObject:
@@ -168,6 +169,8 @@ inline getTypeDescription(const T)
 
 //coulddo: pre-fetched pointer in release mode
 inline readPool(iptr p)
+	//if g_const_values.n>2:
+	//	assert(g_const_values[2].val_bin==1LL)
 	return g_ctobject_pool[p]
 
 inline readPoolTyped(iptr p,const T)
@@ -178,6 +181,10 @@ inline readPoolTyped(iptr p,const T)
 	return a
 
 inline writePool(iptr p,int a)
+	//if g_ctobject_pool.n>241000:
+	//	//Writeln(readPool(readPool(240089+EXPR_OFS_ARGS+0)),' ')
+	//	if p==readPool(240089+EXPR_OFS_ARGS+0)||p==240089+EXPR_OFS_ARGS+0:
+	//		assert(0)
 	g_ctobject_pool[p]=a
 	//if g_ctobject_pool.n>371:
 	//	assert(!!g_ctobject_pool[371])
@@ -199,13 +206,14 @@ inline call(int id)
 	g_ctobject_pool.push(pe_func)
 	arguments0=arguments
 	for i in crange(arguments0.length)
-		T=typeof(arguments0[i])
-		if T!=int:
-			__error("call can only take ints, not the @1-th argument, which is @2",i,T)
-		else
-			g_ctobject_pool.push(arguments0[i])
-			assert(!!arguments0[i])
-			writePool(arguments0[i]+EXPR_OFS_CALLER,n0)
+		if i>=1:
+			T=typeof(arguments0[i])
+			if T!=int:
+				__error("call can only take ints, not the @1-th argument, which is @2",i,T)
+			else
+				g_ctobject_pool.push(arguments0[i])
+				assert(!!arguments0[i])
+				writePool(arguments0[i]+EXPR_OFS_CALLER,n0)
 	writePool(pe_func+EXPR_OFS_CALLER,n0)
 	//if Platform.BUILD=="debug":
 	//	if g_names_resolved&&id==g_id_store&&va_count==3:
@@ -430,7 +438,8 @@ auto cloneExprEx(PExpression pe,PCTObject[PCTObject] var_map,int flags)
 	}
 	n0=int(g_ctobject_pool.n)
 	g_ctobject_pool.resize(n0+n)
-	copy(g_ctobject_pool[n0:],g_ctobject_pool[pe:pe+n-1])
+	for i=0:n-1
+		g_ctobject_pool[n0+i]=g_ctobject_pool[pe+i]
 	if as:
 		g_ctobject_pool.push(as)
 		//caller fix
@@ -520,12 +529,16 @@ inline testUserFlag(PExpression pe,int flag)
 auto cloneFunctionEx(PCTObject pobjfn,PCTObject[PCTObject] var_map,int flags)
 	//we're assuming that the cloned function is unreached
 	fn=readPoolTyped(pobjfn,TFunction)
+	//Writeln('fn.pe_decl before cloning: ',dumpExpr(fn.pe_decl,fcolor_numerical))
+	//Writeln('***** ',readPool(240089+EXPR_OFS_ARGS+0),' ',readPool(readPool(240089+EXPR_OFS_ARGS+0)),' ',g_const_values)
 	ret=poolObject(fn)
 	fn.first_function_user=0
 	fn.value_time=0
 	//pe_decl_caller=readPool(fn.pe_decl+EXPR_OFS_CALLER)
 	var_map[pobjfn]=ret
 	pe_decl_cloned=cloneExprEx(fn.pe_decl,var_map,flags|CLONE_EXPR_IS_CALLED_BY_CLONE_FUNCTION)
+	//Writeln('fn.pe_decl: ',dumpExpr(fn.pe_decl,__zero(fcolorer_callback)))
+	//Writeln('pe_decl_cloned: ',dumpExpr(pe_decl_cloned,__zero(fcolorer_callback)))
 	//pe_decl_old=fn.pe_decl
 	//Writeln(parser.Canonical.dumpExpr(pe_decl_cloned,function(){return -1}))
 	fn.pe_decl=pe_decl_cloned
@@ -554,8 +567,8 @@ auto cloneFunctionEx(PCTObject pobjfn,PCTObject[PCTObject] var_map,int flags)
 				if !isBuiltin(pecaller,g_id_store):return 1
 			if Platform.BUILD=="debug":
 				if all_pe_ldparam[paramid]:
-					Writeln("it was: "+dumpExpr(all_pe_ldparam[paramid],fcolor_abbrv_blocks))
-					Writeln("it is : "+dumpExpr(pe,fcolor_abbrv_blocks))
+					Writeln("it was: "+dumpExpr(all_pe_ldparam[paramid],fcolor_abbrv_blocks),' ',all_pe_ldparam[paramid])
+					Writeln("it is : "+dumpExpr(pe,fcolor_abbrv_blocks),' ',pe)
 					Writeln("function: "+dumpExpr(pe_decl_cloned,fcolor_reach_eval))
 			assert(!all_pe_ldparam[paramid])
 			all_pe_ldparam[paramid]=pe
@@ -1444,6 +1457,18 @@ auto fcolor_epos(PExpression pe)
 		g_dump_additional_text="[?]"
 		return -3
 	return fcolor_reach_eval(pe)
+
+auto fcolor_just_epos(PExpression pe)
+	epos0=readPool(pe+1)
+	//epos1=readPool(pe+2)
+	if !epos0:
+		g_dump_additional_text="[?]"
+		return -3
+	return -1
+
+auto fcolor_numerical(PExpression pe)
+	g_dump_additional_text="["+string(pe)+"]"
+	return -3
 
 inline isBuiltin(PExpression pe,int id_builtin)
 	if u32(readPool(pe))>=u32(EFLAG_MULTIPLIER):

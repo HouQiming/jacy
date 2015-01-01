@@ -124,7 +124,7 @@ g_strings=new string
 g_symbols=[TSymbol()]
 g_id_provider=new CUniqueIDProvider(TTraitSymbol)
 
-inline getid(string s)
+auto getid(string s)
 	return int(g_id_provider._find(1,s))
 
 auto catid(int id0,int id1)
@@ -148,7 +148,7 @@ auto getIdString(int id)
 			//assert(0)
 			return "<invalid>"
 	sym=g_symbols[id]
-	return g_strings[sym.p_name:sym.p_name+sym.n-1]
+	return new(g_strings[sym.p_name:sym.p_name+sym.n-1])
 
 inline isTempId(int id)
 	return id&&g_strings[g_symbols[id].p_name]=='$'
@@ -168,10 +168,12 @@ struct TConstValue
 	i64 val_bin
 	int type
 	//int oid
-	inline operator==(TConstValue b)
-		return this.val_bin==b.val_bin&&this.type==b.type
-	inline operator!=(TConstValue b)
-		return this.val_bin!=b.val_bin||this.type!=b.type
+(TConstValue==TConstValue)=inline(a,b){
+	return a.val_bin==b.val_bin&&a.type==b.type
+};
+(TConstValue!=TConstValue)=inline(a,b){
+	return a.val_bin!=b.val_bin||a.type!=b.type
+};
 inline const_type(int t,int bsize)
 	return t|((bsize>>3)-1)
 
@@ -199,7 +201,8 @@ g_const_provider=new CUniqueIDProvider(TTraitConstValue)
 inline getid_const(int t,i64 val)
 	return int(g_const_provider._find(1,TConstValue(){'val_bin':val,'type':t}))
 
-inline ctNumber(int cid)
+auto ctNumber(int cid)
+	//avoid bugs
 	return g_const_values[cid]
 
 inline getBitMask(int n_bits)

@@ -581,6 +581,10 @@ class Array(T)
 				__init__(u32(a))
 			else if TA==char
 				push(a)
+			else if TA==Array(T)
+				push(a)
+			else
+				__error("'@1' cannot be converted to a string",TA)
 		}|inline(double a,int nfrac){
 			lg=__detail.FormatDouble(0L,0,0,0,0,nfrac, a)
 			resize(lg)
@@ -827,6 +831,7 @@ inline copy(a,b)
 				__basic_api.memmove(__pointer(a0),__pointer(b0),szcopy*sizeof(T))
 			else
 				__basic_api.memcpy(__pointer(a0),__pointer(b0),szcopy*sizeof(T))
+	__rc_barrier()
 
 //////////////////////////////////////////////
 class Map(T0,T1)

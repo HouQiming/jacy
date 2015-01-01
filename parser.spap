@@ -567,7 +567,7 @@ auto dumpToken(int tok)
 		val=Util.g_const_values[tok&~TOK_TYPE_MASK]
 		return dumpConst(val)
 	case TOK_ID:
-		return getIdString(tok&~TOK_TYPE_MASK)
+		return new(getIdString(tok&~TOK_TYPE_MASK))
 	case TOK_STRING:
 		s0=getIdString(tok&~TOK_TYPE_MASK)
 		return "\""+genString(s0)+"\""
@@ -982,7 +982,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 				//assert(0)
 				error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"need a '}' here")
 			return code
-		error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos1,FormatAsText("invalid token '",dumpToken(toks[ptr].tok),"'"))
+		error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos1,"invalid token '@1'".Replace(["@1",dumpToken(toks[ptr].tok)]))
 		if toks[ptr].tok!=TOK_EOF:ptr++
 		ret=expriptr(0)
 		writePool(ret+1,toks[ptr].epos0)

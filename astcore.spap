@@ -12,8 +12,8 @@ ENABLE_FEM_DSL=1
 ENABLE_GVN=1
 ENABLE_DEADELIM=1
 DEBUG_MONITOR_REACH=0
-DEBUG_REACH_LOG=0
-DEBUG_EVAL_LOG=0
+DEBUG_REACH_LOG=1//todo: 0
+DEBUG_EVAL_LOG=1//todo: 0
 DEBUG_DUMP_RC=0
 DEBUG_DUMP_FLATTEN=0
 DEBUG_DUMP_USER_FLAGS=0
@@ -4843,7 +4843,7 @@ auto coreInit()
 	//////////////////////////////////////
 	//the operators: promote both sides, grand switch, do the op
 	inline CreateArithOperator(string opname,char optoken,int level,const fop,const IS_INT_ONLY,const IS_CMP)
-		id_opr=getid("operator"+string(opname))
+		id_opr=getid("operator"+opname)
 		auto fop_oneval=function(PExpression pecall,int expr_oplevel){
 			if checkOverload(id_opr,pecall):
 				return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -4892,7 +4892,7 @@ auto coreInit()
 				if !t_result:
 					//Writeln(dumpExpr(pecall,fcolor_abbrv_blocks))
 					errorAtExpr(ETYPE_ERROR,pecall,"invalid operation @1 in expression '@2'".Replace([
-						"@1",dumpType(ta)+string(opname)+dumpType(tb),
+						"@1",dumpType(ta)+opname+dumpType(tb),
 						"@2",citeexpr(pecall)
 					]))
 					return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -4911,7 +4911,7 @@ auto coreInit()
 				else if IS_INT_ONLY:
 					if (ct_result&CTYPE_MASK)!=CTYPE_INT&&(ct_result&CTYPE_MASK)!=CTYPE_UINT:
 						errorAtExpr(ETYPE_ERROR,pecall,"invalid operation @1 in expression '@2': the operator can only be applied to integers".Replace([
-							"@1",dumpType(ta)+string(opname)+dumpType(tb),
+							"@1",dumpType(ta)+opname+dumpType(tb),
 							"@2",citeexpr(pecall)
 						]))
 						return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -4936,6 +4936,8 @@ auto coreInit()
 						else
 							ca.val_bin=i64(fop(u64(ca.val_bin),u64(cb.val_bin)))
 				if skip_eval!=2:
+					//if g_const_values.n>2:
+					//	assert(g_const_values[2].val_bin==1LL)
 					return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(ca.type,ca.val_bin)}
 			if optoken=='+':
 				if val_a.tid==g_vtid_STR&&val_b.tid==g_vtid_STR:
@@ -4999,7 +5001,7 @@ auto coreInit()
 				ta=getExprType(readPool(pecall+EXPR_OFS_ARGS+0))
 				tb=getExprType(readPool(pecall+EXPR_OFS_ARGS+1))
 				errorAtExpr(ETYPE_ERROR,pecall,"unresolved operator @1 in '@2'".Replace([
-					"@1",dumpType(ta)+string(opname)+dumpType(tb),
+					"@1",dumpType(ta)+opname+dumpType(tb),
 					"@2",citeexpr(pecall)]))
 			n_args=getFCallNArgs(pecall)
 			if n_args==1:
@@ -5041,16 +5043,16 @@ auto coreInit()
 	CreateArithOperator("-",'-',50,function(a,b){return a-b},0,0)
 	CreateArithOperator(">>",char(TOK_GG),52,function(a,b){return a>>int(b)},1,0)
 	CreateArithOperator("<<",char(TOK_LL),52,function(a,b){return a<<int(b)},1,0)
-	CreateArithOperator("&",'&',54,function(a,b){return a&b},1,0)
-	CreateArithOperator("|",'|',56,function(a,b){return a|b},1,0)
-	CreateArithOperator("^",'^',55,function(a,b){return a^b},1,0)
+	CreateArithOperator("&",'&',66,function(a,b){return a&b},1,0)
+	CreateArithOperator("^",'^',67,function(a,b){return a^b},1,0)
+	CreateArithOperator("|",'|',68,function(a,b){return a|b},1,0)
 	//////////////////////////////////////
 	CreateArithOperator("<",'<',60,function(a,b){return a<b},0,1)
 	CreateArithOperator(">",'>',60,function(a,b){return a>b},0,1)
 	CreateArithOperator("<=",char(TOK_LE),60,function(a,b){return a<=b},0,1)
 	CreateArithOperator(">=",char(TOK_GE),60,function(a,b){return a>=b},0,1)
-	CreateArithOperator("==",char(TOK_EQ),60,function(a,b){return a==b},0,1)
-	CreateArithOperator("!=",char(TOK_NE),60,function(a,b){return a!=b},0,1)
+	CreateArithOperator("==",char(TOK_EQ),65,function(a,b){return a==b},0,1)
+	CreateArithOperator("!=",char(TOK_NE),65,function(a,b){return a!=b},0,1)
 	//////////////////////////////////////
 	//basic types
 	registerConst(getid("i8"),g_vtid_CTVAL,getBuiltinType(const_type(CTYPE_INT,8)))
@@ -5145,6 +5147,7 @@ auto resolveNames(PExpression g_pe_top,int is_initial_resolve)
 			pv=g_symbols[id].user_slot
 			if !pv:
 				//undeclared variable
+				Writeln('>>> ',dumpExpr(pe,__zero(fcolorer_callback)))//todo
 				bk=g_names_resolved;g_names_resolved=1
 				errorAtExpr(ETYPE_ERROR,pe,"undeclared variable '@1'".Replace(["@1",getIdString(id)]))
 				g_names_resolved=bk
@@ -5480,7 +5483,7 @@ auto resolveNames(PExpression g_pe_top,int is_initial_resolve)
 
 ///////////////////////////////////////////////////////////////
 auto registerPrimitive(int id,fcompiler_callback fonreach,fcompiler_callback foneval,fcompiler_callback foncgen,int flags)
-	value=varWrap(poolObject(TFunction(){
+	auto value=varWrap(poolObject(TFunction(){
 		'pe_decl':call(g_id_function,exprstr(g_id_function)),
 		'obj_onreach':registerCompilerCallback(fonreach),
 		'obj_oneval':registerCompilerCallback(foneval),
@@ -5649,7 +5652,7 @@ auto invokeCallbackObject(PCTObject fcallback,PExpression pe,int arg0)
 	//	return g_compiler_callbacks[readPoolTyped(fcallback,TCompilerFunction).cbid](pe,arg0)
 	//errorAtExpr(ETYPE_ERROR,pe,"invalid compiler callback on expression '"+citeexpr(pe)+"'")
 	//return TSCCPValue(){'tid':g_vtid_UNINIT}
-	return g_compiler_callbacks[readPool(fcallback)](pe,arg0)
+	return g_compiler_callbacks[fcallback](pe,arg0)
 	
 auto getExprType(PExpression pe)
 	return getValueTypeEx(pe,getExprValue(pe))
@@ -6000,7 +6003,7 @@ auto sccp(PExpression g_pe_top)
 			if !testUserFlag(pe,QUEUE_FLAG_ONREACH_CALLED):
 				//re-test reach in case we have a bad queuing order...
 				if DEBUG_REACH_LOG:
-					Writeln(FormatAsText('re-reach ',pe,' ',dumpExpr(pe,fcolorer_callback.NULL)))
+					Writeln(FormatAsText('re-reach ',pe,' ',dumpExpr(pe,__zero(fcolorer_callback))))
 				assert(testUserFlag(pe,QUEUE_FLAG_REACH)||isBuiltin(pe,g_id_ldparam))
 				queueReachChild(pe)
 				sccpProcessReaches()
@@ -6778,21 +6781,21 @@ tm_sccp=tnew(":sccp")
 tm_sccp2=tnew(":sccp2")
 auto grandsccp()
 	tbegin(tm_sccp)
-	if DEBUG_DUMP_PASSES:{Write(string(System.Time.t,2),' 1st SCCP: ')}
+	if DEBUG_DUMP_PASSES:{Write(formatNumber(System.Time.t(),{frac:2}),' 1st SCCP: ')}
 	sccp(g_pe_top)
 	if DEBUG_DUMP_PASSES:{Writeln('done')}
 	for(;;)
 		if DEBUG_DUMP_FLATTEN||DEBUG_EVAL_LOG||DEBUG_DUMP_SCCP:
 			Writeln('>>> after one sccp pass')
 			Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
-		if DEBUG_DUMP_PASSES:{Write(string(System.Time.t,2),' CDF: ')}
+		if DEBUG_DUMP_PASSES:{Write(formatNumber(System.Time.t(),{frac:2}),' CDF: ')}
 		evalCodeDependingFunctions()
 		if DEBUG_DUMP_PASSES:{if g_has_untranslated_cdf:{Writeln('[TRY AGAIN]');}else{Writeln('done');}}
-		if DEBUG_DUMP_PASSES:{Write(string(System.Time.t,2),' more SCCP: ')}
+		if DEBUG_DUMP_PASSES:{Write(formatNumber(System.Time.t(),{frac:2}),' more SCCP: ')}
 		sccp(0)
 		if DEBUG_DUMP_PASSES:{Writeln('done')}
 		if !g_has_untranslated_cdf:break
-	if DEBUG_DUMP_PASSES:{Write(string(System.Time.t,2),' fixConstantTypes: ')}
+	if DEBUG_DUMP_PASSES:{Write(formatNumber(System.Time.t(),{frac:2}),' fixConstantTypes: ')}
 	fixConstantTypes()
 	if DEBUG_DUMP_PASSES:{Writeln('done')}
 	if g_enable_dump:
@@ -6805,7 +6808,7 @@ auto grandsccp()
 	for(;;)
 		did=0
 		tbegin(tm_strflatten)
-		if DEBUG_DUMP_PASSES:{Write(string(System.Time.t,2),' strflatten: ')}
+		if DEBUG_DUMP_PASSES:{Write(formatNumber(System.Time.t(),{frac:2}),' strflatten: ')}
 		if strflatten(g_pe_top,0):
 			did=1
 			sccp(0)
@@ -6813,7 +6816,7 @@ auto grandsccp()
 		else
 			if DEBUG_DUMP_PASSES:{Writeln('dry fire')}
 		tend(tm_strflatten)
-		if DEBUG_DUMP_PASSES:{Write(string(System.Time.t,2),' SSA-GVN: ')}
+		if DEBUG_DUMP_PASSES:{Write(formatNumber(System.Time.t(),{frac:2}),' SSA-GVN: ')}
 		if partialSSAGVN(g_pe_top,0,1):
 			did=1
 			sccp(0)
@@ -6824,7 +6827,7 @@ auto grandsccp()
 			Writeln('>>> after one flatten / deadelim / ssa iteration')
 			Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
 		if ENABLE_DEADELIM:
-			if DEBUG_DUMP_PASSES:{Write(string(System.Time.t,2),' deadelim: ')}
+			if DEBUG_DUMP_PASSES:{Write(formatNumber(System.Time.t(),{frac:2}),' deadelim: ')}
 			if deadelim():
 				did=1
 				sccp(0)
