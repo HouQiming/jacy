@@ -1,0 +1,11 @@
+printf=__c_function(int,"printf","stdio.h")
+sscanf=__c_function(int,"sscanf","stdio.h")
+
+//this n influences the array
+(function(){
+	n=0
+	sscanf("0","%d",&n)
+	assert(0)
+	bad_string=char[n]
+	printf(bad_string,bad_string,bad_string)
+})()

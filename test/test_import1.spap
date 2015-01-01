@@ -1,0 +1,7 @@
+malloc=__c_function(__pointer,"malloc","stdlib.h")
+memset=__c_function(__pointer,"memset","string.h")
+printf=__c_function(int,"printf","stdio.h")
+
+g_imported=100
+auto f_imported()
+	printf("f_imported %d\n",g_imported)

@@ -1,0 +1,2 @@
+printf=__c_function(int,"printf","stdio.h")
+printf("Hello world\n")

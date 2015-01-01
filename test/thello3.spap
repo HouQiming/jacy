@@ -1,0 +1,16 @@
+printf=__c_function(int,"printf","stdio.h")
+scanf=__c_function(int,"scanf","stdio.h")
+GetTickCount=__c_function(i32,"GetTickCount","windows.h")
+
+function ftest(t0,t1){
+	printf("Hello world %d\n",t1-t0);
+	return t1;
+}
+
+a=0;b=0
+t0=GetTickCount()
+scanf("%d %d",&a,&b)
+t1=GetTickCount()
+vret=ftest(a,b)
+ftest(t0,t1)
+printf("returned %d\n",vret)

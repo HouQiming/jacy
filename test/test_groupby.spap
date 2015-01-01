@@ -1,0 +1,11 @@
+import System.Console.*
+(function(){
+	arr=[int2(1,2),int2(1,5),int2(3,7),int2(4,8),int2(4,9),int2(4,10)]
+	for x,elements in arr.Groupby(inline(a){return a.x})
+		Writeln(x,':')
+		Write('  ')
+		for item,I in elements
+			if I:Write(',')
+			Write(item)
+		Writeln()
+})()

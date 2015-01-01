@@ -1,0 +1,21 @@
+printf=__c_function(int,"printf","stdio.h")
+
+g_arr=int[100]
+
+auto crash_function()
+	g_arr[200]++
+
+inline inline_function()
+	printf("before crash 1\n")
+	crash_function()
+	printf("after crash 1\n")
+
+auto normal_function()
+	printf("before crash 0\n")
+	inline_function()
+	printf("after crash 0\n")
+
+//this n influences the array
+(function(){
+	normal_function()
+})()

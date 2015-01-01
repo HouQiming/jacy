@@ -594,14 +594,6 @@ auto setnop(PExpression pe)
 	insertCallAt(pe,0,function(PExpression pe){return exprvar(g_symbols[g_id_nop].user_slot)})
 	writePool(pe,EFLAG_FCALL)
 
-auto setnopNested(PExpression pe)
-	flags=readPool(pe)
-	if (flags&EFLAG_MASK)==EFLAG_FCALL:
-		nargs=(flags&~EFLAG_MASK)
-		for i=-1:nargs-1
-			setnopNested(readPool(pe+EXPR_OFS_ARGS+i))
-	setnop(pe)
-	
 /////////////////////////////////////////////
 //compile-time values
 //todo: improve the memory layout later
@@ -722,7 +714,7 @@ struct TBuiltinType
 	int tid
 	int t
 g_tid_TBuiltinType=getid("TBuiltinType")
-g_desc_TBuiltinType=('tid','t')
+g_desc_TBuiltinType=('tid',"t")
 struct TFunctionType
 	int tid
 	int t_ret
@@ -981,7 +973,7 @@ auto genString(string s0)
 	s=new string
 	hex="0123456789ABCDEF"
 	foreach ch0 in s0
-		ch=(int)(u8)ch0
+		ch=int(u8(ch0))
 		if ch>=0:
 			if ch=='\\':
 				s.push('\\')
@@ -1133,6 +1125,7 @@ g_id_addref=getid("__rc_addref")
 g_id_release=getid("__rc_release")
 //g_id_rc_local_holder=getid("__rc_local_holder")
 g_id_explicit_rc=getid("__explicit_rc")
+g_id_rc_barrier=getid("__rc_barrier")
 g_id_C_free=getid("__C_free")
 g_id_init=getid("__init__")
 g_id_finalizer=getid("__done__")

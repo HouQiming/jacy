@@ -1,0 +1,38 @@
+printf=__c_function(int,"printf","stdio.h")
+
+crange=inline(int n){
+	auto frepeat=inline(count,fbody){
+		if count>0:
+			fbody(n-count)
+			frepeat(count-1,fbody)
+	}
+	return {
+		loop_count:n,
+		forEach:inline(fbody){
+			frepeat(n,fbody)
+		}
+	}
+}
+
+range=inline(n){
+	return {
+		loop_count:n,
+		forEach:inline(fbody){
+			for(i=typeof(n)(0);i<n;i++){
+				fbody(i);
+			}
+		}
+	}
+}
+
+(function(){
+	a=__tuple(9)
+	for i in crange(9):
+		a[i]=(i+1)*(i+1)
+	for i in range(9):
+		printf("%d ",i+1)
+	printf("\n")
+	for i in crange(9):
+		printf("%d ",a[i])
+	printf("\n")
+})()

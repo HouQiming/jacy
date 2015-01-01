@@ -1,0 +1,18 @@
+import System.Console.*
+
+struct double2
+	x=0.
+	y=0.
+	inline __init__(double v_x,double v_y)
+		x=v_x
+		y=v_y
+
+(double2+double2)=inline(a,b){
+	return double2(a.x+b.x,a.y+b.y)
+}
+
+(function(){
+	a=double2(1.0,2.0)
+	b=double2(200.0,100.0)
+	Writeln(a+b)
+})()

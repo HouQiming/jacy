@@ -1,0 +1,21 @@
+import System.Console.*
+import System.Algorithm.*
+
+struct double3
+	x=0.
+	y=0.
+	z=0.
+	inline __init__(double v_x,double v_y,double v_z)
+		x=v_x
+		y=v_y
+		z=v_z
+
+(function(){
+	n_element_vertices=4
+	tuple_exampleD3=__tuple(n_element_vertices)
+	TNodesTupleD3=typeof(tuple_exampleD3)
+	xs=TNodesTupleD3()
+	for basis_i in crange(n_element_vertices)
+		xs[basis_i]=double3(Random(double),Random(double),Random(double))
+	Writeln(xs)
+})()

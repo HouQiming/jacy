@@ -1,0 +1,46 @@
+malloc=__c_function(__pointer,"malloc","stdlib.h")
+memset=__c_function(__pointer,"memset","string.h")
+printf=__c_function(int,"printf","stdio.h")
+
+struct int2
+	x=0
+	y=1
+	inline __init__(v_x,v_y)
+		x=v_x
+		y=v_y
+
+class Array(T)
+	d=0L
+	n=0L
+	sz=0L
+	destructor_nbound_or_slice_reference=0L
+	////////////////////////////////
+	inline __init__(iptr ndata)
+		szbytes=sizeof(T)*ndata
+		d=iptr(malloc(szbytes))
+		memset(__pointer(d),0,szbytes)
+		sz=ndata
+		n=ndata
+	if __is_type("struct",T):
+		inline operator[](auto i)
+			return __cast(T,d+sizeof(T)*iptr(i))
+		inline set_operator[](auto i,value)
+			a=__cast(T,d+sizeof(T)*iptr(i))
+			a=value
+	else
+		inline operator[](auto i)
+			return __memory(T,d+sizeof(T)*iptr(i))
+		inline set_operator[](auto i,value)
+			__memory(T,d+sizeof(T)*iptr(i))=value
+
+//this n influences the array
+(function(){
+	n=10
+	a=Array(int2)(n)
+	for(i=0;i<n;i++)
+		a[i]=int2(i,i*i)
+	for(i=0;i<n;i++)
+		a[i].x+=1000
+	for(i=0;i<n;i++)
+		printf("%d %d\n",a[i].x,a[i].y)
+})()

@@ -1,0 +1,13 @@
+import System.Console.*
+
+FDouble=function():double
+auto test(FDouble f)
+	if f:
+		Writeln('f returned: ',f())
+	else
+		Writeln('f is NULL')
+	Writeln(!!f,' ',!f,' ',f||f,' ',f&&f,' ',f?'yes':'no')
+	
+test(function(){return 2.0})
+test(function(){return 1.5})
+test(__zero(FDouble))

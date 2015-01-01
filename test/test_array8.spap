@@ -1,0 +1,31 @@
+//import "system.spap"
+import System
+printf=__c_function(int,"printf","stdio.h")
+
+auto printStr(string a)
+	for ch in a
+		printf("%c",ch)
+
+//this n influences the array
+(function(){
+	printStr(string(1))
+	printStr(string(23.456))
+	printf("%d","7".as(int))
+	printf("%lf\n","8.9".as(double))
+	printStr(formatNumber(123));printf("\n")
+	printStr(formatNumber(123.456));printf("\n")
+	printStr(formatNumber(12,{align:4}));printf("\n")
+	printStr(formatNumber(0xabcd,{align:8,base:16}));printf("\n")
+	printStr(formatNumber(123.456,{frac:8,sign:1}));printf("\n")
+	printStr(formatNumber(123.456,{scientific:1}));printf("\n")
+	s="the world	is  mine"
+	for sword in s.Tokenize(" \t")
+		printStr(sword);printf("/")
+	printf("END\n")
+	printStr("@1 is @2".Replace(["@1",string(123),"@2","a number"]));printf("\n")
+	System.Console.Writeln("Hello world! ",123,' ',{test:4.56,member:78.9},' ',[1,2,3])
+	System.Console.Writeln()
+	b=1.0
+	b=2.0
+	System.Console.Writeln('tuple: ',(1,b,3))
+})()

@@ -1,0 +1,4 @@
+printf=__c_function(int,"printf","stdio.h")
+GetTickCount=__c_function(i32,"GetTickCount","windows.h")
+t=GetTickCount()
+printf("Hello world %d\n",t*t)

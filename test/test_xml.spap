@@ -1,0 +1,7 @@
+import System.Console.*
+
+(function(){
+	nd=System.XML.Parse(System.IO.ReadAll("..\\ide\\res\\ui.xml"))
+	Writeln(nd)
+	Writeln(nd.ToString())
+})()

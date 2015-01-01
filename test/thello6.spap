@@ -1,0 +1,19 @@
+printf=__c_function(int,"printf","stdio.h")
+
+function f_level0(){
+	acc=0
+	acc_x=0
+	function f_level1(){
+		acc=acc+2
+	}
+	inline inl_level1(){
+		acc_x=acc_x+3
+	}
+	for(i=0;i<100;i=i+1){
+		f_level1()
+		inl_level1()
+	}
+	printf("%d %d\n",acc,acc_x)
+}
+
+f_level0()

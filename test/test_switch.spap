@@ -1,0 +1,19 @@
+import System.Console.*
+
+scanf=__c_function(int,"scanf","stdio.h")
+
+(function(){
+	for n in range(8)
+		Write(n,' ')
+		switch n{
+		default:
+			Writeln('default')
+		case 5:
+			Writeln('case 5')
+		case 1,2:
+			Writeln('case 1,2')
+		case 3:
+		case 4:
+			Writeln('case 3,4')
+		}
+})()

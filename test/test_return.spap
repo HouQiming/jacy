@@ -1,0 +1,20 @@
+import __builtin.*
+
+printf=__c_function(int,"printf","stdio.h")
+
+f_inline=inline(){
+	printf("inline called\n")
+	return 1
+	printf("inline after return\n")
+	return 2
+}
+
+f_normal=function(){
+	printf("normal called\n")
+	return 1
+	printf("normal after return\n")
+	return 2
+}
+
+printf("f_inline()=%d\n",f_inline())
+printf("f_normal()=%d\n",f_normal())

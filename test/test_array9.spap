@@ -1,0 +1,30 @@
+//import "system.spap"
+import System.Console.*
+
+//struct int2
+//	x=0
+//	y=0
+//	inline __init__(int v_x,int v_y)
+//		x=v_x
+//		y=v_y
+
+(function(){
+	a=[1,4,2,8,5,7]
+	a.Sort()
+	Writeln(a)
+	///////
+	b=[int2(1,0),int2(2,2),int2(1,1),int2(2,1)]
+	b.Sort()
+	Writeln(b)
+	///////
+	c=[int2(1,0),int2(1,2),int2(2,1),int2(2,3)]
+	c.Sortby(inline(a){return a.y})
+	Writeln(c)
+	///////
+	a=int[1997]
+	for i in range(1997)
+		a[i]=i*17%1997
+	Writeln(a)
+	a.Sort()
+	Writeln(a)
+})()

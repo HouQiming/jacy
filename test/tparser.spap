@@ -1,0 +1,25 @@
+default_parameters={
+	//gaussian_quadrature_points:64,
+	//gaussian_quadrature_points:10,
+	gaussian_quadrature_points:4,
+	//iterations:1,
+	iterations:10,
+	G:9.8*1150.0,
+}
+if 1:
+	//then
+	then
+else
+	//else
+	else
+for(;;)
+	//it's right
+	there is a loop body
+if 1:
+	//then
+else
+	//else
+for(;;)
+	//it's right
+parameters=default_parameters//(user_parameters|default_parameters)
+G=parameters.G

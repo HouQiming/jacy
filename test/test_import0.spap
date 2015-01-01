@@ -1,0 +1,15 @@
+import "test_import1.spap"
+import Test_import1.*
+
+auto f_inside()
+	auto g_imported=999
+	printf("local %d\n",g_imported)
+	f_imported()
+	g_imported++
+	
+printf("==initial test\n")
+f_imported()
+g_imported++
+f_imported()
+printf("==f_inside\n")
+f_inside()

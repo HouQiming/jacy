@@ -1,0 +1,26 @@
+printf=__c_function(int,"printf","stdio.h")
+
+struct int2
+	x=0
+	y=1
+	inline __init__(v_x,v_y)
+		x=v_x
+		y=v_y
+
+a={x:3,y:4}
+a.x++
+printf("%d %d\n",a.x,a.y)
+b=(5,6.f)
+b._0++
+printf("%d %f\n",b._0,b._1)
+c=int2(){x:7,y:8}
+c.x++
+printf("%d %d\n",c.x,c.y)
+(p,q)=b
+printf("%d %f\n",p,q)
+a.x+=100
+s=a.x
+t=a.y
+printf("%d %d\n",s,t)
+(t,s)=(s,t)
+printf("%d %d\n",s,t)

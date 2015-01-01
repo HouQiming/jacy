@@ -1,0 +1,19 @@
+printf=__c_function(int,"printf","stdio.h")
+
+//inline abs(a)
+//	if a<0:
+//		ret=-a
+//	else
+//		ret=a
+//	return ret
+
+inline abs(a)
+	if a<0:
+		return -a
+	else
+		return a
+
+(function(){
+	printf("%d\n",abs(-4))
+	printf("%d\n",abs(3))
+})()

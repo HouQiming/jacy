@@ -1,0 +1,23 @@
+printf=__c_function(int,"printf","stdio.h")
+
+struct int2
+	x=0
+	y=0
+	inline __init__(v_x,v_y)
+		x=v_x
+		y=v_y
+
+//this n influences the array
+auto test(int mode)
+	if mode==0:
+		v=variant(1.5)
+	else
+		v=variant(int2(3,4))
+	printf("v.as(double)=%lf\n",v.as(double))
+	a=v.as(int2)
+	printf("v.as(int2)=(%d,%d)\n",a.x,a.y)
+
+(function(){
+	test(0)
+	test(1)
+})()

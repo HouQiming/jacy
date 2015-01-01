@@ -1,0 +1,21 @@
+import __builtin.*
+printf=__c_function(int,"printf","stdio.h")
+
+struct int2
+	x=0
+	y=0
+	inline __init__(v_x,v_y)
+		x=v_x
+		y=v_y
+
+//this n influences the array
+(function(){
+	auto n=10
+	auto a=Array(int2)(n)
+	for(i=0;i<n;i++)
+		a[i]=int2(i,i*i)
+	for(i=0;i<n;i++)
+		a[i].x+=1000
+	for(i=0;i<n;i++)
+		printf("%d %d\n",a[i].x,a[i].y)
+})()

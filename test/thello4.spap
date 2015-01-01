@@ -1,0 +1,11 @@
+printf=__c_function(int,"printf","stdio.h")
+scanf=__c_function(int,"scanf","stdio.h")
+
+a=0;b=0
+scanf("%d %d",&a,&b)
+if a==b:
+	printf("a==b\n")
+if a<b:
+	printf("a<b\n")
+else
+	printf("a>=b\n")

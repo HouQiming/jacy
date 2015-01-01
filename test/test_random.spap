@@ -1,0 +1,17 @@
+import System.Console.*
+import System.Algorithm.*
+
+(function(){
+	a=double[10]
+	b=double[10]
+	for i=0:9
+		Writeln(Random(double))
+		a[i]=Random(double)
+	Writeln(a)
+	Writeln(b)
+	copy(b,a)
+	Writeln(b)
+	Writeln(b[5:])
+	Writeln(b[:5])
+	Writeln(b[2:3])
+})()

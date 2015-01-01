@@ -1,0 +1,28 @@
+import System.Console.*
+
+class CClass0
+	auto print()
+		Writeln('calling CClass0.print')
+	auto set_value(double a)
+		Writeln('CClass0.set_value is ignored')
+
+class CClass1
+	m_value=0.0
+	auto print()
+		Writeln('calling CClass1.print, value=',m_value)
+	auto set_value(double a)
+		m_value=a
+
+class IInterface
+	function(double a) set_value
+	function() print
+
+(function(){
+	c0=new CClass0
+	c1=new CClass1
+	c2=new CClass1
+	arr=[getInterface(c0,IInterface),getInterface(c1,IInterface),getInterface(c2,IInterface)]
+	foreach a,I in arr
+		a.value()=123.45+double(I)*10000.0
+		a.print()
+})()

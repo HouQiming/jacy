@@ -1,0 +1,16 @@
+import System.Console.*
+
+inline finline()
+	for i=100:100:900
+		if i%7==0:return i
+	return iptr(0)
+
+function fnormal()
+	base=finline()
+	for i=0:99
+		if i==37:return base+i
+	return iptr(0)
+
+(function(){
+	Writeln(fnormal())
+})()

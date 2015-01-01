@@ -1,0 +1,23 @@
+import __builtin.*
+printf=__c_function(int,"printf","stdio.h")
+
+struct int2
+	x=0
+	y=0
+	inline __init__(v_x,v_y)
+		x=v_x
+		y=v_y
+
+//this n influences the array
+(function(){
+	n=100
+	auto a=Array(int2)(n)
+	for(i=0;i<n;i++)
+		a[i]=int2(1000+i,i*i)
+	lambdaed_guy=a[9];
+	function ftest(int val){
+		return val+lambdaed_guy.x+lambdaed_guy.y;
+	}
+	printf("%d\n",ftest(3))
+	printf("%d\n",ftest(4))
+})()

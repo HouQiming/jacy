@@ -1,0 +1,30 @@
+import System.Console.*
+
+(function(){
+	Writeln('double.NULL=',double.NULL)
+	map_ii=new int[int]
+	map_ii[7]=49
+	Writeln(map_ii[3],' ',map_ii[7])
+	for i=1:2:99
+		map_ii[int(i)]=int(i*i)
+	Writeln(map_ii[3],' ',map_ii[91])
+	for i=11:2:99
+		map_ii[int(i)]+=1000000
+	Writeln(map_ii[3],' ',map_ii[91])
+	//////////////
+	map_ss=new string[string]
+	s=clone("hello")
+	map_ss[s]="map-data: hello"
+	s.push(" world")
+	map_ss["world"]="map-data: world"
+	Writeln(map_ss["hello"],' ',map_ss["world"])
+	//////////////
+	a=new int[9]
+	b=new int[]
+	for i=0:8
+		a[i]=i
+	c=new(a)
+	a[3]+=100
+	c[4]+=100
+	Writeln(a,' ',b,' ',c)
+})()

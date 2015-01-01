@@ -1,0 +1,11 @@
+import System.Console.*
+
+(function(){
+	x=0
+	obj={
+		faccumulator:function(){x++}
+	}
+	for i=0:99
+		obj.faccumulator()
+	Writeln(x)
+})()

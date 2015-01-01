@@ -1,0 +1,45 @@
+0xfeed+0x3333
+a=1
+fenergy=function({
+	x0 = float3(x0x,x0y,x0z);
+	x1 = float3(x1x,x1y,x1z);
+	x2 = float3(x2x,x2y,x2z);
+	x3 = float3(x3x,x3y,x3z);
+	X0 = float3(X0x,X0y,X0z);
+	X1 = float3(X1x,X1y,X1z);
+	X2 = float3(X2x,X2y,X2z);
+	X3 = float3(X3x,X3y,X3z);
+	////////
+	d = mat3x3(x1-x0, x2-x0, x3-x0);
+	D = mat3x3(X1-X0, X2-X0, X3-X0);
+	////////
+	F = d*(inv(D));
+	C = transpose(F)*F;
+	J = det(F);
+	psi = u*(pow(J,(-2.f/3.f))*trace(C)-3.f)/2.f + k*(pow((J-1.f),2.f))/2.f;
+})
+
+Array=class_template(list(class,"T"),{
+	array_type=create_class();
+	impl_ConvertToAsBinary=function_template(list(class,"T2"),{
+		return=c_function(list(array_type,"this"),{
+			//make use of T and T2
+		})
+	})
+	array_type.ConvertToAsBinary=inline_function(list(array_type,this, class,"T2"),{
+		return=impl_ConvertToAsBinary(T2)(this);
+	})
+	return=array_type;
+})
+//the functions transform the scope, defining variables and adding code if necessary
+a=new(Array(int))
+Array(int).ConvertToAsBinary(a,char)
+
+i=0;
+do("loop0",{
+	i+=1;
+	if(i>10,0,{},{break("loop0");});
+	printf("%d ",i);
+},{
+	printf("\n");
+})

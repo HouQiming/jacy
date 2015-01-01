@@ -1,0 +1,9 @@
+import Gui2D.*
+import Javascript.*
+import System.Console.*
+
+(function(){
+	JS=new JSContext
+	setupModuleSystem(JS)
+	JS.debugRunFile("test/test_gui.js")
+})()

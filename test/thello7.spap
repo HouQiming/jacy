@@ -1,0 +1,12 @@
+printf=__c_function(int,"printf","stdio.h")
+
+function TClass0(){
+	x=1
+	y=2
+	return __get_lambda_context(0)
+}
+
+s=TClass0()
+s.x=s.x+100
+s.y=s.y+200
+printf("%d %d\n",s.x,s.y)

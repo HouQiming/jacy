@@ -1,0 +1,149 @@
+printf=__c_function(int,"printf","stdio.h")
+pow=__c_function(double,"pow","math.h")
+_deriv_operator+ =__function(__ccnv_inline,auto,"a",auto,"b",auto,"fid",auto,"name",{return=_deriv(a,fid,name)+_deriv(b,fid,name)})
+_deriv_operator- =__function(__ccnv_inline,auto,"a",auto,"b",auto,"fid",auto,"name",{return=_deriv(a,fid,name)-_deriv(b,fid,name)})
+_deriv_operator* =__function(__ccnv_inline,auto,"a",auto,"b",auto,"fid",auto,"name",{return=a*_deriv(b,fid,name)+b*_deriv(a,fid,name)})
+_deriv_operator/ =__function(__ccnv_inline,auto,"a",auto,"b",auto,"fid",auto,"name",{return=(_deriv(a,fid,name)-a*_deriv(b,fid,name)/b)/b})
+_deriv_pow =__function(__ccnv_inline,auto,"a",auto,"c",auto,"fid",auto,"name",{return=c*pow(a,c-1.0f)*_deriv(a,fid,name)})
+_declare_deriv(operator+,_deriv_operator+)
+_declare_deriv(operator-,_deriv_operator-)
+_declare_deriv(operator*,_deriv_operator*,3)
+_declare_deriv(operator/,_deriv_operator/,3)
+_declare_deriv(pow,_deriv_pow,1)
+fenergy=__function(0,
+		double,"x0x",double,"x0y",double,"x0z",
+		double,"x1x",double,"x1y",double,"x1z",
+		double,"x2x",double,"x2y",double,"x2z",
+		double,"x3x",double,"x3y",double,"x3z",
+		double,"X0x",double,"X0y",double,"X0z",
+		double,"X1x",double,"X1y",double,"X1z",
+		double,"X2x",double,"X2y",double,"X2z",
+		double,"X3x",double,"X3y",double,"X3z",
+		double,"u",double,"k",{
+	d00=x1x-x0x
+	d10=x1y-x0y
+	d20=x1z-x0z
+	d01=x2x-x0x
+	d11=x2y-x0y
+	d21=x2z-x0z
+	d02=x3x-x0x
+	d12=x3y-x0y
+	d22=x3z-x0z
+	printf("d=\n");
+	printf("%lf %lf %lf\n",d00,d01,d02)
+	printf("%lf %lf %lf\n",d10,d11,d12)
+	printf("%lf %lf %lf\n",d20,d21,d22)
+	////////
+	D00=X1x-X0x
+	D10=X1y-X0y
+	D20=X1z-X0z
+	D01=X2x-X0x
+	D11=X2y-X0y
+	D21=X2z-X0z
+	D02=X3x-X0x
+	D12=X3y-X0y
+	D22=X3z-X0z
+	printf("D=\n");
+	printf("%lf %lf %lf\n",D00,D01,D02)
+	printf("%lf %lf %lf\n",D10,D11,D12)
+	printf("%lf %lf %lf\n",D20,D21,D22)
+	inv_D00=D11*D22-D21*D12
+	inv_D10=D12*D20-D22*D10
+	inv_D20=D10*D21-D20*D11
+	inv_D01=D21*D02-D01*D22
+	inv_D11=D22*D00-D02*D20
+	inv_D21=D20*D01-D00*D21
+	inv_D02=D01*D12-D11*D02
+	inv_D12=D02*D10-D12*D00
+	inv_D22=D00*D11-D10*D01
+	det_D=inv_D00*D00+inv_D10*D01+inv_D20*D02
+	inv_det_D=1.0/det_D
+	////////
+	//xF00=(D00*inv_D00 + D01*inv_D10 + D02*inv_D20)*inv_det_D
+	//xF01=(D00*inv_D01 + D01*inv_D11 + D02*inv_D21)*inv_det_D
+	//xF02=(D00*inv_D02 + D01*inv_D12 + D02*inv_D22)*inv_det_D
+	//xF10=(D10*inv_D00 + D11*inv_D10 + D12*inv_D20)*inv_det_D
+	//xF11=(D10*inv_D01 + D11*inv_D11 + D12*inv_D21)*inv_det_D
+	//xF12=(D10*inv_D02 + D11*inv_D12 + D12*inv_D22)*inv_det_D
+	//xF20=(D20*inv_D00 + D21*inv_D10 + D22*inv_D20)*inv_det_D
+	//xF21=(D20*inv_D01 + D21*inv_D11 + D22*inv_D21)*inv_det_D
+	//xF22=(D20*inv_D02 + D21*inv_D12 + D22*inv_D22)*inv_det_D
+	////////
+	F00=(d00*inv_D00 + d01*inv_D10 + d02*inv_D20)*inv_det_D
+	F01=(d00*inv_D01 + d01*inv_D11 + d02*inv_D21)*inv_det_D
+	F02=(d00*inv_D02 + d01*inv_D12 + d02*inv_D22)*inv_det_D
+	F10=(d10*inv_D00 + d11*inv_D10 + d12*inv_D20)*inv_det_D
+	F11=(d10*inv_D01 + d11*inv_D11 + d12*inv_D21)*inv_det_D
+	F12=(d10*inv_D02 + d11*inv_D12 + d12*inv_D22)*inv_det_D
+	F20=(d20*inv_D00 + d21*inv_D10 + d22*inv_D20)*inv_det_D
+	F21=(d20*inv_D01 + d21*inv_D11 + d22*inv_D21)*inv_det_D
+	F22=(d20*inv_D02 + d21*inv_D12 + d22*inv_D22)*inv_det_D
+	printf("F=\n");
+	printf("%lf %lf %lf\n",F00,F01,F02)
+	printf("%lf %lf %lf\n",F10,F11,F12)
+	printf("%lf %lf %lf\n",F20,F21,F22)
+	inv_F00=F11*F22-F21*F12
+	inv_F10=F12*F20-F22*F10
+	inv_F20=F10*F21-F20*F11
+	J=inv_F00*F00+inv_F10*F01+inv_F20*F02
+	J_1=(J-1.)
+	//////////////////
+	C00=(F00*F00 + F10*F10 + F20*F20)
+	C01=(F00*F01 + F10*F11 + F20*F21)
+	C02=(F00*F02 + F10*F12 + F20*F22)
+	C10=(F01*F00 + F11*F10 + F21*F20)
+	C11=(F01*F01 + F11*F11 + F21*F21)
+	C12=(F01*F02 + F11*F12 + F21*F22)
+	C20=(F02*F00 + F12*F10 + F22*F20)
+	C21=(F02*F01 + F12*F11 + F22*F21)
+	C22=(F02*F02 + F12*F12 + F22*F22)
+	printf("C=\n");
+	printf("%lf %lf %lf\n",C00,C01,C02)
+	printf("%lf %lf %lf\n",C10,C11,C12)
+	printf("%lf %lf %lf\n",C20,C21,C22)
+	trace_C=C00+C11+C22
+	J2=J*J
+	printf("J=%lf\n",J);
+	//return = u*(pow(J,((0.-2.)/3.))*trace_C-3.)/2. + k*(J_1*J_1)/2.
+	return = u*(pow(J2,((0.-1.)/3.))*trace_C-3.)/2. + k*(J_1*J_1)/2.
+	printf("psi=%lf\n",return);
+})
+fenergy_deriv=symbolicDerivative(fenergy,"x0x","x0y","x0z","x1x","x1y","x1z","x2x","x2y","x2z","x3x","x3y","x3z")
+//E=fenergy_deriv(
+//	0.0-0.498749,0.063585,0.0-0.306696,
+//	0.308741,0.085009,0.0-0.020127,
+//	0.0-0.149709,0.395962,0.322840,
+//	0.246605,0.0-0.325892,0.358943,
+//	0.210501,0.013535,0.0-0.196005,
+//	0.0-0.485015,0.0-0.408597,0.0-0.135548,
+//	0.0-0.352687,0.0-0.334101,0.488525,
+//	0.0-0.054308,0.0-0.380917,0.0-0.495331,
+//	1.,2.)
+E=fenergy_deriv(
+	1.009133758561390,0.006323592462254,0.000975404049994,
+	1.009133758561390,0.006323592462254,0.000975404049994,
+	0.002784982188670,1.005468815192050,0.009575068354343,
+	0.009648885351993,0.001576130816775,1.009705927817606,
+	0.009571669482429,0.004853756487228,0.008002804688888,
+	1.001418863386272,0.004217612826263,0.009157355251891,
+	0.007922073295596,1.009594924263929,0.006557406991566,
+	0.000357116785742,0.008491293058688,1.009339932477576,
+	2000.,1000.)
+//E=fenergy_deriv(
+//	0.,0.,0., 1.,0.,0., 0.,1.,0., 0.,0.,1., 
+//	0.,0.,0., 1.,0.,0., 0.,1.,0., 0.,0.,1.,
+//	2.,3.)
+dE_dx0x=__get_extra_return(fenergy_deriv,0)
+dE_dx0y=__get_extra_return(fenergy_deriv,1)
+dE_dx0z=__get_extra_return(fenergy_deriv,2)
+dE_dx1x=__get_extra_return(fenergy_deriv,3)
+dE_dx1y=__get_extra_return(fenergy_deriv,4)
+dE_dx1z=__get_extra_return(fenergy_deriv,5)
+dE_dx2x=__get_extra_return(fenergy_deriv,6)
+dE_dx2y=__get_extra_return(fenergy_deriv,7)
+dE_dx2z=__get_extra_return(fenergy_deriv,8)
+dE_dx3x=__get_extra_return(fenergy_deriv,9)
+dE_dx3y=__get_extra_return(fenergy_deriv,10)
+dE_dx3z=__get_extra_return(fenergy_deriv,11)
+printf("f(x)=%lf, f'(x)=[%lf,%lf,%lf, %lf,%lf,%lf, %lf,%lf,%lf, %lf,%lf,%lf]\n",E, dE_dx0x,dE_dx0y,dE_dx0z,dE_dx1x,dE_dx1y,dE_dx1z,dE_dx2x,dE_dx2y,dE_dx2z,dE_dx3x,dE_dx3y,dE_dx3z)
+__export("fenergy_deriv",fenergy_deriv)

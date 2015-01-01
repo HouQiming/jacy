@@ -1,0 +1,8 @@
+printf=__c_function(int,"printf","stdio.h")
+
+a=100
+auto f()
+	auto a=200
+	printf("in f: %d\n",a)
+f()
+printf("%d\n",a)

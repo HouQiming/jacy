@@ -1,0 +1,10 @@
+import System.Console.*
+
+(function(){
+	a=new int[100]
+	for i=0:99
+		a[i]=i
+	for i=0:99
+		b=a[i:]
+		Writeln(b)
+})()

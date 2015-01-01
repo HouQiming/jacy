@@ -1,0 +1,19 @@
+printf=__c_function(int,"printf","stdio.h")
+
+class TClass0
+	CONST_VALUE=12345
+	x=1
+	y=2
+	function increment(int c,int d)
+		x+=c
+		y+=d
+	function print()
+		printf("TClass0.print() %d %d\n",x,y)
+	function __done__()
+		printf("TClass0.__done__()\n")
+
+s=TClass0()
+s.print()
+s.increment(100,200)
+s.print()
+printf("%d\n",s.CONST_VALUE)

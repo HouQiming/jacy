@@ -33,6 +33,7 @@ class CUniqueIDProvider(TTraits)
 			a2[slot]=id
 		this.a=a2
 	auto _find(const CREATE_NEW,traits.TKey key)
+		auto a=this.a
 		auto grown=0
 		auto sz=(a?a.n:0)
 		if !CREATE_NEW:
@@ -40,6 +41,7 @@ class CUniqueIDProvider(TTraits)
 		else
 			if !sz:
 				_grow_to(sz)
+				a=this.a
 				sz=(a?a.n:0)
 				grown=1
 		for(;;)
@@ -48,7 +50,6 @@ class CUniqueIDProvider(TTraits)
 			mask=sz-1
 			b=(iptr(h)&mask)
 			delta=1L
-			auto a=this.a
 			for(;;)
 				//Write('#')
 				pi=a[b]
@@ -64,10 +65,12 @@ class CUniqueIDProvider(TTraits)
 				return -1
 			if !grown&&(this.n*4+1>=sz*3||sz-this.n<sz>>2):
 				_grow_to(sz)
+				a=this.a
 				sz=(a?a.n:0)
 				grown=1
 				continue
 			break
+		__rc_barrier()
 		this.a[slot]=traits.createNew(key,h)
 		this.n++
 		return this.a[slot]
@@ -105,10 +108,13 @@ class TTraitSymbol
 		return iptr(key.__hash__())
 	inline isKeyEqual(int id,string key)
 		//could do: __optimize__ rule for this
-		return getIdString(id)==key
+		//return getIdString(id)==key
+		sym=g_symbols[id]
+		return sym.n==key.n&&__basic_api.memcmp(__pointer(g_strings.d+sym.p_name),__pointer(key.d),sym.n)==0
 	inline createNew(string key,iptr hash)
 		p=g_strings.n
 		n=key.n
+		//Writeln(g_strings.n,' ',g_strings.destructor_nbound_or_slice_reference)
 		g_strings.push(key)
 		ret=int(g_symbols.n)
 		g_symbols.push(TSymbol(){'hash':hash,'p_name':p,"n":n})
@@ -257,7 +263,7 @@ auto loadSourceFile(int id_fn)
 	g_files.push(TSourceFile(){'id_fn':id_fn,'n0':n0,'sz':src.n})
 	return n0
 auto getLineInfo(int epos)
-	fid=int(g_files.Bisect(function(a){return a.n0<=epos})-1)
+	fid=int(g_files.Bisect(function(TSourceFile a){return a.n0<=epos})-1)
 	if fid<0:
 		//assert(0)
 		(fret,lret,cret)=(0,0,0)
@@ -270,7 +276,7 @@ auto getLineInfo(int epos)
 				if g_feed[g_files[fid].n0+i-1]==u8('\n'):
 					lines.push(int(i))
 			g_files[fid].lines=lines
-		ln=int(lines.Bisect(function(a){return a<=ccnt})-1)
+		ln=int(lines.Bisect(function(int a){return a<=ccnt})-1)
 		assert(ln>=0)
 		(fret,lret,cret)=(g_files[fid].id_fn,ln,ccnt-lines[ln])
 	return (fret,lret,cret)

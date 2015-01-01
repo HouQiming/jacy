@@ -1,0 +1,20 @@
+printf=__c_function(int,"printf","stdio.h")
+powf=__c_function(float,"powf","math.h")
+
+_deriv(operator+)=inline(a,b,fid,name){return _deriv(a,fid,name)+_deriv(b,fid,name)}
+_deriv(operator-)=inline(a,b,fid,name){return _deriv(a,fid,name)-_deriv(b,fid,name)}
+_deriv(operator*)=inline(a,b,fid,name){return a*_deriv(b,fid,name)+b*_deriv(a,fid,name)}
+_deriv(operator/)=inline(a,b,fid,name){return (a*_deriv(b,fid,name)/b-_deriv(a,fid,name))/b}
+_deriv(powf)=inline(a,c,fid,name){return c*powf(a,c-1.f)*_deriv(a,fid,name)}
+
+////////////////////////////
+ftest=function(float x){return (2.f*x+1.f)*(3.f*powf(x,3.f)-x)}
+fderiv_ref=function(float x){return 24.f*powf(x,3.f)-4.f*x+9.f*x*x-1.f}
+//ftest=__function(0,float,"x",{return=2*x+1})
+ftest_deriv=symbolicDerivative(ftest,"x")
+//cns_1_plus_1=1+1
+//printf("%f %f\n",ftest(1.f),ftest_derif(1.f))
+x=1.f
+(f,df)=ftest_deriv(x)
+printf("f(x)=%f, f'(x)=%f\n",f,df)
+printf("reference: f(x)=%f, f'(x)=%f\n",ftest(x),fderiv_ref(x))

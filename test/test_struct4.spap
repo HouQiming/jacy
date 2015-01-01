@@ -1,0 +1,22 @@
+printf=__c_function(int,"printf","stdio.h")
+
+crange=inline(int n){
+	auto frepeat=inline(auto count,auto fbody){
+		if count>0:
+			fbody(n-count)
+			frepeat(count-1,fbody)
+	}
+	return {
+		loop_count:n,
+		forEach:inline(auto fbody){
+			frepeat(n,fbody)
+		}
+	}
+}
+
+(function(){
+	a=(9,18,27,36,45,54,63,72,81)
+	for i in crange(9):
+		printf("%d ",a[i])
+	printf("\n")
+})()

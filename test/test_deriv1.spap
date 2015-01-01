@@ -1,0 +1,36 @@
+printf=__c_function(int,"printf","stdio.h")
+powf=__c_function(float,"powf","math.h")
+
+_deriv(operator+)=inline(a,b,fid,name){return _deriv(a,fid,name)+_deriv(b,fid,name)}
+_deriv(operator-)=inline(a,b,fid,name){return _deriv(a,fid,name)-_deriv(b,fid,name)}
+_deriv(operator*)=inline(a,b,fid,name){return a*_deriv(b,fid,name)+b*_deriv(a,fid,name)}
+_deriv(operator/)=inline(a,b,fid,name){return (a*_deriv(b,fid,name)/b-_deriv(a,fid,name))/b}
+_deriv(powf)=inline(a,c,fid,name){return c*powf(a,c-1.f)*_deriv(a,fid,name)}
+
+struct float3
+	x=0.f
+	y=0.f
+	z=0.f
+	inline __init__(float v_x,float v_y,float v_z)
+		x=v_x
+		y=v_y
+		z=v_z
+
+auto dot(float3 a)
+	return a.x*a.x+a.y*a.y+a.z*a.z
+
+auto vsqr(float3 a)
+	return float3(a.x*a.x,a.y*a.y,a.z*a.z)
+
+////////////////////////////
+p=float3(1.f,2.f,3.f)
+q=float3(3.f,4.f,1.f)
+ddot=symbolicDerivative(dot,"a")
+dvsqr=symbolicDerivative(vsqr,"a")
+(dt,dx,dy,dz)=ddot(float3(1.f,2.f,3.f))
+printf("%f %f %f\n",dx,dy,dz)
+(s0,s1,s2, xx,yx,zx, xy,yy,zy, xz,yz,zz)=dvsqr(float3(3.f,2.f,1.f))
+printf("----------------\n")
+printf("%f %f %f\n",xx,yx,zx)
+printf("%f %f %f\n",xy,yy,zy)
+printf("%f %f %f\n",xz,yz,zz)

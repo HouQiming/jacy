@@ -1,0 +1,16 @@
+printf=__c_function(int,"printf","stdio.h")
+
+class c_template(T)
+	a=T(0)
+	function print()
+		if T==int:
+			printf("int: %d\n",a)
+		if T==double:
+			printf("double: %lf\n",a)
+	function __init__(T b)
+		a=b
+
+s0=c_template(int)(100);s0.a+=3
+s1=c_template(double)(0.5);s1.a+=0.25
+s0.print()
+s1.print()

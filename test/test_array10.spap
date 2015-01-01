@@ -1,0 +1,16 @@
+//import "system.spap"
+import System.Console.*
+
+struct int2
+	x=0
+	y=0
+	inline __init__(int v_x,int v_y)
+		x=v_x
+		y=v_y
+
+(function(){
+	a=[1.f,2.f]
+	p=int2(1,2)+int2(3,4)
+	b=a.ConvertToAsBinary(int2)
+	Writeln(b)
+})()

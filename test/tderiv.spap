@@ -1,0 +1,37 @@
+_deriv_operator+ =__function(__ccnv_inline,auto,"a",auto,"b",auto,"fid",auto,"name",{return=_deriv(a,fid,name)+_deriv(b,fid,name)})
+_deriv_operator- =__function(__ccnv_inline,auto,"a",auto,"b",auto,"fid",auto,"name",{return=_deriv(a,fid,name)-_deriv(b,fid,name)})
+_deriv_operator* =__function(__ccnv_inline,auto,"a",auto,"b",auto,"fid",auto,"name",{return=a*_deriv(b,fid,name)+b*_deriv(a,fid,name)})
+_deriv_operator/ =__function(__ccnv_inline,auto,"a",auto,"b",auto,"fid",auto,"name",{return=(a*_deriv(b,fid,name)/b-_deriv(a,fid,name))/b})
+_deriv_transpose =__function(__ccnv_inline,auto,"a",auto,"fid",auto,"name",{return=transpose(_deriv(a,fid,name))})
+_deriv_mat3x3 =__function(__ccnv_inline,float3,"a",float3,"b",float3,"c",auto,"fid",auto,"name",{return=mat3x3(_deriv(a,fid,name),_deriv(b,fid,name),_deriv(c,fid,name))})
+_deriv_float3 =__function(__ccnv_inline,float,"a",float,"b",float,"c",auto,"fid",auto,"name",{return=float3(_deriv(a,fid,name),_deriv(b,fid,name),_deriv(c,fid,name))})
+_deriv_pow =__function(__ccnv_inline,auto,"a",auto,"c",auto,"fid",auto,"name",{return=c*pow(a,c-1)*_deriv(a,fid,name)})
+_deriv_trace =__function(__ccnv_inline,auto,"a",auto,"fid",auto,"name",{return=trace(_deriv(a,fid,name))})
+fenergy=__function(0,
+		float,"x0x",float,"x0y",float,"x0z",
+		float,"x1x",float,"x1y",float,"x1z",
+		float,"x2x",float,"x2y",float,"x2z",
+		float,"x3x",float,"x3y",float,"x3z",
+		float3,"X0",float3,"X1",float3,"X2",float3,"X3",{
+	x0 = float3(x0x,x0y,x0z);
+	x1 = float3(x1x,x1y,x1z);
+	x2 = float3(x2x,x2y,x2z);
+	x3 = float3(x3x,x3y,x3z);
+	//X0 = float3(X0x,X0y,X0z);
+	//X1 = float3(X1x,X1y,X1z);
+	//X2 = float3(X2x,X2y,X2z);
+	//X3 = float3(X3x,X3y,X3z);
+	////////
+	d = mat3x3(x1-x0, x2-x0, x3-x0);
+	D = mat3x3(X1-X0, X2-X0, X3-X0);
+	////////
+	F = d*(inv(D));
+	C = transpose(F)*F;
+	J = det(F);
+	return = u*(pow(J,(-2.f/3.f))*trace(C)-3.f)/2.f + k*(pow((J-1.f),2.f))/2.f;
+})
+_compiler_log(symbolicDerivative(fenergy,"x0x","x0y","x0z","x1x","x1y","x1z","x2x","x2y","x2z","x3x","x3y","x3z"))
+//ftest=__function(0,float,"x",{return=pow(x,3)+x*x+2*x+1})
+//ftest=__function(0,float,"x",{return=2*x+1})
+//_compiler_log(symbolicDerivative(ftest,"x"))
+//cns_1_plus_1=1+1

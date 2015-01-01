@@ -1,0 +1,16 @@
+printf=__c_function(int,"printf","stdio.h")
+powf=__c_function(float,"powf","math.h")
+
+_deriv(operator+)=inline(a,b,fid,name){return _deriv(a,fid,name)+_deriv(b,fid,name)}
+_deriv(operator-)=inline(a,b,fid,name){return _deriv(a,fid,name)-_deriv(b,fid,name)}
+_deriv(operator*)=inline(a,b,fid,name){return a*_deriv(b,fid,name)+b*_deriv(a,fid,name)}
+_deriv(operator/)=inline(a,b,fid,name){return (a*_deriv(b,fid,name)/b-_deriv(a,fid,name))/b}
+_deriv(powf)=inline(a,c,fid,name){return c*powf(a,c-1.f)*_deriv(a,fid,name)}
+
+////////////////////////////
+ftest=function(float x,float y){return powf(x*y+3.f*x+3.f*y+0.f*x*y,2.f)}
+ftest_deriv=symbolicDerivative(ftest,"x","y")
+x=1.f
+y=2.f
+(f,dfdx,dfdy)=ftest_deriv(x,y)
+printf("f(x,y)=%f, dfdx=%f, dfdy=%f\n",f,dfdx,dfdy)

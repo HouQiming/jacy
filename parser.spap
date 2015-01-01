@@ -282,9 +282,9 @@ auto tokenize(iptr ptr_start,int g_ignore_indents)
 					t=(t&~CTYPE_MASK)|CTYPE_UINT
 				val_represented=val
 				if t==const_type(CTYPE_UINT,32):
-					val_represented=(i64)(u32)val_represented
+					val_represented=i64(u32(val_represented))
 				else if t==const_type(CTYPE_INT,32):
-					val_represented=(i64)(i32)val_represented
+					val_represented=i64(u32(val_represented))
 				if val_represented!=val:
 					if (val_represented^val)!=0xFFFFFFFF00000000LL||!ishex:
 						//we ignore sign-only difference for hex values
@@ -428,7 +428,7 @@ auto tokenize(iptr ptr_start,int g_ignore_indents)
 						ch_lastline=toks.back().tok
 						if ch_lastline==int(';')||ch_lastline==int(',')||ch_lastline==int('{'):
 							continue
-					if toks.n=last_line_comment_position:
+					if toks.n==last_line_comment_position:
 						//line comments shouldn't generate ;, but they should generate {}
 						continue
 			last_significant_newline_position=toks.n+1
@@ -719,7 +719,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 	if p_last_dot>=0:
 		fn=fn[:p_last_dot-1]
 	foreach ch,I in fn
-		chi=(int)ch
+		chi=int(ch)
 		if g_c_id_allowed[chi]:
 			if chi>='A'&&ch<='Z':
 				chi+=0x20
@@ -1026,7 +1026,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 			if want(TOK_ADD_ADD)||want(TOK_SUB_SUB):
 				epos0=readPool(ea+1)
 				tok=(toks[ptr-1].tok)
-				ea=fillepos(modify(0,ea,function(eparam){return call(g_id_operator_add_generic_int,eparam,expriptr(tok==TOK_ADD_ADD?1:-1))}),epos0,toks[ptr-1].epos1)
+				ea=fillepos(modify(0,ea,function(PExpression eparam){return call(g_id_operator_add_generic_int,eparam,expriptr(tok==TOK_ADD_ADD?1:-1))}),epos0,toks[ptr-1].epos1)
 				continue
 			if want(int('[')):
 				if want(int(']')):
@@ -1136,7 +1136,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 			ea=preexpr()
 			//epos0=readPool(ea+1)
 			epos1=readPool(ea+2)
-			ea=fillepos(modify(1,ea,function(eparam){return call(g_id_operator_add_generic_int,eparam,expriptr(tok==TOK_ADD_ADD?1:-1))}),epos0,epos1)
+			ea=fillepos(modify(1,ea,function(PExpression eparam){return call(g_id_operator_add_generic_int,eparam,expriptr(tok==TOK_ADD_ADD?1:-1))}),epos0,epos1)
 			return ea;
 		}
 		return postexpr()
@@ -1174,7 +1174,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 				continue
 			if lv==LEVEL_ASSIGNMENT&&f!=g_id_store:
 				f=fop.id2
-				ea=fillepos(modify(2,ea,function(eparam){return call(fop.id2,eparam,eb)}),epos0,epos1)
+				ea=fillepos(modify(2,ea,function(PExpression eparam){return call(fop.id2,eparam,eb)}),epos0,epos1)
 			else
 				if lv==LEVEL_ASSIGNMENT&&readPool(ea)==EFLAG_VARIABLE+g_id_this:
 					error(ETYPE_ERROR,readPool(ea+1),readPool(ea+2),"'this' can't be modified")
@@ -1561,7 +1561,7 @@ auto parseAll()
 		g_dependency_edges[i].x=fn_to_seq[g_dependency_edges[i].x]-1
 		g_dependency_edges[i].y=fn_to_seq[g_dependency_edges[i].y]-1
 		degs[g_dependency_edges[i].x]++
-	g_dependency_edges.Sort(function(a,b){return a.y<b.y})
+	g_dependency_edges.Sort(inline(a,b){return a.y<b.y})
 	pedges=new int2[n]
 	foreach ei,I in g_dependency_edges
 		if !I||ei.y!=g_dependency_edges[I-1].y:

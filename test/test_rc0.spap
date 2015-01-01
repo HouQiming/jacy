@@ -1,0 +1,28 @@
+printf=__c_function(int,"printf","stdio.h")
+
+g_id=0
+class CTest
+	m_id=g_id++
+	m_name=0
+	ref0=__cast(CTest,NULL)
+	ref1=__cast(CTest,NULL)
+	function __init__(int name)
+		m_name=name
+		printf('%d is created\n',m_name+m_id)
+	function __done__()
+		printf('%d is destroyed\n',m_name+m_id)
+	///////////
+
+function creater()
+	return CTest(1000)
+
+function f()
+	local=CTest(2000)
+	nested=creater()
+	local.ref0=nested
+	/////
+	creater()
+
+global=CTest(3000)
+global=CTest(3000)
+f()

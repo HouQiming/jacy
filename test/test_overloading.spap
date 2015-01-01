@@ -1,0 +1,8 @@
+import __builtin.*
+
+printf=__c_function(int,"printf","stdio.h")
+
+print_number=(function(int a){printf("%d",a);}|function(double a){printf("%lf",a);})
+
+printf("Hello ");print_number(100);printf("\n");
+printf("World ");print_number(23.456);printf("\n");

@@ -1,0 +1,11 @@
+printf=__c_function(int,"printf","stdio.h")
+
+function f_template(int p0,p1,const p2,int p3)
+	if p2=="hello":
+		printf("the 'hello' version\n")
+	else
+		printf("some other version\n")
+	printf("p0=%d p1=%08x p3=%d\n",p0,p1,p3)
+
+f_template(1000, 0x12345678, "test", 3000)
+f_template(1000, 1./5., "hello", 3000)

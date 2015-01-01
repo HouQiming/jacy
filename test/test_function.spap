@@ -1,0 +1,13 @@
+printf=__c_function(int,"printf","stdio.h")
+
+auto pf
+
+auto test(int d)
+	printf("pf(%d)=%d\n",d,pf(d))
+
+(function(){
+	pf=function(int x){return x*x}
+	test(3)
+	pf=function(int x){return x*x*x}
+	test(4)
+})()

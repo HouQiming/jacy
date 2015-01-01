@@ -1,0 +1,33 @@
+if Platform.IS_WINDOWS:
+	__generate_json("cflags","/openmp")
+else
+	__generate_json("cflags","-fopenmp")
+
+omp_range=inline(n){
+	return {
+		getForEachRepeatCount:inline(){return n},
+		forEach:inline(fbody){
+			T=typeof(n)
+			if T==i64:
+				s_template="{long long omp_i;\n#pragma omp parallel for\nfor(omp_i=0LL;omp_i<@1;omp_i++){@2;}}"
+			else
+				s_template="{int omp_i;\n#pragma omp parallel for\nfor(omp_i=0;omp_i<@1;omp_i++){@2;}}"
+			fbody_impl=function(T i){
+				//break won't work
+				__blockex("__blockex","continue",{
+					fbody(i)
+				})
+			}
+			__fflag(fbody_impl)=__basic_api.__FFLAG_IS_PARALLEL
+			__C(int,s_template,n,fbody_impl(__C(T,"omp_i")))
+		}
+	}
+};
+
+omp_critical=inline(function() f){
+	__C(int,"\n#pragma omp critical\n{@1;}",f())
+};
+
+omp_barrier=inline(function() f){
+	__C(int,"\n#pragma omp barrier\n")
+};

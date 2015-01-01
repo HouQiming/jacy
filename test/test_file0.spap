@@ -1,0 +1,7 @@
+import System.Console.*
+
+(function(){
+	name_base=new("aaa")
+	name_base.push("bbb")
+	System.IO.CreateFile(name_base+".txt").Write("^_^")
+})()

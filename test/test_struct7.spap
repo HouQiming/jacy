@@ -1,0 +1,24 @@
+//import __builtin.*
+
+printf=__c_function(int,"printf","stdio.h")
+
+inline Write()
+	my_args=arguments
+	for i in crange(my_args.length):
+		T=typeof(my_args[i])
+		if T==int:
+			printf("%d",my_args[i])
+		else if T==double:
+			printf("%f",my_args[i])
+		else
+			printf("%s",my_args[i])
+
+inline Writeln()
+	my_args=arguments
+	Write.call(my_args)
+	Write("\n")
+
+(function(){
+	Writeln("Hello: ",100)
+	Write("World: ",23.456,"\n")
+})()

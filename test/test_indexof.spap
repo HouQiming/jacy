@@ -1,0 +1,16 @@
+import System.Console.*
+
+auto test(string s0,string s1)
+	Writeln('"',s0,'" "',s1,'" ',s0.IndexOf(s1))
+	
+(function(){
+	test("abaabaaab","aab")
+	test("abaabaaab","aaaab")
+	test("easy case 1","easy")
+	test("easy case 2","case")
+	test("aabababababab","ababab")
+	test("aababaabababab","ababab")
+	test("a","")
+	test("","")
+	test("","a")
+})()

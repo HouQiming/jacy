@@ -1,0 +1,10 @@
+printf=__c_function(int,"printf","stdio.h")
+
+auto printStr(string a)
+	printf("%s",a)
+
+//this n influences the array
+(function(){
+	printStr("Hello ")
+	printStr("world!\n")
+})()

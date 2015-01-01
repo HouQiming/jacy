@@ -1,0 +1,14 @@
+import System.Console.*
+
+class CClass
+	auto init()
+		Writeln('new CClass')
+		return 123
+	value=init()
+	auto __done__()
+		Writeln('delete CClass')
+
+(function(){
+	a=new CClass(){value:456}
+	Writeln(a)
+})()

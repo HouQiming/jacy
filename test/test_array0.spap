@@ -1,0 +1,36 @@
+malloc=__c_function(__pointer,"malloc","stdlib.h")
+memset=__c_function(__pointer,"memset","string.h")
+printf=__c_function(int,"printf","stdio.h")
+
+class MyArray(T)
+	d=0L
+	n=0L
+	sz=0L
+	destructor_nbound_or_slice_reference=0L
+	////////////////////////////////
+	inline __init__(iptr ndata)
+		szbytes=sizeof(T)*ndata
+		d=iptr(malloc(szbytes))
+		memset(__pointer(d),0,szbytes)
+		sz=ndata
+		n=ndata
+	if __is_type("struct",T):
+		//todo: struct support
+	else
+		inline operator[](auto i)
+			return __memory(T,d+sizeof(T)*iptr(i))
+		inline set_operator[](auto i,value)
+			__memory(T,d+sizeof(T)*iptr(i))=value
+
+function main()
+	//this n influences the array
+	n=100
+	a=MyArray(int)(n)
+	for(i=0;i<n;i++)
+		a[i]=i*i
+	for(i=0;i<n;i++)
+		a[i]+=(i<<1)+1
+	for(i=0;i<n;i++)
+		printf("%d ",a[i])
+
+main()

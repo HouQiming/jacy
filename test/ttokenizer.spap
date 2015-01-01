@@ -1,0 +1,21 @@
+Array=class_template(list(class,"T"),{
+	array_type=create_class();
+	impl_ConvertToAsBinary=function_template(list(class,"T2"),{
+		return=c_function(list(array_type,"this"),{
+			//make use of T and T2
+		})
+	})
+	array_type.ConvertToAsBinary=inline_function(list(array_type,this, class,"T2"),{
+		return=impl_ConvertToAsBinary(T2)(this);
+	})
+	return=array_type;
+})
+//the functions transform the scope, defining variables and adding code if necessary
+a=new(Array(int))
+Array(int).ConvertToAsBinary(a,char)
+
+/////////////////
+if i<0.5:
+	i++
+	i<<=3
+if i>=0.5f:{i%=0x3333333333333LLu+0x3333333333333}

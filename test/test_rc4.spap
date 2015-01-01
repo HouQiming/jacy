@@ -1,0 +1,34 @@
+printf=__c_function(int,"printf","stdio.h")
+
+g_id=0
+struct TTest
+	ref=CTest.NULL
+	
+class CTest
+	m_id=g_id++
+	m_name=0
+	ref0=CTest.NULL
+	ref1=CTest.NULL
+	refs=TTest()
+	function __init__(int name)
+		m_name=name
+		printf('%d is created\n',m_name+m_id)
+	function __done__()
+		printf('%d is destroyed\n',m_name+m_id)
+	///////////
+
+(function(){
+	global=CTest(3000)
+	printf("--------arr created------------\n")
+	arr=CTest[5]
+	for i in range(5)
+		arr[i]=CTest(1000)
+	global=CTest(3000)
+	printf("--------arr[0]=CTest(2000)------------\n")
+	arr[0]=CTest(2000)
+	//global=CTest(3000)
+	printf("--------arr.resize(2)------------\n")
+	arr.resize(2)
+	printf("--------about to return------------\n")
+	//global=CTest(3000)
+})()

@@ -1,0 +1,12 @@
+//import "system.spap"
+import System
+printf=__c_function(int,"printf","stdio.h")
+
+auto printStr(string a)
+	printf("%s",a)
+
+//this n influences the array
+(function(){
+	printStr("test\\test_array7.spap:")
+	printStr(System.IO.ReadAll("test\\test_array7.spap"))
+})()

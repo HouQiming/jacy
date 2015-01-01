@@ -1,0 +1,113 @@
+import SDL
+import GL.*
+import Javascript.*
+import System.Console.*
+import System.Math.*
+
+class CTetMesh
+	vbo=float3[].NULL
+	ebo_tris=int3[].NULL
+
+auto LoadTets(string name_base,int index_base)
+	sverts=System.IO.ReadAllText(name_base+".node")
+	if !sverts:
+		Writeln('failed to load mesh: ',name_base)
+		return CTetMesh.NULL
+	lines=new string[]
+	foreach sline in sverts.Tokenize("\r\n")
+		lines.push(sline)
+	lines=lines[1:]
+	line_words=new string[][]
+	foreach sline in lines
+		line_words_i=new string[]
+		foreach sword in sline.Tokenize(" \t")
+			line_words_i.push(sword)
+		line_words.push(line_words_i)
+	vbo=new float3[]
+	foreach words in line_words
+		if words.n>=4:
+			vbo.push(float3(words[1].as(float),words[2].as(float),words[3].as(float)))
+	sidxes=System.IO.ReadAllText(name_base+".ele")
+	if !sidxes:return CTetMesh.NULL
+	lines=new string[]
+	foreach sline in sidxes.Tokenize("\r\n")
+		lines.push(sline)
+	lines=lines[1:]
+	line_words=new string[][]
+	foreach sline in lines
+		line_words_i=new string[]
+		foreach sword in sline.Tokenize(" \t")
+			line_words_i.push(sword)
+		line_words.push(line_words_i)
+	//index_base=[[s.as(int) foreach s in words[1:]].Min(1) foreach words in line_words].Min(1)
+	ebo=new int4[]
+	foreach words in line_words
+		if words.n>=4:
+			ebo.push(int4(words[1].as(int),words[2].as(int),words[3].as(int),words[4].as(int))-int4(1,1,1,1)*index_base)
+	///////////////////////////
+	//get surfaces
+	ebo_tris=new int3[]
+	foreach tet,I in ebo
+		//if I!=30:continue
+		ebo_tris.push(int3(tet[0],tet[1],tet[2]))
+		ebo_tris.push(int3(tet[0],tet[2],tet[3]))
+		ebo_tris.push(int3(tet[0],tet[3],tet[1]))
+		ebo_tris.push(int3(tet[3],tet[2],tet[1]))
+	return new CTetMesh(){vbo:vbo,ebo_tris:ebo_tris}
+
+(function(){
+	JS=new JSContext
+	SDL.createSDLJSObject(JS.GetGlobal())
+	tech=new GLTechnique
+	tech_test=new GLTechnique
+	all_meshes=new CTetMesh[]
+	all_meshes.push(LoadTets("C:\\tp\\kara\\pure\\fem\\asiandragon\\asiandragon",1))
+	mode=0
+	vbo_P=float3[].NULL
+	vbo_N=float3[].NULL
+	JS.GetGlobal()["render"]=function(JSContext JS){
+		glClearColor(0.f,0.f,0.5f,1.f)
+		glClearDepthf(1.f)
+		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT)
+		glEnable(GL_DEPTH_TEST)
+		glDepthFunc(GL_LESS)
+		glDisable(GL_BLEND)
+		//glDisable(GL_DEPTH_TEST)
+		//tech_test.SetFragmentShader("void main(){gl_FragColor=vec4(1.0,0.5,0.0,1.0);}")
+		//tech_test.DrawScreenQuad()
+		//return 1
+		tech.SetFragmentShader("
+		void main(){
+			vec3 C=(max(abs(N).z,0.)*0.6+0.2)*vec3(1,1,1);
+			gl_FragColor=vec4(C,1.);
+		}")
+		tech.SetVertexShader("
+		void main(){
+			gl_Position=cam*vec4(P,1.);
+			N=(view*vec4(N_vert,0.)).xyz;
+		}")
+		tech.SetVarying("vec3 N;")
+		view=[1.f,0.f,0.f,0.f,0.f,1.f,0.f,0.f,0.f,0.f,1.f,0.f,0.f,0.f,10.f,1.f]
+		mat=[1.2990382f,0.f,0.f,0.f,0.f,1.7320510f,0.f,0.f,0.f,0.f,1.0002000f,1.f,0.f,0.f,9.9819984f,10.f]
+		tech.SetMatrix("view",view)
+		tech.SetMatrix("cam",mat)
+		if !vbo_N:
+			vbo_cur=all_meshes[mode].vbo
+			ebo_tris=all_meshes[mode].ebo_tris
+			vbo_P=new float3[]
+			vbo_N=new float3[]
+			foreach tri in ebo_tris
+				vbo_P.push(vbo_cur[tri.x])
+				vbo_P.push(vbo_cur[tri.y])
+				vbo_P.push(vbo_cur[tri.z])
+				N=normalize(cross(vbo_cur[tri.y]-vbo_cur[tri.x],vbo_cur[tri.z]-vbo_cur[tri.x]))
+				vbo_N.push(N)
+				vbo_N.push(N)
+				vbo_N.push(N)
+		tech.SetVertexArray("P",vbo_P)
+		tech.SetVertexArray("N_vert",vbo_N)
+		tech.Draw(0u,GL_TRIANGLES,vbo_P.n)
+		return 0
+	}
+	JS.eval(int,System.IO.ReadAll("test\\sdl.js"))
+})()

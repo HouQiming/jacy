@@ -1,0 +1,76 @@
+import System.Console.*
+import Javascript.*
+
+class CNativeClass
+	m_id=0
+	auto __init__(int id)
+		Writeln('CNativeClass created: ',id)
+		m_id=id
+	auto method()
+		Writeln('CNativeClass.method(): ',m_id)
+	auto __done__()
+		Writeln('CNativeClass destructed: ',m_id)
+
+(function(){
+	JS=new JSContext
+	///////////
+	Writeln('----------------------------------------------------')
+	JS.eval(int,"print('Hello world!')")
+	///////////
+	Writeln('----------------------------------------------------')
+	ret=JS.eval(double,"1+0.23")
+	Writeln('JS returned: ',ret)
+	///////////
+	Writeln('----------------------------------------------------')
+	JS.eval(int,"OBJ0={dbl_value:4.56,str_value:'Hello world!'};ARR0=[100,200,300]")
+	Writeln('OBJ0.dbl_value=',JS.GetGlobal()["OBJ0"]["dbl_value"].as(double))
+	Writeln('OBJ0.str_value=',JS.GetGlobal()["OBJ0"]["str_value"].as(string))
+	Writeln('OBJ0.str_value is not a double: ',JS.GetGlobal()["OBJ0"]["str_value"].as(double))
+	Writeln('ARR0[1]=',JS.GetGlobal()["ARR0"][1].as(int))
+	Writeln('ARR0[100] is not defined: ',JS.GetGlobal()["ARR0"][100].as(double))
+	///////////
+	Writeln('----------------------------------------------------')
+	JS.GetGlobal()["OBJ0"]["dbl_value"]="dbl_value is a string now"
+	JS.GetGlobal()["g_num"]=999
+	JS.eval(int,"print(OBJ0.dbl_value)")
+	JS.eval(int,"print(g_num)")
+	///////////
+	Writeln('----------------------------------------------------')
+	acc=0
+	JS.GetGlobal()["f_inc"]=function(JSContext JS){
+		delta=JS.Param(0).as(int)
+		acc+=delta
+		return JS.Return(FormatAsText("f_inc(",delta,")"))
+	}
+	JS.eval(int,"print(f_inc(100))")
+	JS.eval(int,"print(f_inc(3))")
+	Writeln('acc=',acc)
+	///////////
+	Writeln('----------------------------------------------------')
+	JS.eval(int,'print(JSON.parse(\'{"dbl":"123","str":"json str"}\'))')
+	json_obj=JS.GetGlobal()["JSON"]["parse"].Call(JSObject,'{"dbl":"123","str":"json str"}')
+	Writeln("json_obj['dbl']=",json_obj['dbl'].as(double))
+	Writeln("json_obj['str']=",json_obj['str'].as(string))
+	///////////
+	Writeln('----------------------------------------------------')
+	global_json=JS.GetGlobal()["JSON"]
+	json_obj=global_json.CallMethod(JSObject,'parse','{"dbl":"456","str":"json string"}')
+	Writeln("json_obj['dbl']=",json_obj['dbl'].as(double))
+	Writeln("json_obj['str']=",json_obj['str'].as(string))
+	Writeln("json_obj.has(dbl)=",json_obj.has("dbl"))
+	Writeln("json_obj.has(XXX)=",json_obj.has("XXX"))
+	Writeln("json_obj.dbl.has(toString)=",json_obj['dbl'].has("toString"))
+	///////////
+	Writeln('----------------------------------------------------')
+	Writeln("json_obj['dbl'].or(9999)=",json_obj['dbl'].or(9999))
+	Writeln("json_obj['XXX'].or(9999)=",json_obj['XXX'].or(9999))
+	Writeln("json_obj['XXX'][2].or(9999)=",json_obj['XXX'][2].or(9999))
+	///////////
+	Writeln('----------------------------------------------------')
+	js_obj=JS.New()
+	js_obj[1000]=new CNativeClass(1000)
+	js_obj[2000]=new CNativeClass(2000)
+	js_obj[1000].as(CNativeClass).method()
+	js_obj[2000]=0
+	js_obj[1000].as(CNativeClass).method()
+})()

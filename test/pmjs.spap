@@ -1,0 +1,268 @@
+import System.Console.*
+import System.Algorithm.*
+import System.Math.*
+import Javascript.*
+
+c_system=__c_function(int,"system","stdlib.h")
+exit=__c_function(int,"exit","stdlib.h")
+
+auto genString(string s0)
+	s=new string
+	hex="0123456789ABCDEF"
+	foreach ch0 in s0
+		ch=int(u8(ch0))
+		if ch>=0:
+			if ch=='"':
+				s.push('\\')
+				s.push('"')
+			else if ch>=32&&ch<127:
+				s.push(char(ch))
+			else
+				s.push('\\')
+				s.push('x')
+				s.push(hex[(ch>>4)&15])
+				s.push(hex[ch&15])
+	return s
+
+stbi_load_from_memory=__c_function(__pointer,"stbi_load_from_memory","stb_image.h", "c_files","stb_image.c")
+stbi_write_png_to_mem=__c_function(__pointer,"stbi_write_png_to_mem","stb_image_write.h", "c_files","stb_image_write.c")
+stbi_free_image_write=__c_function(__pointer,"stbi_free_image_write","stb_image_write.h")
+
+auto resample(int[] img,int w0,int h0,int w,int h)
+	w_invscale=float(w0)/float(w)
+	h_invscale=float(h0)/float(h)
+	img_out=new int[]
+	for y=0:h-1
+		y0=float(y)*h_invscale
+		y1=float(y+1)*h_invscale
+		for x=0:w-1
+			x0=float(x)*w_invscale
+			x1=float(x+1)*w_invscale
+			C=float4(0.f,0.f,0.f,0.f)
+			Atot=0.f
+			for sy=int(floor(y0)):min(int(floor(y1-1.f/65536.f)),h0-1)
+				hcell=(min(float(sy+1),y1)-max(float(sy),y0))
+				abase=sy*w0
+				for sx=int(floor(x0)):min(int(floor(x1-1.f/65536.f)),w0-1)
+					wcell=(min(float(sx+1),x1)-max(float(sx),x0))
+					A=wcell*hcell
+					C4=img[abase+sx]
+					for j in crange(4)
+						C[j]+=A*float((C4>>(j*8))&255)
+					Atot+=A
+			C/=Atot
+			C4=0
+			for j in crange(4)
+				C4|=max(min(int(C[j]),255),0)<<(j*8)
+			img_out.push(C4)
+	return img_out
+
+auto writeico(auto f,int[] img0,int w,int h)
+	sz=w*h*4+max(w>>3,4)*h
+	header=[0x28,w,h*2,0x200001,0,sz]
+	f.Write(header)
+	f.Write("\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
+	img=new int[w*h]
+	for i=0:h-1
+		for j=0:w-1
+			aa=img0[i*w+j]
+			img[(h-1-i)*w+j]=(aa&0xff00ff00)+((aa>>16)&0xff)+((aa&0xff)<<16)
+	f.Write(img)
+	binmask=new int[]
+	for i=0:h-1
+		for j=0:32:w-1
+			mk=0
+			for k=0:min(31,int(w-1-j))
+				mk|=1<<k
+			binmask.push(mk)
+	f.Write(binmask)
+
+(function(){
+	JS=new JSContext
+	args=GetCommandLine()
+	if args.n<2:
+		Writeln('usage: pmjs <action> <something.json>')
+		return
+	//////////////
+	//setup the API and run the default script
+	global=JS.GetGlobal()
+	global["ReadFile"]=function(JSContext JS){
+		fn=JS.Param(0).or(new string)
+		ret=System.IO.ReadAll(fn)
+		if !ret:
+			return 0
+		else
+			return JS.Return(ret)
+	}
+	global["CreateFile"]=function(JSContext JS){
+		fn=JS.Param(0).or(new string)
+		data=JS.Param(1).or(new string)
+		f=System.IO.CreateFile(fn)
+		if f:
+			lg=f.Write(data)
+			f.Close()
+			return JS.Return(lg)
+		else
+			return 0
+	}
+	global["FileExists"]=function(JSContext JS){
+		fn=JS.Param(0).or(new string)
+		return JS.Return(System.IO.FileExists(fn))
+	}
+	global["DirExists"]=function(JSContext JS){
+		fn=JS.Param(0).or(new string)
+		return JS.Return(System.IO.DirExists(fn))
+	}
+	global["IsNewerThan"]=function(JSContext JS){
+		fn_new=JS.Param(0).or(new string)
+		fn_old=JS.Param(1).or(new string)
+		auto MyGetFileTime(string fname)
+			foreach fn,fi in System.IO.EnumFiles(fname,0)
+				return fi.latest_time()
+			return 0LLu
+		if !System.IO.FileExists(fn_new):return JS.Return(0)
+		return JS.Return(i64(MyGetFileTime(fn_new)-MyGetFileTime(fn_old))>i64(0)||!System.IO.FileExists(fn_old))
+	}
+	auto shellcmd(auto shell_args)
+		if !shell_args:
+			JS.Error("invalid shell arguments - it must be an object")
+			return ""
+		//properly quote the args
+		n=shell_args.length()
+		if !(n>0):
+			JS.Error("invalid shell arguments - it must be an array object of positive length")
+			return ""
+		scmd=new string
+		for i=0:n-1
+			s_args_i=shell_args[i].as(string)
+			if !i:s_args_i=s_args_i.Replace(["/","\\"])
+			if s_args_i.IndexOf(' ')>=0:
+				s_args_i="\""+genString(s_args_i)+"\""
+			if i:scmd.push(' ')
+			scmd.push(s_args_i)
+		scmd.push(char(0))
+		return scmd
+	global["shell"]=function(JSContext JS){
+		auto shell_args=JS.Param(0).as(JSObject)
+		scmd=shellcmd(shell_args)
+		ret=c_system(scmd)
+		return JS.Return(ret)
+	}
+	global["shellcmd"]=function(JSContext JS){
+		auto shell_args=JS.Param(0).as(JSObject)
+		scmd=shellcmd(shell_args)
+		return JS.Return(scmd)
+	}
+	global["ExpandEnvironmentStrings"]=function(JSContext JS){
+		return JS.Return(System.Env.ExpandEnvironmentStrings(JS.Param(0).or("")))
+	}
+	//global["ChopLastDir"]=function(JSContext JS){
+	//	sname=JS.Param(0).or("")
+	//	pt=max(sname.LastIndexOf('/'),sname.LastIndexOf('\\'))
+	//	if pt<0:
+	//		return 0
+	//	return JS.Return(sname[0:pt-1])
+	//}
+	g_c_id_allowed=[
+		u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0), u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),//0
+		u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0), u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),//1
+		u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0), u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),//2
+		u8(1),u8(1),u8(1),u8(1),u8(1),u8(1),u8(1),u8(1), u8(1),u8(1),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),//3
+		u8(0),u8(1),u8(1),u8(1),u8(1),u8(1),u8(1),u8(1), u8(1),u8(1),u8(1),u8(1),u8(1),u8(1),u8(1),u8(1),//4
+		u8(1),u8(1),u8(1),u8(1),u8(1),u8(1),u8(1),u8(1), u8(1),u8(1),u8(1),u8(0),u8(0),u8(0),u8(0),u8(1),//5
+		u8(0),u8(1),u8(1),u8(1),u8(1),u8(1),u8(1),u8(1), u8(1),u8(1),u8(1),u8(1),u8(1),u8(1),u8(1),u8(1),//6
+		u8(1),u8(1),u8(1),u8(1),u8(1),u8(1),u8(1),u8(1), u8(1),u8(1),u8(1),u8(0),u8(0),u8(0),u8(0),u8(0),//7
+		u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0), u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),//8
+		u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0), u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),//9
+		u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0), u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),//10
+		u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0), u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),//11
+		u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0), u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),//12
+		u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0), u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),//13
+		u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0), u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),//14
+		u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0), u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0)
+	];
+	global["SanitizeString"]=function(JSContext JS){
+		s=JS.Param(0).or("")
+		g_code_buffer=new string
+		foreach ch,I in s
+			if !g_c_id_allowed[int(u8(ch))]:
+				g_code_buffer.push('_')
+			else
+				g_code_buffer.push(ch)
+		return JS.Return(g_code_buffer)
+	}
+	global["ResampleImage"]=function(JSContext JS){
+		fname=JS.Param(0).or("")
+		fnout=JS.Param(1).or("")
+		w_goal=JS.Param(2).or(0)
+		h_goal=JS.Param(3).or(0)
+		data=System.IO.ReadAll(fname)
+		if !data:return 0
+		w=0
+		h=0
+		comp=0
+		surf=stbi_load_from_memory(__pointer(data.d),int(data.n),&w,&h,&comp,4)
+		if !surf:return 0
+		img=new int[]
+		img.d=iptr(surf)
+		img.n=iptr(w*h)
+		img.sz=img.n
+		w0=w
+		h0=h
+		f=System.IO.CreateFile(fnout)
+		if !f:return 0
+		if !w_goal:
+			//ico
+			ico_header="\x00\x00\x01\x00\x03\x00\x10\x10\x00\x00\x00\x00 \x00h\x04\x00\x006\x00\x00\x00  \x00\x00\x00\x00 \x00\xA8\x10\x00\x00\x9E\x04\x00\x0000\x00\x00\x00\x00 \x00\xA8%\x00\x00F\x15\x00\x00"
+			f.Write(ico_header)
+			img_out=resample(img,w0,h0,16,16)
+			writeico(f,img_out,16,16)
+			img_out=resample(img,w0,h0,32,32)
+			writeico(f,img_out,32,32)
+			img_out=resample(img,w0,h0,48,48)
+			writeico(f,img_out,48,48)
+		else
+			//just create a png
+			w=w_goal
+			h=h_goal
+			img_out=resample(img,w0,h0,w,h)
+			len=0
+			spng=stbi_write_png_to_mem(img_out,w*4,w,h,4,&len)
+			if !spng:return 0
+			spng_str=__ptrToString(spng,len)
+			f.Write(spng_str)
+			stbi_free_image_write(spng)
+		return JS.Return(1)
+	}
+	global["SHA1"]=function(JSContext JS){
+		auto s=JS.Param(0).or("")
+		auto lg=JS.Param(1).or(8)
+		auto ret=SHA1Digest(s)
+		if lg<0||lg>ret.n:
+			JS.Error("invalid SHA1 length @1".Replace(["@1",string(lg)]))
+			return 0
+		return JS.Return(ret[:lg-1])
+	}
+	global["cd"]=function(JSContext JS){
+		auto s=JS.Param(0).or("")
+		return JS.Return(System.IO.SetCurrentDirectory(s))
+	}
+	//////////////
+	//default js
+	global["g_action"]=args[1]
+	global["g_json_file"]=(args.n<3?"":args[2])
+	js_args=JS.NewArray()
+	for i=2:args.n-1
+		js_args[string(i-2)]=args[i]
+	global["g_cli_args"]=js_args
+	s_arch=Platform.ARCH
+	global["g_current_arch"]=s_arch
+	if Platform.BUILD=="debug":
+		if Platform.IS_UNIX:
+			global["g_root"]="."
+		else
+			global["g_root"]="c:/tp/kara/pure"
+	else
+		global["g_root"]=System.Env.GetExecutablePath()+".."
+	exit(!JS.debugRunFile(global["g_root"].as(string)+"/js/main.js"))
+})()
