@@ -8613,8 +8613,9 @@ auto ancestorMerge(const is_death,PExpression pe_old0,PExpression pe_new0,famcal
 		pecaller_new=readPool(pe_new+EXPR_OFS_CALLER)
 		slotid_old=(readPool(pe_old+EXPR_OFS_USER_FLAGS)&USER_FLAG_RC_SLOTID_MASK)
 		slotid_new=(readPool(pe_new+EXPR_OFS_USER_FLAGS)&USER_FLAG_RC_SLOTID_MASK)
-		if pecaller_old==pecaller_new:
+		if pecaller_old==pecaller_new&&!isBuiltin(pecaller_old,g_id_if):
 			//same level, not safe for stores, return the later one
+			//but if they're different branches of the same if... we're doomed
 			if is_death:
 				return int2(slotid_old>slotid_new?pe_new:pe_old,is_store_safe)
 			else
