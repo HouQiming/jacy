@@ -3651,7 +3651,8 @@ auto coreInit()
 				n_args=(flags&~EFLAG_MASK)
 				as=new int[]
 				as.push(exprctval(pobjfn_deriv))
-				as.push(g_ctobject_pool[peexpr+EXPR_OFS_ARGS:peexpr+EXPR_OFS_ARGS+n_args-1])
+				for i=0:n_args-1
+					as.push(g_ctobject_pool[peexpr+EXPR_OFS_ARGS+i])
 				as.push(expriptr(pobjfn))
 				as.push(exprctval(pobj_vderiv))
 				pe_replace=indcall(as)
@@ -10497,10 +10498,11 @@ auto genRefcnt()
 			else
 				pe_dorc=call(g_id_release,pe_var,expriptr(rcitem.delta))
 			as_rc_current.push(pe_dorc)
-		if is_after:
-			transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,0,as_rc_current)
-		else
-			transformCode(pe,__zero(ftransformer_callback), as_rc_current,0,PExpression[].NULL)
+		if as_rc_current.n:
+			if is_after:
+				transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,0,as_rc_current)
+			else
+				transformCode(pe,__zero(ftransformer_callback), as_rc_current,0,PExpression[].NULL)
 		current_rcs.clear()
 	auto rcdfsMergeAndGenerateRC(TRefcntLine[] current_rcs,PExpression pe)
 		flush_self=0
@@ -10590,6 +10592,9 @@ auto instrumentForDebugging()
 	//tempify crashable call args
 	auto ftempify_args(PExpression pe,PCTObject pf_owner){
 		if isExpr(pe,EFLAG_FCALL):
+			if isBuiltin(pe,g_id_C_wrap):
+				//ignore __C arguments - they can be whole-expr replacements and should not be tempified
+				return 0
 			pobjfn=getExprFunction(pe)
 			if !pobjfn:return 1
 			cbobj_oncgen=readPool(pobjfn+FUNCTION_OFS_ONCGEN)
