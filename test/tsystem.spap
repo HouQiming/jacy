@@ -1,0 +1,12 @@
+import System.Console.*
+
+c_system=__c_function(int,"system","stdlib.h")
+
+(function(){
+	scmdline='"d:\\build_tmp\\pmjs.exe" make "test/pm_tmp/win32/thello/s7main.json"'
+	scmdline=new(scmdline);scmdline.push(char(0))
+	c_system(scmdline)
+	scmdline="'d:\\build_tmp\\pmjs.exe' make 'test/pm_tmp/win32/thello/s7main.json'"
+	scmdline=new(scmdline);scmdline.push(char(0))
+	c_system(scmdline)
+})()
