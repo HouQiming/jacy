@@ -816,7 +816,8 @@ class TTraitCTUnique
 	inline computeHash(int[] key)
 		return iptr(key.__hash__())
 	inline isKeyEqual(int id,int[] key)
-		return g_ctunique_items[id].key==key
+		key0=g_ctunique_items[id].key
+		return key0.__compare__(key)==0
 	inline createNew(int[] key,iptr hash)
 		ret=int(g_ctunique_items.n)
 		g_ctunique_items.push(TCTUniqueItem(){'key':key,'hash':hash})

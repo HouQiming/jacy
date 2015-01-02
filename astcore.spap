@@ -12,8 +12,8 @@ ENABLE_FEM_DSL=1
 ENABLE_GVN=1
 ENABLE_DEADELIM=1
 DEBUG_MONITOR_REACH=0
-DEBUG_REACH_LOG=1//todo: 0
-DEBUG_EVAL_LOG=1//todo: 0
+DEBUG_REACH_LOG=0
+DEBUG_EVAL_LOG=0
 DEBUG_DUMP_RC=0
 DEBUG_DUMP_FLATTEN=0
 DEBUG_DUMP_USER_FLAGS=0
@@ -4757,6 +4757,15 @@ auto coreInit()
 		if n_args<2:
 			errorAtExpr(ETYPE_ERROR,pecall,"__C(type,'code',...) takes at least 2 arguments")
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
+		for i=2:n_args-1
+			pe_argi=readPool(pecall+EXPR_OFS_ARGS+i)
+			val=getExprValue(pe_argi)
+			if val.tid==g_vtid_CTVAL:
+				pobjfn=getAsFunction(val.val)
+				if pobjfn:
+					//function passed into C, setused ...
+					setFunctionUsed(pobjfn)
+					setParameterSlotTypes(pobjfn)
 		pe_type=readPool(pecall+EXPR_OFS_ARGS+0)
 		t=getExprValueAs(pe_type,g_vtid_CTVAL)
 		if !t:
@@ -5248,7 +5257,7 @@ auto resolveNames(PExpression g_pe_top,int is_initial_resolve)
 						//modify the new
 						pe_new=readPool(pe_var+EXPR_OFS_ARGS+1)
 						assert(isBuiltinR(pe_new,g_id_store))
-						insertCallAt(pe_new,~1,function(PExpression pe){return readPool(pe+EXPR_OFS_ARGS+1)})
+						insertCallAt(pe_new,~1,function(PExpression pe_dummy){return readPool(pe+EXPR_OFS_ARGS+1)})
 						//reverse the ass direction
 						for i=2:n_args_pevar-2
 							pe_store_dot_i=readPool(pe_var+EXPR_OFS_ARGS+i)
@@ -6852,8 +6861,7 @@ auto isSSAStatementHost(PExpression pe)
 		if val.tid==g_vtid_CNS:
 			//const if, ignore it
 			return 0
-	else
-		return 1
+	return 1
 	
 auto fcolor_ssa(PExpression pe)
 	//val=getExprValue(pe)
@@ -7032,7 +7040,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 				return pobj_ret
 	auto gvn_generate(int gvn_id,int still_linear)
 		if DEBUG_DUMP_SSA:
-			Writeln('gvn_generate ',string.ToHex(gvn_id))
+			Writeln('gvn_generate ',gvn_id)
 		if gvn_id&UNPREDICTABLE_VID_BASE:
 			pe_ret=g_unpredictable_values[gvn_id-UNPREDICTABLE_VID_BASE]
 			assert(!!pe_ret)
@@ -7476,7 +7484,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 									//copyprop
 									pv_current=getGvnVariable(pe_value,gvn_id_value)
 									if DEBUG_DUMP_SSA:
-										Writeln('1st-copy-prop rename: ',dumpExpr(pe,__zero(fcolorer_callback)),' ',string.ToHex(gvn_id_value),' ',dumpObject(pv_current))
+										Writeln('1st-copy-prop rename: ',dumpExpr(pe,__zero(fcolorer_callback)),' ',gvn_id_value,' ',dumpObject(pv_current))
 									//the ANM/deriv returns should have been protected this way
 									if readPool(pobj_var+VAR_OFS_ID)==g_id_return:
 										replaceExpr(pe_value,exprvar(pv_current))
@@ -7522,7 +7530,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 							if gvn_id_value&UNPREDICTABLE_VID_BASE:
 								g_unpredictable_values[gvn_id_value-UNPREDICTABLE_VID_BASE]=exprvar(ssa_names[ssa_vid].pv_current)
 								if DEBUG_DUMP_SSA:
-									Writeln('GVN-backing-var-set-unp ',string.ToHex(gvn_id_value),' ',dumpExpr(pe,__zero(fcolorer_callback)))
+									Writeln('GVN-backing-var-set-unp ',gvn_id_value,' ',dumpExpr(pe,__zero(fcolorer_callback)))
 							else
 								//if remove_single_use:
 								//	if DEBUG_DUMP_SSA:
@@ -7535,7 +7543,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 									//avoid replacing the backing var
 									g_gvn_values[gvn_id_value].pv_backing=ssa_names[ssa_vid].pv_current
 									if DEBUG_DUMP_SSA:
-										Writeln('GVN-backing-var-set ',string.ToHex(gvn_id_value),' ',dumpExpr(pe,__zero(fcolorer_callback)))
+										Writeln('GVN-backing-var-set ',gvn_id_value,' ',dumpExpr(pe,__zero(fcolorer_callback)))
 								else
 									if DEBUG_DUMP_SSA:
 										Writeln('backing-var remained as ',dumpObject(g_gvn_values[gvn_id_value].pv_backing)," even though it's assigned to ",dumpObject(ssa_names[ssa_vid].pv_current))
@@ -10664,9 +10672,11 @@ auto genConst(int cid)
 		if ((cns.type&CTYPE_MASK)==CTYPE_INT)||cns.type==CTYPE_POINTER:
 			if n_bits==64:
 				mask=-1LL
+				mask_sgn=0LL
 			else
 				mask=(i64(1)<<n_bits)-1
-			sval=string((cns.val_bin&mask)|-(cns.val_bin&(mask+1LL)))
+				mask_sgn=(i64(1)<<(n_bits-1))
+			sval=string((cns.val_bin&mask)|-(cns.val_bin&mask_sgn))
 			g_code_buffer.push(sval)
 		else if ((cns.type&CTYPE_MASK)==CTYPE_UINT):
 			if n_bits==64:

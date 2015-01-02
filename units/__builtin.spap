@@ -530,7 +530,7 @@ class Array(T)
 		else
 			if !b:return 1
 		n_min=n
-		if n_min<b.n:n_min=b.n
+		if n_min>b.n:n_min=b.n
 		if T==i8||T==u8:
 			ret=__basic_api.memcmp(__pointer(d),__pointer(b.d),n_min)
 			if !ret:
