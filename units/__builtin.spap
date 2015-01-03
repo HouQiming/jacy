@@ -831,7 +831,7 @@ inline copy(a,b)
 				__basic_api.memmove(__pointer(a0),__pointer(b0),szcopy*sizeof(T))
 			else
 				__basic_api.memcpy(__pointer(a0),__pointer(b0),szcopy*sizeof(T))
-	__rc_barrier()
+	//__rc_barrier()
 
 //////////////////////////////////////////////
 class Map(T0,T1)

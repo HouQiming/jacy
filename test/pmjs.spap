@@ -263,6 +263,6 @@ auto writeico(auto f,int[] img0,int w,int h)
 		else
 			global["g_root"]="c:/tp/kara/pure"
 	else
-		global["g_root"]=System.Env.GetExecutablePath()+".."
+		global["g_root"]=System.Env.GetExecutablePath()+"../.."
 	exit(!JS.debugRunFile(global["g_root"].as(string)+"/js/main.js"))
 })()

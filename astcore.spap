@@ -4591,6 +4591,9 @@ auto coreInit()
 			val=getExprValue(pe_argi)
 			if val.tid==g_vtid_RTVAR:
 				all_cns=0
+			else if val.tid==g_vtid_CNS&&ctNumber(val.val).type==CTYPE_TYPED_NULL:
+				//typed NULLs *can* be overloaded
+				all_cns=0
 			//Writeln(i,' ',dumpExpr(pe_argi,__zero(fcolorer_callback)))
 			t=getExprType(pe_argi)
 			if !t:return 0
@@ -8456,6 +8459,7 @@ auto flattenBlocks()
 auto cleanup()
 	g_pe_top=dfsFlattenBlocks(PExpression[].NULL,g_pe_top,0,1).x
 	if Platform.BUILD=="debug":
+		g_counters_final_code_size=0
 		dfsExpr(g_pe_top,function(PExpression pe){g_counters_final_code_size++;return 1;})
 
 ////////////////////////////////////
@@ -9518,6 +9522,7 @@ auto translateLambdas()
 			vslot=str_var_slots[vslotid]
 			if vslot.pobj_var_rename_to!=vslot.pobj_var:continue
 			//ldparam test - it's always the pe_non_loop_birth
+			//todo: check all stores, not just the birth
 			pe_birth=vslot.pe_non_loop_birth
 			pe_defining_store=readPool(vslot.pobj_var+VAR_OFS_DEFINING_STORE)
 			if pe_defining_store&&isBuiltin(pe_defining_store,g_id_store):
@@ -9978,7 +9983,8 @@ auto rcGetVariableIfExprIsOne(PExpression pe)
 	return 0
 
 auto genRefcnt()
-	flattenBlocks()
+	//flattenBlocks()
+	cleanup()
 	g_sccp_queue_reach.clear()
 	g_sccp_queue_eval.clear()
 	auto isrcvar(PCTObject pobj_var)
@@ -9991,6 +9997,9 @@ auto genRefcnt()
 		eflags=readPool(pe)
 		if (eflags&EFLAG_MASK)!=EFLAG_FCALL:return 0
 		if isBuiltin(pe,g_id_function):return 0
+		//indcall is an unconditional side effect
+		if !getExprFunction(pe)||isBuiltin(pe,g_id_explicit_rc):
+			return 1
 		pobj_var=0
 		pe_value=0
 		if isBuiltin(pe,g_id_store):
@@ -10522,6 +10531,7 @@ auto genRefcnt()
 					if DEBUG_DUMP_RC:
 						Writeln('flushing block tail rc: ',dumpExpr(pe_argi,fcolor_abbrv_blocks),' from ',dumpExpr(pe,fcolor_abbrv_blocks))
 					flushRC(rcs_recurse,pe_argi,1, 0)
+					flush_children|=1
 			if is_blocked&&!isBuiltin(pe,g_id_function):
 				//break and friends... should caused a flush above, across simple {} blocks
 				//but they should not cause the {} themselves to flush
@@ -10830,6 +10840,7 @@ auto cgPushScope()
 auto cgPopScope()
 	stk=g_c_scope_stack.pop()
 	vars=stk.var_stores
+	//Writeln(vars.d,' ',vars.n,' ',vars.sz)
 	vars.Sort()
 	vars.Unique()
 	s_inside=g_code_buffer
