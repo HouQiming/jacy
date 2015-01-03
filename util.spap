@@ -343,10 +343,12 @@ auto FormatCCode(string feed)
 	nbra=0
 	in_str=0
 	in_slash=0
+	next_line_pos=sret.n
 	auto nextline()
 		sret.push('\n')
 		for j=0:indent-1
 			sret.push('  ')
+		next_line_pos=sret.n
 	foreach ch,I in feed
 		if in_str:
 			sret.push(char(ch))
@@ -367,7 +369,10 @@ auto FormatCCode(string feed)
 			if ch=='}':
 				if sret.n&&sret.back()==' ':sret.pop()
 				if sret.n&&sret.back()==' ':sret.pop()
-			sret.push(char(ch))
+			if ch=='\n'&&sret.n==next_line_pos:
+				//strip existing \ns
+			else
+				sret.push(char(ch))
 			if ch=='{':
 				indent++
 				nextline()

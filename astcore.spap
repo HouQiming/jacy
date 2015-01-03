@@ -479,7 +479,7 @@ auto genLIString(string buf,int id)
 		g_debug_file_info_buffer.push(toBase32(id))
 		g_debug_file_info_buffer.push('[]="')
 		g_debug_file_info_buffer.push(genString(getIdString(id)))
-		g_debug_file_info_buffer.push('";')
+		g_debug_file_info_buffer.push('";\n')
 		writeEPosHash(int2(0x80000000+id,0x80000002),1)
 	buf.push("s7_Df")
 	buf.push(toBase32(id))
@@ -509,14 +509,14 @@ auto getLineInfoId(PCTObject paepos)
 			if lid_next:
 				g_debug_line_info_buffer.push(',s7_DL+')
 				g_debug_line_info_buffer.push(string(lid_next-1))
-			g_debug_line_info_buffer.push('},')
+			g_debug_line_info_buffer.push('},\n')
 			lid_next=++g_current_line_info_id
 		g_debug_line_info_buffer.push('{')
 		genLIString(g_debug_line_info_buffer,id_strs.x)
 		if lid_next:
 			g_debug_line_info_buffer.push(',s7_DL+')
 			g_debug_line_info_buffer.push(string(lid_next-1))
-		g_debug_line_info_buffer.push('},')
+		g_debug_line_info_buffer.push('},\n')
 		lid=++g_current_line_info_id
 		writeEPosHash(key,lid)
 	return lid
@@ -1529,6 +1529,7 @@ auto coreInit()
 				g_code_buffer.push(' m_')
 				g_code_buffer.push(toBase32(pobj_var))
 				g_code_buffer.push(';')
+				g_code_buffer.push('\n')
 			if !got_anything:
 				g_code_buffer.push('char dummy;')
 			g_code_buffer.push('};')
@@ -1893,8 +1894,9 @@ auto coreInit()
 		else
 			for i=0:n_args-1
 				genCode(readPool(pecall+EXPR_OFS_ARGS+i),0)
-				if g_code_buffer.n&&g_code_buffer.back()!=';':
+				if g_code_buffer.n>=2&&(g_code_buffer.back()!='\n'||g_code_buffer[g_code_buffer.n-2]!=';'):
 					g_code_buffer.push(';')
+					g_code_buffer.push('\n')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_block,__zero(fcompiler_callback),fblock_oneval,fblock_oncgen,FFLAG_SPECIAL)
@@ -2040,6 +2042,7 @@ auto coreInit()
 				if readPool(pe_body)==EFLAG_STRING+g_id_case:
 					//fall through
 					g_code_buffer.push(';')
+					g_code_buffer.push('\n')
 				else
 					genCode(pe_body,0)
 					g_code_buffer.push('break;')
@@ -2286,6 +2289,7 @@ auto coreInit()
 				g_code_buffer.push('m_')
 				g_code_buffer.push(string(i-1))
 				g_code_buffer.push(';')
+				g_code_buffer.push('\n')
 			g_code_buffer.push('};')
 			g_code_buffer=sbak
 			//the function-level declaration buffer
@@ -2302,6 +2306,7 @@ auto coreInit()
 				g_code_buffer.push(' m_')
 				g_code_buffer.push(toBase32(t))
 				g_code_buffer.push(';')
+				g_code_buffer.push('\n')
 			g_code_buffer.push('}')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
@@ -4804,7 +4809,9 @@ auto coreInit()
 		if stemplate.StartsWith("@global:"):
 			if expr_oplevel:
 				errorAtExpr(ETYPE_ERROR,pecall,'"@global:..." C code cannot be used in expressions')
+			g_c_global_buffer.push('\n')
 			g_c_global_buffer.push(stemplate[8:])
+			g_c_global_buffer.push('\n')
 		else if stemplate.StartsWith("@decl:"):
 			//declare a struct and obtain a pointer
 			sdecl=g_c_scope_stack.back().outer_code_buffer
@@ -8459,7 +8466,7 @@ auto flattenBlocks()
 auto cleanup()
 	g_pe_top=dfsFlattenBlocks(PExpression[].NULL,g_pe_top,0,1).x
 	if Platform.BUILD=="debug":
-		g_counters_final_code_size=0
+		g_counters_final_code_size=0LL
 		dfsExpr(g_pe_top,function(PExpression pe){g_counters_final_code_size++;return 1;})
 
 ////////////////////////////////////
@@ -10860,12 +10867,14 @@ auto cgPopScope()
 		genType(t)
 		g_code_buffer.push(')0')
 		g_code_buffer.push(';')
+		g_code_buffer.push('\n')
 	foreach pecall in stk.dbg_slots
 		pobjfn=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+0),g_vtid_CTVAL)
 		g_code_buffer.push('TCallStackItemEx s7_Dd')
 		g_code_buffer.push('={NULL,')
 		genLIString(g_code_buffer,getLIObjectStringPair(pobjfn).x)
 		g_code_buffer.push('};')
+		g_code_buffer.push('\n')
 	g_code_buffer.push(s_inside)
 	//g_code_buffer.push('}')
 
