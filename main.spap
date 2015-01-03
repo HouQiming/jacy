@@ -1,0 +1,379 @@
+//qpad: pm_target="win64"
+import "System.spap"
+import "parser.spap"
+import "astcore.spap"
+import System.Algorithm.*
+import System.Console.*
+import Util.*
+import Ctobj.*
+import Astcore.*
+import Parser.*
+
+c_system=__c_function(int,"system","stdlib.h")
+exit=__c_function(int,"exit","stdlib.h")
+
+auto dumpAllErrors()
+	if Platform.BUILD=="debug":
+		if g_errors.n:
+			Writeln('==================')
+	is_fatal=0
+	got_error=0
+	foreach err in Util.g_errors
+		if err.type==ETYPE_ERROR:
+			got_error=1
+			break
+	skip_notes=0
+	foreach err in Util.g_errors
+		if got_error&&(err.type==ETYPE_LOW_LEVEL_ERROR||err.type==ETYPE_NOTE&&skip_notes):
+			skip_notes=1
+			continue
+		skip_notes=0
+		(id_fn0,ln0,col0)=getLineInfo(err.epos0)
+		(id_fn1,ln1,col1)=getLineInfo(err.epos1)
+		serr=getIdString(err.id_estr)
+		assert(id_fn0==id_fn1)
+		setype=new string
+		if err.type==ETYPE_WARNING:
+			setype=" (warning)"
+		else if err.type==ETYPE_NOTE:
+			setype=" (note)"
+		else
+			setype=" (error)"
+			is_fatal=1
+		if ln0==ln1:
+			Writeln(getIdString(id_fn0),':',ln0+1,',',col0+1,'-',col1+1,': ',serr,setype)
+		else
+			Writeln(getIdString(id_fn0),':',ln0+1,',',col0+1,'-',ln1+1,',',col1+1,': ',serr,setype)
+	return is_fatal
+
+tm_parser=tnew(":parser")
+tm_root=tnew(":rootexpr")
+tm_junk=tnew(":junk")
+tm_lambda=tnew(":lambda")
+tm_rc=tnew(":rc")
+tm_instrumentation=tnew(":instrumentation")
+tm_cleanup=tnew(":cleanup")
+tm_genallcode=tnew(":codegen")
+auto doBuild()
+	if g_enable_dump:
+		Writeln('>>> raw files')
+		foreach pe in g_top_level_exprs
+			Writeln(dumpCode(pe,fcolor_just_epos))
+	tbegin(tm_root)
+	createRootExpression("s7_main")
+	tend(tm_root)
+	if dumpAllErrors():
+		//if we have parser errors, it's pointless to continue
+		return NULL
+	if g_enable_dump:
+		Writeln('>>> just parsed')
+		//Writeln(dumpCode(g_pe_top,__zero(fcolorer_callback)))
+		Writeln(dumpCode(g_pe_top,fcolor_numerical))
+		//Writeln('***** ',readPool(240089+EXPR_OFS_ARGS+0),' ',readPool(readPool(240089+EXPR_OFS_ARGS+0)),' ',g_const_values)
+	grandsccp()
+	if g_enable_dump:
+		Writeln('>>> after iterative SCCP')
+		Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
+	tbegin(tm_junk)
+	if DEBUG_DUMP_PASSES:{Writeln('-------------------')}
+	if DEBUG_DUMP_PASSES:{Write(string(System.Time.t(),2),' interlude: ')}
+	removeSCCPJunk()
+	createCallGraph()
+	if DEBUG_DUMP_PASSES:{Writeln('done')}
+	if DEBUG_DUMP_PASSES:{Writeln('-------------------')}
+	tend(tm_junk)
+	if g_enable_dump:
+		Writeln('>>> before translateLambdas')
+		Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
+	tbegin(tm_lambda)
+	if DEBUG_DUMP_PASSES:{Write(string(System.Time.t(),2),' translateLambdas: ')}
+	translateLambdas()
+	if DEBUG_DUMP_PASSES:{Writeln('done')}
+	tend(tm_lambda)
+	if g_enable_dump:
+		Writeln('>>> before refcnt')
+		Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
+	tbegin(tm_rc)
+	if DEBUG_DUMP_PASSES:{Write(string(System.Time.t(),2),' genRefcnt: ')}
+	genRefcnt()
+	if DEBUG_DUMP_PASSES:{Writeln('done')}
+	tend(tm_rc)
+	if DEBUG_DUMP_PASSES:{Write(string(System.Time.t(),2),' cleanup: ')}
+	if g_enable_debug_instrumentation:
+		tbegin(tm_instrumentation)
+		instrumentForDebugging()
+		tend(tm_instrumentation)
+	if g_enable_dump:
+		Writeln('>>> before cleanup')
+		Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
+	tbegin(tm_cleanup)
+	cleanup()
+	tend(tm_cleanup)
+	if DEBUG_DUMP_PASSES:{Writeln('done')}
+	if g_enable_dump:
+		Writeln('>>> after cleanup')
+		Writeln(dumpCode(g_pe_top,fcolor_epos))
+		Writeln('>>> clean final AST')
+		Writeln(dumpCode(g_pe_top,__zero(fcolorer_callback)))
+		if Platform.BUILD=="debug":
+			validateEPoses(g_pe_top)
+	tbegin(tm_genallcode)
+	if DEBUG_DUMP_PASSES:{Write(string(System.Time.t(),2),' genAllCode: ')}
+	scode=genAllCode()
+	if DEBUG_DUMP_PASSES:{Writeln('done')}
+	tend(tm_genallcode)
+	if dumpAllErrors():
+		return NULL
+	return scode
+
+tm_all=tnew("***all")
+auto main()
+	args=GetCommandLine()
+	s_arch="win32"
+	s_mode="debug"
+	s_epilog="\n#undef main\nint real_main(){s7_main();return 0;}"
+	fn_output_exe=""
+	fn_output_c=""
+	fn_output_json=new string
+	call_pmjs=1
+	force_rebuild=0
+	run_after_build=0
+	//if Platform.BUILD=="debug":
+	//	s_mode="release"
+	//if Platform.BUILD=="debug":
+	//	g_bit_size=64
+	files=new string[]
+	run_args=new string[]
+	foreach s,I in args[1:]
+		if s.StartsWith("--arch="):
+			s_arch=new(s[7:])
+			if s_arch.EndsWith("64"):
+				g_bit_size=64
+		else if s.StartsWith("--build="):
+			s_mode=new(s[8:])
+		else if s.StartsWith("--64"):
+			g_bit_size=64
+		else if s.StartsWith("--readable_c_code"):
+			g_readable_c_code=1
+		else if s.StartsWith("-v"):
+			g_enable_timing=1
+			if s.StartsWith("-vv"):
+				g_enable_dump=1
+				force_rebuild=1
+		else if s.StartsWith("-o"):
+			fn_output_exe=new(s[2:])
+		else if s.StartsWith("--c="):
+			fn_output_c=new(s[4:])
+		else if s.StartsWith("--json="):
+			fn_output_json=new(s[7:])
+		else if s.StartsWith("--epilog="):
+			s_epilog=new(s[9:])
+		else if s=="-c":
+			call_pmjs=0
+		else if s.StartsWith("--rebuild"):
+			force_rebuild=1
+		else if s.StartsWith("--run"):
+			run_after_build=1
+			run_args=args[I+2:]
+			break
+		else if s.StartsWith("-D"):
+			define_args=new(s[2:])
+			pequ=define_args.IndexOf('=')
+			if pequ>=0:
+				id_name=getid(define_args[:pequ-1])
+				id_value=getid(define_args[pequ+1:])
+			else
+				id_name=getid(define_args)
+				id_value=g_empty_id
+			ids=g_json_pool[id_name]
+			if !ids:
+				ids=new int[]
+				g_json_pool[id_name]=ids
+				ids.push(id_value)
+		else
+			files.push(s)
+	if s_mode=="debug":
+		g_enable_debug_instrumentation=1
+	if Platform.BUILD=="debug":
+		g_readable_c_code=1
+		if !files.n:
+			s=System.IO.ReadAll("$saved_fname.txt")
+			if s:
+				g_enable_timing=1
+				run_after_build=!g_enable_dump
+				files.push(new(s))
+				Writeln('[debug] building: ',files[0])
+		else
+			System.IO.CreateFile("$saved_fname.txt").Write(files[0])
+	tbegin(tm_all)
+	coreInit()
+	registerConst(getid("__env_arch"),g_vtid_STR,getid(s_arch))
+	registerConst(getid("__env_build"),g_vtid_STR,getid(s_mode))
+	tbegin(tm_parser)
+	if !files.n:
+		System.IO.stderr().Write('no input files\n')
+		exit(1)
+	//auto-pmjs mode handling
+	if call_pmjs:
+		fn_primary=files[0].Replace(["\\","/"])
+		pslash=fn_primary.LastIndexOf('/')
+		s_basedir=fn_primary[:pslash]
+		fn_main=fn_primary[pslash+1:]
+		pdot=fn_main.LastIndexOf('.')
+		if pdot>=0:
+			fn_main=fn_main[:pdot-1]
+		s_dirname=new(s_arch)
+		if s_mode!="debug":s_dirname.push("_"+s_mode)
+		s_tempdir=s_basedir+"pm_tmp/"+s_dirname+"/"+fn_main
+		auto CreateDirectoryX(string sdir)
+			if System.IO.DirExists(sdir):return 1
+			if !System.IO.CreateDirectory(sdir):
+				pt=sdir.LastIndexOf('/')
+				if pt>=0:
+					CreateDirectoryX(sdir[:pt-1])
+					return System.IO.CreateDirectory(sdir)
+				else
+					return 0
+			else
+				return 1
+		CreateDirectoryX(s_tempdir)
+		if !fn_output_json.n:
+			fn_output_json=s_tempdir+"/s7main.json"
+		if !fn_output_c.n:
+			fn_output_c=s_tempdir+"/s7main.c"
+		if !fn_output_exe.n:
+			s_bindir=s_basedir+"bin/"+s_dirname
+			CreateDirectoryX(s_bindir)
+			//the real name has to be detected from arch
+			//fn_output_exe=s_bindir+"/"+fn_main
+			//if !__ENABLED__('platform.unix'):
+			//	fn_output_exe=fn_output_exe+".exe"
+	if !fn_output_c.n:
+		fn_output_c="a.c"
+	auto callPMJS()
+		if call_pmjs:
+			if Platform.IS_WINDOWS:
+				if Platform.BUILD=="debug":
+					s_pmjs="d:\\build_tmp\\pmjs.exe"
+				else
+					s_pmjs=System.Env.GetExecutablePath()+"pmjs.exe"
+			else
+				s_pmjs=System.Env.GetExecutablePath()+"pmjs"
+			//scmdline="\""+s_pmjs+"\" make \""+fn_output_json+"\""
+			scmdline=s_pmjs+" make \""+fn_output_json+"\""
+			//if Platform.BUILD=="debug":
+			//	Writeln(scmdline)
+			scmdline.push(char(0))
+			exit_code=c_system(scmdline)
+			if exit_code!=0:return 0
+			if run_after_build:
+				//scmdline="\""+s_pmjs+"\" run \""+fn_output_json+"\""
+				scmdline=s_pmjs+" run \""+fn_output_json+"\""
+				if Platform.BUILD=="debug":
+					System.IO.stderr().Write(FormatAsText('>>> launching ',fn_output_exe,'\n'))
+				scmdline.push(char(0))
+				exit_code=c_system(scmdline)
+				if exit_code!=0:return 0
+			return 1
+		else
+			return 1
+	//initialize global metadata
+	g_json_pool[getid("Platform_ARCH")]=[getid(s_arch)]
+	g_json_pool[getid("Platform_BUILD")]=[getid(s_mode)]
+	g_json_pool[getid("c_files")]=[getid(fn_output_c)]
+	g_json_pool[getid("h_files")]=new int[]
+	if fn_output_exe.n:
+		g_json_pool[getid("output_file")]=[getid(fn_output_exe)]
+	id_input_files=new int[files.n]
+	foreach s,I in files
+		id_input_files[I]=getid(s.Replace(["\\","/"]))
+	g_json_pool[getid("input_files")]=id_input_files
+	if run_args.n:
+		id_run_args=new int[run_args.n]
+		foreach s,I in run_args
+			id_run_args[I]=getid(s)
+		g_json_pool[getid("run_args")]=id_run_args
+	//parse the files
+	addSourceFile(getid(g_system_unit_path+"__builtin.spap"))
+	addSourceFile(getid(g_system_unit_path+"platform.spap"))
+	foreach s in files
+		addSourceFile(getid(s))
+	succ=parseAll()
+	tend(tm_parser)
+	if !succ:exit(1)
+	////////////////
+	//auto-pmjs mode check: no change, no build
+	if call_pmjs&&!force_rebuild:
+		auto MyGetFileTime(string fname)
+			foreach fn,fi in System.IO.EnumFiles(fname,0)
+				return fi.latest_time()
+			return 0LLu
+		auto IsNewerThan(string fn_new,string fn_old)
+			if !System.IO.FileExists(fn_new):return 0
+			return i64(MyGetFileTime(fn_new)-MyGetFileTime(fn_old))>i64(0)||!System.IO.FileExists(fn_old)
+		foreach pobj,idfn in g_parsed_files
+			if !IsNewerThan(fn_output_c,getIdString(idfn)):
+				force_rebuild=1
+				break
+		//if !IsNewerThan(fn_output_c,System.Env.GetExecutableName()):
+		//	force_rebuild=1
+		if !force_rebuild:
+			//no need to rebuild anything!
+			if Platform.BUILD=="debug":
+				Writeln('not changed, not built')
+			exit(!callPMJS())
+	////////////////
+	scode=doBuild()
+	tend(tm_all)
+	if !scode:exit(1)
+	scode.push(s_epilog)
+	//Writeln(FormatCCode(scode))
+	if g_readable_c_code:
+		scode=FormatCCode(scode)
+	fc=System.IO.CreateFile(fn_output_c)
+	if !fc:
+		Writeln('failed to create: ',fn_output_c)
+		exit(1)
+	fc.Write(scode)
+	fc.Close()
+	if fn_output_json.n:
+		//__generate_json
+		s_json=new string
+		s_json.push('{')
+		foreach arr,id_key in g_json_pool
+			arr.Sort()
+			arr.Unique()
+			s_json.push('"')
+			s_json.push(genString(getIdString(id_key)))
+			s_json.push('"')
+			s_json.push(':')
+			s_json.push('[')
+			foreach id,I in arr
+				s_json.push('"')
+				s_json.push(genString(getIdString(id)))
+				s_json.push('"')
+				s_json.push(',')
+			s_json.pop()
+			s_json.push(']')
+			s_json.push(',')
+		s_json.pop()
+		s_json.push('}')
+		s_json.push('\n')
+		fjson=System.IO.CreateFile(fn_output_json)
+		if !fjson:
+			Writeln('failed to create: ',fn_output_json)
+			exit(1)
+		fjson.Write(s_json)
+		fjson.Close()
+	if g_enable_timing:
+		tprint()
+		if Platform.BUILD=="debug":
+			System.IO.stderr().Write(FormatAsText('final buf  size=',g_ctobject_pool.n,'\n'))
+			System.IO.stderr().Write(FormatAsText('final code size=',g_counters_final_code_size,'\n'))
+			System.IO.stderr().Write(FormatAsText('total sccp calls=',g_counters_sccp_calls,'\n'))
+			System.IO.stderr().Write(FormatAsText('total evals=',g_counters_eval,'\n'))
+			System.IO.stderr().Write(FormatAsText('total queue_evals=',g_counters_queue_eval,'\n'))
+	exit(!callPMJS())
+
+//test_tokenizer()
+main()
