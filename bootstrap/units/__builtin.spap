@@ -143,7 +143,7 @@ class Array(T)
 			__range_check(i)
 		if IS_STRUCT:
 			ptr=__cast(T,d+sizeof(T)*iptr(i))
-			__struct_copy(ptr,value)
+			ptr=value
 		else
 			if IS_CLASS:
 				__explicit_rc(value,1)
@@ -381,7 +381,7 @@ class Array(T)
 		inline set_S(auto i,value)
 			if IS_STRUCT:
 				ptr=__cast(T_sort,s+sizeof(T_sort)*iptr(i))
-				__struct_copy(ptr,value)
+				ptr=value
 			else
 				__memory(T_sort,s+sizeof(T_sort)*iptr(i))=value
 		for(;;)

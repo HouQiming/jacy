@@ -129,6 +129,7 @@ var demo_msgboxb=function(id,attrs){
 	UI.End();
 };
 
-UI.Application=demo_msgbox;
+//UI.Application=demo_msgbox;
+UI.Application=demo_text_animation;
 
 UI.Run()

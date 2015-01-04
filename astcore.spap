@@ -2156,6 +2156,7 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_stlambda,__zero(fcompiler_callback),__zero(fcompiler_callback),fstlambda_oncgen,FFLAG_SPECIAL)
+	registerPrimitive(g_id_struct_copy,__zero(fcompiler_callback),fstore_oneval,__zero(fcompiler_callback),FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
 	fgetparentctx_oneval=function(PExpression pecall,int expr_oplevel){
 		pe_levels=readPool(pecall+EXPR_OFS_ARGS+0)
 		val=getExprValue(pe_levels)
@@ -2605,7 +2606,6 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_is_type,__zero(fcompiler_callback),fis_type_oneval,__zero(fcompiler_callback),FFLAG_SPECIAL)
-	//todo: an entire parameter type list?
 	fparameter_count_oneval=function(PExpression pecall,int expr_oplevel){
 		if readPool(pecall+0)!=1+EFLAG_FCALL:
 			errorAtExpr(ETYPE_ERROR,pecall,"__parameter_count(function) takes exactly 1 parameter")
@@ -6277,8 +6277,8 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 						pobj_member=getDotMember(pecaller,1)
 						if readPool(pobj_member)==g_vtid_UNINIT:
 							//guilty
-							//if DEBUG_DUMP_FLATTEN:
-							//	Writeln('unflattenable (unresolved value): '+dumpExpr(pe,__zero(fcolorer_callback))+" "+dumpExpr(pecaller,__zero(fcolorer_callback)))
+							if DEBUG_DUMP_FLATTEN:
+								Writeln('unflattenable (unresolved value): '+dumpExpr(pe,__zero(fcolorer_callback))+" "+dumpExpr(pecaller,__zero(fcolorer_callback)))
 							//assert(0)
 							errorAtExpr(ETYPE_LOW_LEVEL_ERROR,pe_value,"unresolved expression '@1'".Replace(["@1",citeexpr(pe_value)]))
 							setUserFlag(pobj_var,VAR_USER_UNFLATTENABLE)
@@ -6440,8 +6440,8 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 		return pobj_ret
 	//tbegin(tm_flatten_step1)
 	empty_news=new PExpression[]
-	need_renaming=0
-	rename_map=new PCTObject[PCTObject]
+	//need_renaming=0
+	//rename_map=new PCTObject[PCTObject]
 	fflatten_struct_variables=function(PExpression pe0){
 		pe=pe0
 		if !testUserFlag(pe,QUEUE_FLAG_REACH):
@@ -6468,17 +6468,21 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 						pobj_ret=getFlattenedVariable(pobj_var,pobj_member,is_write)
 						//check for store(ptr,dot(nested,"member"))
 						t=getVariableType(pobj_member)
-						if !is_write&&tisstruct(t):
-							if isBuiltin(pecaller,g_id_store)&&readPool(pecaller+EXPR_OFS_ARGS+1)==pe:
-								//bingo
-								pe_store_target=readPool(pecaller+EXPR_OFS_ARGS+0)
-								pobj_var_target=getVariable(pe_store_target)
-								need_renaming=1
-								rename_map[pobj_var_target]=pobj_ret
-								if DEBUG_DUMP_FLATTEN:
-									Writeln('make into renaming: ',dumpExpr(pecaller,__zero(fcolorer_callback)))
-								setnop(pecaller)
-								return 0
+						//if !is_write&&tisstruct(t):
+						//	if isBuiltin(pecaller,g_id_store)&&readPool(pecaller+EXPR_OFS_ARGS+1)==pe:
+						//		//bingo
+						//		pe_store_target=readPool(pecaller+EXPR_OFS_ARGS+0)
+						//		pobj_var_target=getVariable(pe_store_target)
+						//		need_renaming=1
+						//		rename_map[pobj_var_target]=pobj_ret
+						//		if DEBUG_DUMP_FLATTEN:
+						//			Writeln('make into renaming: ',dumpExpr(pecaller,__zero(fcolorer_callback)))
+						//		setnop(pecaller)
+						//		return 0
+						//if DEBUG_DUMP_FLATTEN:
+						//	if !is_write&&tisstruct(t):
+						//		if isBuiltin(pecaller,g_id_store)&&readPool(pecaller+EXPR_OFS_ARGS+1)==pe:
+						//			Writeln('would have been renaming: ',dumpExpr(pecaller,__zero(fcolorer_callback)))
 						//flatten it
 						if is_class_owned:
 							//class member, keep the original write
@@ -6496,10 +6500,15 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 		if isBuiltin(pe,g_id_store)||isBuiltin(pe,g_id_stdot):
 			if isBuiltin(pe,g_id_stdot):
 				pe_var=0
+				dfsExpr(readPool(pe+EXPR_OFS_ARGS+0),fflatten_struct_variables)
+				pe_value=readPool(pe+EXPR_OFS_ARGS+2)
+				dfsExpr(pe_value,fflatten_struct_variables)
 				pe_value=readPool(pe+EXPR_OFS_ARGS+2)
 				pobj_tar=0
 			else
 				pe_var=readPool(pe+EXPR_OFS_ARGS+0)
+				pe_value=readPool(pe+EXPR_OFS_ARGS+1)
+				dfsExpr(pe_value,fflatten_struct_variables)
 				pe_value=readPool(pe+EXPR_OFS_ARGS+1)
 				pobj_tar=getVariable(pe_var)
 			pobj_src=(isExpr(pe_value,EFLAG_VARIABLE)?getVariable(pe_value):0)
@@ -6597,6 +6606,32 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 							//tuple-in-a-struct, get rid of it
 							setnop(pe)
 							return 1
+						else if pobj_src:
+							//memcpy between vars, we can still hope to flatten it the next round
+							//this replaces the original renaming. hopefully SSA would do the dirty job for us
+							if DEBUG_DUMP_FLATTEN:
+								Writeln('flat-memcpy(tar-only-from-var): ',dumpExpr(pe,__zero(fcolorer_callback)))
+							assert(tisstruct(t_tar))
+							as=new PExpression[]
+							enableNameLookup(t_tar)
+							p_members=readPool(t_tar+FUNCTION_OFS_PMEMBER_LIST)
+							n_members=readPool(t_tar+FUNCTION_OFS_NMEMBER_LIST)
+							epos0_pe=readPool(pe+EXPR_OFS_EPOS)
+							for i=0:n_members-1
+								id_member=readPool(p_members+i)
+								if id_member==g_id_this||id_member==g_id_return:continue
+								pobj_member=lookupFunctionVariable(t_tar,id_member)
+								if DEBUG_DUMP_FLATTEN:
+									Writeln('  ',getIdString(id_member),' ',getIdString(readPool(pobj_member)))
+								//need to flatten uninit for symderiv
+								vtid=readPool(pobj_member)
+								if vtid!=g_vtid_RTVAR:continue//&&vtid!=g_vtid_UNINIT
+								pv_tar=getFlattenedVariable(pobj_tar,pobj_member,1)
+								pe_cpy=fillepos(call(g_id_store,exprvar(pv_tar),call(g_id_dot,exprvar(pobj_src),exprctval(pobj_member))),epos0_pe,0)
+								as.push(pe_cpy)
+							transformCode(pe,__zero(ftransformer_callback), as,0,PExpression[].NULL)
+							setnop(pe)
+							return 1
 						else
 							//Writeln(FormatAsText('not-new ',getExprFunction(pe_value),' ',t_tar,' ',dumpExpr(pe,fcolor_abbrv_blocks)))
 							if Platform.BUILD=="debug":
@@ -6617,6 +6652,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 						enableNameLookup(t_tar)
 						p_members=readPool(t_tar+FUNCTION_OFS_PMEMBER_LIST)
 						n_members=readPool(t_tar+FUNCTION_OFS_NMEMBER_LIST)
+						epos0_pe=readPool(pe+EXPR_OFS_EPOS)
 						for i=0:n_members-1
 							id_member=readPool(p_members+i)
 							if id_member==g_id_this||id_member==g_id_return:continue
@@ -6627,7 +6663,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 							vtid=readPool(pobj_member)
 							if vtid!=g_vtid_RTVAR:continue//&&vtid!=g_vtid_UNINIT
 							pv_tar=getFlattenedVariable(pobj_tar,pobj_member,1)
-							pe_cpy=call(g_id_store,exprvar(pv_tar),call(g_id_dot,exprvar(pobj_tar),exprctval(pobj_member)))
+							pe_cpy=fillepos(call(g_id_store,exprvar(pv_tar),call(g_id_dot,exprvar(pobj_tar),exprctval(pobj_member))),epos0_pe,0)
 							//if !readPool(pv_tar+VAR_OFS_DEFINING_STORE):
 							//	writePool(pv_tar+VAR_OFS_DEFINING_STORE,pe_cpy)
 							as.push(pe_cpy)
@@ -6659,6 +6695,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 						if vtid!=g_vtid_RTVAR:continue
 						as.push(call(g_id_stdot,exprvar(pv_temp),exprctval(pobj_member),exprvar(getFlattenedVariable(pobj_src,pobj_member,0))))
 					transformCode(pe,__zero(ftransformer_callback), as,expriptr(0),PExpression[].NULL)
+			return 0
 		else if isBuiltin(pe,g_id_assert_ctval):
 			//ignore assert_ctval
 			return 0
@@ -6678,16 +6715,16 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 	dfsExpr(pe_top,fflatten_struct_variables)
 	//tend(tm_flatten_step1)
 	//rename ptr to flattened members
-	if need_renaming:
-		frename_vars=function(PExpression pe){
-			if isExpr(pe,EFLAG_VARIABLE):
-				pv0=getVariable(pe)
-				pv1=rename_map[pv0]
-				if pv1:
-					writePool(pe,EFLAG_VARIABLE+pv1)
-			return 1
-		}
-		dfsExpr(pe_top,frename_vars)
+	//if need_renaming:
+	//	frename_vars=function(PExpression pe){
+	//		if isExpr(pe,EFLAG_VARIABLE):
+	//			pv0=getVariable(pe)
+	//			pv1=rename_map[pv0]
+	//			if pv1:
+	//				writePool(pe,EFLAG_VARIABLE+pv1)
+	//		return 1
+	//	}
+	//	dfsExpr(pe_top,frename_vars)
 	if DEBUG_DUMP_FLATTEN:
 		//Writeln(g_ctobject_pool.n)
 		Writeln(">>> after flatten\n"+dumpExpr(pe_top,__zero(fcolorer_callback)))
@@ -8403,10 +8440,14 @@ auto dfsFlattenBlocks(PExpression[] block_as,PExpression pe,int nest_depth, int 
 			//if val_cond.tid==g_vtid_UNINIT:
 			//	assert(0)
 			if val_cond.tid==g_vtid_CNS||val_cond.tid==g_vtid_STR:
-				//todo: condition's side effect
 				cns_branch=computeConstIfBranch(pe,val_cond)
 				pe_chosen_branch=readPool(pe+EXPR_OFS_ARGS+cns_branch)
 				setnop(pe)
+				if isExpr(pe_cond,EFLAG_FCALL):
+					//in case the constant condition has a side effect...
+					pobjfn_cond=getExprFunction(pe_cond)
+					if !(getFFlag(pobjfn_cond)&FFLAG_BUILTIN):
+						block_as.push(pe_cond)
 				//Writeln(">>> "+dumpExpr(pe_chosen_branch,fcolor_reach_eval))
 				dfsret=dfsFlattenBlocks(block_as,pe_chosen_branch,nest_depth_recurse, do_cleanup)
 				(pesubstitute,has_sideeffect)=(dfsret.x,dfsret.y)
@@ -8490,7 +8531,6 @@ auto typeMerge(PExpression pe,PCTObject t_old,PCTObject t_new,PExpression pe_old
 			ct_new=readPool(t_new+1)
 			if (ct_old&CTYPE_MASK)==(ct_new&CTYPE_MASK):
 				return getBuiltinType(max(ct_old,ct_new))
-			//todo: promote to float
 			if (ct_old&CTYPE_MASK)==CTYPE_FLOAT||(ct_new&CTYPE_MASK)==CTYPE_FLOAT:
 				return getBuiltinType(max(ct_old&~CTYPE_MASK,ct_new&~CTYPE_MASK)+CTYPE_FLOAT)
 			//todo: report invalid type promotion
@@ -8765,7 +8805,7 @@ auto fixConstantTypes()
 						//dot caller - str only so no need of sccp test
 						//141106: it's no longer str only - functions
 						need_to_translate=1
-				else if (isBuiltin(pecaller,g_id_store)&&readPool(pecaller+EXPR_OFS_ARGS+1)==pe||
+				else if ((isBuiltin(pecaller,g_id_store)||isBuiltin(pecaller,g_id_struct_copy))&&readPool(pecaller+EXPR_OFS_ARGS+1)==pe||
 				isBuiltin(pecaller,g_id_stdot)&&readPool(pecaller+EXPR_OFS_ARGS+2)==pe):
 					//it's stored, test the target
 					if isBuiltin(pecaller,g_id_stdot):
@@ -9295,10 +9335,15 @@ auto translateLambdas()
 				pecaller=readPool(pe+EXPR_OFS_CALLER)
 				//Write('>>> ',isExpr(pecaller,g_id_stlambda)&&pe==readPool(pecaller+EXPR_OFS_ARGS+2),' ');Writeln(dumpExpr(pecaller,fcolor_abbrv_blocks))
 				replace_caller=0
-				if isBuiltin(pecaller,g_id_store):
+				if isBuiltin(pecaller,g_id_store)||isBuiltin(pecaller,g_id_struct_copy):
 					//directly pass in the target and remove the store
 					pe_target=readPool(pecaller+EXPR_OFS_ARGS+0)
+					assert(pe_target!=pe)
 					replace_caller=1
+					pv_tar=getVariable(pe_target)
+					if readPool(pv_tar+VAR_OFS_ID)!=g_id_return:
+						//the store is destroyed, force allocate it
+						setUserFlag(pv_tar,VAR_FLAG_STRUCT_SLOT_ALLOCATED)
 				else if isBuiltin(pecaller,g_id_stlambda)&&pe==readPool(pecaller+EXPR_OFS_ARGS+2):
 					//pass in the target as ldlambda
 					pe_this=readPool(pecaller+EXPR_OFS_ARGS+0)
@@ -9322,8 +9367,10 @@ auto translateLambdas()
 				writePool(pe_new+EXPR_OFS_VALUE+1,readPool(pe+EXPR_OFS_VALUE+1))
 				//Write('>>> ');Writeln(dumpExpr(pe_new,fcolor_abbrv_blocks))
 				if replace_caller:
-					pecaller_caller=readPool(pecaller+EXPR_OFS_CALLER)
-					sccpQueueReach(insertCallAt(pecaller_caller,pecaller,function(PExpression pe){return pe_new}))
+					//pecaller_caller=readPool(pecaller+EXPR_OFS_CALLER)
+					//sccpQueueReach(insertCallAt(pecaller_caller,pecaller,function(PExpression pe){return pe_new}))
+					//setnop(pecaller)
+					replaceExpr(pecaller,pe_new)
 				else
 					//'return' the temp var
 					transformCode(pe,__zero(ftransformer_callback), [pe_new],exprvar(pv_temp),PExpression[].NULL)
@@ -9413,7 +9460,7 @@ auto translateLambdas()
 					writePool(pobj_var+VAR_OFS_USER_FLAGS,vflags)
 				vslotid=(vflags&VAR_USER_FLAG_RC_SLOTID_MASK)
 				pecaller=readPool(pe+EXPR_OFS_CALLER)
-				if isBuiltin(pecaller,g_id_store)&&readPool(pecaller+EXPR_OFS_ARGS+0)==pe:
+				if (isBuiltin(pecaller,g_id_store)||isBuiltin(pecaller,g_id_struct_copy))&&readPool(pecaller+EXPR_OFS_ARGS+0)==pe:
 					str_var_slots[vslotid].store_count++
 				pe_to_merge=pe_loop?pe_loop:pecaller
 				//Writeln('merge birth ',dumpObject(str_var_slots[vslotid].pobj_var),' ',pecaller)
@@ -9438,10 +9485,16 @@ auto translateLambdas()
 					if vflags_src&VAR_USER_FLAG_RC_SLOT_ALLOCATED:
 						vslotid_src=(vflags_src&VAR_USER_FLAG_RC_SLOTID_MASK)
 						if str_var_slots[vslotid_src].pe_death_after==vslot.pe_birth_before:
-							pe_src_birth=str_var_slots[vslotid_src].pe_birth_before
+							//pe_src_birth=str_var_slots[vslotid_src].pe_birth_before
 							//hack the non-propagatables
-							if isBuiltin(pe_src_birth,g_id_store)&&isBuiltin(readPool(pe_src_birth+EXPR_OFS_ARGS+1),g_id_cast):
-								continue
+							n_ok_stores=0
+							n_cast_stores=0
+							for(pestore=readPool(str_var_slots[vslotid_src].pobj_var+VAR_OFS_STORE_QUEUE);pestore;pestore=readPool(pestore+EXPR_OFS_NEXT_V_USER))
+								if isBuiltin(pestore,g_id_store)&&isBuiltin(readPool(pestore+EXPR_OFS_ARGS+1),g_id_cast):
+									n_cast_stores++
+									continue
+								n_ok_stores++
+							if n_cast_stores==1&&!n_ok_stores:continue
 							//death -> birth, do copyprop... replace all occurances using a dset
 							str_var_slots[I].pobj_var_rename_to=pv_src
 							str_var_slots[vslotid_src].pe_non_loop_birth=ancestorMerge(0,str_var_slots[vslotid_src].pe_non_loop_birth,str_var_slots[I].pe_non_loop_birth,fgetdepth,fgetbirthid).x
@@ -9468,7 +9521,7 @@ auto translateLambdas()
 				for i=-1:nargs-1
 					dfsCopyProp(readPool(pe+EXPR_OFS_ARGS+i))
 				//remove the newly created (and pre-existing) self-stores
-				if isBuiltin(pe,g_id_store):
+				if isBuiltin(pe,g_id_store)||isBuiltin(pe,g_id_struct_copy):
 					pe_var=readPool(pe+EXPR_OFS_ARGS+0)
 					pe_value=readPool(pe+EXPR_OFS_ARGS+1)
 					if isExpr(pe_var,EFLAG_VARIABLE)&&isExpr(pe_value,EFLAG_VARIABLE)&&getVariable(pe_var)==getVariable(pe_value):
@@ -9526,24 +9579,50 @@ auto translateLambdas()
 			PExpression pe_insert_at
 		alloc_jobs=new TAllocJob[]
 		foreach vslotid in vslotids_recurse
+			//if it's copyproped, it can't have more than 1 stores anyway... but it may generate queuing issues?
 			vslot=str_var_slots[vslotid]
 			if vslot.pobj_var_rename_to!=vslot.pobj_var:continue
-			//ldparam test - it's always the pe_non_loop_birth
-			//todo: check all stores, not just the birth
-			pe_birth=vslot.pe_non_loop_birth
-			pe_defining_store=readPool(vslot.pobj_var+VAR_OFS_DEFINING_STORE)
-			if pe_defining_store&&isBuiltin(pe_defining_store,g_id_store):
-				pe_birth_value=readPool(pe_defining_store+EXPR_OFS_ARGS+1)
-				if isBuiltin(pe_birth_value,g_id_ldparam):continue
+			//check all stores, not just the defining one
+			if readPool(vslot.pobj_var+VAR_OFS_ID)==g_id_return:continue
+			need_to_alloc=0
+			n_stores=0
+			for(pestore=readPool(vslot.pobj_var+VAR_OFS_STORE_QUEUE);pestore;pestore=readPool(pestore+EXPR_OFS_NEXT_V_USER))
+				if isBuiltin(pestore,g_id_store):
+					pe_value=readPool(pestore+EXPR_OFS_ARGS+1)
+				else
+					continue
+				n_stores++
+				//ldparam test
+				if isBuiltin(pe_value,g_id_ldparam):continue
 				//array uses cast, don't alloc it
-				if isBuiltin(pe_birth_value,g_id_cast):continue
+				if isBuiltin(pe_value,g_id_cast):continue
 				//part-of-another, don't alloc it
-				if isBuiltin(pe_birth_value,g_id_ldlambda):continue
+				if isBuiltin(pe_value,g_id_ldlambda):continue
+				//NULL store, ignore
+				if isExpr(pe_value,EFLAG_CONST):continue
+				need_to_alloc=1
+				break
+			//not-even-assigned guys are just-generated temps, they must be alloced
+			//if Platform.BUILD=="debug":
+			//	allocate_otherwise=1
+			//	pe_defining_store=readPool(vslot.pobj_var+VAR_OFS_DEFINING_STORE)
+			//	if pe_defining_store&&isBuiltin(pe_defining_store,g_id_store):
+			//		pe_birth_value=readPool(pe_defining_store+EXPR_OFS_ARGS+1)
+			//		if isBuiltin(pe_birth_value,g_id_ldparam)||isBuiltin(pe_birth_value,g_id_cast)||isBuiltin(pe_birth_value,g_id_ldlambda):
+			//			allocate_otherwise=0
+			//	allocate_here=!(!need_to_alloc&&n_stores>0&&!testUserFlag(vslot.pobj_var,VAR_FLAG_FLATTENED_STRUCT_MEMBER))
+			//	if allocate_otherwise!=allocate_here:
+			//		Writeln(allocate_here?'NEWLY ALLOCED: ':'NOT ALLOCED: ',dumpExpr(pe_defining_store,__zero(fcolorer_callback)))
+			//		for(pestore=readPool(vslot.pobj_var+VAR_OFS_STORE_QUEUE);pestore;pestore=readPool(pestore+EXPR_OFS_NEXT_V_USER))
+			//			Writeln('  >>> ',dumpExpr(pestore,__zero(fcolorer_callback)))
+			if !need_to_alloc&&n_stores>0&&!testUserFlag(vslot.pobj_var,VAR_FLAG_STRUCT_SLOT_ALLOCATED|VAR_FLAG_FLATTENED_STRUCT_MEMBER):continue
 			//Writeln(">>alloc slot "+dumpObject(vslot.pobj_var)+" "+dumpExpr(pe_birth,fcolor_abbrv_blocks))
+			pe_birth=vslot.pe_non_loop_birth
 			pe_death=vslot.pe_non_loop_death
 			t=getVariableType(vslot.pobj_var)
 			alloc_jobs.push(TAllocJob(){'pobj_var':vslot.pobj_var,'vslotid':vslotid,"t":t,'is_free':0,'pe_insert_at':pe_birth})
 			alloc_jobs.push(TAllocJob(){'pobj_var':vslot.pobj_var,'vslotid':vslotid,"t":t,'is_free':1,'pe_insert_at':pe_death})
+			setUserFlag(vslot.pobj_var,VAR_FLAG_STRUCT_SLOT_ALLOCATED)
 		inline getExprSlotid(PExpression pe)
 			return (readPool(pe+EXPR_OFS_USER_FLAGS)&USER_FLAG_RC_SLOTID_MASK)
 		inline getEffectiveSlotid(TAllocJob aj0)
@@ -9658,7 +9737,7 @@ auto translateLambdas()
 	//generate the explicit destructions... detect copy from NULL
 	//Writeln('--- 6')
 	ftest_null_copy=function(PExpression pe){
-		if isBuiltin(pe,g_id_store):
+		if isBuiltin(pe,g_id_store)||isBuiltin(pe,g_id_struct_copy):
 			auto pe_tar=readPool(pe+EXPR_OFS_ARGS+0)
 			auto pe_src=readPool(pe+EXPR_OFS_ARGS+1)
 			if getExprValue(pe_src).tid==g_vtid_CNS:
@@ -9697,16 +9776,23 @@ auto translateLambdas()
 				pv_tar=getExprValueAs(readPool(pe+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
 				pe_value=readPool(pe+EXPR_OFS_ARGS+2)
 				pe_this=readPool(pe+EXPR_OFS_ARGS+0)
+			else if isBuiltin(pe,g_id_struct_copy):
+				pv_tar=getVariable(readPool(pe+EXPR_OFS_ARGS+0))
+				assert(!!pv_tar)
+				pe_value=readPool(pe+EXPR_OFS_ARGS+1)
 			if pv_tar&&readPool(pv_tar)==g_vtid_RTVAR&&tisstruct(readPool(pv_tar+1)):
 				//struct copy indeed, transform into an inlined clone
-				//we shouldn't and couldn't do a temp copy: the allocation pass should have ensured that
 				//copy from NULL should have been handled earlier
-				if(isBuiltin(pe_value,g_id_ldparam)||
-				isBuiltin(pe_value,g_id_C_get_struct_slot)||
-				!testUserFlag(pv_tar,VAR_FLAG_FLATTENED_STRUCT_MEMBER)&&(
-					isBuiltin(pe_value,g_id_ldlambda)&&isBuiltin(pe,g_id_store)||
-					isBuiltin(pe_value,g_id_cast)&&isBuiltin(pe,g_id_store)&&readPool(pv_tar+VAR_OFS_DEFINING_STORE)==pe)
-				):return
+				if(isBuiltin(pe_value,g_id_C_get_struct_slot)||
+				!testUserFlag(pv_tar,VAR_FLAG_STRUCT_SLOT_ALLOCATED)&&isBuiltin(pe,g_id_store)):
+					//for certain things like the allocation, we shouldn't and couldn't do a temp copy: the allocation pass should have ensured that
+					return
+				//if(isBuiltin(pe_value,g_id_ldparam)||
+				//isBuiltin(pe_value,g_id_C_get_struct_slot)||
+				//!testUserFlag(pv_tar,VAR_FLAG_FLATTENED_STRUCT_MEMBER)&&(
+				//	isBuiltin(pe_value,g_id_ldlambda)&&isBuiltin(pe,g_id_store)||
+				//	isBuiltin(pe_value,g_id_cast)&&isBuiltin(pe,g_id_store)&&readPool(pv_tar+VAR_OFS_DEFINING_STORE)==pe)
+				//):return
 				if Platform.BUILD=="debug":
 					if getExprValue(pe_value).tid==g_vtid_CNS:
 						Writeln("bad copy: "+dumpExpr(pe,fcolor_reach_eval))

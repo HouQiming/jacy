@@ -29,6 +29,7 @@ VAR_USER_FLAG_MASK=0x0fffffff
 VAR_FLAG_LAMBDAED=0x80000000
 VAR_FLAG_PARAM=0x40000000
 VAR_FLAG_FLATTENED_STRUCT_MEMBER=0x20000000
+VAR_FLAG_STRUCT_SLOT_ALLOCATED=0x10000000
 //VAR_FLAG_FLATTENED=0x20000000
 //USER_FLAG_IN_EXPR=0x08000000
 //EFLAG_CODEBLOCK=4*EFLAG_MULTIPLIER
@@ -457,7 +458,7 @@ auto cloneExprEx(PExpression pe,PCTObject[PCTObject] var_map,int flags)
 				if !pv_cloned:
 					if DEBUG_TRAP_VARIABLE:
 						if int(g_ctobject_pool.n)==DEBUG_TRAP_VARIABLE:
-							Writeln(dumpExpr(readPool(pe+EXPR_OFS_CALLER),NULL))
+							Writeln(dumpExpr(readPool(pe+EXPR_OFS_CALLER),__zero(fcolorer_callback)))
 							Writeln(pv_original)
 							assert(0)
 					pv_cloned=makevar(pf_owner_new)
@@ -1125,6 +1126,7 @@ g_id_C_wrap_pure=getid("__C_pure")
 //context, target var ctobj
 g_id_ldlambda=getid("__ldlambda")
 g_id_stlambda=getid("__stlambda")
+g_id_struct_copy=getid("__struct_copy")
 g_id_get_lambda_context=getid("__get_lambda_context")
 g_id_this=getid("this")
 g_id_class=getid("class")

@@ -1,3 +1,5 @@
 @echo off
-bootstrap\win32_release\main main.spap
+bootstrap\bin\win32_release\main main.spap
+if errorlevel 1 goto end
 bin\win32\main %*
+:end
