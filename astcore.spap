@@ -4905,6 +4905,7 @@ auto coreInit()
 							"@2",citeexpr(pecall),
 							"@3",dumpType(tb)
 						]))
+						//assert(0)
 						return TSCCPValue(){'tid':g_vtid_UNINIT}
 					t_result=ta
 				else
@@ -5167,7 +5168,7 @@ auto resolveNames(PExpression g_pe_top,int is_initial_resolve)
 			pv=g_symbols[id].user_slot
 			if !pv:
 				//undeclared variable
-				Writeln('>>> ',dumpExpr(pe,__zero(fcolorer_callback)))//todo
+				//Writeln('>>> ',dumpExpr(pe,__zero(fcolorer_callback)))
 				bk=g_names_resolved;g_names_resolved=1
 				errorAtExpr(ETYPE_ERROR,pe,"undeclared variable '@1'".Replace(["@1",getIdString(id)]))
 				g_names_resolved=bk
@@ -7268,7 +7269,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 									key_arg0.y=key_arg0.z
 									key_arg0.z=tmp
 								key_arg1=g_gvn_values[gvn_key.z].key
-								if key_arg0.y==g_id_operator_mul&&key_arg1.y>0&&key_arg1.z>0&&gvnIsCns(key_arg1.z):
+								if key_arg1.x==g_id_operator_mul&&key_arg1.y>0&&key_arg1.z>0&&gvnIsCns(key_arg1.z):
 									tmp=key_arg1.y
 									key_arg1.y=key_arg1.z
 									key_arg1.z=tmp
@@ -8046,7 +8047,7 @@ if Platform.BUILD=="debug":
 					//if vid==g_id_store||vid==g_id_dot:return 0
 					return 0
 				//Writeln("no epos: "+dumpExpr(pe,fwarning))
-			else if !epos0||!epos1:
+			else if !epos0://||!epos1:
 				Writeln("half epos "+string(!epos1)+": "+dumpExpr(pe,ferror))
 			else
 				//id_fn0=getLineInfo(epos0)
@@ -9582,8 +9583,11 @@ auto translateLambdas()
 			//if it's copyproped, it can't have more than 1 stores anyway... but it may generate queuing issues?
 			vslot=str_var_slots[vslotid]
 			if vslot.pobj_var_rename_to!=vslot.pobj_var:continue
+			if readPool(vslot.pobj_var+VAR_OFS_ID)==g_id_return:
+				//for returns, do the memcpy without allocing the slot
+				setUserFlag(vslot.pobj_var,VAR_FLAG_STRUCT_SLOT_ALLOCATED)
+				continue
 			//check all stores, not just the defining one
-			if readPool(vslot.pobj_var+VAR_OFS_ID)==g_id_return:continue
 			need_to_alloc=0
 			n_stores=0
 			for(pestore=readPool(vslot.pobj_var+VAR_OFS_STORE_QUEUE);pestore;pestore=readPool(pestore+EXPR_OFS_NEXT_V_USER))
@@ -9616,6 +9620,7 @@ auto translateLambdas()
 			//		for(pestore=readPool(vslot.pobj_var+VAR_OFS_STORE_QUEUE);pestore;pestore=readPool(pestore+EXPR_OFS_NEXT_V_USER))
 			//			Writeln('  >>> ',dumpExpr(pestore,__zero(fcolorer_callback)))
 			if !need_to_alloc&&n_stores>0&&!testUserFlag(vslot.pobj_var,VAR_FLAG_STRUCT_SLOT_ALLOCATED|VAR_FLAG_FLATTENED_STRUCT_MEMBER):continue
+			if testUserFlag(vslot.pobj_var,VAR_FLAG_PARAM):continue//lambdaed struct param...
 			//Writeln(">>alloc slot "+dumpObject(vslot.pobj_var)+" "+dumpExpr(pe_birth,fcolor_abbrv_blocks))
 			pe_birth=vslot.pe_non_loop_birth
 			pe_death=vslot.pe_non_loop_death
@@ -9784,6 +9789,7 @@ auto translateLambdas()
 				//struct copy indeed, transform into an inlined clone
 				//copy from NULL should have been handled earlier
 				if(isBuiltin(pe_value,g_id_C_get_struct_slot)||
+				isBuiltin(pe_value,g_id_ldparam)||
 				!testUserFlag(pv_tar,VAR_FLAG_STRUCT_SLOT_ALLOCATED)&&isBuiltin(pe,g_id_store)):
 					//for certain things like the allocation, we shouldn't and couldn't do a temp copy: the allocation pass should have ensured that
 					return
