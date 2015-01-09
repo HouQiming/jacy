@@ -1182,6 +1182,7 @@ g_id_force_var=getid("__force_var")
 g_id_report_error=getid("__error")
 g_id_array_or_map=getid("__array_or_map")
 g_id_set_fflag=getid("set___fflag")
+g_id_cite_param=getid("__cite_param")
 /////////////////////
 //meta state
 g_id_meta_state=getid("__meta_state")

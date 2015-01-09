@@ -803,6 +803,30 @@ auto coreInit()
 					insertCallAt(pe_store_i,pe_code_i,function(PExpression pe){return pe_param})
 					//sccpQueueReach()
 					return 0
+			if isBuiltin(pe_store_i,g_id_cite_param):
+				param_id=0
+				param_id_provided=0
+				if readPool(pe_store_i)==EFLAG_FCALL+1:
+					pe_param=readPool(pe_store_i+EXPR_OFS_ARGS+0)
+					if isExpr(pe_param,EFLAG_CONST):
+						param_id=getExprValueAs(pe_param,g_vtid_CNS)
+						param_id_provided=1
+					else if isExpr(pe_param,EFLAG_VARIABLE):
+						pobj_var_cite_param=getVariable(pe_param)
+						Writeln(pvar_arg_ret,' ',pobj_var_cite_param)//todo
+						for i=0:pvar_arg_ret.n-1
+							if pvar_arg_ret[i]==pobj_var_cite_param:
+								param_id=i
+								param_id_provided=1
+								break
+				if !param_id_provided:
+					id_cite=getid("<invalid citation: you can only cite a parameter variable or a parameter ID>")
+				else if u32(param_id)>=u32(n_args_call):
+					id_cite=getid("<invalid parameter ID @1>".Replace(["@1",string(param_id)]))
+				else
+					id_cite=getid(citeexpr(readPool(pecall+EXPR_OFS_ARGS+param_id)))
+				replaceExpr(pe_store_i,exprstr(id_cite))
+				return 0
 			if isExpr(pe_store_i,EFLAG_VARIABLE):
 				//translating the arguments
 				pv=getVariable(pe_store_i)
@@ -2920,13 +2944,20 @@ auto coreInit()
 			pe_argi=readPool(pecall+EXPR_OFS_ARGS+i)
 			val=getExprValue(pe_argi)
 			if val.tid==g_vtid_UNINIT:return TSCCPValue(){'tid':g_vtid_UNINIT}
-			//todo: inline param case
 			if val.tid==g_vtid_CNS:
 				sret=dumpConst(Util.g_const_values[val.val])
 			else if val.tid==g_vtid_STR:
 				sret=new(getIdString(val.val))
 			else if val.tid==g_vtid_CTVAL:
-				sret=dumpObject(val.val)
+				if isFunction(val.val):
+					if tisclass(val.val)
+						sret=dumpType(val.val)
+					else
+						sret=dumpFunction(val.val)
+				else if readPool(val.val)==g_tid_TBuiltinType:
+					sret=dumpType(val.val)
+				else
+					sret=dumpObject(val.val)
 			else
 				sret=citeexpr(pe_argi)
 			s_to_replace.push(sret)
@@ -2935,6 +2966,7 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_report_error,__zero(fcompiler_callback),freport_error,fdummy_callback,FFLAG_SPECIAL)
+	registerPrimitive(g_id_cite_param,__zero(fcompiler_callback),__zero(fcompiler_callback),__zero(fcompiler_callback),FFLAG_SPECIAL)
 	farray_or_map_oneval=function(PExpression pecall,int expr_oplevel){
 		assert(readPool(pecall)==EFLAG_FCALL+2)
 		peobj=readPool(pecall+EXPR_OFS_ARGS+0)

@@ -584,7 +584,7 @@ class Array(T)
 			else if TA==Array(T)
 				push(a)
 			else
-				__error("'@1' cannot be converted to a string",TA)
+				__error("type '@1' cannot be converted to a string",TA)
 		}|inline(double a,int nfrac){
 			lg=__detail.FormatDouble(0L,0,0,0,0,nfrac, a)
 			resize(lg)
