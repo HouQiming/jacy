@@ -1078,7 +1078,8 @@ auto parseC0(int id_fn_current,TToken[] toks)
 					//pe=expr(LEVEL_MAX)
 					pe=expr(LEVEL_SELECT)
 					if !want(int(','))&&peek()!=int(')'):
-						error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"a ',' is expected between function parameters")
+						//error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"a ',' is expected between function parameters")
+						error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"this function parameter expression has terminated prematurely")
 						//ptr++
 						continue
 					es.push(pe)
@@ -1149,6 +1150,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 			fop=g_operators[op]
 			f=fop.id
 			lv2=fop.priority
+			if lv2==LEVEL_PREFIX:break
 			if !f||lv2>lv0:break
 			if lv<=lv2:
 				lv=lv2
