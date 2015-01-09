@@ -13,7 +13,7 @@ class CUniqueIDProvider(TTraits)
 		this.a=int[].NULL
 		this.n=0L
 	auto _grow_to(iptr sz)
-		auto a2=new int[sz?sz*2:8]
+		auto a2=new int[sz?sz*2:8L]
 		auto a=this.a
 		auto mask=a2.n-1
 		for i=0:sz-1
@@ -35,14 +35,14 @@ class CUniqueIDProvider(TTraits)
 	auto _find(const CREATE_NEW,traits.TKey key)
 		auto a=this.a
 		auto grown=0
-		auto sz=(a?a.n:0)
+		auto sz=(a?a.n:0L)
 		if !CREATE_NEW:
 			if !sz:return -1
 		else
 			if !sz:
 				_grow_to(sz)
 				a=this.a
-				sz=(a?a.n:0)
+				sz=(a?a.n:0L)
 				grown=1
 		for(;;)
 			slot=-1L
@@ -66,7 +66,7 @@ class CUniqueIDProvider(TTraits)
 			if !grown&&(this.n*4+1>=sz*3||sz-this.n<sz>>2):
 				_grow_to(sz)
 				a=this.a
-				sz=(a?a.n:0)
+				sz=(a?a.n:0L)
 				grown=1
 				continue
 			break
@@ -388,3 +388,6 @@ auto FormatCCode(string feed)
 
 auto toBase32(int a)
 	return formatNumber(a,{base:32})
+
+inline WriteErr()
+	System.IO.stderr().Write(FormatAsText.call(arguments))

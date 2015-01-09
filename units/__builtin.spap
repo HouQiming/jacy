@@ -114,6 +114,7 @@ class Array(T)
 	MIN_SIZE=8L
 	MAX_DTOR_TYPES=8
 	///////////
+	//the names are hardcoded in the compiler, do not touch
 	d=0L
 	n=0L
 	sz=0L
@@ -320,6 +321,10 @@ class Array(T)
 		ret.sz=ndata;
 		//hack for slice
 		ret.destructor_nbound_or_slice_reference=__cast(iptr,src)+1L;
+		if IS_CLASS://todo: NEED_RC
+			for i in range(ndata)
+				tmp=ret[i]
+				__explicit_rc(tmp,1)
 		return ret;
 	inline __slice(a)
 		if arguments.length<2:
@@ -791,9 +796,9 @@ __FArrayDtor=function(iptr p,iptr sz):int
 __all_array_dtors=__FArrayDtor[2]
 __meta_state("stdtype.array")=Array
 __meta_state("stdtype.string")=Array(char)
-__meta_state("stdfn.make_string")=inline(pstr,lg){
-	auto ret=string()
-	ret.__bind(1,iptr(pstr),lg)
+__meta_state("stdfn.make_string")=inline(ret){
+	//there's a built-in rc for class-returners
+	//__explicit_rc(ret,1)
 	return ret
 }
 
@@ -1269,7 +1274,7 @@ module __detail
 			pdot+=1-POWBASE64
 			if p<szret:__memory(char,ret+p)='E'
 			p++
-			p+=FormatInt(ret+p,szret-p>0?szret-p:0, 1,1,3,10, i64(pdot))
+			p+=FormatInt(ret+p,szret-p>0L?szret-p:0L, 1,1,3,10, i64(pdot))
 		return p
 	/////////////////////////////////////////////////
 	class TACAutomation

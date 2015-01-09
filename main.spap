@@ -12,6 +12,9 @@ import Parser.*
 c_system=__c_function(int,"system","stdlib.h")
 exit=__c_function(int,"exit","stdlib.h")
 
+if Platform.ARCH=="win64":
+	__generate_json("ldflags","/STACK:67108864")
+
 auto dumpAllErrors()
 	if Platform.BUILD=="debug":
 		if g_errors.n:
@@ -75,30 +78,30 @@ auto doBuild()
 		Writeln('>>> after iterative SCCP')
 		Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
 	tbegin(tm_junk)
-	if DEBUG_DUMP_PASSES:{Writeln('-------------------')}
-	if DEBUG_DUMP_PASSES:{Write(string(System.Time.t(),2),' interlude: ')}
+	if DEBUG_DUMP_PASSES:{WriteErr('-------------------\n')}
+	if DEBUG_DUMP_PASSES:{WriteErr(string(System.Time.t(),2),' interlude: ')}
 	removeSCCPJunk()
 	createCallGraph()
-	if DEBUG_DUMP_PASSES:{Writeln('done')}
-	if DEBUG_DUMP_PASSES:{Writeln('-------------------')}
+	if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
+	if DEBUG_DUMP_PASSES:{WriteErr('-------------------\n')}
 	tend(tm_junk)
 	if g_enable_dump:
 		Writeln('>>> before translateLambdas')
 		Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
 	tbegin(tm_lambda)
-	if DEBUG_DUMP_PASSES:{Write(string(System.Time.t(),2),' translateLambdas: ')}
+	if DEBUG_DUMP_PASSES:{WriteErr(string(System.Time.t(),2),' translateLambdas: ')}
 	translateLambdas()
-	if DEBUG_DUMP_PASSES:{Writeln('done')}
+	if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
 	tend(tm_lambda)
 	if g_enable_dump:
 		Writeln('>>> before refcnt')
 		Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
 	tbegin(tm_rc)
-	if DEBUG_DUMP_PASSES:{Write(string(System.Time.t(),2),' genRefcnt: ')}
+	if DEBUG_DUMP_PASSES:{WriteErr(string(System.Time.t(),2),' genRefcnt: ')}
 	genRefcnt()
-	if DEBUG_DUMP_PASSES:{Writeln('done')}
+	if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
 	tend(tm_rc)
-	if DEBUG_DUMP_PASSES:{Write(string(System.Time.t(),2),' cleanup: ')}
+	if DEBUG_DUMP_PASSES:{WriteErr(string(System.Time.t(),2),' cleanup: ')}
 	if g_enable_debug_instrumentation:
 		tbegin(tm_instrumentation)
 		instrumentForDebugging()
@@ -109,7 +112,7 @@ auto doBuild()
 	tbegin(tm_cleanup)
 	cleanup()
 	tend(tm_cleanup)
-	if DEBUG_DUMP_PASSES:{Writeln('done')}
+	if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
 	if g_enable_dump:
 		Writeln('>>> after cleanup')
 		Writeln(dumpCode(g_pe_top,fcolor_epos))
@@ -118,9 +121,9 @@ auto doBuild()
 		if Platform.BUILD=="debug":
 			validateEPoses(g_pe_top)
 	tbegin(tm_genallcode)
-	if DEBUG_DUMP_PASSES:{Write(string(System.Time.t(),2),' genAllCode: ')}
+	if DEBUG_DUMP_PASSES:{WriteErr(string(System.Time.t(),2),' genAllCode: ')}
 	scode=genAllCode()
-	if DEBUG_DUMP_PASSES:{Writeln('done')}
+	if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
 	tend(tm_genallcode)
 	if dumpAllErrors():
 		return NULL
@@ -129,7 +132,7 @@ auto doBuild()
 tm_all=tnew("***all")
 auto main()
 	args=GetCommandLine()
-	s_arch="win32"
+	s_arch=Platform.ARCH//"win32"
 	s_mode="debug"
 	s_epilog="\n#undef main\nint real_main(){s7_main();return 0;}"
 	fn_output_exe=""
@@ -142,6 +145,7 @@ auto main()
 	//	s_mode="release"
 	//if Platform.BUILD=="debug":
 	//	g_bit_size=64
+	g_bit_size=int(sizeof(iptr)*8)
 	files=new string[]
 	run_args=new string[]
 	foreach s,I in args[1:]

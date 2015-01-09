@@ -814,7 +814,7 @@ auto coreInit()
 						pobj_var_cite_param=getVariable(pe_param)
 						for i=0:pvar_arg_ret.n-1
 							if pvar_arg_ret[i]==pobj_var_cite_param:
-								param_id=i
+								param_id=int(i)
 								param_id_provided=1
 								break
 				if !param_id_provided:
@@ -1555,6 +1555,45 @@ auto coreInit()
 			if !got_anything:
 				g_code_buffer.push('char dummy;')
 			g_code_buffer.push('};')
+			//generate the string table once we get the type
+			if pobjfn==getStdObject(0,STDTYPE_STRING):
+				g_global_strings_code.push('static ')
+				sbk2=g_code_buffer
+				g_code_buffer=g_global_strings_code
+				genClassName(pobjfn)
+				g_code_buffer=sbk2
+				g_global_strings_code.push(' s7_CS1[]={')
+				pobj_var_d=lookupFunctionVariable(pobjfn,getid("d"))
+				pobj_var_n=lookupFunctionVariable(pobjfn,getid("n"))
+				pobj_var_sz=lookupFunctionVariable(pobjfn,getid("sz"))
+				pobj_var_destructor_nbound_or_slice_reference=lookupFunctionVariable(pobjfn,getid("destructor_nbound_or_slice_reference"))
+				pobjfn_dtor=readPool(pobjfn+FUNCTION_OFS_FINALIZER)
+				foreach citem,I in g_c_str_consts
+					//s7rc
+					g_global_strings_code.push('{1')
+					if fn.flags&FFLAG_LAMBDA_NEEDS_RTTI:
+						g_global_strings_code.push(',')
+						genFunctionName(pobjfn_dtor)
+					for i=0:fn.nlambda_vars-1
+						pobj_var=readPool(fn.plambda_vars+i)
+						if pobj_var==pobj_var_d:
+							if Util.bitSize()>32:
+								g_global_strings_code.push(',(long long)(s7_CS0+')
+							else
+								g_global_strings_code.push(',(int)(s7_CS0+')
+							g_global_strings_code.push(string(citem.p))
+							g_global_strings_code.push(')')
+						else if pobj_var==pobj_var_n||pobj_var==pobj_var_sz:
+							g_global_strings_code.push(FormatAsText(',',citem.n))
+						else if pobj_var==pobj_var_destructor_nbound_or_slice_reference:
+							g_global_strings_code.push(',2')
+						else
+							assert(0)
+					g_global_strings_code.push('},')
+					if g_readable_c_code:
+						SWrite(g_global_strings_code,'//s7_CS1+',I,' "',genString(getIdString(citem.id)),'"')
+					g_global_strings_code.push('\n')
+				g_global_strings_code.push('};\n')
 			//need a dep sort later
 			g_struct_code_per_type[pobjfn]=g_code_buffer
 			g_all_struct_types.push(pobjfn)
@@ -3037,6 +3076,24 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_set_fflag,__zero(fcompiler_callback),fset_fflag,__zero(fcompiler_callback),FFLAG_SPECIAL)
+	fstrcns_oneval=function(PExpression pecall,int expr_oplevel){
+		return TSCCPValue(){'tid':g_vtid_RTVAR,'val':getStdObject(pecall,STDTYPE_STRING)}
+	}
+	fstrcns_cgen=function(PExpression pecall,int expr_oplevel){
+		auto id=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+0),g_vtid_STR)
+		auto need_bracket=0
+		assert(!!id)
+		if expr_oplevel&&expr_oplevel<50:
+			need_bracket=1
+			g_code_buffer.push('(')
+		g_code_buffer.push("s7_CS1+")
+		SWrite(g_code_buffer,g_c_str_idmap[id])
+		if need_bracket:
+			g_code_buffer.push(')')
+		//s7rc++ is handled in the inline
+		return TSCCPValue(){'tid':g_vtid_UNINIT}
+	}
+	registerPrimitive(g_id_global_string_cns,__zero(fcompiler_callback),fstrcns_oneval,fstrcns_cgen,FFLAG_SPECIAL)
 	//////////////////////////////////////
 	//meta state
 	fmeta_state_oneval=function(PExpression pecall,int expr_oplevel){
@@ -5098,23 +5155,23 @@ auto coreInit()
 		}
 		registerPrimitive(id_opr,__zero(fcompiler_callback),fop_oneval,fop_oncgen,FFLAG_ARITHMETIC|FFLAG_IS_PURE)
 		enableOverloading(id_opr)
-	CreateArithOperator("*",'*',40,function(a,b){return a*b},0,0)
-	CreateArithOperator("/",'/',40,function(a,b){return a/b},0,0)
-	CreateArithOperator("%",'%',40,function(a,b){return a%b},1,0)
-	CreateArithOperator("+",'+',50,function(a,b){return a+b},0,0)
-	CreateArithOperator("-",'-',50,function(a,b){return a-b},0,0)
-	CreateArithOperator(">>",char(TOK_GG),52,function(a,b){return a>>int(b)},1,0)
-	CreateArithOperator("<<",char(TOK_LL),52,function(a,b){return a<<int(b)},1,0)
-	CreateArithOperator("&",'&',66,function(a,b){return a&b},1,0)
-	CreateArithOperator("^",'^',67,function(a,b){return a^b},1,0)
-	CreateArithOperator("|",'|',68,function(a,b){return a|b},1,0)
+	CreateArithOperator("*",'*',40,inline(a,b){return a*b},0,0)
+	CreateArithOperator("/",'/',40,inline(a,b){return a/b},0,0)
+	CreateArithOperator("%",'%',40,inline(a,b){return a%b},1,0)
+	CreateArithOperator("+",'+',50,inline(a,b){return a+b},0,0)
+	CreateArithOperator("-",'-',50,inline(a,b){return a-b},0,0)
+	CreateArithOperator(">>",char(TOK_GG),52,inline(a,b){return a>>int(b)},1,0)
+	CreateArithOperator("<<",char(TOK_LL),52,inline(a,b){return a<<int(b)},1,0)
+	CreateArithOperator("&",'&',66,inline(a,b){return a&b},1,0)
+	CreateArithOperator("^",'^',67,inline(a,b){return a^b},1,0)
+	CreateArithOperator("|",'|',68,inline(a,b){return a|b},1,0)
 	//////////////////////////////////////
-	CreateArithOperator("<",'<',60,function(a,b){return a<b},0,1)
-	CreateArithOperator(">",'>',60,function(a,b){return a>b},0,1)
-	CreateArithOperator("<=",char(TOK_LE),60,function(a,b){return a<=b},0,1)
-	CreateArithOperator(">=",char(TOK_GE),60,function(a,b){return a>=b},0,1)
-	CreateArithOperator("==",char(TOK_EQ),65,function(a,b){return a==b},0,1)
-	CreateArithOperator("!=",char(TOK_NE),65,function(a,b){return a!=b},0,1)
+	CreateArithOperator("<",'<',60,inline(a,b){return a<b},0,1)
+	CreateArithOperator(">",'>',60,inline(a,b){return a>b},0,1)
+	CreateArithOperator("<=",char(TOK_LE),60,inline(a,b){return a<=b},0,1)
+	CreateArithOperator(">=",char(TOK_GE),60,inline(a,b){return a>=b},0,1)
+	CreateArithOperator("==",char(TOK_EQ),65,inline(a,b){return a==b},0,1)
+	CreateArithOperator("!=",char(TOK_NE),65,inline(a,b){return a!=b},0,1)
 	//////////////////////////////////////
 	//basic types
 	registerConst(getid("i8"),g_vtid_CTVAL,getBuiltinType(const_type(CTYPE_INT,8)))
@@ -6887,23 +6944,23 @@ tm_sccp=tnew(":sccp")
 tm_sccp2=tnew(":sccp2")
 auto grandsccp()
 	tbegin(tm_sccp)
-	if DEBUG_DUMP_PASSES:{Write(formatNumber(System.Time.t(),{frac:2}),' 1st SCCP: ')}
+	if DEBUG_DUMP_PASSES:{WriteErr(formatNumber(System.Time.t(),{frac:2}),' 1st SCCP: ')}
 	sccp(g_pe_top)
-	if DEBUG_DUMP_PASSES:{Writeln('done')}
+	if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
 	for(;;)
 		if DEBUG_DUMP_FLATTEN||DEBUG_EVAL_LOG||DEBUG_DUMP_SCCP:
 			Writeln('>>> after one sccp pass')
 			Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
-		if DEBUG_DUMP_PASSES:{Write(formatNumber(System.Time.t(),{frac:2}),' CDF: ')}
+		if DEBUG_DUMP_PASSES:{WriteErr(formatNumber(System.Time.t(),{frac:2}),' CDF: ')}
 		evalCodeDependingFunctions()
-		if DEBUG_DUMP_PASSES:{if g_has_untranslated_cdf:{Writeln('[TRY AGAIN]');}else{Writeln('done');}}
-		if DEBUG_DUMP_PASSES:{Write(formatNumber(System.Time.t(),{frac:2}),' more SCCP: ')}
+		if DEBUG_DUMP_PASSES:{if g_has_untranslated_cdf:{WriteErr('[TRY AGAIN]\n');}else{WriteErr('done\n');}}
+		if DEBUG_DUMP_PASSES:{WriteErr(formatNumber(System.Time.t(),{frac:2}),' more SCCP: ')}
 		sccp(0)
-		if DEBUG_DUMP_PASSES:{Writeln('done')}
+		if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
 		if !g_has_untranslated_cdf:break
-	if DEBUG_DUMP_PASSES:{Write(formatNumber(System.Time.t(),{frac:2}),' fixConstantTypes: ')}
+	if DEBUG_DUMP_PASSES:{WriteErr(formatNumber(System.Time.t(),{frac:2}),' fixConstantTypes: ')}
 	fixConstantTypes()
-	if DEBUG_DUMP_PASSES:{Writeln('done')}
+	if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
 	if g_enable_dump:
 		Writeln('>>> after fixing constant types')
 		Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
@@ -6914,34 +6971,34 @@ auto grandsccp()
 	for(;;)
 		did=0
 		tbegin(tm_strflatten)
-		if DEBUG_DUMP_PASSES:{Write(formatNumber(System.Time.t(),{frac:2}),' strflatten: ')}
+		if DEBUG_DUMP_PASSES:{WriteErr(formatNumber(System.Time.t(),{frac:2}),' strflatten: ')}
 		if strflatten(g_pe_top,0):
 			did=1
 			sccp(0)
-			if DEBUG_DUMP_PASSES:{Writeln('[WORKED]')}
+			if DEBUG_DUMP_PASSES:{WriteErr('[WORKED]\n')}
 		else
-			if DEBUG_DUMP_PASSES:{Writeln('dry fire')}
+			if DEBUG_DUMP_PASSES:{WriteErr('dry fire\n')}
 		tend(tm_strflatten)
-		if DEBUG_DUMP_PASSES:{Write(formatNumber(System.Time.t(),{frac:2}),' SSA-GVN: ')}
+		if DEBUG_DUMP_PASSES:{WriteErr(formatNumber(System.Time.t(),{frac:2}),' SSA-GVN: ')}
 		if partialSSAGVN(g_pe_top,0,1):
 			did=1
 			sccp(0)
-			if DEBUG_DUMP_PASSES:{Writeln('[WORKED]')}
+			if DEBUG_DUMP_PASSES:{WriteErr('[WORKED]\n')}
 		else
-			if DEBUG_DUMP_PASSES:{Writeln('dry fire')}
+			if DEBUG_DUMP_PASSES:{WriteErr('dry fire\n')}
 		if DEBUG_DUMP_FLATTEN||DEBUG_EVAL_LOG:
 			Writeln('>>> after one flatten / deadelim / ssa iteration')
 			Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
 		if ENABLE_DEADELIM:
-			if DEBUG_DUMP_PASSES:{Write(formatNumber(System.Time.t(),{frac:2}),' deadelim: ')}
+			if DEBUG_DUMP_PASSES:{WriteErr(formatNumber(System.Time.t(),{frac:2}),' deadelim: ')}
 			if deadelim():
 				did=1
 				sccp(0)
 				//cleaning up the nop is *worth* it
 				g_pe_top=dfsFlattenBlocks(PExpression[].NULL,g_pe_top,0,0).x
-				if DEBUG_DUMP_PASSES:{Writeln('[WORKED]')}
+				if DEBUG_DUMP_PASSES:{WriteErr('[WORKED]\n')}
 			else
-				if DEBUG_DUMP_PASSES:{Writeln('dry fire')}
+				if DEBUG_DUMP_PASSES:{WriteErr('dry fire\n')}
 		if !did:break
 	tend(tm_sccp2)
 
@@ -7243,12 +7300,12 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 				if isExpr(pe,EFLAG_VARIABLE)&&is_different_from_code:
 					//variable renaming case
 					//n0=g_ctobject_pool.n
-					if DEBUG_DUMP_PASSES&&DEBUG_DUMP_GVN_DETAILS:{Writeln('>>> replace ',dumpExpr(pe,__zero(fcolorer_callback)))}
+					if DEBUG_DUMP_GVN_DETAILS:{Writeln('>>> replace ',dumpExpr(pe,__zero(fcolorer_callback)))}
 					p_newly_generated_point=int(g_ctobject_pool.n)
 					as_just_generated_cse=new PExpression[]
 					pe_replacement=gvn_generate(gvn_id,1)
 					transformCode(pe,__zero(ftransformer_callback), as_just_generated_cse,pe_replacement,PExpression[].NULL)
-					if DEBUG_DUMP_PASSES&&DEBUG_DUMP_GVN_DETAILS:{Writeln('<<< into ',dumpExpr(pe_replacement,__zero(fcolorer_callback)))}
+					if DEBUG_DUMP_GVN_DETAILS:{Writeln('<<< into ',dumpExpr(pe_replacement,__zero(fcolorer_callback)))}
 					did=1
 					//else
 					//	g_ctobject_pool'n':n0
@@ -7261,13 +7318,13 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 			//wipe out the backing vars first
 			if DEBUG_DUMP_SSA:
 				Writeln('gvn_replace ',dumpExpr(pe,__zero(fcolorer_callback)))
-			if DEBUG_DUMP_PASSES&&DEBUG_DUMP_GVN_DETAILS:{if !did:Write(dumpExpr(pe,__zero(fcolorer_callback)),' -> ')}
+			if DEBUG_DUMP_GVN_DETAILS:{if !did:Write(dumpExpr(pe,__zero(fcolorer_callback)),' -> ')}
 			wipeoutStaleBackingExpr(pe)
 			p_newly_generated_point=int(g_ctobject_pool.n)
 			as_just_generated_cse=new PExpression[]
 			pe_replacement=gvn_generate(gvn_id,1)
 			transformCode(pe,__zero(ftransformer_callback), as_just_generated_cse,pe_replacement,PExpression[].NULL)
-			if DEBUG_DUMP_PASSES&&DEBUG_DUMP_GVN_DETAILS:{if !did:Write(dumpExpr(pe_replacement,__zero(fcolorer_callback)),' ')}
+			if DEBUG_DUMP_GVN_DETAILS:{if !did:Write(dumpExpr(pe_replacement,__zero(fcolorer_callback)),' ')}
 			did=1
 	inline gvnkeyIsBuiltin(int3 gvn_key,int id)
 		return gvn_key.x==getBuiltin(id)
@@ -7619,7 +7676,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 									pe_renamed=replaceExpr(pe,call(g_id_store,exprvar(pv_dup),pe_value))
 									setnop(pe)
 									pe=pe_renamed
-									if DEBUG_DUMP_PASSES&&DEBUG_DUMP_GVN_DETAILS:{if !did:Write('SSA rename')}
+									if DEBUG_DUMP_GVN_DETAILS:{if !did:Write('SSA rename')}
 									did=1
 							if remove_single_use:
 								//only remove the SSA-friendly ones, put it here -- pe may have changed due to renaming
@@ -8806,7 +8863,15 @@ auto getRootNamespaceType()
 	assert(isBuiltin(g_pe_top,g_id_export))
 	assert(isBuiltin(readPool(g_pe_top+EXPR_OFS_ARGS+1),g_id_function))
 	return getExprValueAs(readPool(g_pe_top+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
-	
+
+struct TStringConstItem
+	iptr p
+	iptr n
+	int id
+g_all_strings=new int[]
+g_global_strings_code=new string
+g_c_str_consts=new TStringConstItem[]
+g_c_str_idmap=new iptr[int]
 auto fixConstantTypes()
 	//it must not be a builtin/imported param
 	//but const-to-var stores are an exception
@@ -8900,7 +8965,9 @@ auto fixConstantTypes()
 						return 1
 					else
 						assert(val.tid==g_vtid_STR)
-						pe_new=indcall([exprctval(getStdObject(0,STDFN_MAKE_STRING)),exprstr(val.val),expriptr(getIdString(val.val).n)])
+						//pe_new=indcall([exprctval(getStdObject(0,STDFN_MAKE_STRING)),exprstr(val.val),expriptr(getIdString(val.val).n)])
+						pe_new=indcall([exprctval(getStdObject(0,STDFN_MAKE_STRING)),call(g_id_global_string_cns,exprstr(val.val))])
+						g_all_strings.push(val.val)
 						replaceExpr(pe,pe_new)
 						return 1
 			else if val.tid==g_vtid_RTVAR:
@@ -8919,6 +8986,27 @@ auto fixConstantTypes()
 	dfsExpr(g_pe_top,ffix_const_types)
 	g_ctype_fixed=1
 	sccp(0)
+	//generate the string table
+	g_all_strings.Sort()
+	g_all_strings.Unique()
+	if !g_all_strings.n:return
+	g_global_strings_code.push('static const char s7_CS0[]="')
+	pprev_line=0L
+	n_real_chars=0L
+	foreach id,I in g_all_strings
+		g_c_str_idmap[id]=I
+		s=getIdString(id)
+		ps=n_real_chars
+		foreach ch in s
+			genChar(g_global_strings_code,int(u8(ch)))
+			pprev_line++
+			if g_global_strings_code.n-pprev_line>=1048000:
+				g_global_strings_code.push('"\n"')
+				pprev_line=g_global_strings_code.n-1
+		genChar(g_global_strings_code,0)
+		n_real_chars+=s.n+1
+		g_c_str_consts.push(TStringConstItem(){"p":ps,"n":s.n,'id':id})
+	g_global_strings_code.push('";\n')
 
 //g_dump_eval=0
 auto translateLambdas()
@@ -9042,7 +9130,7 @@ auto translateLambdas()
 				else
 					//if it's the global... it's simple
 					setFFlag(lambda_stack[0],FFLAG_LAMBDA_NEEDS_CONTEXT)
-				d_levels=(lambda_stack.n-1-their_level)
+				d_levels=int(lambda_stack.n-1-their_level)
 				pe_levels=insertCallAt(pe,~0,function(PExpression pe){return expriptr(their_level==0?0x80000000:d_levels)})
 			if getExprValueAs(pe_levels,g_vtid_CNS)==0&&!is_tentative:
 				//function pointer contexts are tentative: NULL is a good substitution
@@ -9077,7 +9165,7 @@ auto translateLambdas()
 				else
 					//if it's the global... it's simple
 					setFFlag(lambda_stack[0],FFLAG_LAMBDA_NEEDS_CONTEXT)
-				d_levels=(lambda_stack.n-1-their_level)
+				d_levels=int(lambda_stack.n-1-their_level)
 				//Writeln('scanned lambda: ',d_levels)
 				pecontext=call(g_id_get_lambda_context,expriptr(their_level==0?0x80000000:d_levels))
 				pecaller=readPool(pe+EXPR_OFS_CALLER)
@@ -10807,9 +10895,13 @@ g_current_line_info_id=0
 auto genConst(int cid)
 	cns=Util.ctNumber(cid)
 	if cns.type==const_type(CTYPE_FLOAT,32):
+		if int(cns.val_bin)<0:
+			g_code_buffer.push(' ')
 		g_code_buffer.push(formatNumber(__int_as_float(int(cns.val_bin)),{frac:9,scientific:1}))
 		g_code_buffer.push('f')
 	else if cns.type==const_type(CTYPE_FLOAT,64):
+		if cns.val_bin<0:
+			g_code_buffer.push(' ')
 		g_code_buffer.push(formatNumber(__longlong_as_double(cns.val_bin),{frac:23,scientific:1}))
 	else if cns.type==CTYPE_TYPED_NULL:
 		g_code_buffer.push('((')
@@ -10839,6 +10931,8 @@ auto genConst(int cid)
 				mask=(i64(1)<<n_bits)-1
 				mask_sgn=(i64(1)<<(n_bits-1))
 			sval=string((cns.val_bin&mask)|-(cns.val_bin&mask_sgn))
+			if sval[0]=='-':
+				g_code_buffer.push(' ')
 			g_code_buffer.push(sval)
 		else if ((cns.type&CTYPE_MASK)==CTYPE_UINT):
 			if n_bits==64:
@@ -10959,6 +11053,12 @@ auto genFilteredName(int id)
 			g_code_buffer.push(ch)
 		if I>32:break
 
+auto genCommentName(int id)
+	//g_code_buffer.push('/*')
+	//g_code_buffer.push(getIdString(id))
+	//g_code_buffer.push('*/')
+	genFilteredName(id)
+	
 auto genFunctionName(PCTObject pobjfn)
 	fn=readPoolTyped(pobjfn,TFunction)
 	if fn.flags&FFLAG_EXPORTED:
@@ -10968,7 +11068,7 @@ auto genFunctionName(PCTObject pobjfn)
 		g_code_buffer.push(toBase32(pobjfn))
 		if fn.id_name&&g_readable_c_code:
 			g_code_buffer.push('_')
-			genFilteredName(fn.id_name)
+			genCommentName(fn.id_name)
 
 auto genVar(PCTObject pobj_var)
 	g_code_buffer.push('s7_v')
@@ -10977,7 +11077,7 @@ auto genVar(PCTObject pobj_var)
 		id_name=readPool(pobj_var+VAR_OFS_ID)
 		if id_name:
 			g_code_buffer.push('_')
-			genFilteredName(id_name)
+			genCommentName(id_name)
 
 auto cgPushScope()
 	g_c_scope_stack.push(TCScope(){'outer_code_buffer':g_code_buffer,'var_stores':new PCTObject[],'dbg_slots':new PCTObject[]})
@@ -11025,7 +11125,7 @@ auto genClassName(PCTObject t)
 		id_name=readPool(t+FUNCTION_OFS_NAME)
 		if id_name:
 			g_code_buffer.push('_')
-			genFilteredName(id_name)
+			genCommentName(id_name)
 
 auto genType(PCTObject t)
 	if tisbuiltin(t):
@@ -11134,9 +11234,11 @@ auto genAllCode()
 		g_code_buffer.push("typedef void(*s7_TF_rtti_dtor)(void*);")
 	s_headers.push(g_code_buffer)
 	g_code_buffer=sbk
-	//
+	/////////
 	s_headers.push(g_forward_buffer)
 	s_headers.push(g_c_global_buffer)
+	s_headers.push(g_global_strings_code)
+	/////////
 	if g_enable_debug_instrumentation:
 		s_headers.push(g_debug_file_info_buffer)
 		s_headers.push('static const TLineInfoItemEx s7_DL[]={')

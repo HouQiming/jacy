@@ -994,7 +994,7 @@ g_renderer=(class(){
 					for x=-1:ri
 						a=0.f
 						for aa_y=0:15
-							y2=System.Math.sqr(float(max(y*16+aa_y,0L)))
+							y2=System.Math.sqr(float(max(y*16+aa_y,0)))
 							x2_max=r2-y2
 							if !(x2_max>0.f):continue
 							x_max=System.Math.sqrt(x2_max)

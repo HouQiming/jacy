@@ -203,7 +203,7 @@ inline call(int id)
 	else
 		id_or_pobj=id
 	pe_func=exprvar(id_or_pobj)
-	n0=poolCode(TExpression(){'flags_n_args':(arguments.length-1)|EFLAG_FCALL})
+	n0=poolCode(TExpression(){'flags_n_args':int(arguments.length-1)|EFLAG_FCALL})
 	g_ctobject_pool.push(pe_func)
 	arguments0=arguments
 	for i in crange(arguments0.length)
@@ -418,14 +418,14 @@ auto cloneExprEx(PExpression pe,PCTObject[PCTObject] var_map,int flags)
 	pe_flags=g_ctobject_pool[pe]
 	switch(pe_flags&EFLAG_MASK){
 	case EFLAG_CONST,EFLAG_STRING,EFLAG_CTVAL:
-		n=g_desc_TCnsExpression.length
+		n=int(g_desc_TCnsExpression.length)
 		break
 	case EFLAG_VARIABLE:
-		n=g_desc_TVarExpression.length
+		n=int(g_desc_TVarExpression.length)
 		assert(n>1)
 		break
 	case EFLAG_FCALL:
-		n=g_desc_TExpression.length
+		n=int(g_desc_TExpression.length)
 		if isBuiltin(pe,g_id_function)&&!(flags&CLONE_EXPR_IS_CALLED_BY_CLONE_FUNCTION):
 			if readPool(pe+EXPR_OFS_VALUE)==g_vtid_CTVAL:
 				pobjfn_cloned=cloneFunctionEx(readPool(pe+EXPR_OFS_VALUE+1),var_map,flags)
@@ -984,34 +984,40 @@ auto dumpFunction(PCTObject pobjfn)
 	s.push(')')
 	return s
 	
+//g_hex="0123456789ABCDEF"
+auto genChar(string s,int ch)
+	if ch=='\\':
+		s.push('\\')
+		s.push('\\')
+	else if ch=='\r':
+		s.push('\\')
+		s.push('r')
+	else if ch=='\n':
+		s.push('\\')
+		s.push('n')
+	else if ch=='\t':
+		s.push('\\')
+		s.push('t')
+	else if ch=='"':
+		s.push('\\')
+		s.push('"')
+	else if ch>=32&&ch<127:
+		s.push(char(ch))
+	else
+		s.push('\\')
+		//s.push('x')
+		//s.push(g_hex[(ch>>4)&15])
+		//s.push(g_hex[ch&15])
+		s.push(char('0'+(ch>>6)))
+		s.push(char('0'+((ch>>3)&7)))
+		s.push(char('0'+(ch&7)))
+
 auto genString(string s0)
 	s=new string
-	hex="0123456789ABCDEF"
 	foreach ch0 in s0
 		ch=int(u8(ch0))
-		if ch>=0:
-			if ch=='\\':
-				s.push('\\')
-				s.push('\\')
-			else if ch=='\r':
-				s.push('\\')
-				s.push('r')
-			else if ch=='\n':
-				s.push('\\')
-				s.push('n')
-			else if ch=='\t':
-				s.push('\\')
-				s.push('t')
-			else if ch=='"':
-				s.push('\\')
-				s.push('"')
-			else if ch>=32&&ch<127:
-				s.push(char(ch))
-			else
-				s.push('\\')
-				s.push('x')
-				s.push(hex[(ch>>4)&15])
-				s.push(hex[ch&15])
+		//if ch>=0:
+		genChar(s,ch)
 	return s
 
 auto dumpConst(TConstValue val)
@@ -1183,6 +1189,7 @@ g_id_report_error=getid("__error")
 g_id_array_or_map=getid("__array_or_map")
 g_id_set_fflag=getid("set___fflag")
 g_id_cite_param=getid("__cite_param")
+g_id_global_string_cns=getid("__global_string_cns")
 /////////////////////
 //meta state
 g_id_meta_state=getid("__meta_state")

@@ -792,7 +792,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 			as_member_setter.push(fillepos(call(g_id_store,fillepos(call(g_id_dot,exprvar(vtemp),exprstr(id_name)),ep0_id,ep1_id),pe_value),ep0_id,ep1_value))
 			if peek()!='}'&&!want(int(',')):
 				error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"',' is expected")
-		epos1=toks[max(ptr-1,0)].epos1
+		epos1=toks[max(ptr-1,0L)].epos1
 		if !pe0:
 			as_member_setter[1]=call(g_id_store,exprvar(vtemp),vcall(g_id_tuple,as_tuple_maker))
 		as_member_setter.push(exprvar(vtemp))
@@ -1216,7 +1216,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 			else
 				peelse=expriptr(0)
 			pe=call(g_id_if,pecond,pethen,expriptr(0),peelse)
-			epos1_statement=toks[max(ptr-1,0)].epos1
+			epos1_statement=toks[max(ptr-1,0L)].epos1
 			pe=fillepos(pe,epos0_statement,epos1_statement)
 			return pe
 		else if id==g_id_for||id==g_id_foreach_lang||id==g_id_while:
@@ -1464,7 +1464,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 				else
 					as_if[2]=expriptr(0)
 				pe=call(g_id_blockex,exprstr(g_id_blockex),exprstr(g_id_break),call(g_id_block,exprstr(g_id_block),indcall(as_if)))
-				epos1_statement=toks[max(ptr-1,0)].epos1
+				epos1_statement=toks[max(ptr-1,0L)].epos1
 				pe=fillepos(pe,epos0_statement,epos1_statement)
 				return pe
 		else
@@ -1507,7 +1507,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 		//pe=fillepos()
 		if !skip_statement_end:
 			statement_end()
-		epos1_statement=toks[max(ptr-1,0)].epos1
+		epos1_statement=toks[max(ptr-1,0L)].epos1
 		pe=fillepos(pe,epos0_statement,epos1_statement)
 		//return cat(cat(code_before,poolCode(TExprStatement{'flags_expr':pe|STATEMENT_EXPR})),code_after)
 		return pe
@@ -1524,7 +1524,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 				g_dependency_edges.push(int2(id_fn_current,g_files_to_parse[0]))
 		while peek()!=TOK_EOF&&peek()!='}':
 			as.push(statement())
-		epos1_statement=toks[max(ptr-1,0)].epos1
+		epos1_statement=toks[max(ptr-1,0L)].epos1
 		//if is_top:
 		//	//as.push(exprstr(getid("__block")))
 		//	as.push(call(g_id_store,exprvar(g_id_return),exprvar(g_id_this),expriptr(0)))
