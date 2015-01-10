@@ -1,6 +1,7 @@
 ////////////////////////////////////////
 //basic primitives
 var UI=require("gui2d/ui").UI;
+W={};
 
 UI.DestroyWindow=function(attrs){
 	UI.CallIfAvailable(attrs,"OnDestroy",attrs);
@@ -10,7 +11,7 @@ UI.DestroyWindow=function(attrs){
 	UI.SDL_DestroyWindow(attrs.$.hwnd)
 };
 
-Window=function(id,attrs){
+W.Window=function(id,attrs){
 	var state=UI.GetState(id,attrs);
 	//the dpi is not per-inch,
 	if(!UI.pixels_per_unit){
@@ -38,19 +39,19 @@ Window=function(id,attrs){
 	return attrs;
 }
 
-FillRect=function(id,attrs){
+W.FillRect=function(id,attrs){
 	UI.StdAnchoring(id,attrs);
 	UI.DrawBitmap(0,attrs.x,attrs.y,attrs.w,attrs.h,attrs.color);
 	return attrs;
 }
 
-Bitmap=function(id,attrs){
+W.Bitmap=function(id,attrs){
 	UI.StdAnchoring(id,attrs);
 	UI.DrawBitmap(UI.rc[attrs.file]||0,attrs.x,attrs.y,attrs.w||0,attrs.h||0,attrs.color||0xffffffff);
 	return attrs;
 }
 
-Text=function(id,attrs){
+W.Text=function(id,attrs){
 	if(!attrs.__layout){UI.LayoutText(attrs);}
 	attrs.w=(attrs.w||attrs.w_text);
 	attrs.h=(attrs.h||attrs.h_text);
@@ -59,7 +60,8 @@ Text=function(id,attrs){
 	return attrs
 }
 
-RoundRect=function(id,attrs){
+W.RoundRect=function(id,attrs){
+	UI.StdAnchoring(id,attrs);
 	UI.RoundRect(attrs)
 }
 
@@ -72,14 +74,14 @@ if(attrs.w)
 
 ////////////////////////////////////////
 //user input
-Hotkey=function(id,attrs){
+W.Hotkey=function(id,attrs){
 	if(!attrs.action){return;}
 	UI.HackCallback(attrs.action);
 	UI.context_hotkeys.push(attrs);
 	return attrs;
 }
 
-Region=function(id,attrs){
+W.Region=function(id,attrs){
 	//state is needed to track OnClick and stuff, *even if we don't store any var*
 	var state=UI.GetState(id,attrs);
 	UI.StdAnchoring(id,attrs);
@@ -89,7 +91,7 @@ Region=function(id,attrs){
 
 ////////////////////////////////////////
 //widgets
-Button=function(id,attrs){
+W.Button=function(id,attrs){
 	//////////////////
 	//styling
 	var state=UI.GetState(id,attrs);
@@ -117,8 +119,8 @@ Button=function(id,attrs){
 	//rendering
 	UI.RoundRect(attrs);
 	var x=attrs.x+padding;
-	UI.DrawBitmap(bmpid,x,attrs.y+(attrs.h-attrs.h_bmp)*0.5,attrs.w_bmp,attrs.h_bmp,attrs.icon_color||0xffffffff);
+	if(bmpid)UI.DrawBitmap(bmpid,x,attrs.y+(attrs.h-attrs.h_bmp)*0.5,attrs.w_bmp,attrs.h_bmp,attrs.icon_color||0xffffffff);
 	x+=attrs.w_bmp;
 	UI.DrawTextControl(attrs,x,attrs.y+(attrs.h-attrs.h_text)*0.5,attrs.text_color||0xffffffff)
-	return Region(id,attrs);
+	return W.Region(id,attrs);
 }

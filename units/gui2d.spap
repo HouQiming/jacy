@@ -1,7 +1,6 @@
 //sharpening filter for font -- just downsample it differently... would it even work?
 /*
 todo:
-	bad point at 'OK', and it's not the text
 	SDL_SetWindowGrab
 	could have a SDL renderer fallback for legacy windows / tinycore
 		SDL sw is deadly slow - not worth using
