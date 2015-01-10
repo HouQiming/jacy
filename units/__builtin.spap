@@ -247,10 +247,12 @@ class Array(T)
 	auto __done__()
 		//coulddo: de-templatify
 		//dtor 1 is empty
-		if NEED_RC:
-			__MassRelease(0L,n)
 		if d:
 			if destructor_nbound_or_slice_reference&1:
+				if IS_CLASS://todo: NEED_RC
+					for(i=0;i<n;i++)
+						tmp=this[i]
+						__explicit_rc(tmp,-1)
 				//slice
 				src=__cast(Array(T),destructor_nbound_or_slice_reference-1L)
 				src.destructor_nbound_or_slice_reference-=MAX_DTOR_TYPES*2;
@@ -258,6 +260,8 @@ class Array(T)
 				//safety precaution
 				destructor_nbound_or_slice_reference=0L
 			else
+				if NEED_RC:
+					__MassRelease(0L,n)
 				dtor_id=(int(destructor_nbound_or_slice_reference>>1)&(MAX_DTOR_TYPES-1))
 				if dtor_id==0:
 					__basic_api.free(__pointer(d))

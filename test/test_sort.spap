@@ -1,0 +1,25 @@
+//import "system.spap"
+import System.Console.*
+import System.Algorithm.*
+
+//struct int2
+//	x=0
+//	y=0
+//	inline __init__(int v_x,int v_y)
+//		x=v_x
+//		y=v_y
+
+test=function(int n){
+	dat=new int2[n]
+	for i=0:n-1
+		dat[i]=int2(RandomIptr(n),RandomIptr(n))
+	Writeln('=================================')
+	Writeln(dat)
+	dat.Sort()
+	Writeln(dat)
+};
+
+(function(){
+	for n=10:3:40
+		test(n)
+})()

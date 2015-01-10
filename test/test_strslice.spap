@@ -1,0 +1,10 @@
+import System.Console.*
+
+(function(){
+	args=["abc","def","ghi"]
+	(function(){
+		run_args=args[1:]
+		Writeln(args,' ',run_args)
+	})()
+	Writeln(args)
+})()

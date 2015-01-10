@@ -683,7 +683,7 @@ auto coreInit()
 				setnop(pecall)
 				return TSCCPValue(){'tid':g_vtid_UNINIT}
 		//actual expanding
-		fn=readPoolTyped(pobjfn,TFunction)
+		//fn=readPoolTyped(pobjfn,TFunction)
 		pf_owner=getOwningFunction(pecall)
 		assert(!!pf_owner)
 		var_map=new PCTObject[PCTObject]
@@ -691,7 +691,7 @@ auto coreInit()
 		pe_func=readPool(pecall+EXPR_OFS_FUNCTION)
 		pe_this=0
 		pe_store_this=0
-		pe_expanded=cloneExprEx(fn.code,var_map,CLONE_WIPE_TO_UNREACHED|CLONE_VARS|CLONE_KEEP_VAR_IDS)
+		pe_expanded=cloneExprEx(readPool(pobjfn+FUNCTION_OFS_CODE),var_map,CLONE_WIPE_TO_UNREACHED|CLONE_VARS|CLONE_KEEP_VAR_IDS)
 		/////////
 		//old epos plus function
 		epos_parent=0x80000000+makeAdvEpos(0x80000000+readPool(pecall+1),pobjfn)
@@ -718,7 +718,7 @@ auto coreInit()
 				writePool(pv_this+1,getExprType(pe_this))
 				pe_store_this=call(g_id_store,exprvar(pv_this),pe_this)
 				writePool(pv_this+VAR_OFS_DEFINING_STORE,pe_store_this)
-			pf_class=getOwningFunction(readPool(fn.pe_decl+EXPR_OFS_CALLER))
+			pf_class=getOwningFunction(readPool(readPool(pobjfn+FUNCTION_OFS_PEDECL)+EXPR_OFS_CALLER))
 			//var_map[pf_class]=~pv_this
 			freplace_class_members=function(PExpression pe){
 				if isExpr(pe,EFLAG_VARIABLE):
@@ -755,7 +755,7 @@ auto coreInit()
 			}
 			if pf_class&&tisclass(pf_class):
 				dfsExpr(pe_expanded,freplace_class_members)
-		pvar_return=var_map[fn.pvar_return]
+		pvar_return=var_map[readPool(pobjfn+FUNCTION_OFS_PVAR_RETURN)]
 		n_args_call=(readPool(pecall)&~EFLAG_MASK)
 		prototype_mismatch=0
 		//the scoping is fine for inline calls: the inline function itself has to be defined at some ancestor of the current scope
@@ -1342,8 +1342,7 @@ auto coreInit()
 	g_cbobj_generated_function_oncgen=registerCompilerCallback(fgenerated_function_oncgen)
 	ffunction_onreach=function(PExpression pecall,int expr_oplevel){
 		//we reach all the types automatically, but nothing else
-		er=readPoolTyped(pecall,TExpression)
-		n_args=(er.flags_n_args&~EFLAG_MASK)
+		n_args=getFCallNArgs(pecall)
 		for i=1:2:n_args-3
 			petype=readPool(pecall+(EXPR_OFS_ARGS)+i)
 			sccpQueueReach(petype)
@@ -1360,8 +1359,8 @@ auto coreInit()
 		//	Writeln(dumpCode(pecall,fcolor_reach_eval))
 		assert(val_existing.tid==g_vtid_CTVAL)
 		pf=val_existing.val
-		fn=readPoolTyped(pf,TFunction)
-		if !fn.obj_oneval:
+		if !readPool(pf+FUNCTION_OFS_ONEVAL):
+			fn=readPoolTyped(pf,TFunction)
 			ccnv=getCcnv(pf)
 			//if ccnv==CCNV_META:
 			//	//a must-evaluate function
@@ -1600,13 +1599,16 @@ auto coreInit()
 			g_code_buffer=sbk
 			if !is_type_only&&!tisstruct(pobjfn):
 				genClassName(pobjfn)
-				g_code_buffer.push('* s7_BL=(')
-				genClassName(pobjfn)
-				g_code_buffer.push('*)memset(malloc(sizeof(')
-				genClassName(pobjfn)
-				g_code_buffer.push(')),0,sizeof(')
-				genClassName(pobjfn)
-				g_code_buffer.push('));')
+				if pobjfn==g_t_root_namespace:
+					g_code_buffer.push('* s7_BL=&s7_BR;')
+				else
+					g_code_buffer.push('* s7_BL=(')
+					genClassName(pobjfn)
+					g_code_buffer.push('*)memset(malloc(sizeof(')
+					genClassName(pobjfn)
+					g_code_buffer.push(')),0,sizeof(')
+					genClassName(pobjfn)
+					g_code_buffer.push('));')
 		if is_type_only:
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
 		sbak=g_code_buffer
@@ -1628,9 +1630,9 @@ auto coreInit()
 			sbk=g_code_buffer
 			g_code_buffer=g_forward_buffer
 			genClassName(pobjfn)
-			g_code_buffer.push('* s7_BR=NULL;')
+			g_code_buffer.push(' s7_BR={2};')
 			g_code_buffer=sbk
-			g_code_buffer.push('s7_BR=s7_BL;')
+			//g_code_buffer.push('s7_BR=s7_BL;')
 		id_return_label=getReturnLabel(pobjfn)
 		bk_label=g_current_labels[id_return_label]
 		g_current_labels[id_return_label]=pecall
@@ -1802,8 +1804,7 @@ auto coreInit()
 		if val_existing.tid==g_vtid_CTVAL||val_existing.tid==g_vtid_RTVAR:
 			//prevent duplicate evaluation
 			return val_existing
-		er=readPoolTyped(pecall,TExpression)
-		n_args=(er.flags_n_args&~EFLAG_MASK)
+		n_args=getFCallNArgs(pecall)
 		if n_args<3:
 			errorAtExpr(ETYPE_ERROR,pecall,"__c_function(type,'function','header.h' [,'json-key','json-file', ...]) has to take at least 3 parameters")
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -1817,8 +1818,7 @@ auto coreInit()
 	registerPrimitive(g_id_c_function,__zero(fcompiler_callback),fcimport_oneval,fdummy_callback,FFLAG_SPECIAL)
 	////////////
 	fstore_onreach=function(PExpression pecall,int expr_oplevel){
-		er=readPoolTyped(pecall,TExpression)
-		n_args=(er.flags_n_args&~EFLAG_MASK)
+		n_args=getFCallNArgs(pecall)
 		if n_args!=2&&n_args!=3:
 			errorAtExpr(ETYPE_ERROR,pecall,"__store(variable,expr) can only take 2 parameters")
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -1837,8 +1837,7 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	fstore_oneval=function(PExpression pecall,int expr_oplevel){
-		er=readPoolTyped(pecall,TExpression)
-		n_args=(er.flags_n_args&~EFLAG_MASK)
+		n_args=getFCallNArgs(pecall)
 		assert(n_args==2||n_args==3)
 		pevarname=readPool(pecall+(EXPR_OFS_ARGS))
 		if (readPool(pevarname)&EFLAG_MASK)!=EFLAG_VARIABLE:
@@ -1848,8 +1847,7 @@ auto coreInit()
 		return fstore_eval_core(pecall,pobj_var,pe_value,1)
 	}
 	fstore_oncgen=function(PExpression pecall,int expr_oplevel){
-		er=readPoolTyped(pecall,TExpression)
-		n_args=(er.flags_n_args&~EFLAG_MASK)
+		n_args=getFCallNArgs(pecall)
 		assert(n_args==2||n_args==3)
 		pe_var=readPool(pecall+EXPR_OFS_ARGS+0)
 		peexpr=readPool(pecall+EXPR_OFS_ARGS+1)
@@ -1941,15 +1939,10 @@ auto coreInit()
 	registerPrimitive(g_id_cast,__zero(fcompiler_callback),fcast_oneval,fcast_oncgen,FFLAG_SPECIAL)
 	////////////
 	fblock_oneval=function(PExpression pecall,int expr_oplevel){
-		//er=readPoolTyped(pecall,TExpression)
-		//n_args=(er.flags_n_args&~EFLAG_MASK)
-		//if n_args<1:return TSCCPValue(){'tid':g_vtid_UNINIT}
-		//return getExprValue(readPool(pecall+EXPR_OFS_ARGS+n_args-1))
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	fblock_oncgen=function(PExpression pecall,int expr_oplevel){
-		er=readPoolTyped(pecall,TExpression)
-		n_args=(er.flags_n_args&~EFLAG_MASK)
+		n_args=getFCallNArgs(pecall)
 		if expr_oplevel>0:
 			assert(0)
 		else
@@ -2126,8 +2119,7 @@ auto coreInit()
 	registerPrimitive(g_id_if,fif_onreach,fif_oneval,fif_oncgen,FFLAG_SPECIAL|FFLAG_STATEMENT_HOST)
 	////////////
 	fassert_ctval_oneval=function(PExpression pecall,int expr_oplevel){
-		er=readPoolTyped(pecall,TExpression)
-		n_args=(er.flags_n_args&~EFLAG_MASK)
+		n_args=getFCallNArgs(pecall)
 		if n_args<2:return TSCCPValue(){'tid':g_vtid_UNINIT}
 		pearg0=readPool(pecall+EXPR_OFS_ARGS+0)
 		id_error=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+1),g_vtid_STR)
@@ -2139,8 +2131,7 @@ auto coreInit()
 	registerPrimitive(g_id_assert_ctval,__zero(fcompiler_callback),fassert_ctval_oneval,__zero(fcompiler_callback),FFLAG_SPECIAL)
 	////////////
 	fldparam_oneval=function(PExpression pecall,int expr_oplevel){
-		er=readPoolTyped(pecall,TExpression)
-		n_args=(er.flags_n_args&~EFLAG_MASK)
+		n_args=getFCallNArgs(pecall)
 		assert(n_args==3)
 		//serial id, type, name
 		pobjfn=getOwningFunction(pecall)
@@ -2249,7 +2240,7 @@ auto coreInit()
 		n_levels=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+0),g_vtid_CNS)
 		if n_levels==0x80000000:
 			//root
-			g_code_buffer.push('s7_BR')
+			g_code_buffer.push('(&s7_BR)')
 		else
 			assert(n_levels>=0)
 			if !n_levels:
@@ -3212,8 +3203,7 @@ auto coreInit()
 	//////////////////////////////////////
 	//symbolic derivatives
 	fderiv_onreach=function(PExpression pecall,int expr_oplevel){
-		er=readPoolTyped(pecall,TExpression)
-		n_args=(er.flags_n_args&~EFLAG_MASK)
+		n_args=getFCallNArgs(pecall)
 		if n_args<2:
 			errorAtExpr(ETYPE_ERROR,pecall,"symbolicDerivative(function,'var',...) needs at least 2 parameters")
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -3987,8 +3977,7 @@ auto coreInit()
 	//////////////////////////////////////
 	//quadratic decomposition
 	fANMdecompose_onreach=function(PExpression pecall,int expr_oplevel){
-		er=readPoolTyped(pecall,TExpression)
-		n_args=(er.flags_n_args&~EFLAG_MASK)
+		n_args=getFCallNArgs(pecall)
 		if n_args<2:
 			errorAtExpr(ETYPE_ERROR,pecall,"__ANM_decompose(function,'var',...) needs at least 2 parameters")
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -3997,8 +3986,7 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	fANMdecompose_oneval=function(PExpression pecall,int is_cdf_pass){
-		er=readPoolTyped(pecall,TExpression)
-		n_args=(er.flags_n_args&~EFLAG_MASK)
+		n_args=getFCallNArgs(pecall)
 		if n_args<2:
 			errorAtExpr(ETYPE_ERROR,pecall,"__ANM_decompose(function,'var',...) needs at least 2 parameters")
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -5746,7 +5734,8 @@ auto queueEvalFunction(PCTObject pobjfn)
 			pecaller=readPool(peuser+EXPR_OFS_CALLER)
 			if pecaller:
 				sccpQueueEval(pecaller)
-	peuser=readPoolTyped(pobjfn,TFunction).pe_decl
+	//peuser=readPoolTyped(pobjfn,TFunction).pe_decl
+	peuser=readPool(pobjfn+FUNCTION_OFS_PEDECL)
 	//Writeln('>> ',dumpExpr(peuser,__zero(fcolorer_callback)))
 	pecaller=readPool(peuser+EXPR_OFS_CALLER)
 	if pecaller:
@@ -8264,27 +8253,21 @@ auto isSpecial(PExpression pe)
 	assert((readPool(pe)&EFLAG_MASK)==EFLAG_FCALL)
 	pobjfn=getExprFunction(pe)
 	if pobjfn:
-		fn=readPoolTyped(pobjfn,TFunction)
-		//ccnv=getCcnv(fn)
-		return (fn.flags&FFLAG_SPECIAL)
+		return (getFFlag(pobjfn)&FFLAG_SPECIAL)
 	return 0
 
 auto isStatementHost(PExpression pe)
 	assert((readPool(pe)&EFLAG_MASK)==EFLAG_FCALL)
 	pobjfn=getExprFunction(pe)
 	if pobjfn:
-		fn=readPoolTyped(pobjfn,TFunction)
-		//ccnv=getCcnv(fn)
-		return (fn.flags&FFLAG_STATEMENT_HOST)
+		return (getFFlag(pobjfn)&FFLAG_STATEMENT_HOST)
 	return 0
 
 auto isArithmetic(PExpression pe)
 	assert((readPool(pe)&EFLAG_MASK)==EFLAG_FCALL)
 	pobjfn=getExprFunction(pe)
 	if pobjfn:
-		fn=readPoolTyped(pobjfn,TFunction)
-		//ccnv=getCcnv(fn)
-		return (fn.flags&FFLAG_ARITHMETIC)
+		return (getFFlag(pobjfn)&FFLAG_ARITHMETIC)
 	return 0
 
 auto getNumberOfArguments(PCTObject pobjfn)
@@ -8304,8 +8287,8 @@ auto getReturnType(PCTObject pobjfn)
 	return getVariableType(pobj_var)
 
 auto getStoreTarget(PExpression pe)
-	er=readPoolTyped(pe,TExpression)
-	if er.flags_n_args!=2+EFLAG_FCALL&&er.flags_n_args!=3+EFLAG_FCALL:return 0
+	n_args=getFCallNArgs(pe)
+	if n_args!=2&&n_args!=3:return 0
 	pevarname=readPool(pe+(EXPR_OFS_ARGS))
 	if (readPool(pevarname)&EFLAG_MASK)!=EFLAG_VARIABLE:
 		return 0
@@ -8313,12 +8296,13 @@ auto getStoreTarget(PExpression pe)
 	return getVariable(pevarname)
 
 auto setFunctionUsed(PCTObject pobjfn)
-	fn=readPoolTyped(pobjfn,TFunction)
+	//fn=readPoolTyped(pobjfn,TFunction)
+	code=readPool(pobjfn+FUNCTION_OFS_CODE)
 	//reach the value and set up a scope
 	//if getExprValue(fn.code).tid==g_vtid_UNREACHED:
 	//pe_decl=fn.pe_decl
-	if !testUserFlag(fn.code,QUEUE_FLAG_REACH)
-		sccpQueueReach(fn.code)
+	if !testUserFlag(code,QUEUE_FLAG_REACH)
+		sccpQueueReach(code)
 		return 1
 	return 0
 
@@ -8363,8 +8347,9 @@ auto enableNameLookup(PCTObject pobjfn)
 	writePool(pobjfn+FUNCTION_OFS_NMEMBER_LIST,int(all_ids.n))
 	setFFlag(pobjfn,FFLAG_NAME_LOOKUP_READY)
 
-tm_lookup=tnew("lookupFunctionVariable")
-tm_evalcb=tnew("eval_callbacks")
+//tm_lookup=tnew("lookupFunctionVariable")
+if Platform.BUILD=="debug":
+	tm_evalcb=tnew("eval_callbacks")
 tm_strflatten=tnew("strflatten")
 auto lookupFunctionVariable(PCTObject pobjfn,int id)
 	//tbegin(tm_lookup)
@@ -10655,12 +10640,12 @@ auto genRefcnt()
 	//function begin/end
 	foreach pobjfn in g_all_functions
 		if getFFlag(pobjfn)&FFLAG_LAMBDA_NEEDS_CONTEXT:
-			fn=readPoolTyped(pobjfn,TFunction)
+			//fn=readPoolTyped(pobjfn,TFunction)
 			if isFunctionClassOrStruct(pobjfn):
 				//don't need to do that for classes
 				//pobj_var=lookupFunctionVariable(pobjfn,g_id_this)
 				continue
-			pe_fbody=fn.code
+			pe_fbody=readPool(pobjfn+FUNCTION_OFS_CODE)
 			pe_fhead=pe_fbody
 			while isBuiltin(pe_fhead,g_id_block):
 				pe_fhead=readPool(pe_fhead+EXPR_OFS_ARGS+0)
@@ -11062,15 +11047,16 @@ auto genCommentName(int id)
 	genFilteredName(id)
 	
 auto genFunctionName(PCTObject pobjfn)
-	fn=readPoolTyped(pobjfn,TFunction)
-	if fn.flags&FFLAG_EXPORTED:
-		genFilteredName(fn.id_name)
+	//fn=readPoolTyped(pobjfn,TFunction)
+	id_name=readPool(pobjfn+FUNCTION_OFS_NAME)
+	if getFFlag(pobjfn)&FFLAG_EXPORTED:
+		genFilteredName(id_name)
 	else
 		g_code_buffer.push("s7_f")
 		g_code_buffer.push(toBase32(pobjfn))
-		if fn.id_name&&g_readable_c_code:
+		if id_name&&g_readable_c_code:
 			g_code_buffer.push('_')
-			genCommentName(fn.id_name)
+			genCommentName(id_name)
 
 auto genVar(PCTObject pobj_var)
 	g_code_buffer.push('s7_v')

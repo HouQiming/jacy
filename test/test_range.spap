@@ -1,0 +1,9 @@
+//import "system.spap"
+import System.Console.*
+
+(function(){
+	a=int[17]
+	for i in range(17)
+		a[i]=i*7%17
+	Writeln(a)
+})()

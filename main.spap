@@ -1,4 +1,3 @@
-//qpad: pm_target="win64"
 import "System.spap"
 import "parser.spap"
 import "astcore.spap"
