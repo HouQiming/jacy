@@ -82,6 +82,12 @@ VC.Link=function(fnlist,soutput){
 	if(subsystem=="dll"){
 		sopt1=sopt1+" /DLL";
 	}
+	if(g_json.ldflags){
+		for(var i=0;i<g_json.ldflags.length;i++){
+			var smain=g_json.ldflags[i]
+			sopt1=sopt1+(" "+smain);
+		}
+	}
 	var scmd='@echo off\ncall "'+sbatname+'"\nlink /DEBUG /OUT:"'+soutput+'" /NOLOGO /OPT:REF /OPT:ICF /DYNAMICBASE /NXCOMPAT /ERRORREPORT:PROMPT /LARGEADDRESSAWARE '+sopt1+' '+fnlist;
 	var scallcl=g_work_dir+"/calllink.bat";
 	if(!CreateFile(scallcl,scmd)){

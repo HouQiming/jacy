@@ -408,12 +408,13 @@ g_renderer=(class(){
 	auto PackStaticBitmaps()
 		//coulddo: cache precomputed per-DPI textures
 		/////////
-		bmp_tex=TBitmap()//todo
-		(bmp_tex,m_static_packings)=packTextures(m_static_textures,m_texture_width,0)
-		m_texture_width=max(m_texture_width,bmp_tex.w)
+		//bmp_tex=TBitmap()
+		//(bmp_tex,m_static_packings)=packTextures(m_static_textures,m_texture_width,0)
+		(m_static_packed_bmp,m_static_packings)=packTextures(m_static_textures,m_texture_width,0)
+		m_texture_width=max(m_texture_width,m_static_packed_bmp.w)
 		m_uv16_scale=32768/m_texture_width
 		m_static_textures=NULL
-		m_static_packed_bmp=bmp_tex
+		//m_static_packed_bmp=bmp_tex
 		//SavePNG("$static.png",bmp_tex.rgba,bmp_tex.w,bmp_tex.h)
 	//////////////
 	m_tick0=0LL
@@ -434,10 +435,7 @@ g_renderer=(class(){
 		//pack m_dynamic_textures and apply the dynamic drawcalls
 		if m_StretchDIBits_calls.n:
 			tick0=System.Time.tick64()//todo
-			bmp=TBitmap()
-			//todo: directly assigning to m_dynamic_packed_bmp leads to variable mis-attribution!
-			(bmp,m_dynamic_packings)=packTextures(m_dynamic_textures,m_texture_width,1)
-			m_dynamic_packed_bmp=bmp
+			(m_dynamic_packed_bmp,m_dynamic_packings)=packTextures(m_dynamic_textures,m_texture_width,1)
 			//SavePNG("$dynamic.png",m_dynamic_packed_bmp.rgba,m_dynamic_packed_bmp.w,m_dynamic_packed_bmp.h)
 			foreach scall in m_StretchDIBits_calls
 				packed=m_dynamic_packings[scall.bmpid]
@@ -996,7 +994,7 @@ g_renderer=(class(){
 					for x=-1:ri
 						a=0.f
 						for aa_y=0:15
-							y2=System.Math.sqr(float(max(y*16+aa_y,0L)))
+							y2=System.Math.sqr(float(max(y*16+aa_y,0)))
 							x2_max=r2-y2
 							if !(x2_max>0.f):continue
 							x_max=System.Math.sqrt(x2_max)
