@@ -12,7 +12,7 @@ import Parser.*
 c_system=__c_function(int,"system","stdlib.h")
 exit=__c_function(int,"exit","stdlib.h")
 
-if Platform.ARCH=="win64":
+if Platform.ARCH=="win32"||Platform.ARCH=="win64":
 	__generate_json("ldflags","/STACK:67108864")
 
 auto dumpAllErrors()
@@ -151,10 +151,14 @@ auto main()
 	foreach s,I in args[1:]
 		if s.StartsWith("--arch="):
 			s_arch=new(s[7:])
-			if s_arch.EndsWith("64"):
+			if s_arch.EndsWith("32"):
+				g_bit_size=32
+			else if s_arch.EndsWith("64"):
 				g_bit_size=64
 		else if s.StartsWith("--build="):
 			s_mode=new(s[8:])
+		else if s.StartsWith("--32"):
+			g_bit_size=32
 		else if s.StartsWith("--64"):
 			g_bit_size=64
 		else if s.StartsWith("--readable_c_code"):
@@ -206,9 +210,10 @@ auto main()
 				g_enable_timing=1
 				run_after_build=!g_enable_dump
 				files.push(new(s))
-				Writeln('[debug] building: ',files[0])
+				Writeln('[debug] building: ',files[0],' for ',s_arch,'_',s_mode)
 		else
 			System.IO.CreateFile("$saved_fname.txt").Write(files[0])
+			Writeln('[debug] building: ',files[0],' for ',s_arch,'_',s_mode)
 	tbegin(tm_all)
 	coreInit()
 	registerConst(getid("__env_arch"),g_vtid_STR,getid(s_arch))

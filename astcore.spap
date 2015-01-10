@@ -8709,11 +8709,13 @@ auto castConst(TConstValue ca,PCTObject t_result)
 	canorm=ca
 	n_bits=((ca.type&~CTYPE_MASK)+1)*8
 	if ((ca.type&CTYPE_MASK)==CTYPE_INT):
-		mask=(i64(1)<<n_bits)-1
-		canorm.val_bin=(ca.val_bin&mask)|-(ca.val_bin&(i64(1)<<(n_bits-1)))
+		if n_bits<64:
+			mask=(i64(1)<<n_bits)-1
+			canorm.val_bin=(ca.val_bin&mask)|-(ca.val_bin&(i64(1)<<(n_bits-1)))
 	else if ((ca.type&CTYPE_MASK)==CTYPE_UINT):
-		mask=(i64(1)<<(((ca.type&~CTYPE_MASK)+1)*8))-1
-		canorm.val_bin=(ca.val_bin&mask)
+		if n_bits<64:
+			mask=(i64(1)<<n_bits)-1
+			canorm.val_bin=(ca.val_bin&mask)
 	if ((ct_result&CTYPE_MASK)!=CTYPE_FLOAT)&&((ca.type&CTYPE_MASK)!=CTYPE_FLOAT):
 		canorm.type=ct_result
 		return canorm
@@ -10924,7 +10926,7 @@ auto genConst(int cid)
 				g_code_buffer.push('short ')
 			g_code_buffer.push(')')
 		if ((cns.type&CTYPE_MASK)==CTYPE_INT)||cns.type==CTYPE_POINTER:
-			if n_bits==64:
+			if n_bits>=64:
 				mask=-1LL
 				mask_sgn=0LL
 			else
@@ -10935,7 +10937,7 @@ auto genConst(int cid)
 				g_code_buffer.push(' ')
 			g_code_buffer.push(sval)
 		else if ((cns.type&CTYPE_MASK)==CTYPE_UINT):
-			if n_bits==64:
+			if n_bits>=64:
 				mask=-1LL
 			else
 				mask=(i64(1)<<n_bits)-1
