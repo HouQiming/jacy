@@ -372,9 +372,10 @@ auto getCcnv(PCTObject pobjfn)
 	pe_decl=readPool(pobjfn+FUNCTION_OFS_PEDECL)
 	return getExprValueAs(readPool(pe_decl+(EXPR_OFS_ARGS)+0),g_vtid_STR)
 
-tm_insertCallAt=tnew("insertCallAt")
+//tm_insertCallAt=tnew("insertCallAt")
 auto insertCallAt(PExpression pecall,PExpression pesrc,function(PExpression):PExpression fmakecall)
-	tbegin(tm_insertCallAt)
+	//coulddo: more efficient arg searching
+	//tbegin(tm_insertCallAt)
 	nargs_caller=readPool(pecall)
 	assert((nargs_caller&EFLAG_MASK)==EFLAG_FCALL)
 	nargs_caller&=~EFLAG_MASK
@@ -388,7 +389,7 @@ auto insertCallAt(PExpression pecall,PExpression pesrc,function(PExpression):PEx
 				break
 		if arg_id<-1:
 			assert(0)
-			tend(tm_insertCallAt)
+			//tend(tm_insertCallAt)
 			return 0
 	assert(u32(arg_id)<u32(nargs_caller)||arg_id==-1)
 	peold=readPool(pecall+EXPR_OFS_ARGS+arg_id)
@@ -402,7 +403,7 @@ auto insertCallAt(PExpression pecall,PExpression pesrc,function(PExpression):PEx
 	//writePool(penew+2,epos1)
 	//Writeln(penew,' ',arg_id)
 	writePool(pecall+EXPR_OFS_ARGS+arg_id,penew)
-	tend(tm_insertCallAt)
+	//tend(tm_insertCallAt)
 	return penew
 	
 CLONE_WIPE_TO_UNREACHED=1

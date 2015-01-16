@@ -357,7 +357,6 @@ auto transformCodeEx(PExpression pesrc, ftransformer_callback ftransformer, PExp
 	if queue_reach:
 		sccpQueueReach(pe_real_replacement)
 	/////
-	//todo: more efficient arg searching
 	pe_fnblock=exprvar(g_symbols[g_id_block].user_slot)
 	pe_new_block=poolCode(TExpression(){'flags_n_args':EFLAG_FCALL})
 	g_ctobject_pool.push(pe_fnblock)
@@ -8624,8 +8623,14 @@ auto typeMerge(PExpression pe,PCTObject t_old,PCTObject t_new,PExpression pe_old
 				return getBuiltinType(max(ct_old,ct_new))
 			if (ct_old&CTYPE_MASK)==CTYPE_FLOAT||(ct_new&CTYPE_MASK)==CTYPE_FLOAT:
 				return getBuiltinType(max(ct_old&~CTYPE_MASK,ct_new&~CTYPE_MASK)+CTYPE_FLOAT)
-			//todo: report invalid type promotion
 			return 0
+	else
+		if tisbuiltin(t_old)&&tisbuiltin(t_new):
+			ct_old=readPool(t_old+1)
+			ct_new=readPool(t_new+1)
+			if (ct_old==const_type(CTYPE_INT,32)||ct_old==const_type(CTYPE_INT,64))&&(ct_new==const_type(CTYPE_INT,32)||ct_new==const_type(CTYPE_INT,64)):
+				//promote i32 to i64
+				return getBuiltinType(max(ct_old,ct_new))
 	if pe_old<0:
 		//it's different assignments of a same variable
 		pobj_var=(pe_old&0x7fffffff)

@@ -2,6 +2,8 @@
 /*
 todo:
 	SDL_SetWindowGrab
+	use the font renderer for monochrome svg icons
+		use stbtt__rasterize instead for cubic curves
 	could have a SDL renderer fallback for legacy windows / tinycore
 		SDL sw is deadly slow - not worth using
 		better write up one myself if we ever need it

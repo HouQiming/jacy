@@ -1,0 +1,322 @@
+/*
+todo:
+	basic interface
+		MassEdit
+		handle-based locator system
+		locator-aware undo history
+			no-longer-used locators and stuff...
+			ignore them
+				which needs unique locator ids
+				or erase history when deleting locators
+				or just mark it in the undo history
+		Render
+			spatial query
+		GetText
+			text query
+	paragraph-based structure
+		bland array indexing
+		O(n/C+C) edit + O(log(n)+C) seek
+*/
+import Gui2D.*
+import Javascript.*
+import System.Algorithm.*
+
+struct TMouseMap
+	double2 pos
+	i64 ccnt
+
+struct TRenderingInfo
+	double2 bb
+	TPositionedText[] pt
+	TMouseMap[] mm
+
+auto SearchMouseMap(TMouseMap[] mm,double x,double y0)
+	y=y0
+	p=0L
+	for iiter=0:1
+		p=mm.Bisect(function(TMouseMap a){return a.pos.y<y||a.pos.y==y&&a.pos.x<x})
+		if y!=mm[p].pos.y:
+			y=mm[p].pos.y
+		else
+			break
+	return p
+
+///////////////////////////////
+//double should be as-ed
+class ITextStateHandler
+	function():int stateSize
+	function():int isParagraphOnly
+	//The "add" function must be associative
+	//The result should be written to "a"
+	//if AddBlock returns anything... it's considered as a per-block cache
+	function(i64[] a,string s):i64[] AddBlock
+	function(i64[] a,i64[] b) Add
+	//For coloring states, we need a colorer
+	function(i64[] a,string s):u8[] ComputeCharColorID
+	//For rendering states, we need a layouter
+	function(i64[] a,i64[] pp,string s):TRenderingInfo RenderText
+	//function(string s):i64[] PreprocessBlock
+	//For seeking states, we need comparison and in-block seeking
+	function(i64[] a,i64[] b):int Compare
+	function(i64[] a,i64[] pp,string s,i64[] b):iptr SeekInBlock
+
+class CSeeker_ccnt
+	stateSize=function(){return 1;};
+	AddBlock=function(i64[] a,string s){
+		a[0]+=i64(s.n);
+		return i64[].NULL
+	};
+	Add=function(i64[] a,i64[] b){
+		a[0]+=b[0];
+	};
+	///////////////////////
+	Compare=function(i64[] a,i64[] b):int{
+		return __C_compare(a[0],b[0])
+	};
+	SeekInBlock=function(i64[] a,string s,i64[] b):iptr{
+		return iptr(b[0]-a[0]);
+	};
+
+auto combineBB(double2 bb0,double2 bb1)
+	bb=bb0
+	if bb1.y:
+		bb.x=0.
+		bb.y+=bb1.y
+	else
+		bb.x+=bb1.x
+	return bb
+
+inline Utf8Chars(string s)
+	return {'forEach':inline(fbody){
+		ch0=0;nnxt=0;II=0L
+		foreach chc,I in s
+			ch=int(u8(chc))
+			if ch>=128:
+				if ch&0x40:
+					II=I
+					ch0=(ch&0x1f)
+					nnxt=1
+					if ch&0x20:
+						nnxt++
+						if ch&0x10:
+							nnxt++
+							ch0&=7
+				else
+					ch0=(ch0<<6)+(ch&63)
+					nnxt--
+				if nnxt:continue
+				ch=ch0
+			else
+				II=I
+			fbody(ch,II)
+	}}	
+
+class CLayouter_baseline
+	m_word_wrap=0
+	m_tab_width=8
+	TFont m_font
+	stateSize=function(){return 2}
+	isParagraphOnly=function(){return 1}
+	/////////////////
+	AddBlock=function(i64[] a,string s){
+		line_breaks=new i64[]
+		if m_word_wrap:
+			//todo: m_word_wrap
+		else
+			line_breaks.push(0LL)
+			line_breaks.push(i64(s.n))
+		rinfo=RenderText(a,line_breaks,s)
+		bb=combineBB(double2(__longlong_as_double(a[0]),__longlong_as_double(a[1])),rinfo.bb)
+		a[0]=__double_as_longlong(bb.x)
+		a[1]=__double_as_longlong(bb.y)
+		return line_breaks
+	}
+	Add=function(i64[] a,i64[] b){
+		bb=combineBB(double2(__longlong_as_double(a[0]),__longlong_as_double(a[1])),double2(__longlong_as_double(b[0]),__longlong_as_double(b[1])))
+		a[0]=__double_as_longlong(bb.x)
+		a[1]=__double_as_longlong(bb.y)
+	}
+	/////////////////
+	//compare known-positive doubles as ints
+	Compare=function(i64[] a,i64[] b){
+		ret=__C_compare(a[1],b[1])
+		if ret==0:ret=__C_compare(a[0],b[0])
+		return ret
+	}
+	SeekInBlock=function(i64[] a,i64[] line_breaks,string s,i64[] b){
+		x=__longlong_as_double(b[0])
+		y=__longlong_as_double(b[1])-__longlong_as_double(a[1])
+		if y>0.0:
+			x-=__longlong_as_double(a[0])
+		hc=Gui2D.detail.g_renderer.GetCharacterHeight(fnt)
+		line_id=int(floor(y/hc))
+		if line_id<0:
+			return 0L
+		else if line_id>line_breaks.n-1:
+			return s.n
+		else
+			l0=line_breaks[line_id]
+			l1=line_breaks[line_id+1]
+			rinfo=RenderText(a,[0L,l1-l0],s[l0:l1-1])
+			x=__longlong_as_double(b[0])
+			y=__longlong_as_double(b[1])
+			return SearchMouseMap(rinfo.mm,x,y)
+	}
+	/////////////////
+	RenderText=function(i64[] a,i64[] line_breaks,string s):TRenderingInfo{
+		pt=new TPositionedText[]
+		mm=new TMouseMap[]
+		w_tab=double(m_tab_width)*double(Gui2D.detail.g_renderer.CacheGlyph(m_font,' ')[0].dx)
+		hc=Gui2D.detail.g_renderer.GetCharacterHeight(fnt)
+		x=__longlong_as_double(a[0])
+		y=__longlong_as_double(a[1])
+		for i=0:line_breaks.n-2
+			got_newline=0
+			for ch,I in Utf8Chars(s[line_breaks[i]:line_breaks[i+1]-1])
+				mm.push(TMouseMap(){pos:double2(x,y),ccnt:line_breaks[i]+I})
+				if ch=='\r'||ch=='\n':
+					//nothing
+					if ch=='\n':got_newline=1
+					continue
+				else if ch==' ':
+					x+=double(Gui2D.detail.g_renderer.CacheGlyph(m_font,ch)[0].dx)
+				else if ch=='\t':
+					x=(floor(x/w_tab)+1.0)*w_tab
+				else
+					(gc_I,delta_y)=Gui2D.detail.g_renderer.CacheGlyph(m_font,ch)
+					pt.push(TPositionedText(){pos:double2(x,y),ch:ch})
+					x+=gc_I.dx
+			if got_newline:
+				x=0.
+				y+=hc
+		return TRenderingInfo(){bb:double2(x,y),pt:pt,mm:mm}
+	}
+
+///////////////////////////////
+/*/
+hybrid line-size consistency
+	rendering breaks
+		LTR|RTL
+		\n|
+	block
+		design criteria
+			should be O(n/C)
+			should have a tight rendering BB
+		consistency
+			don't break UTF8 chars
+			block size must not exceed C+epsilon
+			if a block contains one rendering break
+				it must be the block tail
+			if a block contains more than one rendering breaks
+				the block head must also be one
+			\n and LTR|RTL are nested
+				the break consistencies should be satisfied separately
+					with \n taking priority
+				e.g. if the block contains more than one line breaks
+					the head must be one line break, not a LTR|RTL
+			if we have isParagraphOnly:
+				allow block size to exceed C
+				but still merge short lines
+/*/
+struct TEditop
+	string s
+	iptr ccnt
+	iptr sz
+
+class CLocator
+	iptr ccnt
+
+class CParagraph
+	string s
+	i64[] a
+
+class CEditableText
+	m_text=new CParagraph[]
+	m_locators=new CLocator[]
+	m_total_ccnt=0L
+	m_layout_valid_to=0L
+	////////////////////
+	m_handlers=new ITextStateHandler[]
+	!?
+	auto SeekCcnt(iptr ccnt0)
+		ccnt=ccnt0
+		pid=m_text.InlineBisect(inline(nd){return ccnt<nd.ccnt})
+		if pid<0:
+			pid=0
+			ccnt=0
+		else if pid>=m_text.n:
+			pid=m_text.n
+			ccnt=0
+		else
+			ccnt-=m_text[pid]
+		return (pid,ccnt)
+	auto MassEdit(TEditop[] ops)
+		if !ops.n:return
+		//the ops must not overlap
+		//this function assumes ops are sorted
+		ccnt_cur=ops[0].ccnt
+		(pid,ofs)=SeekCcnt(ccnt_cur)
+		sbuf=new string
+		pid_relayout=pid
+		nd_new=new(m_text[:pid_relayout-1])
+		auto addString(string s)
+			sbuf.push(s)
+			did=0
+			for(;;)
+				p=sbuf.IndexOf('\n')
+				if p<0L:break
+				nd_new.push(new CParagraph(){s:new(sbuf[:p])})
+				sbuf=sbuf[p+1:]
+				did=1
+			if did:sbuf=new(sbuf)
+		//remove the 1st paragraph
+		if ofs:
+			addString(bs[0:ofs-1])
+		dccnt=0L
+		foreach op in ops
+			deltap=op.s?op.s.n:-op.sz
+			delta=op.ccnt-ccnt_cur
+			assert(delta>=0)
+			//add the skipped chars
+			while pid<m_text.n&&delta>=m_text[pid].s.n-ofs:
+				if !delta:break
+				//add the block
+				if !ofs&&!sbuf.n:
+					nd_new.push(m_text[pid])
+				bs=m_text[pid].s
+				addString(bs[ofs:])
+				delta-=bs.n-ofs
+				//go next
+				pid++
+				ofs=0
+			if delta:
+				addString(m_text[pid].s[ofs:ofs+delta-1])
+			ofs+=delta
+			ccnt_cur=op.ccnt
+			//do the op
+			if op.s:
+				addString(op.s)
+			else
+				//deletion
+				ofs+=op.sz
+				ccnt_cur+=op.sz
+				while pid<m_text.n&&ofs>=m_text[pid].s.n:
+					ofs-=m_text[pid].s.n
+					pid++
+			dccnt+=deltap
+		if pid<m_text.n&&ofs<m_text[pid].s.n:
+			addString(m_text[pid].s[ofs:])
+		if sbuf.n:
+			assert(pid==m_text.n)
+			nd_new.push(new CParagraph(){s:sbuf})
+		if pid<m_text.n:
+			nd_new.push(m_text[pid_relayout+1:])
+		m_text=nd_new
+		if m_layout_valid_to>pid_relayout:
+			m_layout_valid_to=pid_relayout
+		!? //todo: state...
+	auto Render(double x,double y,double w,double h,auto drawText)
+		//x,y,w,h refer to the window
+		!? //todo: relayout, styling...
+	auto GetText(iptr ccnt,iptr sz)
+		!?
