@@ -1,5 +1,21 @@
 /*
 todo:
+	make ccnt built-in
+	CMetaParagraph balancing
+		should be easy
+		formulate as recursion
+			one node:
+				recurse into subtree
+				merge subtree results
+					handle too-small nodes here
+				returns list of new children
+					add a level if too large
+			still not balanced
+				keep editing the same place
+		use skiplist
+			random creation of upper levels
+	name-based state locating
+		JS interned strings
 	basic interface
 		MassEdit
 		handle-based locator system
@@ -59,23 +75,6 @@ class ITextStateHandler
 	//For seeking states, we need comparison and in-block seeking
 	function(i64[] a,i64[] b):int Compare
 	function(i64[] a,i64[] pp,string s,i64[] b):iptr SeekInBlock
-
-class CSeeker_ccnt
-	stateSize=function(){return 1;};
-	AddBlock=function(i64[] a,string s){
-		a[0]+=i64(s.n);
-		return i64[].NULL
-	};
-	Add=function(i64[] a,i64[] b){
-		a[0]+=b[0];
-	};
-	///////////////////////
-	Compare=function(i64[] a,i64[] b):int{
-		return __C_compare(a[0],b[0])
-	};
-	SeekInBlock=function(i64[] a,string s,i64[] b):iptr{
-		return iptr(b[0]-a[0]);
-	};
 
 auto combineBB(double2 bb0,double2 bb1)
 	bb=bb0
@@ -219,102 +218,177 @@ hybrid line-size consistency
 				but still merge short lines
 /*/
 struct TEditop
+	//delete first, add after
+	i64 ccnt
+	i64 sz
 	string s
-	iptr ccnt
-	iptr sz
+
+struct TBlockOp
+	//delete first, add after
+	i64 ccnt
+	i64 sz
+	string[] ss
 
 class CLocator
-	iptr ccnt
+	i64 ccnt
 
-class CParagraph
+class CSLNode
+	CSLNode pchild
+	CSLNode pnext
+	//////////
+	iptr ccnt
 	string s
 	i64[] a
 
+g_seeker_ccnt=new CSeeker_ccnt
 class CEditableText
-	m_text=new CParagraph[]
+	m_skiplist=new CSLNode
 	m_locators=new CLocator[]
 	m_total_ccnt=0L
 	m_layout_valid_to=0L
 	////////////////////
 	m_handlers=new ITextStateHandler[]
-	!?
-	auto SeekCcnt(iptr ccnt0)
-		ccnt=ccnt0
-		pid=m_text.InlineBisect(inline(nd){return ccnt<nd.ccnt})
-		if pid<0:
-			pid=0
-			ccnt=0
-		else if pid>=m_text.n:
-			pid=m_text.n
-			ccnt=0
-		else
-			ccnt-=m_text[pid]
-		return (pid,ccnt)
+	m_state_ofs=new iptr[]
+	m_hid_renderer=-1L
+	m_hid_ccnt=-1L
+	m_is_paragraph_only=0
+	m_block_size=1024
+	inline AddStateHandler(a)
+		m_handlers.push(getInterface(a,ITextStateHandler))
+		return m_handlers.n-1
+	auto InitStateHandlers()
+		m_hid_ccnt=AddStateHandler(g_seeker_ccnt)
+		ofs=0L
+		foreach hstate,I in m_handlers
+			if hstate.isParagraphOnly&&hstate.isParagraphOnly():
+				m_is_paragraph_only=1
+			if hstate.RenderText:
+				assert(m_hid_renderer==-1L)
+				m_hid_renderer=I
+			ofs+=hstate.stateSize()
+			m_state_ofs.push(ofs)
+		m_state_ofs.push(ofs)
+	//todo: font/color ids in rendering, JS style interpretation
+	auto BlockEdit(CSLNode nd,TBlockOp[] bops)
+		assert(!nd.s)
+		//for each child -> untouched / new list (on which we apply random growth)
+		//so the return value is a list
+		!?
+	auto BlockFromCcnt(i64 ccnt0)
+		nd=m_skiplist
+		ccnt_base=0LL
+		for(;;)
+			while ccnt_base+nd.ccnt<=ccnt0&&nd.pnext:
+				ccnt_base+=nd.ccnt
+				nd=nd.pnext
+			if nd.s:
+				return (nd,ccnt0-ccnt_base)
+			assert(!!nd.pchild)
+			nd=nd.pchild
 	auto MassEdit(TEditop[] ops)
-		if !ops.n:return
-		//the ops must not overlap
-		//this function assumes ops are sorted
-		ccnt_cur=ops[0].ccnt
-		(pid,ofs)=SeekCcnt(ccnt_cur)
-		sbuf=new string
-		pid_relayout=pid
-		nd_new=new(m_text[:pid_relayout-1])
-		auto addString(string s)
-			sbuf.push(s)
-			did=0
-			for(;;)
-				p=sbuf.IndexOf('\n')
-				if p<0L:break
-				nd_new.push(new CParagraph(){s:new(sbuf[:p])})
-				sbuf=sbuf[p+1:]
-				did=1
-			if did:sbuf=new(sbuf)
-		//remove the 1st paragraph
-		if ofs:
-			addString(bs[0:ofs-1])
-		dccnt=0L
-		foreach op in ops
-			deltap=op.s?op.s.n:-op.sz
-			delta=op.ccnt-ccnt_cur
-			assert(delta>=0)
-			//add the skipped chars
-			while pid<m_text.n&&delta>=m_text[pid].s.n-ofs:
-				if !delta:break
-				//add the block
-				if !ofs&&!sbuf.n:
-					nd_new.push(m_text[pid])
-				bs=m_text[pid].s
-				addString(bs[ofs:])
-				delta-=bs.n-ofs
-				//go next
-				pid++
-				ofs=0
-			if delta:
-				addString(m_text[pid].s[ofs:ofs+delta-1])
-			ofs+=delta
-			ccnt_cur=op.ccnt
-			//do the op
-			if op.s:
-				addString(op.s)
+		//editop -> block replace: mainly take-the-next-and-merge
+		//do the locators here
+		pb=CSLNode.NULL
+		ccnt_base=0LL
+		ofs=0LL
+		//////////
+		bops=new TBlockOp[]
+		bop_current=TBlockOp()
+		s_pool=new string
+		s_pool_last_newline=0L
+		//s_pool_has_bidi_bound=0
+		auto poolString(string s)
+			if !s.n:return
+			auto p_last_flush=0L
+			auto p_last_newline=s_pool_last_newline
+			auto p=s_pool.n
+			auto addBlock(iptr p0,iptr p1)
+				p_last_flush=p1
+				//virtual string access
+				auto s_block=string.NULL
+				if p1<=s_pool.n:
+					s_block=new(s_pool[p0:p1-1])
+				else if p0>=s_pool.n:
+					s_block=new(s[p0-s_pool.n:p1-s_pool.n-1])
+				else
+					s_block=s_pool[p0:]+s[:p1-s_pool.n-1]
+				if !bop_current.ss:
+					bop_current.ss=new string[]
+				bop_current.ss.push(s_block)
+			foreach chc,I in s
+				ch=int(u8(chc))
+				if (ch&0xc0)!=0x80&&!(s_pool.n&&s_pool.back()=='\r'&&ch=='\n'):
+					//check for block breaking, but do not break UTF-8 chars or \r\n
+					if p-p_last_newline>=m_block_size&&(!m_is_paragraph_only||p_last_newline>p_last_flush):
+						//need a break...
+						if p_last_newline:
+							//we got newlines in the block, we can only break at s_pool_last_newline
+							addBlock(p_last_flush,p_last_newline)
+						else
+							//it's a single-line block...
+							addBlock(p_last_flush,p)
+				p++//s_pool.push(chc)
+				if ch=='\n':
+					p_last_newline=p
+			//virtual -> real
+			if p_last_flush<s_pool.n:
+				s_pool=s_pool[p_last_flush:]+s
 			else
-				//deletion
+				s_pool=new(s[p_last_flush-s_pool.n:])
+			s_pool_last_newline=max(p_last_newline-p_last_flush,0L)
+		auto flush()
+			if pb:
+				assert(ofs<pb.s.n)
+				poolString(pb.s[iptr(ofs):])
+			if s_pool_last_newline:
+				s_block=new(s_pool[s_pool_last_newline-1:])
+				if !bop_current.ss:
+					bop_current.ss=new string[]
+				bop_current.ss.push(s_block)
+				s_pool=new(s_pool[s_pool_last_newline:])
+			if s_pool.n:
+				assert(!m_is_paragraph_only)
+				if !bop_current.ss:
+					bop_current.ss=new string[]
+				bop_current.ss.push(s_pool)
+			if bop_current.sz||bop_current.ss:
+				bops.push(bop_current)
+				bop_current=TBlockOp()
+		foreach op in ops
+			if !pb||ccnt_base+pb.ccnt<op.ccnt:
+				//we've left the current block, need to reseek
+				flush()
+				(pb,ofs)=BlockFromCcnt(op.ccnt)
+				ccnt_base=op.ccnt-ofs
+				bop_current.ccnt=ccnt_base
+				ofs=0LL
+			ofs_new=i64(op.ccnt-ccnt_base)
+			if ofs_new>ofs:
+				poolString(pb.s[iptr(ofs):iptr(ofs_new)-1])
+				ofs=ofs_new
+				assert(ofs<=pb.ccnt)
+				if ofs==pb.ccnt:
+					//merge with the next block - it's mandatory for paragraph-only guys
+					(pb,ofs)=BlockFromCcnt(ccnt_base+ofs)
+					assert(!ofs)
+					ccnt_base=op.ccnt-ofs
+					bop_current.ccnt=ccnt_base
+					ofs=0LL
+			//move by sz
+			if op.sz:
 				ofs+=op.sz
-				ccnt_cur+=op.sz
-				while pid<m_text.n&&ofs>=m_text[pid].s.n:
-					ofs-=m_text[pid].s.n
-					pid++
-			dccnt+=deltap
-		if pid<m_text.n&&ofs<m_text[pid].s.n:
-			addString(m_text[pid].s[ofs:])
-		if sbuf.n:
-			assert(pid==m_text.n)
-			nd_new.push(new CParagraph(){s:sbuf})
-		if pid<m_text.n:
-			nd_new.push(m_text[pid_relayout+1:])
-		m_text=nd_new
-		if m_layout_valid_to>pid_relayout:
-			m_layout_valid_to=pid_relayout
-		!? //todo: state...
+				if ofs>=pb.ccnt:
+					(pb,ofs)=BlockFromCcnt(op.ccnt+op.sz)
+			bop_current.sz=op.ccnt+op.sz-bop_current.ccnt
+			if op.s:poolString(op.s)
+		flush()
+		//block replace -> skiplist edit
+		nds=BlockEdit(m_skiplist,bops)
+		!? m_skiplist= 
+		//todo: recompute states...
+	auto SeekGeneral(int hid,i64[] b)
+		//m_handlers[hid].Compare()
+		!?
 	auto Render(double x,double y,double w,double h,auto drawText)
 		//x,y,w,h refer to the window
 		!? //todo: relayout, styling...
