@@ -295,8 +295,11 @@ ftransformer_callback=function(PExpression):PExpression
 inline transformCode(PExpression pesrc, ftransformer_callback ftransformer, PExpression[] as_before,PExpression pe_replacement,PExpression[] as_after)
 	return transformCodeEx(pesrc, ftransformer, as_before,pe_replacement,as_after, 1)
 
-inline replaceExpr(PExpression pesrc, PExpression pe_replacement)
-	return transformCode(pesrc,__zero(ftransformer_callback), PExpression[].NULL,pe_replacement,PExpression[].NULL)
+//inline 
+auto replaceExpr(PExpression pesrc, PExpression pe_replacement)
+	//return transformCode(pesrc,__zero(ftransformer_callback), PExpression[].NULL,pe_replacement,PExpression[].NULL)
+	pecaller=readPool(pesrc+EXPR_OFS_CALLER)
+	return sccpQueueReach(insertCallAt(pecaller,pesrc,function(PExpression pe){return pe_replacement}))
 
 auto transformCodeEx(PExpression pesrc, ftransformer_callback ftransformer, PExpression[] as_before,PExpression pe_replacement,PExpression[] as_after, int queue_reach)
 	if !ftransformer&&(!as_before||!as_before.n)&&!pe_replacement&&(!as_after||!as_after.n):
@@ -5387,6 +5390,9 @@ auto resolveNames(PExpression g_pe_top,int is_initial_resolve)
 						pv=makevar(pf_owner)
 						if isBuiltinR(readPool(pe+EXPR_OFS_ARGS+1),g_id_ldparam):
 							setUserFlag(pv,VAR_FLAG_PARAM)
+						//else
+						//	if id!=g_id_this&&id!=g_id_return:
+						//		setUserFlag(pv,VAR_FLAG_STRUCT_SLOT_ALLOCATED)//user-defined vars must be allocated... unless it's a param or this
 						//this is a must-have: we may need a lookup later
 						writePool(pv+VAR_OFS_ID,id)
 						g_symbols[id].user_slot=pv
@@ -7583,6 +7589,8 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 							//sccpQueueEval(pe)
 							//writePool(pe,EFLAG_VARIABLE+pobj_var_renamed)
 							//for the queue
+							if DEBUG_DUMP_SSA:
+								Writeln('var rename: ',dumpObject(pobj_var),' -> ',dumpObject(pobj_var_renamed))
 							replaceExpr(pe,exprvar(pobj_var_renamed))
 						return ssa_names[ssa_vid].gvn_id
 		else if isExpr(pe,EFLAG_FCALL):
@@ -9730,7 +9738,8 @@ auto translateLambdas()
 			//if it's copyproped, it can't have more than 1 stores anyway... but it may generate queuing issues?
 			vslot=str_var_slots[vslotid]
 			if vslot.pobj_var_rename_to!=vslot.pobj_var:continue
-			if readPool(vslot.pobj_var+VAR_OFS_ID)==g_id_return:
+			id_var=readPool(vslot.pobj_var+VAR_OFS_ID)
+			if id_var==g_id_return:
 				//for returns, do the memcpy without allocing the slot
 				setUserFlag(vslot.pobj_var,VAR_FLAG_STRUCT_SLOT_ALLOCATED)
 				continue
@@ -9748,7 +9757,11 @@ auto translateLambdas()
 				//array uses cast, don't alloc it
 				if isBuiltin(pe_value,g_id_cast):continue
 				//part-of-another, don't alloc it
-				if isBuiltin(pe_value,g_id_ldlambda):continue
+				if isBuiltin(pe_value,g_id_ldlambda):
+					if isTempId(id_var):
+						continue
+					//else
+					//	Writeln('>>>>>>> ',dumpExpr(pestore,__zero(fcolorer_callback)))
 				//NULL store, ignore
 				if isExpr(pe_value,EFLAG_CONST):continue
 				need_to_alloc=1

@@ -4,6 +4,8 @@ todo:
 	SDL_SetWindowGrab
 	use the font renderer for monochrome svg icons
 		use stbtt__rasterize instead for cubic curves
+	smart character thickness?
+		fix the emboldening for black-on-white fonts
 	could have a SDL renderer fallback for legacy windows / tinycore
 		SDL sw is deadly slow - not worth using
 		better write up one myself if we ever need it
@@ -503,6 +505,7 @@ g_renderer=(class(){
 				//		glGetIntegerv(GL_FRAMEBUFFER_SRGB_CAPABLE_EXT,&is_capable)
 				//		if !is_capable:
 				//			m_srgb_supported=0
+			//m_srgb_supported=0
 	auto DrawWindow(__pointer hwnd_onlydraw)
 		TestSRGB()
 		m_texture_downloaded=0

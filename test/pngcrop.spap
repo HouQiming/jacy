@@ -1,0 +1,190 @@
+import System.Console.*
+import System.Algorithm.*
+import System.Math.*
+import Javascript.*
+
+c_system=__c_function(int,"system","stdlib.h")
+exit=__c_function(int,"exit","stdlib.h")
+
+stbi_load_from_memory=__c_function(__pointer,"stbi_load_from_memory","stb_image.h", "c_files","stb_image.c")
+stbi_write_png_to_mem=__c_function(__pointer,"stbi_write_png_to_mem","stb_image_write.h", "c_files","stb_image_write.c")
+stbi_free_image_write=__c_function(__pointer,"stbi_free_image_write","stb_image_write.h")
+
+auto resample(int[] img,int w0,int h0,int w,int h)
+	w_invscale=float(w0)/float(w)
+	h_invscale=float(h0)/float(h)
+	img_out=new int[]
+	for y=0:h-1
+		y0=float(y)*h_invscale
+		y1=float(y+1)*h_invscale
+		for x=0:w-1
+			x0=float(x)*w_invscale
+			x1=float(x+1)*w_invscale
+			C=float4(0.f,0.f,0.f,0.f)
+			Atot=0.f
+			for sy=int(floor(y0)):min(int(floor(y1-1.f/65536.f)),h0-1)
+				hcell=(min(float(sy+1),y1)-max(float(sy),y0))
+				abase=sy*w0
+				for sx=int(floor(x0)):min(int(floor(x1-1.f/65536.f)),w0-1)
+					wcell=(min(float(sx+1),x1)-max(float(sx),x0))
+					A=wcell*hcell
+					C4=img[abase+sx]
+					for j in crange(4)
+						C[j]+=A*float((C4>>(j*8))&255)
+					Atot+=A
+			C/=Atot
+			C4=0
+			for j in crange(4)
+				C4|=max(min(int(C[j]),255),0)<<(j*8)
+			img_out.push(C4)
+	return img_out
+
+(function(){
+	JS=new JSContext
+	//////////////
+	//setup the API and run the default script
+	global=JS.GetGlobal()
+	global["LoadImage"]=function(JSContext JS){
+		fname=JS.Param(0).or("")
+		data=System.IO.ReadAll(fname)
+		if !data:return 0
+		w=0
+		h=0
+		comp=0
+		surf=stbi_load_from_memory(__pointer(data.d),int(data.n),&w,&h,&comp,4)
+		if !surf:return 0
+		img=new int[]
+		img.d=iptr(surf)
+		img.n=iptr(w*h)
+		img.sz=img.n
+		obj=JS.New()
+		obj["w"]=w
+		obj["h"]=h
+		obj["img"]=img
+		return JS.Return(obj)
+	}
+	global["ResampleImage"]=function(JSContext JS){
+		obj=JS.Param(0).as(JSObject)
+		w=JS.Param(1).or(1)
+		h=JS.Param(2).or(1)
+		if !obj:return 0
+		img=obj["img"].as(int[])
+		w0=obj["w"].or(1)
+		h0=obj["h"].or(1)
+		img2=resample(img,w0,h0,w,h)
+		obj=JS.New()
+		obj["w"]=w
+		obj["h"]=h
+		obj["img"]=img2
+		return JS.Return(obj)
+	}
+	global["CreateWhiteCanvas"]=function(JSContext JS){
+		w=JS.Param(0).or(1)
+		h=JS.Param(1).or(1)
+		C=JS.Param(2).or(0xffffffff)
+		img=new int[w*h]
+		for i=0:img.n-1
+			img[i]=C
+		obj=JS.New()
+		obj["w"]=w
+		obj["h"]=h
+		obj["img"]=img
+		return JS.Return(obj)
+	}
+	global["CropImage"]=function(JSContext JS){
+		obj_tar=JS.Param(0).as(JSObject)
+		x0=JS.Param(1).or(0)
+		y0=JS.Param(2).or(0)
+		w_src=JS.Param(3).or(0)
+		h_src=JS.Param(4).or(0)
+		w_tar=obj_tar["w"].or(1)
+		h_tar=obj_tar["h"].or(1)
+		img_tar=obj_tar["img"].as(int[])
+		img_src=new int[w_src*h_src]
+		for i=0:h_src-1
+			for j=0:w_src-1
+				x=x0+j
+				y=y0+i
+				if u32(x)<u32(w_tar)&&u32(y)<u32(h_tar):
+					img_src[i*w_src+j]=img_tar[y*w_tar+x]
+				else
+					img_src[i*w_src+j]=0xffffffff
+		obj=JS.New()
+		obj["w"]=w_src
+		obj["h"]=h_src
+		obj["img"]=img_src
+		return JS.Return(obj)
+	}
+	global["CopyImage"]=function(JSContext JS){
+		obj_tar=JS.Param(0).as(JSObject)
+		x0=JS.Param(1).or(0)
+		y0=JS.Param(2).or(0)
+		obj_src=JS.Param(3).as(JSObject)
+		w_tar=obj_tar["w"].or(1)
+		h_tar=obj_tar["h"].or(1)
+		img_tar=obj_tar["img"].as(int[])
+		w_src=obj_src["w"].or(1)
+		h_src=obj_src["h"].or(1)
+		img_src=obj_src["img"].as(int[])
+		for i=0:h_src-1
+			for j=0:w_src-1
+				x=x0+j
+				y=y0+i
+				if u32(x)<u32(w_tar)&&u32(y)<u32(h_tar):
+					img_tar[y*w_tar+x]=img_src[i*w_src+j]
+		return 0
+	}
+	global["DrawBox"]=function(JSContext JS){
+		obj_tar=JS.Param(0).as(JSObject)
+		x0=JS.Param(1).or(0)
+		y0=JS.Param(2).or(0)
+		w_src=JS.Param(3).or(0)
+		h_src=JS.Param(4).or(0)
+		C=JS.Param(5).or(0xff000000)|0xff000000
+		r=JS.Param(6).or(0)
+		w_tar=obj_tar["w"].or(1)
+		h_tar=obj_tar["h"].or(1)
+		img_tar=obj_tar["img"].as(int[])
+		for i=0:w_src+r*2-1
+			for j=0:r-1
+				x=x0+i
+				y=y0+j
+				if u32(x)<u32(w_tar)&&u32(y)<u32(h_tar):
+					img_tar[y*w_tar+x]=C
+				x=x0+i
+				y=y0+h_src+r+j
+				if u32(x)<u32(w_tar)&&u32(y)<u32(h_tar):
+					img_tar[y*w_tar+x]=C
+		for i=0:h_src+r*2-1
+			for j=0:r-1
+				x=x0+j
+				y=y0+i
+				if u32(x)<u32(w_tar)&&u32(y)<u32(h_tar):
+					img_tar[y*w_tar+x]=C
+				x=x0+w_src+r+j
+				y=y0+i
+				if u32(x)<u32(w_tar)&&u32(y)<u32(h_tar):
+					img_tar[y*w_tar+x]=C
+		return 0
+	}
+	global["SaveImage"]=function(JSContext JS){
+		obj_tar=JS.Param(0).as(JSObject)
+		fn=JS.Param(1).or("a.png")
+		w_tar=obj_tar["w"].or(1)
+		h_tar=obj_tar["h"].or(1)
+		img_tar=obj_tar["img"].as(int[])
+		len=0
+		spng=stbi_write_png_to_mem(img_tar,w_tar*4,w_tar,h_tar,4,&len)
+		if !spng:return 0
+		spng_str=__ptrToString(spng,len)
+		System.IO.CreateFile(fn).Write(spng_str)
+		stbi_free_image_write(spng)
+		return 0
+	}
+	args=GetCommandLine()
+	if args.n<2:
+		fn=System.Env.GetExecutablePath()+"update_insets.js"
+	else
+		fn=args[1]
+	exit(!JS.debugRunFile(fn))
+})()

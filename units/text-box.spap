@@ -23,6 +23,7 @@ import Gui2D.detail.*
 import Javascript.*
 import System.Algorithm.*
 import System.Math.*
+import System.Console.*
 
 struct TMouseMap
 	double2 pos
@@ -166,7 +167,7 @@ class CLayouter_baseline
 	/////////////////
 	SetTextStyle=function(JSObject obj){
 		m_font=obj["font"].as(TFont)
-		m_color=int(obj["color"].as(u32))
+		m_color=int(obj["color"].or(0xffffffffu))
 		m_tab_width=obj["tab_width"].or(8)
 		m_word_wrap=obj["word_wrap"].or(0)
 	}
@@ -176,9 +177,10 @@ class CLayouter_baseline
 		else
 			mm=TMouseMap[].NULL
 		if mode==MODE_RENDER:
-			R=Gui2D.detail.g_renderer
+			//Writeln('before fnt_scaled ',m_font.h,' ',scaling)
 			fnt_scaled=m_font
 			fnt_scaled.h*=scaling
+			//Writeln('after fnt_scaled ',m_font.h)
 			scalingd=double(scaling)
 		w_tab=double(m_tab_width)*double(Gui2D.detail.g_renderer.CacheGlyph(m_font,int(' '))[0].dx)
 		hc=Gui2D.detail.g_renderer.GetCharacterHeight(m_font)
@@ -187,7 +189,8 @@ class CLayouter_baseline
 		for i=0:line_breaks.n-2
 			got_newline=0
 			for ch,I in Utf8Chars(s[iptr(line_breaks[i]):iptr(line_breaks[i+1]-1)])
-				mm.push(TMouseMap(){pos:double2(x,y),ccnt:line_breaks[i]+I})
+				if mode==MODE_MOUSE_MAP:
+					mm.push(TMouseMap(){pos:double2(x,y),ccnt:line_breaks[i]+I})
 				if ch=='\r'||ch=='\n':
 					//nothing
 					if ch=='\n':got_newline=1
@@ -200,7 +203,8 @@ class CLayouter_baseline
 					(gc_I,delta_y)=Gui2D.detail.g_renderer.CacheGlyph(m_font,ch)
 					if mode==MODE_RENDER:
 						//pt.push(TCharJob(){pos:double2(x,y),ch:ch,color:m_color})
-						R.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),ch, m_color)
+						//Writeln(x,' ',y,' ',m_font.h,' ',fnt_scaled.h,' ',scalingd,' ',ch,' ',m_color)
+						g_renderer.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),ch, m_color)
 					x+=gc_I.dx
 			if got_newline:
 				x=0.
@@ -275,7 +279,7 @@ struct TSLList
 SKIPLIST_PROMOTION_PROBABILITY=0.25f//1.0/2.71828
 //the internal methods *should not* validate parameters
 class CEditableText
-	m_skiplist=new CSLNode
+	m_skiplist=new CSLNode(){s:new string}
 	m_locators=new CLocator[]
 	m_layout_valid_to=0L
 	////////////////////
@@ -300,14 +304,15 @@ class CEditableText
 			//if hstate.RenderText:
 			//	assert(m_hid_renderer==-1L)
 			//	m_hid_renderer=I
-			ofs+=hstate.stateSize()
 			m_state_ofs.push(ofs)
+			ofs+=hstate.stateSize()
 			///////////
 			m_js_object["handler_id_"+hstate.name()]=I
-			if obj_style&&hstate.SetTextStyle:
+			if hstate.SetTextStyle:
 				hstate.SetTextStyle(obj_style)
 		//m_js_object["m_is_line_only"]=m_is_line_only
 		m_state_ofs.push(ofs)
+		RecomputeStates(m_skiplist)
 		//todo: set a prototype object
 		return m_js_object
 	auto RecomputeStates(CSLNode nd)
@@ -318,9 +323,11 @@ class CEditableText
 			a=new i64[n+m_handlers.n]
 			ccnt=i64(s.n)
 			foreach hstate,I in m_handlers
-				block_state=hstate.AddBlock(a[m_state_ofs[I]:m_state_ofs[I+1]-1],s)
+				a_slice=a[m_state_ofs[I]:m_state_ofs[I+1]-1]
+				block_state=hstate.AddBlock(a_slice,s)
+				a_slice.discard()
+				a[n+I]=i64(a.n)
 				if block_state:
-					a[n+I]=i64(a.n)
 					a.push(block_state)
 		else
 			a=new i64[n]
@@ -491,7 +498,7 @@ class CEditableText
 				s_pool=new(s[p_last_flush-s_pool.n:])
 			s_pool_last_newline=max(p_last_newline-p_last_flush,0L)
 		auto flush()
-			if pb:
+			if pb&&pb.s.n:
 				assert(ofs<pb.s.n)
 				poolString(pb.s[iptr(ofs):])
 			if s_pool_last_newline:
@@ -501,7 +508,7 @@ class CEditableText
 				bop_current.ss.push(s_block)
 				s_pool=new(s_pool[s_pool_last_newline:])
 			if s_pool.n:
-				assert(!m_is_line_only)
+				//assert(!m_is_line_only)//or end of text... which is untestable here
 				if !bop_current.ss:
 					bop_current.ss=new string[]
 				bop_current.ss.push(s_pool)
@@ -537,7 +544,7 @@ class CEditableText
 			if op.s:poolString(op.s)
 		flush()
 		//block replace -> skiplist edit
-		if !m_skiplist:
+		if m_skiplist.ccnt:
 			nds_pc=BlockEdit(m_skiplist,0LL,bops)
 		else
 			nds_pc=TSLList()
@@ -561,7 +568,7 @@ class CEditableText
 				p0=max(ccnt0-ccnt_base,0LL)
 				p1=min(ccnt1-ccnt_base,pc.ccnt)
 				if p1>p0:
-					_GetText(buf,ofs_i, nd,p0,p1)
+					_GetText(buf,ofs_i, pc,p0,p1)
 				ccnt_base+=pc.ccnt
 				ofs_i+=iptr(pc.ccnt)
 	auto GetText(i64 ccnt,i64 sz)
@@ -629,7 +636,7 @@ class CEditableText
 					p0=max(ccnt0-ccnt_base,0LL)
 					p1=min(ccnt1-ccnt_base,pc.ccnt)
 					if p1>p0:
-						dfsRender(nd,p0,p1)
+						dfsRender(pc,p0,p1)
 					else if !rendering_started:
 						handler.Add(acc,pc.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
 					ccnt_base+=pc.ccnt
@@ -690,21 +697,28 @@ auto createBaselineEditWidget(JSObject JS_ED)
 	JS_ED["GetTextSize"]=function(JSContext JS){
 		ed=JS.Param(0).as(CEditableText)
 		if !ed:return 0
-		return JS.Return(ed.GetTextSize())
+		return JS.Return(double(ed.GetTextSize()))
 	}
 	JS_ED["Render"]=function(JSContext JS){
 		ed=JS.Param(0).as(CEditableText)
 		if !ed:return 0
 		params=JS.Param(1).as(JSObject)
 		if !params:return 0
+		param_x=params["x"].or(0.)
+		param_y=params["y"].or(0.)
+		param_w=params["w"].or(0.)
+		param_h=params["h"].or(0.)
+		param_scr_x=params["scr_x"].or(0.f)
+		param_scr_y=params["scr_y"].or(0.f)
+		param_scale=params["scale"].or(1.f)
 		ed.Render(
-			params["x"].or(0.),
-			params["y"].or(0.),
-			params["w"].or(0.),
-			params["h"].or(0.),
-			params["scr_x"].or(0.f),
-			params["scr_y"].or(0.f),
-			params["scaling"].or(1.f))
+			param_x,
+			param_y,
+			param_w,
+			param_h,
+			param_scr_x,
+			param_scr_y,
+			param_scale*g_renderer.m_pixels_per_unit)
 		return 0
 	}
 	return JS_ED
