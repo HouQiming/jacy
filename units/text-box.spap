@@ -204,7 +204,7 @@ class CLayouter_baseline
 					if mode==MODE_RENDER:
 						//pt.push(TCharJob(){pos:double2(x,y),ch:ch,color:m_color})
 						//Writeln(x,' ',y,' ',m_font.h,' ',fnt_scaled.h,' ',scalingd,' ',ch,' ',m_color)
-						g_renderer.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),ch, m_color)
+						g_renderer.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),m_color, ch)
 					x+=gc_I.dx
 			if got_newline:
 				x=0.
