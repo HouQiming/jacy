@@ -305,7 +305,7 @@ class CCoreFont
 struct TFont
 	pfnt=CCoreFont.NULL
 	h=0.f
-	is_bold=0
+	embolden=0
 
 //struct TGlyphCacheItem
 class CGlyphCacheItem
@@ -775,10 +775,10 @@ g_renderer=(class(){
 				y_baseline_per_height=pfnt_i.y_baseline_per_height
 		ret.y_baseline_per_height=y_baseline_per_height
 		return ret
-	auto CreateFont(CCoreFont pfnt,float h,int is_bold)
-		return TFont(){pfnt:pfnt,h:h,is_bold:is_bold}
+	auto CreateFont(CCoreFont pfnt,float h,int embolden)
+		return TFont(){pfnt:pfnt,h:h,embolden:embolden}
 	auto CacheGlyph(TFont fnt, int ch)
-		embolden=(fnt.is_bold?fnt.h*2.f:0.f)
+		embolden=float(fnt.embolden)*0.01f*fnt.h
 		x_aa=1
 		//if fnt.h<32:x_aa=3
 		//no matter how large the font is, x_aa always makes it sharper
@@ -798,7 +798,7 @@ g_renderer=(class(){
 		else if FTW_GetGlyphId(pfnt.hfnt,ch):
 			//it doesn't have the glyph, fallback
 			//need this to avoid re-renders
-			key=int3(pfnt.id*2+!!fnt.is_bold,__float_as_int(fnt.h),ch)
+			key=int3(pfnt.id*1024+max(min(fnt.embolden+512,1023),0),__float_as_int(fnt.h),ch)
 			//Writeln('above ret=m_glyph_cache[key]')
 			ret=m_glyph_cache[key]
 			//Writeln('below ret=m_glyph_cache[key]')
@@ -1237,8 +1237,8 @@ auto createUIObject(JSObject JS_UI)
 		pfnt=JS.Param(0).as(CCoreFont)
 		if !pfnt:return 0
 		h=JS.Param(1).as(float)
-		is_bold=JS.Param(2).as(int)
-		ret=g_renderer.CreateFont(pfnt,h*g_renderer.m_pixels_per_unit,is_bold)
+		embolden=JS.Param(2).as(int)
+		ret=g_renderer.CreateFont(pfnt,h*g_renderer.m_pixels_per_unit,embolden)
 		assert(!!ret.pfnt)
 		return JS.Return(ret)
 	}

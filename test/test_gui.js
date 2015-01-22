@@ -51,7 +51,7 @@ var demo_text_animation=function(id,attrs){
 			W.Button("cancel",{
 				x:wnd.w-316,y:wnd.h-110,
 				icon:"test/res/check_64.png",
-				font:UI.Font("dsanscn",48,true),text:"漢字",
+				font:UI.Font("dsanscn",48,200),text:"漢字",
 				OnClick:function(){state.text="世の中に、必要な悪があるなんて、子供たちに教えたくありません"}})
 			var y0=340;
 			var s_text=state.text;
@@ -81,7 +81,8 @@ var demo_msgbox=function(id,attrs){
 				anchor:UI.context_parent,anchor_align:"left",anchor_valign:"up",
 				w:UI.context_parent.w-32,
 				x:16,y:16,
-				font:UI.Font("cmunrm",32,1),text:paper_text,
+				font:UI.Font("cmunrm",24,300),text:paper_text,
+				//font:UI.Font("dsanscn",128,-200),text:'标题很好看',
 				color:0xff000000,
 				//color:0xff111111,
 				});
@@ -153,8 +154,8 @@ var demo_textbox=function(id,attrs){
 	UI.End();
 };
 
-UI.Application=demo_textbox;
-//UI.Application=demo_msgbox;
+//UI.Application=demo_textbox;
+UI.Application=demo_msgbox;
 //UI.Application=demo_text_animation;
 
 UI.Run()

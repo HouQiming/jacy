@@ -958,7 +958,7 @@ UI.CallIfAvailable=function(parent,id,attrs){
 UI.core_font_cache={};
 UI.font_cache={};
 UI.rc={};
-UI.Font=function(face,size,is_bold){
+UI.Font=function(face,size,embolden){
 	var pfnt=UI.font_cache[face];
 	if(!pfnt){
 		pfnt=UI.CreateCoreFontChain(face.split(",").concat(UI.fallback_font_names).map(UI.HackCallback(function(cface){
@@ -971,7 +971,7 @@ UI.Font=function(face,size,is_bold){
 		})))
 		UI.font_cache[face]=pfnt;
 	}
-	return UI.CoreFontToFont(pfnt,size,is_bold?1:0);
+	return UI.CoreFontToFont(pfnt,size,embolden);
 }
 
 UI.DiscardCaches=function(){

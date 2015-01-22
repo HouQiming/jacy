@@ -674,7 +674,7 @@ auto createBaselineEditWidget(JSObject JS_ED)
 		if !js_ops:return 0
 		n=iptr(js_ops["length"].as(double))
 		if !(n>0)||(n%3):
-			JS.Error("bad array length @1".Replace(["@1",string(n)]))
+			JS.Error("bad operation array length @1".Replace(["@1",string(n)]))
 			return 0
 		//one array with even-odd packing
 		range0=0LL
