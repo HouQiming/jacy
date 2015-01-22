@@ -1,3 +1,4 @@
+import "text-box.spap"
 import Gui2D.*
 import Javascript.*
 import System.Console.*
@@ -5,5 +6,6 @@ import System.Console.*
 (function(){
 	JS=new JSContext
 	setupModuleSystem(JS)
+	JS.GetGlobal()["ED"]=TextBox.createBaselineEditWidget(JS.New())
 	JS.debugRunFile("test/test_gui.js")
 })()

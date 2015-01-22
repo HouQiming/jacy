@@ -1261,6 +1261,7 @@ UI.Run=function(){
 			}
 			//print(1.0/UI.frame_time,"fps");
 			//print('frame=',UI.frame_time);
+			//print(JSON.stringify(UI.GetSRGBStatus()))
 		}
 		if(UI.need_to_refresh){
 			event=UI.SDL_PollEvent();

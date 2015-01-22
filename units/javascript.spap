@@ -192,7 +192,7 @@ module duktape
 				duk_to_primitive(_ctx(),-1,0)
 				vptr=duk_get_pointer(_ctx(),-1)
 				if !vptr:
-					ret=T.NULL
+					ret=__zero(T)
 				else
 					ret=__cast(__variant,vptr).as(T)
 			if count==1:
@@ -202,7 +202,7 @@ module duktape
 			return ret
 		/////////
 		inline GetGlobal()
-			return JSObject(){"m_jsctx":this}
+			return new JSObject(){"m_jsctx":this}
 		auto NewArray()
 			duk_push_array(_ctx())
 			return _pop_typed(JSObject,1)

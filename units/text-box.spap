@@ -1,21 +1,6 @@
 /*
 todo:
-	make ccnt built-in
-	CMetaParagraph balancing
-		should be easy
-		formulate as recursion
-			one node:
-				recurse into subtree
-				merge subtree results
-					handle too-small nodes here
-				returns list of new children
-					add a level if too large
-			still not balanced
-				keep editing the same place
-		use skiplist
-			random creation of upper levels
-	name-based state locating
-		JS interned strings
+	faster way to get the metrics than CacheGlyph
 	basic interface
 		MassEdit
 		handle-based locator system
@@ -34,16 +19,23 @@ todo:
 		O(n/C+C) edit + O(log(n)+C) seek
 */
 import Gui2D.*
+import Gui2D.detail.*
 import Javascript.*
 import System.Algorithm.*
+import System.Math.*
 
 struct TMouseMap
 	double2 pos
 	i64 ccnt
 
+//struct TCharJob
+//	pos=float2()
+//	ch=0
+//	color=0
+
 struct TRenderingInfo
 	double2 bb
-	TPositionedText[] pt
+	//TCharJob[] pt
 	TMouseMap[] mm
 
 auto SearchMouseMap(TMouseMap[] mm,double x,double y0)
@@ -60,17 +52,21 @@ auto SearchMouseMap(TMouseMap[] mm,double x,double y0)
 ///////////////////////////////
 //double should be as-ed
 class ITextStateHandler
+	iptr id
+	function():string name
 	function():int stateSize
-	function():int isParagraphOnly
+	function():int isLineOnly
 	//The "add" function must be associative
 	//The result should be written to "a"
 	//if AddBlock returns anything... it's considered as a per-block cache
+	//todo: context
 	function(i64[] a,string s):i64[] AddBlock
 	function(i64[] a,i64[] b) Add
 	//For coloring states, we need a colorer
 	function(i64[] a,string s):u8[] ComputeCharColorID
 	//For rendering states, we need a layouter
-	function(i64[] a,i64[] pp,string s):TRenderingInfo RenderText
+	function(JSObject obj) SetTextStyle
+	function(i64[] a,i64[] pp,string s, double dx,double dy,float scaling) RenderText
 	//function(string s):i64[] PreprocessBlock
 	//For seeking states, we need comparison and in-block seeking
 	function(i64[] a,i64[] b):int Compare
@@ -111,11 +107,17 @@ inline Utf8Chars(string s)
 	}}	
 
 class CLayouter_baseline
+	MODE_BB=0
+	MODE_MOUSE_MAP=1
+	MODE_RENDER=2
+	/////////
 	m_word_wrap=0
 	m_tab_width=8
-	TFont m_font
+	m_font=TFont()
+	m_color=0xff000000
+	name=function(){return "renderer"}
 	stateSize=function(){return 2}
-	isParagraphOnly=function(){return 1}
+	isLineOnly=function(){return 1}
 	/////////////////
 	AddBlock=function(i64[] a,string s){
 		line_breaks=new i64[]
@@ -124,8 +126,8 @@ class CLayouter_baseline
 		else
 			line_breaks.push(0LL)
 			line_breaks.push(i64(s.n))
-		rinfo=RenderText(a,line_breaks,s)
-		bb=combineBB(double2(__longlong_as_double(a[0]),__longlong_as_double(a[1])),rinfo.bb)
+		bb=_RenderText(MODE_BB,a,line_breaks,s, 0.,0.,0.f).bb
+		bb=combineBB(double2(__longlong_as_double(a[0]),__longlong_as_double(a[1])),bb)
 		a[0]=__double_as_longlong(bb.x)
 		a[1]=__double_as_longlong(bb.y)
 		return line_breaks
@@ -147,7 +149,7 @@ class CLayouter_baseline
 		y=__longlong_as_double(b[1])-__longlong_as_double(a[1])
 		if y>0.0:
 			x-=__longlong_as_double(a[0])
-		hc=Gui2D.detail.g_renderer.GetCharacterHeight(fnt)
+		hc=Gui2D.detail.g_renderer.GetCharacterHeight(m_font)
 		line_id=int(floor(y/hc))
 		if line_id<0:
 			return 0L
@@ -156,22 +158,35 @@ class CLayouter_baseline
 		else
 			l0=line_breaks[line_id]
 			l1=line_breaks[line_id+1]
-			rinfo=RenderText(a,[0L,l1-l0],s[l0:l1-1])
+			mm=_RenderText(MODE_MOUSE_MAP,a,[0L,l1-l0],s[iptr(l0):iptr(l1)-1], 0.,0.,0.f).mm
 			x=__longlong_as_double(b[0])
 			y=__longlong_as_double(b[1])
-			return SearchMouseMap(rinfo.mm,x,y)
+			return SearchMouseMap(mm,x,y)
 	}
 	/////////////////
-	RenderText=function(i64[] a,i64[] line_breaks,string s):TRenderingInfo{
-		pt=new TPositionedText[]
-		mm=new TMouseMap[]
-		w_tab=double(m_tab_width)*double(Gui2D.detail.g_renderer.CacheGlyph(m_font,' ')[0].dx)
-		hc=Gui2D.detail.g_renderer.GetCharacterHeight(fnt)
+	SetTextStyle=function(JSObject obj){
+		m_font=obj["font"].as(TFont)
+		m_color=int(obj["color"].as(u32))
+		m_tab_width=obj["tab_width"].or(8)
+		m_word_wrap=obj["word_wrap"].or(0)
+	}
+	_RenderText=function(int mode,i64[] a,i64[] line_breaks,string s, double dx,double dy,float scaling){
+		if mode==MODE_MOUSE_MAP:
+			mm=new TMouseMap[]
+		else
+			mm=TMouseMap[].NULL
+		if mode==MODE_RENDER:
+			R=Gui2D.detail.g_renderer
+			fnt_scaled=m_font
+			fnt_scaled.h*=scaling
+			scalingd=double(scaling)
+		w_tab=double(m_tab_width)*double(Gui2D.detail.g_renderer.CacheGlyph(m_font,int(' '))[0].dx)
+		hc=Gui2D.detail.g_renderer.GetCharacterHeight(m_font)
 		x=__longlong_as_double(a[0])
 		y=__longlong_as_double(a[1])
 		for i=0:line_breaks.n-2
 			got_newline=0
-			for ch,I in Utf8Chars(s[line_breaks[i]:line_breaks[i+1]-1])
+			for ch,I in Utf8Chars(s[iptr(line_breaks[i]):iptr(line_breaks[i+1]-1)])
 				mm.push(TMouseMap(){pos:double2(x,y),ccnt:line_breaks[i]+I})
 				if ch=='\r'||ch=='\n':
 					//nothing
@@ -183,12 +198,17 @@ class CLayouter_baseline
 					x=(floor(x/w_tab)+1.0)*w_tab
 				else
 					(gc_I,delta_y)=Gui2D.detail.g_renderer.CacheGlyph(m_font,ch)
-					pt.push(TPositionedText(){pos:double2(x,y),ch:ch})
+					if mode==MODE_RENDER:
+						//pt.push(TCharJob(){pos:double2(x,y),ch:ch,color:m_color})
+						R.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),ch, m_color)
 					x+=gc_I.dx
 			if got_newline:
 				x=0.
 				y+=hc
-		return TRenderingInfo(){bb:double2(x,y),pt:pt,mm:mm}
+		return TRenderingInfo(){bb:double2(x,y),mm:mm}
+	}
+	RenderText=function(i64[] a,i64[] pp,string s, double dx,double dy,float scaling){
+		_RenderText(MODE_RENDER,a,pp,s,dx,dy,scaling)
 	}
 
 ///////////////////////////////
@@ -213,7 +233,7 @@ hybrid line-size consistency
 					with \n taking priority
 				e.g. if the block contains more than one line breaks
 					the head must be one line break, not a LTR|RTL
-			if we have isParagraphOnly:
+			if we have isLineOnly:
 				allow block size to exceed C
 				but still merge short lines
 /*/
@@ -236,44 +256,178 @@ class CSLNode
 	CSLNode pchild
 	CSLNode pnext
 	//////////
-	iptr ccnt
+	i64 ccnt
 	string s
 	i64[] a
 
-g_seeker_ccnt=new CSeeker_ccnt
+struct TSLList
+	CSLNode phead
+	CSLNode ptail
+	inline cat(TSLList b)
+		if !phead:return b
+		if !b.phead:return TSLList(){phead:phead,ptail:ptail}
+		ret=TSLList()
+		ret.phead=phead
+		ptail.pnext=b.phead
+		ret.ptail=b.ptail
+		return ret
+
+SKIPLIST_PROMOTION_PROBABILITY=0.25f//1.0/2.71828
+//the internal methods *should not* validate parameters
 class CEditableText
 	m_skiplist=new CSLNode
 	m_locators=new CLocator[]
-	m_total_ccnt=0L
 	m_layout_valid_to=0L
 	////////////////////
 	m_handlers=new ITextStateHandler[]
 	m_state_ofs=new iptr[]
-	m_hid_renderer=-1L
-	m_hid_ccnt=-1L
-	m_is_paragraph_only=0
+	//m_hid_renderer=-1L
+	m_is_line_only=0
 	m_block_size=1024
+	m_js=JSContext.NULL
+	m_js_object=JSObject.NULL
 	inline AddStateHandler(a)
 		m_handlers.push(getInterface(a,ITextStateHandler))
 		return m_handlers.n-1
-	auto InitStateHandlers()
-		m_hid_ccnt=AddStateHandler(g_seeker_ccnt)
+	auto Init(JSObject obj_style)
+		m_js=obj_style.m_jsctx
+		m_js_object=m_js.New()
 		ofs=0L
 		foreach hstate,I in m_handlers
-			if hstate.isParagraphOnly&&hstate.isParagraphOnly():
-				m_is_paragraph_only=1
-			if hstate.RenderText:
-				assert(m_hid_renderer==-1L)
-				m_hid_renderer=I
+			hstate.id=I
+			if hstate.isLineOnly&&hstate.isLineOnly():
+				m_is_line_only=1
+			//if hstate.RenderText:
+			//	assert(m_hid_renderer==-1L)
+			//	m_hid_renderer=I
 			ofs+=hstate.stateSize()
 			m_state_ofs.push(ofs)
+			///////////
+			m_js_object["handler_id_"+hstate.name()]=I
+			if obj_style&&hstate.SetTextStyle:
+				hstate.SetTextStyle(obj_style)
+		//m_js_object["m_is_line_only"]=m_is_line_only
 		m_state_ofs.push(ofs)
-	//todo: font/color ids in rendering, JS style interpretation
-	auto BlockEdit(CSLNode nd,TBlockOp[] bops)
+		//todo: set a prototype object
+		return m_js_object
+	auto RecomputeStates(CSLNode nd)
+		n=m_state_ofs.back()
+		ccnt=0LL
+		s=nd.s
+		if s:
+			a=new i64[n+m_handlers.n]
+			ccnt=i64(s.n)
+			foreach hstate,I in m_handlers
+				block_state=hstate.AddBlock(a[m_state_ofs[I]:m_state_ofs[I+1]-1],s)
+				if block_state:
+					a[n+I]=i64(a.n)
+					a.push(block_state)
+		else
+			a=new i64[n]
+			for(pc=nd.pchild;pc;pc=pc.pnext)
+				foreach hstate,I in m_handlers
+					hstate.Add(a[m_state_ofs[I]:m_state_ofs[I+1]-1],pc.a[m_state_ofs[I]:m_state_ofs[I+1]-1])
+				ccnt+=pc.ccnt
+		nd.a=a
+		nd.ccnt=ccnt
+	auto skipListPromote(TSLList nds_ret0, TSLList nds_child0,TSLList nds_toadd,CSLNode nd_ignore)
+		nds_ret=nds_ret0
+		nds_child=nds_child0
+		pc_pnext=CSLNode.NULL
+		for(pc=nds_toadd.phead;pc;pc=pc_pnext)
+			pc_pnext=pc.pnext
+			if iptr(pc)!=iptr(nd_ignore)&&System.Algorithm.Random(float)<SKIPLIST_PROMOTION_PROBABILITY:
+				//finish off the dangling chain
+				nds_child.ptail.pnext=CSLNode.NULL
+				nds_ret.ptail.pchild=nds_child.phead
+				RecomputeStates(nds_ret.ptail)
+				//actually promote pc
+				nd_new=new CSLNode
+				nds_ret.ptail.pnext=nd_new
+				nds_ret.ptail=nd_new
+				nds_child=TSLList(){phead:pc,ptail:pc}
+			if !nds_child.phead:
+				nds_child.phead=pc
+			else
+				nds_child.ptail.pnext=pc
+			nds_child.ptail=pc
+		return (nds_ret,nds_child)
+	auto skipListPromoteToRoot(TSLList nds_toadd0)
+		nds_toadd=nds_toadd0
+		for(;;)
+			if iptr(nds_toadd.phead)==iptr(nds_toadd.ptail):
+				return nds_toadd.phead
+			//promote the head
+			nd_new=new CSLNode
+			nds_ret=TSLList(){phead:nd_new,ptail:nd_new}
+			nds_child=TSLList(){phead:nds_toadd.phead,ptail:nds_toadd.phead}
+			nds_toadd.phead=nds_toadd.phead.pnext
+			//add the rest
+			(nds_ret,nds_child)=skipListPromote(nds_ret,nds_child,nds_toadd,CSLNode.NULL)
+			nds_ret.ptail.pchild=nds_child.phead;nds_child.ptail.pnext=CSLNode.NULL
+			RecomputeStates(nds_ret.ptail)
+			//recurse one level up
+			nds_toadd=nds_ret
+	auto BlockEdit(CSLNode nd,i64 ccnt_base0,TBlockOp[] bops)
 		assert(!nd.s)
 		//for each child -> untouched / new list (on which we apply random growth)
 		//so the return value is a list
-		!?
+		p=0L
+		ccnt_base=ccnt_base0
+		//nds_ret.ptail.pchild is the dangling part represented by nds_child
+		nds_ret=TSLList(){phead:nd,ptail:nd}
+		nds_child=TSLList()
+		pc_pnext=CSLNode.NULL
+		for(pc=nd.pchild;pc;pc=pc_pnext)
+			pc_pnext=pc.pnext
+			//intersect cut bops with the child
+			p0=p
+			while p<bops.n&&bops[p].ccnt<ccnt_base+pc.ccnt:
+				p++
+			if p0<p:
+				bk=bops[p-1]
+				bops[p-1].sz=min(ccnt_base+pc.ccnt-bops[p-1].ccnt,bops[p-1].sz)
+				if bops[p-1].sz<bk.sz:
+					bops[p-1].ss=string[].NULL
+				bops[p0].sz+=bops[p0].ccnt
+				bops[p0].ccnt=max(ccnt_base,bops[p0].ccnt)
+				bops[p0].sz-=bops[p0].ccnt
+				assert(bops[p-1].sz>0LL)
+				assert(bops[p0].sz>0LL)
+				if p0==p-1&&!bops[p0].ss&&bops[p0].ccnt==ccnt_base&&bops[p0].sz==pc.ccnt:
+					//completely deleted, discard the child
+					continue
+				if pc.s:
+					assert(p0==p-1)
+					assert(!!bops[p0].ss)
+					assert(bops[p0].ccnt==ccnt_base)
+					nds_pc=TSLList()
+					foreach s in bops[p0].ss
+						nd_new=new CSLNode(){s:s,ccnt:s.n}
+						RecomputeStates(nd_new)
+						if !nds_pc.phead:
+							nds_pc.phead=nd_new
+						else
+							nds_pc.ptail.pnext=nd_new
+							nds_pc.ptail=nd_new
+					if bops[p0].sz:
+						//throw away pc
+						assert(bops[p0].sz==pc.ccnt)
+					else
+						//keep it
+						nds_pc=nds_pc.cat(TSLList(){phead:pc,ptail:pc})
+				else
+					nds_pc=BlockEdit(pc,ccnt_base,bops[p0:p-1])
+				(nds_ret,nds_child)=skipListPromote(nds_ret, nds_child,nds_pc,pc)
+				bops[p-1]=bk
+			else
+				pc.pnext=CSLNode.NULL
+				nds_child=nds_child.cat(TSLList(){phead:pc,ptail:pc})
+			ccnt_base+=pc.ccnt
+		//coulddo: removing nd itself
+		nds_ret.ptail.pchild=nds_child.phead;nds_child.ptail.pnext=CSLNode.NULL
+		RecomputeStates(nds_ret.ptail)
+		return nds_ret
 	auto BlockFromCcnt(i64 ccnt0)
 		nd=m_skiplist
 		ccnt_base=0LL
@@ -319,7 +473,7 @@ class CEditableText
 				ch=int(u8(chc))
 				if (ch&0xc0)!=0x80&&!(s_pool.n&&s_pool.back()=='\r'&&ch=='\n'):
 					//check for block breaking, but do not break UTF-8 chars or \r\n
-					if p-p_last_newline>=m_block_size&&(!m_is_paragraph_only||p_last_newline>p_last_flush):
+					if p-p_last_newline>=m_block_size&&(!m_is_line_only||p_last_newline>p_last_flush):
 						//need a break...
 						if p_last_newline:
 							//we got newlines in the block, we can only break at s_pool_last_newline
@@ -347,7 +501,7 @@ class CEditableText
 				bop_current.ss.push(s_block)
 				s_pool=new(s_pool[s_pool_last_newline:])
 			if s_pool.n:
-				assert(!m_is_paragraph_only)
+				assert(!m_is_line_only)
 				if !bop_current.ss:
 					bop_current.ss=new string[]
 				bop_current.ss.push(s_pool)
@@ -368,7 +522,7 @@ class CEditableText
 				ofs=ofs_new
 				assert(ofs<=pb.ccnt)
 				if ofs==pb.ccnt:
-					//merge with the next block - it's mandatory for paragraph-only guys
+					//merge with the next block - it's mandatory for line-only guys
 					(pb,ofs)=BlockFromCcnt(ccnt_base+ofs)
 					assert(!ofs)
 					ccnt_base=op.ccnt-ofs
@@ -383,14 +537,174 @@ class CEditableText
 			if op.s:poolString(op.s)
 		flush()
 		//block replace -> skiplist edit
-		nds=BlockEdit(m_skiplist,bops)
-		!? m_skiplist= 
-		//todo: recompute states...
-	auto SeekGeneral(int hid,i64[] b)
-		//m_handlers[hid].Compare()
-		!?
-	auto Render(double x,double y,double w,double h,auto drawText)
-		//x,y,w,h refer to the window
-		!? //todo: relayout, styling...
-	auto GetText(iptr ccnt,iptr sz)
-		!?
+		if !m_skiplist:
+			nds_pc=BlockEdit(m_skiplist,0LL,bops)
+		else
+			nds_pc=TSLList()
+			foreach bop in bops
+				foreach s in bop.ss
+					nd_new=new CSLNode(){s:s,ccnt:s.n}
+					RecomputeStates(nd_new)
+					if !nds_pc.phead:
+						nds_pc.phead=nd_new
+					else
+						nds_pc.ptail.pnext=nd_new
+						nds_pc.ptail=nd_new
+		m_skiplist=skipListPromoteToRoot(nds_pc)
+	auto _GetText(string buf,iptr ofs, CSLNode nd,i64 ccnt0,i64 ccnt1)
+		if nd.s:
+			copy(buf[ofs:],nd.s[iptr(ccnt0):iptr(ccnt1-1LL)])
+		else
+			ccnt_base=0LL
+			ofs_i=ofs
+			for(pc=nd.pchild;pc;pc=pc.pnext)
+				p0=max(ccnt0-ccnt_base,0LL)
+				p1=min(ccnt1-ccnt_base,pc.ccnt)
+				if p1>p0:
+					_GetText(buf,ofs_i, nd,p0,p1)
+				ccnt_base+=pc.ccnt
+				ofs_i+=iptr(pc.ccnt)
+	auto GetText(i64 ccnt,i64 sz)
+		buf=new char[sz]
+		_GetText(buf,0L, m_skiplist,ccnt,ccnt+sz)
+		return buf
+	inline GetTextSize()
+		return m_skiplist.ccnt
+	/*
+	how exactly do we do a backward bracket lookup? the thing is state-dependent and *not* monotone!
+		--
+		start-from-zero min/count evaluation
+			evaluate front-to-back
+			or we could evaluate and Compare front-to-back
+				then search back-to-front for the last 1
+		and a contexted per-char version
+			SeekInBlock
+				the ccnt anchor / search type could be included in b
+		it's a non-bisect search using an "or" hierarchy
+		--
+	*/
+	auto _Bisect(i64[] acc, ITextStateHandler handler,i64 ccnt_base0,CSLNode nd,i64[] b)
+		if nd.s:
+			n0=m_state_ofs.back()
+			ofspp=nd.a[n0+handler.id]
+			ofspp2=(handler.id==m_handlers.n-1?i64(nd.a.n):nd.a[n0+handler.id+1])
+			return ccnt_base0+handler.SeekInBlock(acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s,b)
+		else
+			ccnt_base=ccnt_base0
+			acc2=new(acc)
+			for(pc=nd.pchild;pc;pc=pc.pnext)
+				copy(acc2,acc)
+				handler.Add(acc2,pc.a)
+				if handler.Compare(acc2,b)>0:
+					acc2=i64[].NULL
+					return _Bisect(acc, handler,ccnt_base,pc,b)
+				ccnt_base+=pc.ccnt
+			return ccnt_base
+	auto Bisect(int hid,i64[] b)
+		acc=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
+		return _Bisect(acc,m_handlers[hid],0LL,m_skiplist,b)
+	auto Render(double x,double y,double w,double h, float scr_x,float scr_y,float scaling)
+		//x,y,w,h refer to the world space window
+		R=Gui2D.detail.g_renderer
+		R.PushCliprect(scr_x,scr_y,float(w)*scaling,float(h)*scaling)
+		hid=m_js_object["handler_id_renderer"].as(int)
+		handler=m_handlers[hid]
+		acc=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
+		ccnt0=Bisect(hid,[__double_as_longlong(x),__double_as_longlong(y)])
+		ccnt1=Bisect(hid,[__double_as_longlong(x+w),__double_as_longlong(y+h)])
+		rendering_started=0
+		dx=double(scr_x)-x*double(scaling)
+		dy=double(scr_y)-y*double(scaling)
+		auto dfsRender(CSLNode nd,i64 ccnt0,i64 ccnt1)
+			if nd.s:
+				rendering_started=1
+				n0=m_state_ofs.back()
+				ofspp=nd.a[n0+hid]
+				ofspp2=(hid==m_handlers.n-1?i64(nd.a.n):nd.a[n0+hid+1])
+				handler.RenderText(acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s, dx,dy,scaling)
+				handler.Add(acc,nd.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
+			else
+				ccnt_base=0LL
+				for(pc=nd.pchild;pc;pc=pc.pnext)
+					p0=max(ccnt0-ccnt_base,0LL)
+					p1=min(ccnt1-ccnt_base,pc.ccnt)
+					if p1>p0:
+						dfsRender(nd,p0,p1)
+					else if !rendering_started:
+						handler.Add(acc,pc.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
+					ccnt_base+=pc.ccnt
+		dfsRender(m_skiplist,ccnt0,ccnt1)
+		R.PopCliprect()
+	//todo: style changing, locator-based highlighting / hiding
+
+auto createBaselineEditWidget(JSObject JS_ED)
+	JS_ED["New"]=function(JSContext JS){
+		obj_style=JS.Param(0).as(JSObject)
+		if !obj_style:return 0
+		ret=new CEditableText
+		ret.AddStateHandler(new CLayouter_baseline)
+		ret.Init(obj_style)
+		return JS.Return(ret)
+	}
+	JS_ED["GetJSObject"]=function(JSContext JS){
+		ed=JS.Param(0).as(CEditableText)
+		if !ed:return 0
+		return JS.Return(ed.m_js_object)
+	}
+	//the JS boundary has to be checked
+	JS_ED["MassEdit"]=function(JSContext JS){
+		ed=JS.Param(0).as(CEditableText)
+		if !ed:return 0
+		js_ops=JS.Param(1).as(JSObject)
+		if !js_ops:return 0
+		n=js_ops["length"].as(iptr)
+		if !(n>0)||(n%3):
+			JS.Error("bad array length @1".Replace(["@1",string(n)]))
+			return 0
+		//one array with even-odd packing
+		range0=0LL
+		range1=ed.GetTextSize()
+		ops=new TEditop[]
+		for i=0:3:n-3
+			op=TEditop(){ccnt:js_ops[i].as(i64),sz:js_ops[i+1].as(i64),s:js_ops[i+2].as(string)}
+			if u64(op.ccnt)<u64(range0)||u64(op.ccnt+op.sz)>u64(range1)||u64(op.ccnt+op.sz)<u64(op.ccnt):
+				JS.Error("invalid operation #@1".Replace(["@1",string(i)]))
+				return 0
+			range0=op.ccnt+op.sz
+			ops.push(op)
+		ed.MassEdit(ops)
+		return 0
+	}
+	JS_ED["GetText"]=function(JSContext JS){
+		ed=JS.Param(0).as(CEditableText)
+		if !ed:return 0
+		range0=0LL
+		range1=ed.GetTextSize()
+		ccnt=JS.Param(1).or(range0)
+		sz=JS.Param(2).or(range1)
+		if u64(ccnt)<u64(range0)||u64(ccnt+sz)>u64(range1)||u64(ccnt+sz)<u64(ccnt):
+			JS.Error("invalid range")
+			return 0
+		return JS.Return(ed.GetText(ccnt,sz))
+	}
+	JS_ED["GetTextSize"]=function(JSContext JS){
+		ed=JS.Param(0).as(CEditableText)
+		if !ed:return 0
+		return JS.Return(ed.GetTextSize())
+	}
+	JS_ED["Render"]=function(JSContext JS){
+		ed=JS.Param(0).as(CEditableText)
+		if !ed:return 0
+		params=JS.Param(1).as(JSObject)
+		if !params:return 0
+		ed.Render(
+			params["x"].or(0.),
+			params["y"].or(0.),
+			params["w"].or(0.),
+			params["h"].or(0.),
+			params["scr_x"].or(0.f),
+			params["scr_y"].or(0.f),
+			params["scaling"].or(1.f))
+		return 0
+	}
+	return JS_ED

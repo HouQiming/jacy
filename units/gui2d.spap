@@ -1336,6 +1336,12 @@ auto createUIObject(JSObject JS_UI)
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT)
 		return 0
 	}
+	JS_UI["GetSRGBStatus"]=function(JSContext JS){
+		ret=JS.New()
+		ret["gamma"]=g_renderer.m_gamma
+		ret["srgb_supported"]=g_renderer.m_srgb_supported
+		return JS.Return(ret)
+	}
 	return JS_UI
 
 auto inflate(string sin)

@@ -6534,6 +6534,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 		return pobj_ret
 	//tbegin(tm_flatten_step1)
 	empty_news=new PExpression[]
+	znew_pending_setnops=new PExpression[]
 	//need_renaming=0
 	//rename_map=new PCTObject[PCTObject]
 	fflatten_struct_variables=function(PExpression pe0){
@@ -6581,9 +6582,12 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 						if is_class_owned:
 							//class member, keep the original write
 							if is_write:
-								transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,call(g_id_store,exprvar(pobj_ret),readPool(pe+EXPR_OFS_ARGS+2)),[call(g_id_stdot,exprvar(pobj_var),exprctval(pobj_member),exprvar(pobj_ret))])
+								pe_pending_setnop=call(g_id_stdot,exprvar(pobj_var),exprctval(pobj_member),exprvar(pobj_ret))
+								transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,call(g_id_store,exprvar(pobj_ret),readPool(pe+EXPR_OFS_ARGS+2)),[pe_pending_setnop])
 							else
-								transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,exprvar(pobj_ret),[call(g_id_dummy_use,exprvar(pobj_var))])
+								pe_pending_setnop=call(g_id_dummy_use,exprvar(pobj_var))
+								transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,exprvar(pobj_ret),[pe_pending_setnop])
+							znew_pending_setnops.push(pe_pending_setnop)
 						else
 							if is_write:
 								freplacer=function(PExpression pe){return call(g_id_store,exprvar(pobj_ret),readPool(pe+EXPR_OFS_ARGS+2))}
@@ -6908,6 +6912,12 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 		else
 			if DEBUG_DUMP_FLATTEN:
 				Writeln(FormatAsText('kept ',dumpExpr(pe,fcolor_abbrv_blocks)))
+	foreach pe in znew_pending_setnops
+		assert(isBuiltin(pe,g_id_stdot)||isBuiltin(pe,g_id_dummy_use))
+		pe_var=readPool(pe+EXPR_OFS_ARGS+0)
+		pobj_tar=getVariable(pe_var)
+		if !testUserFlag(pobj_tar,VAR_USER_KEEP_ORIGINAL):
+			setnop(pe)
 	//tend(tm_flatten_step2)
 	//tbegin(tm_flatten_step3)
 	clearUserFlags(pe_top,0)
@@ -8003,9 +8013,14 @@ auto deadelim()
 						writePool(pobjfn+FUNCTION_OFS_NMEMBER_LIST,n2)
 				if DEBUG_DUMP_DEADELIM:
 					Writeln('begin ',dumpFunction(pobjfn))
-			else if !testUserFlag(pe,FLAG_IS_LIVE)&&!isBuiltin(pe,g_id_block):
-				as_recurse=new PExpression[]
-				dead_parent=1
+			else if !testUserFlag(pe,FLAG_IS_LIVE):
+				if !isBuiltin(pe,g_id_block):
+					as_recurse=new PExpression[]
+					dead_parent=1
+				if isBuiltin(pe,g_id_if):
+					val_cond=getExprValue(readPool(pe+EXPR_OFS_ARGS+0))
+					if val_cond.tid==g_vtid_UNINIT:
+						errorAtExpr(ETYPE_ERROR,readPool(pe+EXPR_OFS_ARGS+0),"unresolved if condition")
 			for i=-1:n_args-1
 				peargi=readPool(pe+EXPR_OFS_ARGS+i)
 				dfsPruneDead(peargi,as_recurse)
@@ -8694,9 +8709,13 @@ auto castConst(TConstValue ca,PCTObject t_result)
 	ct_result=readPool(t_result+1)
 	assert(u32(ct_result)<u32(CTYPE_COUNT))
 	if ca.type==ct_result:return ca
+	canorm=ca
+	if ca.type==CTYPE_TYPED_NULL&&(ct_result==CTYPE_POINTER||ct_result==const_type(CTYPE_INT,Util.bitSize())||ct_result==const_type(CTYPE_UINT,Util.bitSize())):
+		//CTYPE_TYPED_NULL to iptr / __pointer -- needed for iptr(object)
+		canorm.type=ct_result
+		return canorm
 	if ca.type==CTYPE_TYPED_NULL||ca.type==CTYPE_INVALID||ca.type==CTYPE_POINTER&&ca.val_bin&&((ct_result&CTYPE_MASK)==CTYPE_FLOAT):
 		return TConstValue(){'type':CTYPE_INVALID}
-	canorm=ca
 	n_bits=((ca.type&~CTYPE_MASK)+1)*8
 	if ((ca.type&CTYPE_MASK)==CTYPE_INT):
 		if n_bits<64:
