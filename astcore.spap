@@ -8947,6 +8947,10 @@ auto fixConstantTypes()
 					else
 						pe_var=readPool(pecaller+EXPR_OFS_ARGS+0)
 						val_var=getExprValue(pe_var)
+						pobj_var=getVariable(pe_var)
+						if readPool(pobj_var+VAR_OFS_ID)==g_id_return:
+							//return values have to be translated too
+							val_var.tid=g_vtid_RTVAR
 					if val_var.tid==g_vtid_RTVAR:
 						//stored to var, translate
 						need_to_translate=1

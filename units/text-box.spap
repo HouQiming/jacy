@@ -1,6 +1,7 @@
 /*
 todo:
 	faster way to get the metrics than CacheGlyph
+	basic event handling
 	basic interface
 		MassEdit
 		handle-based locator system
@@ -187,13 +188,16 @@ class CLayouter_baseline
 		x=__longlong_as_double(a[0])
 		y=__longlong_as_double(a[1])
 		for i=0:line_breaks.n-2
-			got_newline=0
+			//got_newline=0
 			for ch,I in Utf8Chars(s[iptr(line_breaks[i]):iptr(line_breaks[i+1]-1)])
 				if mode==MODE_MOUSE_MAP:
 					mm.push(TMouseMap(){pos:double2(x,y),ccnt:line_breaks[i]+I})
 				if ch=='\r'||ch=='\n':
 					//nothing
-					if ch=='\n':got_newline=1
+					if ch=='\n':
+						//got_newline=1
+						x=0.
+						y+=hc
 					continue
 				else if ch==' ':
 					x+=double(Gui2D.detail.g_renderer.CacheGlyph(m_font,ch)[0].dx)
@@ -206,9 +210,9 @@ class CLayouter_baseline
 						//Writeln(x,' ',y,' ',m_font.h,' ',fnt_scaled.h,' ',scalingd,' ',ch,' ',m_color)
 						g_renderer.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),m_color, ch)
 					x+=gc_I.dx
-			if got_newline:
-				x=0.
-				y+=hc
+			//if got_newline:
+			//	x=0.
+			//	y+=hc
 		return TRenderingInfo(){bb:double2(x,y),mm:mm}
 	}
 	RenderText=function(i64[] a,i64[] pp,string s, double dx,double dy,float scaling){
@@ -465,6 +469,7 @@ class CEditableText
 			auto p=s_pool.n
 			auto addBlock(iptr p0,iptr p1)
 				p_last_flush=p1
+				//Writeln('addBlock: ',p0,' ',p1)
 				//virtual string access
 				auto s_block=string.NULL
 				if p1<=s_pool.n:
@@ -482,7 +487,7 @@ class CEditableText
 					//check for block breaking, but do not break UTF-8 chars or \r\n
 					if p-p_last_newline>=m_block_size&&(!m_is_line_only||p_last_newline>p_last_flush):
 						//need a break...
-						if p_last_newline:
+						if p_last_newline>p_last_flush:
 							//we got newlines in the block, we can only break at s_pool_last_newline
 							addBlock(p_last_flush,p_last_newline)
 						else
@@ -502,7 +507,7 @@ class CEditableText
 				assert(ofs<pb.s.n)
 				poolString(pb.s[iptr(ofs):])
 			if s_pool_last_newline:
-				s_block=new(s_pool[s_pool_last_newline-1:])
+				s_block=new(s_pool[:s_pool_last_newline-1])
 				if !bop_current.ss:
 					bop_current.ss=new string[]
 				bop_current.ss.push(s_block)
@@ -543,6 +548,9 @@ class CEditableText
 			bop_current.sz=op.ccnt+op.sz-bop_current.ccnt
 			if op.s:poolString(op.s)
 		flush()
+		//Writeln(ops)
+		//Writeln('---------------------------------------------------------')
+		//Writeln(bops)
 		//block replace -> skiplist edit
 		if m_skiplist.ccnt:
 			nds_pc=BlockEdit(m_skiplist,0LL,bops)
@@ -664,7 +672,7 @@ auto createBaselineEditWidget(JSObject JS_ED)
 		if !ed:return 0
 		js_ops=JS.Param(1).as(JSObject)
 		if !js_ops:return 0
-		n=js_ops["length"].as(iptr)
+		n=iptr(js_ops["length"].as(double))
 		if !(n>0)||(n%3):
 			JS.Error("bad array length @1".Replace(["@1",string(n)]))
 			return 0
@@ -673,7 +681,7 @@ auto createBaselineEditWidget(JSObject JS_ED)
 		range1=ed.GetTextSize()
 		ops=new TEditop[]
 		for i=0:3:n-3
-			op=TEditop(){ccnt:js_ops[i].as(i64),sz:js_ops[i+1].as(i64),s:js_ops[i+2].as(string)}
+			op=TEditop(){ccnt:i64(js_ops[i].as(double)),sz:i64(js_ops[i+1].as(double)),s:js_ops[i+2].as(string)}
 			if u64(op.ccnt)<u64(range0)||u64(op.ccnt+op.sz)>u64(range1)||u64(op.ccnt+op.sz)<u64(op.ccnt):
 				JS.Error("invalid operation #@1".Replace(["@1",string(i)]))
 				return 0
@@ -716,8 +724,8 @@ auto createBaselineEditWidget(JSObject JS_ED)
 			param_y,
 			param_w,
 			param_h,
-			param_scr_x,
-			param_scr_y,
+			param_scr_x*g_renderer.m_pixels_per_unit,
+			param_scr_y*g_renderer.m_pixels_per_unit,
 			param_scale*g_renderer.m_pixels_per_unit)
 		return 0
 	}

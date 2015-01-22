@@ -141,7 +141,7 @@ module duktape
 			T=typeof(value)
 			if T==string:
 				duk_push_lstring(_ctx(),value,value.n)
-			else if __is_type("int",T)&&T!=i64&&T!=u64||__is_type("float",T):
+			else if __is_type("int",T)||__is_type("float",T)://&&T!=i64&&T!=u64
 				duk_push_number(_ctx(),double(value))
 			else if T==JSNativeCallback:
 				//wrap it up in s7_CB_duktape
@@ -176,7 +176,7 @@ module duktape
 				ret=duk_to_int32(_ctx(),-1)
 			else if T==u32:
 				ret=duk_to_uint32(_ctx(),-1)
-			else if __is_type("int",T)&&T!=i64&&T!=u64||__is_type("float",T)
+			else if __is_type("int",T)||__is_type("float",T)://&&T!=i64&&T!=u64
 				ret=T(duk_to_number(_ctx(),-1))
 			else if T==string:
 				lg=0L
