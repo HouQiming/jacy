@@ -358,6 +358,11 @@ class Array(T)
 			}
 		}
 	inline __C_autocast(){return __pointer(d)}
+	inline __JS_autocast(JS)
+		ret=JS.NewArray()
+		for(i=0L;i<n;i++)
+			ret[i]=this[i]
+		return ret
 	/////////////////
 	//aggregated ops, sort and unique
 	auto Bisect(function(T a):int tooSmall)

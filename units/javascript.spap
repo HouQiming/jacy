@@ -165,7 +165,7 @@ module duktape
 				m_all_callbacks.push(value)
 				__C(int,"duk_push_c_function(@1,s7_CB_duktape,DUK_VARARGS)",_ctx())
 				duk_set_magic(_ctx(),-1,fid)
-			else if T==JSObject||T==JSFunction:
+			else if T==JSObject://||T==JSFunction:
 				if Platform.BUILD=="debug":
 					if __cast(iptr,value.m_jsctx)!=__cast(iptr,this):
 						__basic_api.spapReportError("cannot mix JS objects from different contexts")
@@ -173,7 +173,7 @@ module duktape
 			else if T==__pointer:
 				duk_push_pointer(_ctx(),value)
 			else if __has_member(value,"__JS_autocast"):
-				_push_value(value.__JS_autocast())
+				_push_value(value.__JS_autocast(this))
 			else
 				obj=variant(value)
 				__explicit_rc(obj,1)
@@ -216,9 +216,9 @@ module duktape
 			else if T==JSObject:
 				refid=_pop_object()
 				ret=JSObject(){"m_jsctx":this,"m_handle":refid}
-			else if T==JSFunction:
-				refid=_pop_function()
-				ret=JSFunction(){"m_jsctx":this,"m_handle":refid}
+				//else if T==JSFunction:
+				//	refid=_pop_function()
+				//	ret=JSFunction(){"m_jsctx":this,"m_handle":refid}
 			else if T==__pointer:
 				ret=duk_get_pointer(_ctx(),-1)
 			else
@@ -469,44 +469,6 @@ module duktape
 			if m_handle:
 				m_jsctx._free_refid(m_handle)
 				m_jsctx=JSContext.NULL
-	class JSFunction
-		m_jsctx=JSContext.NULL
-		m_handle=0
-		inline _ctx()
-			return m_jsctx._ctx()
-		inline GetContext()
-			return m_jsctx
-		inline operator[](name)
-			//[] -> [object subscript]
-			if Platform.BUILD=="debug":
-				if !m_jsctx:
-					__basic_api.spapReportError("JSObject must not be created through new")
-			m_jsctx._push_object(m_handle)
-			_push_subscript(_ctx(),name)
-			return _IncompleteJSPropertyAccess(){"m_jsctx":m_jsctx}
-		inline Call(T)
-			m_jsctx._push_object(m_handle)
-			arguments0=arguments
-			for i in crange(arguments0.length)
-				if i>0:
-					m_jsctx._push_value(arguments0[i])
-			duk_pcall(_ctx(),arguments0.length-1)
-			return m_jsctx._pop_typed(T,1)
-		inline CallAsMethod(T,arg_this)
-			m_jsctx._push_object(m_handle)
-			m_jsctx._push_value(arg_this)
-			arguments0=arguments
-			for i in crange(arguments0.length)
-				if i>1:
-					m_jsctx._push_value(arguments0[i])
-			duk_pcall_method(_ctx(),arguments0.length-2)
-			return m_jsctx._pop_typed(T,1)
-		auto __done__()
-			if m_handle:
-				m_jsctx._free_refid(m_handle)
-				m_jsctx=JSContext.NULL
-			System.Console.Writeln('function freed')
-	
+
 JSContext=duktape.JSContext
 JSObject=duktape.JSObject
-JSFunction=duktape.JSFunction

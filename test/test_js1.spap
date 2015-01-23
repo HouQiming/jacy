@@ -7,12 +7,11 @@ class CNativeClass
 (function(){
 	JS=new JSContext
 	///////////
-	//todo: need a JS function type! and defineproperties
-	//test: JSFunction, __JS_autocast, __JS_prototype
+	//todo: test: __JS_prototype
 	global=JS.GetGlobal()
-	js_print=JS.eval(JSFunction,"(function(c){print(c)})")
+	js_print=JS.eval(JSObject,"(function(c){print('js_print: ',c)})")
 	js_print.Call(JSObject,js_print)
-	JS.eval(JSObject,"print(g_stash_array)")
+	js_print.Call(JSObject,["abc","456","789"])
 	//defineProperty=global["Object"]["defineProperty"].as(JSObject)
 	//objectCreate=global["Object"]["create"].as(JSObject)
 	//defineProperty=JS.eval(JSObject,"(function(cls,name,ppt){Object.defineProperty(cls.prototype,name,ppt);})")
@@ -68,6 +67,9 @@ class CNativeClass
 	//});")
 	//if errobj&&errobj.has("stack"):
 	//	System.Console.Writeln(errobj["stack"].as(string))
-	JS.debugEval("(function(){print('----------------');print(CJSClass.toString());print('CJSClass.prototype=',CJSClass.prototype);print('a=',a);print('a.n=',a.n);a.n+=4444;})()","<test code>")
+	JS.debugEval("(function(){print('----------------');print(CJSClass.toString());print('CJSClass.prototype=',CJSClass.prototype);print('a=',a);print('a.n=',a.n);a.n+=4444;})()","<eval>")
+	Writeln('----------------')
+	JS.debugEval("parse error","<eval>")
+	Writeln('----------------')
 	Writeln(native_obj.n)
 })()
