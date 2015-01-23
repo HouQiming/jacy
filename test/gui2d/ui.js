@@ -923,6 +923,12 @@ UI.SDL_WINDOW_OPENGL=2
 UI.SDL_WINDOW_RESIZABLE=32
 UI.SDL_WINDOW_SHOWN=4
 
+UI.setTimeout=function(f,ms){
+	var timer_id;
+	timer_id=UI.setInterval(function(){UI.clearInterval(timer_id);f();},ms);
+	return timer_id;
+};
+
 UI.GetState=function(id,attrs){
 	var parent=UI.context_parent.$;
 	var attrs_old=parent[id];
@@ -1272,18 +1278,26 @@ UI.Run=function(){
 		while(event){
 			if(event.type==UI.SDL_QUIT){return UI;}
 			switch(event.type){
+			case UI.SDL_USEREVENT:
+				if(event.code==2){
+					//timer
+					var fn=UI.getTimerFunction(event.data1);
+					if(fn){fn();}
+				}
+				break
 			case UI.SDL_WINDOWEVENT:
 				//todo: generic event callbacks - user-provided testing function on the event
 				switch(event.event){
+				case UI.SDL_WINDOWEVENT_RESIZED:
+					UI.Refresh();
+					break
 				case UI.SDL_WINDOWEVENT_SHOWN:
 				case UI.SDL_WINDOWEVENT_EXPOSED:
-				case UI.SDL_WINDOWEVENT_RESIZED:
 					var obj=UI.hwnd_to_obj[event.windowID];
 					UI.GL_Begin(event.windowID)
 					UI.Clear(obj.bgcolor||0xffffffff)
 					UI.DrawWindow(event.windowID)
 					UI.GL_End(event.windowID)
-					if(event.event==UI.SDL_WINDOWEVENT_RESIZED){UI.Refresh();}
 					break;
 				}
 				break

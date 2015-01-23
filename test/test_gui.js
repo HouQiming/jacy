@@ -158,4 +158,6 @@ var demo_textbox=function(id,attrs){
 UI.Application=demo_msgbox;
 //UI.Application=demo_text_animation;
 
+//UI.setTimeout(function(){print("setTimeout");},1500)
+//UI.setInterval(function(){print("setInterval");},1000)
 UI.Run()

@@ -4,6 +4,7 @@ todo:
 	SDL_SetWindowGrab
 	use the font renderer for monochrome svg icons
 		use stbtt__rasterize instead for cubic curves
+		or extend the original code (which shouldn't be that hard)
 	smart character thickness?
 		fix the emboldening for black-on-white fonts
 	could have a SDL renderer fallback for legacy windows / tinycore
@@ -437,7 +438,7 @@ g_renderer=(class(){
 	auto EndFrame()
 		//pack m_dynamic_textures and apply the dynamic drawcalls
 		if m_StretchDIBits_calls.n:
-			tick0=System.Time.tick64()//todo
+			//tick0=System.Time.tick64()
 			(m_dynamic_packed_bmp,m_dynamic_packings)=packTextures(m_dynamic_textures,m_texture_width,1)
 			//SavePNG("$dynamic.png",m_dynamic_packed_bmp.rgba,m_dynamic_packed_bmp.w,m_dynamic_packed_bmp.h)
 			foreach scall in m_StretchDIBits_calls
@@ -587,6 +588,7 @@ g_renderer=(class(){
 				m_tech.SetUniform("scale",float4(2.f/f32(dc.window_w*dc.crd16_scale),2.f/f32(dc.window_h*dc.crd16_scale), 1.f/f32(m_texture_width*m_uv16_scale),1.f/f32(m_texture_height*m_uv16_scale)))
 				m_tech.SetTexture2D("tex0", m_texid)
 				m_tech.Draw(0u,GL_QUADS,dc.nv)
+				//todo: caret
 	//////////////
 	//avoid caching the resampled / original bitmaps - batched loadStaticResources
 	auto BeginPaint(__pointer hwnd)
@@ -959,7 +961,7 @@ g_renderer=(class(){
 			ch=s32[i]
 			if ch!=' '&&ch!='\t'&&ch!='\r'&&ch!='\n':
 				ret.push(TPositionedText(){pos:poses[i],ch:ch})
-		//Writeln(__memory(int,__cast(iptr,poses)))//todo
+		//Writeln(__memory(int,__cast(iptr,poses)))
 		if poses_elli:
 			foreach ch,I in s_elli
 				ret.push(TPositionedText(){pos:poses_elli[I],ch:ch})
@@ -1157,6 +1159,12 @@ g_renderer=(class(){
 					m_StretchDIBits_calls.push(TStretchDIBits(){vdata:vdata,hwnd:m_hwnd,bmpid:bmpid_xy,C:int4(C0,C1,C2,C3),pos:int(n0)})
 })()
 
+////////////////////////////////////////////
+//the timer stuff
+SDL_SetInterval=__c_function(int,"SDL_SetInterval","sdl_timerw.h", "c_files","sdl_timerw.c")
+SDL_ClearInterval=__c_function(int,"SDL_ClearInterval","sdl_timerw.h", "c_files","sdl_timerw.c")
+//TIMER_EVENT_ID=2
+
 auto createUIObject(JSObject JS_UI)
 	///////////////
 	g_renderer.InitFonts()
@@ -1248,7 +1256,6 @@ auto createUIObject(JSObject JS_UI)
 		if !attrs:return 0
 		boxed_fnt=attrs["font"].as(__Box(TFont))
 		fnt=boxed_fnt.a
-		//todo: this causes premature release
 		//fnt=JS.Param(0).as(TFont)
 		//Writeln(fnt)
 		if !fnt.pfnt:return 0
@@ -1276,6 +1283,22 @@ auto createUIObject(JSObject JS_UI)
 		if !fnt.pfnt:return 0
 		foreach li in layout.chars
 			g_renderer.DrawChar(fnt,x0+li.pos.x,y0+li.pos.y,int(C),li.ch)
+		return 0
+	}
+	JS_UI["RoundRect"]=function(JSContext JS){
+		obj=JS.Param(0).as(JSObject)
+		radius=obj["round"].or(0.f)*g_renderer.m_pixels_per_unit
+		border_width=obj["border_width"].or(0.f)*g_renderer.m_pixels_per_unit
+		w=obj["w"].or(0.f)*g_renderer.m_pixels_per_unit
+		h=obj["h"].or(0.f)*g_renderer.m_pixels_per_unit
+		eff_radius=max(min(radius,min(w,h)*0.5f),border_width)
+		bmpid=g_renderer.CacheRR(eff_radius,0.f,0)
+		x=obj["x"].or(0.f)*g_renderer.m_pixels_per_unit
+		y=obj["y"].or(0.f)*g_renderer.m_pixels_per_unit
+		g_renderer.Draw3x3(x+border_width*0.5f,y+border_width*0.5f,w-border_width,h-border_width,eff_radius, bmpid,obj,"color",0)
+		if border_width>0.f:
+			bmpid=g_renderer.CacheRR(eff_radius,border_width,1)
+			g_renderer.Draw3x3(x,y,w,h,eff_radius, bmpid,obj,"border_color",1)
 		return 0
 	}
 	//////////////////
@@ -1308,22 +1331,8 @@ auto createUIObject(JSObject JS_UI)
 							obj[fn_nmlz]=g_renderer.LoadStaticBitmap(bmp)
 		return 0
 	}
-	JS_UI["RoundRect"]=function(JSContext JS){
-		obj=JS.Param(0).as(JSObject)
-		radius=obj["round"].or(0.f)*g_renderer.m_pixels_per_unit
-		border_width=obj["border_width"].or(0.f)*g_renderer.m_pixels_per_unit
-		w=obj["w"].or(0.f)*g_renderer.m_pixels_per_unit
-		h=obj["h"].or(0.f)*g_renderer.m_pixels_per_unit
-		eff_radius=max(min(radius,min(w,h)*0.5f),border_width)
-		bmpid=g_renderer.CacheRR(eff_radius,0.f,0)
-		x=obj["x"].or(0.f)*g_renderer.m_pixels_per_unit
-		y=obj["y"].or(0.f)*g_renderer.m_pixels_per_unit
-		g_renderer.Draw3x3(x+border_width*0.5f,y+border_width*0.5f,w-border_width,h-border_width,eff_radius, bmpid,obj,"color",0)
-		if border_width>0.f:
-			bmpid=g_renderer.CacheRR(eff_radius,border_width,1)
-			g_renderer.Draw3x3(x,y,w,h,eff_radius, bmpid,obj,"border_color",1)
-		return 0
-	}
+	///////////////////////////////////
+	//misc GL
 	JS_UI["Clear"]=function(JSContext JS){
 		C_clear=JS.Param(0).or(u32(-1))
 		c0=f32(C_clear&0xffu)/255.f
@@ -1344,6 +1353,36 @@ auto createUIObject(JSObject JS_UI)
 		ret["gamma"]=g_renderer.m_gamma
 		ret["srgb_supported"]=g_renderer.m_srgb_supported
 		return JS.Return(ret)
+	}
+	///////////////////////////////////
+	//timer
+	timer_user_data=new JSObject[int]
+	sdl_badapi_hack_callback_to_timer_id=new int[iptr]
+	JS_UI["setInterval"]=function(JSContext JS){
+		fn=JS.Param(0).as(JSObject)
+		if !fn:return 0
+		interval=JS.Param(1).as(int)
+		if !(interval>0):return 0
+		timer_id=SDL_SetInterval(interval,__pointer(fn));
+		timer_user_data[timer_id]=fn
+		sdl_badapi_hack_callback_to_timer_id[iptr(fn)]=timer_id
+		return JS.Return(timer_id)
+	}
+	JS_UI["clearInterval"]=function(JSContext JS){
+		timer_id=JS.Param(0).as(int)
+		fn=timer_user_data[timer_id]
+		if !fn:return 0
+		sdl_badapi_hack_callback_to_timer_id[iptr(fn)]=0
+		SDL_ClearInterval(timer_id,__pointer(fn));
+		timer_user_data[timer_id]=JSObject.NULL
+		return JS.Return(1)
+	}
+	JS_UI["getTimerFunction"]=function(JSContext JS){
+		timer_id=JS.Param(0).as(__pointer)
+		if !timer_id:return 0
+		fn=timer_user_data[sdl_badapi_hack_callback_to_timer_id[iptr(timer_id)]]
+		if !fn:return 0
+		return JS.Return(fn)
 	}
 	return JS_UI
 
