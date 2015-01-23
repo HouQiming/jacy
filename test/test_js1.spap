@@ -3,13 +3,13 @@ import Javascript.*
 
 class CNativeClass
 	int n
-	hello=function(JSContext JS){
+	js_hello=function(JSContext JS){
 		Writeln('n=',n,' param=',JS.Param(0).as(string))
 		return 0
 	}
-	auto __JS_prototype(proto)
+	auto __JS_prototype(JSObject proto)
 		proto.ExportProperty(this,"n")
-		proto.ExportMethod(this,"hello")
+		proto.ExportMethod(this,"hello",js_hello)
 		return proto
 
 (function(){
@@ -23,9 +23,11 @@ class CNativeClass
 	native_obj=new CNativeClass
 	native_obj.n=1234
 	global["a"]=native_obj
-	JS.debugEval("(function(){print('----------------');print('a.__proto__=',a.__proto__);print('a=',a);print('a.n=',a.n);a.hello('world');a.n+=4444;})()","<eval>")
+	objb=new CNativeClass(){n:4000}
+	global["b"]=objb
+	JS.debugEval("(function(){print('----------------');print('a.__proto__=',a.__proto__);print('a=',a);print('a.n=',a.n);a.hello('world');a.n+=4444;print('b.n=',b.n);b.n+=321})()","<eval>")
 	Writeln('----------------')
 	JS.debugEval("parse error","<eval>")
 	Writeln('----------------')
-	Writeln(native_obj.n)
+	Writeln(native_obj.n,' ',objb.n)
 })()

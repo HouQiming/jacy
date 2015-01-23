@@ -143,13 +143,13 @@ var demo_textbox=function(id,attrs){
 		var wnd=UI.Begin(W.Window("app",{title:"Text box example",w:1024,h:768,bgcolor:0xffffffff,designated_screen_size:1440,flags:UI.SDL_WINDOW_RESIZABLE,is_main_window:1}))
 			if(!ed){
 				ed=ED.New({font:UI.Font("arialbd",32),color:0xff000000});
-				ED.MassEdit(ed,[0,0,code_text]);
-				//print(ED.GetTextSize(ed))
-				//print(ED.GetText(ed))
+				ed.MassEdit([0,0,code_text]);
+				//print(ed.GetTextSize())
+				//print(ed.GetText())
 			}
 			W.Hotkey("",{mod:UI.KMOD_LALT,key:UI.SDLK_F4,action:function(){UI.DestroyWindow(wnd)}});
 			W.Hotkey("",{key:UI.SDLK_ESCAPE,action:function(){UI.DestroyWindow(wnd)}});
-			ED.Render(ed,{x:0,y:0,w:1024-16,h:768-16, scr_x:8,scr_y:8,scale:1})
+			ed.Render({x:0,y:0,w:1024-16,h:768-16, scr_x:8,scr_y:8,scale:1})
 			UI.SetCaret(wnd,8,8,16,32,0x7f000000,500)
 		UI.End();
 	UI.End();

@@ -257,9 +257,6 @@ struct TBlockOp
 	i64 sz
 	string[] ss
 
-class CLocator
-	i64 ccnt
-
 class CSLNode
 	CSLNode pchild
 	CSLNode pnext
@@ -284,6 +281,15 @@ struct TSLList
 class CLocator
 	i64 ccnt
 	i8 side
+	i8 discarded
+	discard=function(JSContext JS){
+		discarded=i8(1)
+		return 0
+	}
+	auto __JS_prototype(JSObject proto)
+		proto.ExportProperty(this,"ccnt")
+		proto.ExportProperty(this,"side")
+		proto.ExportMethod(this,"discard",discard)
 
 SKIPLIST_PROMOTION_PROBABILITY=0.25f//1.0/2.71828
 //the internal methods *should not* validate parameters
@@ -298,13 +304,13 @@ class CEditableText
 	m_is_line_only=0
 	m_block_size=1024
 	m_js=JSContext.NULL
-	m_js_object=JSObject.NULL
+	m_handler_registration=JSObject.NULL
 	inline AddStateHandler(a)
 		m_handlers.push(getInterface(a,ITextStateHandler))
 		return m_handlers.n-1
 	auto Init(JSObject obj_style)
 		m_js=obj_style.m_jsctx
-		m_js_object=m_js.New()
+		m_handler_registration=m_js.New()
 		ofs=0L
 		foreach hstate,I in m_handlers
 			hstate.id=I
@@ -316,14 +322,14 @@ class CEditableText
 			m_state_ofs.push(ofs)
 			ofs+=hstate.stateSize()
 			///////////
-			m_js_object["handler_id_"+hstate.name()]=I
+			m_handler_registration["handler_id_"+hstate.name()]=I
 			if hstate.SetTextStyle:
 				hstate.SetTextStyle(obj_style)
-		//m_js_object["m_is_line_only"]=m_is_line_only
+		//m_handler_registration["m_is_line_only"]=m_is_line_only
 		m_state_ofs.push(ofs)
 		RecomputeStates(m_skiplist)
 		//todo: set a prototype object
-		return m_js_object
+		return m_handler_registration
 	auto RecomputeStates(CSLNode nd)
 		n=m_state_ofs.back()
 		ccnt=0LL
@@ -456,7 +462,12 @@ class CEditableText
 			assert(!!nd.pchild)
 			nd=nd.pchild
 	auto SortLocators()
-		m_locators.Sortby(inline(loc){return loc.ccnt})
+		n2=0L
+		foreach loc,I in m_locators
+			if !loc.discarded:
+				m_locators[n2++]=loc
+		m_locators.resize(n2)
+		//todo: m_locators.Sortby(inline(loc){return loc.ccnt})
 	auto MassEdit(TEditop[] ops)
 		//editop -> block replace: mainly take-the-next-and-merge
 		//do the locators here
@@ -465,7 +476,7 @@ class CEditableText
 		ofs=0LL
 		//////////
 		SortLocators()
-		!? //todo: m_locators
+		//todo: maintain m_locators
 		//////////
 		bops=new TBlockOp[]
 		bop_current=TBlockOp()
@@ -632,7 +643,7 @@ class CEditableText
 		//x,y,w,h refer to the world space window
 		R=Gui2D.detail.g_renderer
 		R.PushCliprect(scr_x,scr_y,float(w)*scaling,float(h)*scaling)
-		hid=m_js_object["handler_id_renderer"].as(int)
+		hid=m_handler_registration["handler_id_renderer"].as(int)
 		handler=m_handlers[hid]
 		acc=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
 		ccnt0=Bisect(hid,[__double_as_longlong(x),__double_as_longlong(y)])
@@ -662,26 +673,9 @@ class CEditableText
 		R.PopCliprect()
 	//todo: locator-based highlighting / hiding
 	//todo: style changing
-
-auto createBaselineEditWidget(JSObject JS_ED)
-	JS_ED["New"]=function(JSContext JS){
-		obj_style=JS.Param(0).as(JSObject)
-		if !obj_style:return 0
-		ret=new CEditableText
-		ret.AddStateHandler(new CLayouter_baseline)
-		ret.Init(obj_style)
-		return JS.Return(ret)
-	}
-	JS_ED["GetJSObject"]=function(JSContext JS){
-		ed=JS.Param(0).as(CEditableText)
-		if !ed:return 0
-		return JS.Return(ed.m_js_object)
-	}
-	//the JS boundary has to be checked
-	JS_ED["MassEdit"]=function(JSContext JS){
-		ed=JS.Param(0).as(CEditableText)
-		if !ed:return 0
-		js_ops=JS.Param(1).as(JSObject)
+	/////////////////
+	JS_MassEdit=function(JSContext JS){
+		js_ops=JS.Param(0).as(JSObject)
 		if !js_ops:return 0
 		n=iptr(js_ops["length"].as(double))
 		if !(n>0)||(n%3):
@@ -689,7 +683,7 @@ auto createBaselineEditWidget(JSObject JS_ED)
 			return 0
 		//one array with even-odd packing
 		range0=0LL
-		range1=ed.GetTextSize()
+		range1=GetTextSize()
 		ops=new TEditop[]
 		for i=0:3:n-3
 			op=TEditop(){ccnt:i64(js_ops[i].as(double)),sz:i64(js_ops[i+1].as(double)),s:js_ops[i+2].as(string)}
@@ -698,30 +692,28 @@ auto createBaselineEditWidget(JSObject JS_ED)
 				return 0
 			range0=op.ccnt+op.sz
 			ops.push(op)
-		ed.MassEdit(ops)
+		MassEdit(ops)
 		return 0
 	}
-	JS_ED["GetText"]=function(JSContext JS){
-		ed=JS.Param(0).as(CEditableText)
+	JS_GetText=function(JSContext JS){
+		ed=this
 		if !ed:return 0
 		range0=0LL
 		range1=ed.GetTextSize()
-		ccnt=JS.Param(1).or(range0)
-		sz=JS.Param(2).or(range1)
+		ccnt=JS.Param(0).or(range0)
+		sz=JS.Param(1).or(range1)
 		if u64(ccnt)<u64(range0)||u64(ccnt+sz)>u64(range1)||u64(ccnt+sz)<u64(ccnt):
 			JS.Error("invalid range")
 			return 0
 		return JS.Return(ed.GetText(ccnt,sz))
 	}
-	JS_ED["GetTextSize"]=function(JSContext JS){
-		ed=JS.Param(0).as(CEditableText)
-		if !ed:return 0
-		return JS.Return(double(ed.GetTextSize()))
+	JS_GetTextSize=function(JSContext JS){
+		return JS.Return(GetTextSize())
 	}
-	JS_ED["Render"]=function(JSContext JS){
-		ed=JS.Param(0).as(CEditableText)
+	JS_Render=function(JSContext JS){
+		ed=this
 		if !ed:return 0
-		params=JS.Param(1).as(JSObject)
+		params=JS.Param(0).as(JSObject)
 		if !params:return 0
 		param_x=params["x"].or(0.)
 		param_y=params["y"].or(0.)
@@ -740,4 +732,21 @@ auto createBaselineEditWidget(JSObject JS_ED)
 			param_scale*g_renderer.m_pixels_per_unit)
 		return 0
 	}
+	auto __JS_prototype(JSObject proto)
+		proto.ExportProperty(this,"m_handler_registration")
+		proto.ExportMethod(this,"MassEdit",JS_MassEdit)
+		proto.ExportMethod(this,"GetText",JS_GetText)
+		proto.ExportMethod(this,"GetTextSize",JS_GetTextSize)
+		proto.ExportMethod(this,"Render",JS_Render)
+
+auto createBaselineEditWidget(JSObject JS_ED)
+	JS_ED["New"]=function(JSContext JS){
+		obj_style=JS.Param(0).as(JSObject)
+		if !obj_style:return 0
+		ret=new CEditableText
+		ret.AddStateHandler(new CLayouter_baseline)
+		ret.Init(obj_style)
+		return JS.Return(ret)
+	}
+	//the JS boundary has to be checked
 	return JS_ED
