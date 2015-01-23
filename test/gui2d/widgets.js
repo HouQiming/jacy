@@ -11,6 +11,17 @@ UI.DestroyWindow=function(attrs){
 	UI.SDL_DestroyWindow(attrs.$.hwnd)
 };
 
+UI.SetCaret=function(attrs,x,y,w,h,C,dt){
+	var state=attrs.$;
+	state.caret_x=x;
+	state.caret_y=y;
+	state.caret_w=w;
+	state.caret_h=h;
+	state.caret_C=C;
+	state.caret_state=1;
+	state.caret_dt=dt;
+};
+
 W.Window=function(id,attrs){
 	var state=UI.GetState(id,attrs);
 	//the dpi is not per-inch,
@@ -28,7 +39,6 @@ W.Window=function(id,attrs){
 	if(!state.hwnd){
 		//no default event handler for the window
 		state.hwnd=UI.SDL_CreateWindow(attrs.title||"untitled",attrs.x||UI.SDL_WINDOWPOS_CENTERED,attrs.y||UI.SDL_WINDOWPOS_CENTERED,attrs.w*UI.pixels_per_unit,attrs.h*UI.pixels_per_unit, attrs.flags);
-		UI.hwnd_to_obj[state.hwnd]=state;
 	}
 	//defer the innards painting to the first OnPaint - need the GL context
 	state.bgcolor=(state.bgcolor||attrs.bgcolor)

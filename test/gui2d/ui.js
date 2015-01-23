@@ -1229,7 +1229,6 @@ UI.StdAnchoring=function(id,attrs){
 }
 
 ////////////////////////////////////////
-UI.hwnd_to_obj={};
 UI.need_to_refresh=1;
 UI.nd_mouse_down=[];
 UI.$={};
@@ -1264,6 +1263,29 @@ UI.Run=function(){
 				UI.Clear(obj.bgcolor||0xffffffff)
 				UI.DrawWindow(obj.hwnd)
 				UI.GL_End(obj.hwnd)
+				if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
+					if(!obj.has_caret_callback){
+						obj.has_caret_callback=1;
+						UI.setTimeout((function(obj){var fn_ret=function(){
+							UI.GL_Begin(obj.hwnd)
+							UI.Clear(obj.bgcolor||0xffffffff)
+							if(obj.caret_state){
+								UI.DrawWindow(obj.hwnd,obj.caret_x,obj.caret_y,obj.caret_w,obj.caret_h,obj.caret_C);
+								obj.caret_state=0;
+							}else{
+								UI.DrawWindow(obj.hwnd)
+								obj.caret_state=1;
+							}
+							UI.GL_End(obj.hwnd)
+							if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
+								obj.has_caret_callback=1;
+								UI.setTimeout(fn_ret,obj.caret_dt);
+							}else{
+								obj.has_caret_callback=0;
+							}
+						};return fn_ret;})(obj),obj.caret_dt)
+					}
+				}
 			}
 			//print(1.0/UI.frame_time,"fps");
 			//print('frame=',UI.frame_time);
@@ -1286,18 +1308,19 @@ UI.Run=function(){
 				}
 				break
 			case UI.SDL_WINDOWEVENT:
-				//todo: generic event callbacks - user-provided testing function on the event
 				switch(event.event){
 				case UI.SDL_WINDOWEVENT_RESIZED:
 					UI.Refresh();
 					break
 				case UI.SDL_WINDOWEVENT_SHOWN:
 				case UI.SDL_WINDOWEVENT_EXPOSED:
-					var obj=UI.hwnd_to_obj[event.windowID];
-					UI.GL_Begin(event.windowID)
-					UI.Clear(obj.bgcolor||0xffffffff)
-					UI.DrawWindow(event.windowID)
-					UI.GL_End(event.windowID)
+					var obj=event.windowID;
+					if(obj){
+						UI.GL_Begin(obj.hwnd)
+						UI.Clear(obj.bgcolor||0xffffffff)
+						UI.DrawWindow(obj.hwnd)
+						UI.GL_End(obj.hwnd)
+					}
 					break;
 				}
 				break

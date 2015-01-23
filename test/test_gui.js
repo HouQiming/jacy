@@ -150,12 +150,13 @@ var demo_textbox=function(id,attrs){
 			W.Hotkey("",{mod:UI.KMOD_LALT,key:UI.SDLK_F4,action:function(){UI.DestroyWindow(wnd)}});
 			W.Hotkey("",{key:UI.SDLK_ESCAPE,action:function(){UI.DestroyWindow(wnd)}});
 			ED.Render(ed,{x:0,y:0,w:1024-16,h:768-16, scr_x:8,scr_y:8,scale:1})
+			UI.SetCaret(wnd,8,8,16,32,0x7f000000,500)
 		UI.End();
 	UI.End();
 };
 
-//UI.Application=demo_textbox;
-UI.Application=demo_msgbox;
+UI.Application=demo_textbox;
+//UI.Application=demo_msgbox;
 //UI.Application=demo_text_animation;
 
 //UI.setTimeout(function(){print("setTimeout");},1500)

@@ -946,6 +946,7 @@ module detail
 	SDL_GL_CreateContext=__c_function(__pointer,"SDL_GL_CreateContext","SDL.h")
 	SDL_GL_ExtensionSupported=__c_function(int,"SDL_GL_ExtensionSupported","SDL.h")
 	SDL_GetWindowSize=__c_function(int,"SDL_GetWindowSize","SDL.h")
+	SDL_GetWindowID=__c_function(int,"SDL_GetWindowID","SDL.h")
 	SDL_GetCurrentDisplayMode=__c_function(int,"SDL_GetCurrentDisplayMode","SDL.h")
 	//////
 	g_sdl_gl_context=NULL
@@ -1038,6 +1039,16 @@ module detail
 			SDL_PushEvent(pevent)
 			return 0
 		}
+		//JS_SDL["SDL_PostPaintEvent"]=function(JSContext JS){
+		//	hwnd=JS.Param(0).as(__pointer)
+		//	if !hwnd:return 0
+		//	pevent=__C(__pointer,"@decl:SDL_Event @1={0}")
+		//	__C(int,"((SDL_Event*)@1)->type=@2",pevent,SDL_WINDOWEVENT)
+		//	__C(int,"((SDL_Event*)@1)->window.event=@2",pevent,SDL_WINDOWEVENT_EXPOSED)
+		//	__C(int,"((SDL_Event*)@1)->window.windowID=@2",pevent,SDL_GetWindowID(hwnd))
+		//	SDL_PushEvent(pevent)
+		//	return 0
+		//}
 		JS_SDL["GL_Begin"]=function(JSContext JS){
 			hwnd=JS.Param(0).as(__pointer)
 			if !hwnd:return 0
