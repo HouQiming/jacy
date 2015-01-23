@@ -184,7 +184,7 @@ module duktape
 				rtti=iptr(__get_rtti(obj))
 				obj_proto=m_cached_prototypes[rtti]
 				if !obj_proto:
-					obj_proto=value.__JS_prototype(this)
+					obj_proto=value.__JS_prototype(New())
 					m_cached_prototypes[rtti]=obj_proto
 				//////////
 				duk_push_object(_ctx())

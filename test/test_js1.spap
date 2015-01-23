@@ -7,8 +7,7 @@ class CNativeClass
 		Writeln('n=',n,' param=',JS.Param(0).as(string))
 		return 0
 	}
-	auto __JS_prototype(JSContext JS)
-		proto=JS.New()
+	auto __JS_prototype(proto)
 		proto.ExportProperty(this,"n")
 		proto.ExportMethod(this,"hello")
 		return proto
