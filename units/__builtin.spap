@@ -98,6 +98,8 @@ inline variant(pobj)
 struct __FunctionImpl(__ftype_raw)
 	ptr_this=__force_var(__variant.NULL)
 	ptr_fn=__force_var(NULL)
+	inline Bind(fn_this)
+		return typeof(this)(){ptr_this:__cast(__variant,fn_this),ptr_fn:ptr_fn}
 
 __meta_state("stdtype.function_impl")=__FunctionImpl
 __meta_state("stdfn.make_function")=inline(T,fn_this,fn,dummy){

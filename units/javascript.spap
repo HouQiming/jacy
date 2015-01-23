@@ -271,6 +271,12 @@ module duktape
 		auto GetThis()
 			duk_push_this(_ctx())
 			return _pop_typed(JSObject,1)
+		inline GetNativeThis(T)
+			js_this=GetThis()
+			if !js_this:
+				return __zero(T)
+			else
+				return js_this.as(T)
 		inline GetParamCount()
 			return duk_get_top(_ctx());
 		inline Param(int id)
@@ -520,6 +526,15 @@ module duktape
 				return 0
 			}
 			m_jsctx.GetGlobal()["Object"]["defineProperty"].Call(JSObject,this,sname,prop)
-
+		inline ExportMethod(self,name)
+			sname=name
+			T_class=typeof(self)
+			fn=__dot(self,name)
+			this[sname]=function(JSContext JS){
+				native_this=JS.GetNativeThis(T_class)
+				if !native_this:return 0
+				return fn.Bind(native_this)(JS)
+			}
+		
 JSContext=duktape.JSContext
 JSObject=duktape.JSObject
