@@ -10,6 +10,7 @@ module duktape
 	duk_push_pointer=__c_function(int,"duk_push_pointer","duktape.h")
 	duk_push_int=__c_function(int,"duk_push_int","duktape.h")
 	duk_push_this=__c_function(int,"duk_push_this","duktape.h")
+	duk_push_undefined=__c_function(int,"duk_push_undefined","duktape.h")
 	duk_dup=__c_function(int,"duk_dup","duktape.h")
 	duk_swap_top=__c_function(int,"duk_swap_top","duktape.h")
 	duk_remove=__c_function(int,"duk_remove","duktape.h")
@@ -33,12 +34,15 @@ module duktape
 	duk_put_prop=__c_function(int,"duk_put_prop","duktape.h")
 	duk_set_magic=__c_function(int,"duk_set_magic","duktape.h")
 	duk_is_object=__c_function(int,"duk_is_object","duktape.h")
+	duk_is_function=__c_function(int,"duk_is_function","duktape.h")
+	duk_is_undefined=__c_function(int,"duk_is_undefined","duktape.h")
 	duk_has_prop=__c_function(int,"duk_has_prop","duktape.h")
 	//duk_peval=__c_function(int,"duk_peval","duktape.h")
 	duk_eval_raw=__c_function(int,"duk_eval_raw","duktape.h")
 	duk_pcall=__c_function(int,"duk_pcall","duktape.h")
 	duk_pcall_method=__c_function(int,"duk_pcall_method","duktape.h")
 	duk_set_finalizer=__c_function(int,"duk_set_finalizer","duktape.h")
+	duk_set_prototype=__c_function(int,"duk_set_prototype","duktape.h")
 	duk_to_object=__c_function(int,"duk_to_object","duktape.h")
 	//duk_to_pointer=__c_function(int,"duk_to_pointer","duktape.h")
 	duk_to_primitive=__c_function(int,"duk_to_primitive","duktape.h")
@@ -75,6 +79,7 @@ module duktape
 		m_ref_first_free=-1
 		m_ref_count=1
 		m_all_callbacks=new JSNativeCallback[]
+		m_cached_prototypes=new JSObject[iptr]
 		inline _ctx()
 			return __C(__pointer,"(duk_context*)@1",m_hctx)
 		auto __done__()
@@ -126,7 +131,18 @@ module duktape
 			duk_pop(_ctx())
 			m_ref_first_free=refid
 		auto _pop_object()
-			duk_to_object(_ctx(),-1)
+			if !duk_is_undefined(_ctx(),-1):
+				duk_to_object(_ctx(),-1)
+			refid=_alloc_refid()
+			_push_stash_array()
+			duk_swap_top(_ctx(),-2)
+			duk_put_prop_index(_ctx(),-2,refid)
+			//leaves the stash array in the stack
+			return refid
+		auto _pop_function()
+			if !duk_is_function(_ctx(),-1):
+				duk_pop(_ctx())
+				duk_push_undefined(_ctx())
 			refid=_alloc_refid()
 			_push_stash_array()
 			duk_swap_top(_ctx(),-2)
@@ -149,22 +165,37 @@ module duktape
 				m_all_callbacks.push(value)
 				__C(int,"duk_push_c_function(@1,s7_CB_duktape,DUK_VARARGS)",_ctx())
 				duk_set_magic(_ctx(),-1,fid)
-			else if T==JSObject:
+			else if T==JSObject||T==JSFunction:
 				if Platform.BUILD=="debug":
 					if __cast(iptr,value.m_jsctx)!=__cast(iptr,this):
 						__basic_api.spapReportError("cannot mix JS objects from different contexts")
 				_push_object(value.m_handle)
 			else if T==__pointer:
 				duk_push_pointer(_ctx(),value)
+			else if __has_member(value,"__JS_autocast"):
+				_push_value(value.__JS_autocast())
 			else
 				obj=variant(value)
 				__explicit_rc(obj,1)
 				duk_push_pointer(_ctx(),__cast(__pointer,obj))
 				//set a releasing finalizer
 				duk_to_object(_ctx(),-1)
+				////////////
+				//set the finalizer
 				__C(int,"duk_push_c_function(@1,s7_CB_duktape,1)",_ctx())
 				duk_set_magic(_ctx(),-1,0)
 				duk_set_finalizer(_ctx(),-2)
+				////////////
+				//set the prototype if it has one
+				if __has_member(value,"__JS_prototype")
+					//todo: duk_set_prototype
+					rtti=iptr(__get_rtti(obj))
+					obj_proto=m_cached_prototypes[rtti]
+					if !obj_proto:
+						obj_proto=value.__JS_prototype(this)
+						m_cached_prototypes[rtti]=obj_proto
+					_push_object(obj_proto.m_handle)
+					duk_set_prototype(_ctx(),-2)
 		inline _put_prop_and_pop(value)
 			_push_value(value)
 			duk_put_prop(_ctx(),-3)
@@ -185,6 +216,9 @@ module duktape
 			else if T==JSObject:
 				refid=_pop_object()
 				ret=JSObject(){"m_jsctx":this,"m_handle":refid}
+			else if T==JSFunction:
+				refid=_pop_function()
+				ret=JSFunction(){"m_jsctx":this,"m_handle":refid}
 			else if T==__pointer:
 				ret=duk_get_pointer(_ctx(),-1)
 			else
@@ -203,6 +237,9 @@ module duktape
 		/////////
 		inline GetGlobal()
 			return new JSObject(){"m_jsctx":this}
+		inline debugGetStashArray()
+			_push_stash_array()
+			return _pop_typed(JSObject,1)
 		auto NewArray()
 			duk_push_array(_ctx())
 			return _pop_typed(JSObject,1)
@@ -254,12 +291,19 @@ module duktape
 				sfile=arguments[2]
 			else
 				sfile="<eval>"
-			duk_push_lstring(_ctx(),sfile,s.n)
+			duk_push_lstring(_ctx(),__pointer(sfile.d),s.n)
 			duk_eval_raw(_ctx(),s,s.n,DUK_COMPILE_EVAL|DUK_COMPILE_SAFE|DUK_COMPILE_NOSOURCE)
 			//todo: check the return status to see whether it's an error
 			ret=_pop_typed(T,1)
 			__explicit_rc(this,-1)
 			return ret
+		auto debugEval(string scode,string fnamen)
+			errobj=eval(JSObject,scode,fnamen)
+			if errobj&&errobj.has("stack"):
+				System.Console.Writeln(errobj["stack"].as(string))
+				return 0
+			else
+				return 1
 		auto debugRunFile(string fname)
 			scode=System.IO.ReadAll(fname)
 			if !scode:
@@ -267,12 +311,7 @@ module duktape
 				return 0
 			fnamen=new(fname)
 			fnamen.push(char(0))
-			errobj=eval(JSObject,scode,fnamen)
-			if errobj&&errobj.has("stack"):
-				System.Console.Writeln(errobj["stack"].as(string))
-				return 0
-			else
-				return 1
+			return debugEval(scode,fnamen)
 		/////////
 		_init_stash()
 	///////
@@ -430,6 +469,44 @@ module duktape
 			if m_handle:
 				m_jsctx._free_refid(m_handle)
 				m_jsctx=JSContext.NULL
-
+	class JSFunction
+		m_jsctx=JSContext.NULL
+		m_handle=0
+		inline _ctx()
+			return m_jsctx._ctx()
+		inline GetContext()
+			return m_jsctx
+		inline operator[](name)
+			//[] -> [object subscript]
+			if Platform.BUILD=="debug":
+				if !m_jsctx:
+					__basic_api.spapReportError("JSObject must not be created through new")
+			m_jsctx._push_object(m_handle)
+			_push_subscript(_ctx(),name)
+			return _IncompleteJSPropertyAccess(){"m_jsctx":m_jsctx}
+		inline Call(T)
+			m_jsctx._push_object(m_handle)
+			arguments0=arguments
+			for i in crange(arguments0.length)
+				if i>0:
+					m_jsctx._push_value(arguments0[i])
+			duk_pcall(_ctx(),arguments0.length-1)
+			return m_jsctx._pop_typed(T,1)
+		inline CallAsMethod(T,arg_this)
+			m_jsctx._push_object(m_handle)
+			m_jsctx._push_value(arg_this)
+			arguments0=arguments
+			for i in crange(arguments0.length)
+				if i>1:
+					m_jsctx._push_value(arguments0[i])
+			duk_pcall_method(_ctx(),arguments0.length-2)
+			return m_jsctx._pop_typed(T,1)
+		auto __done__()
+			if m_handle:
+				m_jsctx._free_refid(m_handle)
+				m_jsctx=JSContext.NULL
+			System.Console.Writeln('function freed')
+	
 JSContext=duktape.JSContext
 JSObject=duktape.JSObject
+JSFunction=duktape.JSFunction

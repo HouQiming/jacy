@@ -280,6 +280,11 @@ struct TSLList
 		ret.ptail=b.ptail
 		return ret
 
+//this will be directly passed to JS... research class wrapping
+class CLocator
+	i64 ccnt
+	i8 side
+
 SKIPLIST_PROMOTION_PROBABILITY=0.25f//1.0/2.71828
 //the internal methods *should not* validate parameters
 class CEditableText
@@ -450,12 +455,17 @@ class CEditableText
 				return (nd,ccnt0-ccnt_base)
 			assert(!!nd.pchild)
 			nd=nd.pchild
+	auto SortLocators()
+		m_locators.Sortby(inline(loc){return loc.ccnt})
 	auto MassEdit(TEditop[] ops)
 		//editop -> block replace: mainly take-the-next-and-merge
 		//do the locators here
 		pb=CSLNode.NULL
 		ccnt_base=0LL
 		ofs=0LL
+		//////////
+		SortLocators()
+		!? //todo: m_locators
 		//////////
 		bops=new TBlockOp[]
 		bop_current=TBlockOp()
@@ -650,7 +660,8 @@ class CEditableText
 					ccnt_base+=pc.ccnt
 		dfsRender(m_skiplist,ccnt0,ccnt1)
 		R.PopCliprect()
-	//todo: style changing, locator-based highlighting / hiding
+	//todo: locator-based highlighting / hiding
+	//todo: style changing
 
 auto createBaselineEditWidget(JSObject JS_ED)
 	JS_ED["New"]=function(JSContext JS){

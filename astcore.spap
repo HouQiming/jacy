@@ -2160,7 +2160,7 @@ auto coreInit()
 	}
 	registerPrimitive(g_id_aliased,__zero(fcompiler_callback),faliased_oneval,__zero(fcompiler_callback),FFLAG_SPECIAL|FFLAG_RC_HAS_SIDE_EFFECT)
 	registerPrimitive(g_id_nop,__zero(fcompiler_callback),__zero(fcompiler_callback),__zero(fcompiler_callback),FFLAG_BUILTIN_HACK)
-	registerPrimitive(g_id_dummy_use,__zero(fcompiler_callback),__zero(fcompiler_callback),__zero(fcompiler_callback),FFLAG_BUILTIN_HACK)
+	registerPrimitive(g_id_keep_alive,__zero(fcompiler_callback),fdummy_callback,fdummy_callback,FFLAG_BUILTIN_HACK|FFLAG_IS_PRELIVE)
 	//////////////////////////////////////
 	//dotting
 	fldlambda_oneval=function(PExpression pecall,int expr_oplevel){
@@ -6591,7 +6591,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 								pe_pending_setnop=call(g_id_stdot,exprvar(pobj_var),exprctval(pobj_member),exprvar(pobj_ret))
 								transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,call(g_id_store,exprvar(pobj_ret),readPool(pe+EXPR_OFS_ARGS+2)),[pe_pending_setnop])
 							else
-								pe_pending_setnop=call(g_id_dummy_use,exprvar(pobj_var))
+								pe_pending_setnop=call(g_id_keep_alive,exprvar(pobj_var))
 								transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,exprvar(pobj_ret),[pe_pending_setnop])
 							znew_pending_setnops.push(pe_pending_setnop)
 						else
@@ -6881,6 +6881,11 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 		pe_var=readPool(pe+EXPR_OFS_ARGS+0)
 		pobj_tar=getVariable(pe_var)
 		if !testUserFlag(pobj_tar,VAR_USER_KEEP_ORIGINAL):
+			pobj_var_done=lookupFunctionVariable(getVariableType(pobj_tar),g_id_finalizer)
+			if pobj_var_done:
+				//if we have a dtor, we need to keep it
+				setUserFlag(pobj_tar,VAR_USER_KEEP_ORIGINAL)
+		if !testUserFlag(pobj_tar,VAR_USER_KEEP_ORIGINAL):
 			if DEBUG_DUMP_FLATTEN:
 				Writeln(FormatAsText('remove-new ',dumpExpr(pe,fcolor_abbrv_blocks)))
 			pe_value=readPool(pe+EXPR_OFS_ARGS+1)
@@ -6919,7 +6924,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 			if DEBUG_DUMP_FLATTEN:
 				Writeln(FormatAsText('kept ',dumpExpr(pe,fcolor_abbrv_blocks)))
 	foreach pe in znew_pending_setnops
-		assert(isBuiltin(pe,g_id_stdot)||isBuiltin(pe,g_id_dummy_use))
+		assert(isBuiltin(pe,g_id_stdot)||isBuiltin(pe,g_id_keep_alive))
 		pe_var=readPool(pe+EXPR_OFS_ARGS+0)
 		pobj_tar=getVariable(pe_var)
 		if !testUserFlag(pobj_tar,VAR_USER_KEEP_ORIGINAL):
@@ -8546,7 +8551,7 @@ auto dfsFlattenBlocks(PExpression[] block_as,PExpression pe,int nest_depth, int 
 			return int2(peargi,has_sideeffect)
 	else
 		//just dfs
-		if isBuiltin(pe,g_id_assert_ctval)||isBuiltin(pe,g_id_dummy_use):return int2(0,0)
+		if isBuiltin(pe,g_id_assert_ctval):return int2(0,0)
 		if do_cleanup&&isBuiltin(pe,g_id_if):
 			pe_cond=readPool(pe+EXPR_OFS_ARGS+0)
 			val_cond=getExprValue(pe_cond)
