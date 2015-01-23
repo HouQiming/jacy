@@ -3,6 +3,27 @@ import Javascript.*
 
 class CNativeClass
 	int n
+	auto __JS_prototype(JSContext JS)
+		ret=JS.New()
+		/////////////////
+		prop=JS.New()
+		prop["get"]=function(JSContext JS){
+			js_this=JS.GetThis();
+			if !js_this:return 0
+			native_this=js_this.as(CNativeClass)
+			if !native_this:return 0
+			return JS.Return(native_this.n)
+		}
+		prop["set"]=function(JSContext JS){
+			js_this=JS.GetThis();
+			if !js_this:return 0
+			native_this=js_this.as(CNativeClass)
+			if !native_this:return 0
+			native_this.n=JS.Param(0).as(int)
+			return 0
+		}
+		JS.GetGlobal()["Object"]["defineProperty"].Call(JSObject,ret,"n",prop)
+		return ret
 
 (function(){
 	JS=new JSContext
@@ -12,62 +33,11 @@ class CNativeClass
 	js_print=JS.eval(JSObject,"(function(c){print('js_print: ',c)})")
 	js_print.Call(JSObject,js_print)
 	js_print.Call(JSObject,["abc","456","789"])
-	//defineProperty=global["Object"]["defineProperty"].as(JSObject)
-	//objectCreate=global["Object"]["create"].as(JSObject)
-	//defineProperty=JS.eval(JSObject,"(function(cls,name,ppt){Object.defineProperty(cls.prototype,name,ppt);})")
-	//objectCreate=JS.eval(JSObject,"(function(cls){return Object.create(cls.prototype);})")
-	JS.eval(JSObject,"class_defineProperty=(function(cls,name,ppt){Object.defineProperty(cls.prototype,name,ppt);});{}")
-	JS.eval(JSObject,"class_objectCreate=(function(cls){return Object.create(cls.prototype);});{}")
-	///////////
-	//cls=JS.eval(JSObject,"(function(){var c=function(){this.__newNative()};return c;})()")
-	cls=JS.eval(JSObject,"(function(){})")
-	//cls["__newNative"]=function(JSContext JS){
-	//	js_this=JS.GetThis()
-	//	if !js_this:return 0
-	//	js_this["__native_this"]=new CNativeClass
-	//	return 0
-	//}
-	prop=JS.New()
-	//prop["writable"]=1
-	//prop["enumerable"]=1
-	prop["get"]=function(JSContext JS){
-		js_this=JS.GetThis();
-		if !js_this:return 0
-		native_this=js_this["__native_this"].as(CNativeClass)
-		if !native_this:return 0
-		return JS.Return(native_this.n)
-	}
-	prop["set"]=function(JSContext JS){
-		js_this=JS.GetThis();
-		if !js_this:return 0
-		native_this=js_this["__native_this"].as(CNativeClass)
-		if !native_this:return 0
-		native_this.n=JS.Param(0).as(int)
-		return 0
-	}
-	global["class_defineProperty"].Call(int,cls,"n",prop)
-	//cls_prototype=cls["prototype"].as(JSObject)
-	//global["Object"]["defineProperty"].Call(int,cls_prototype,"n",prop)
-	nativeToJS=function(CNativeClass native_this){
-		ret=global["class_objectCreate"].Call(JSObject,cls)
-		ret["__native_this"]=native_this
-		return ret
-	}
 	///////////
 	native_obj=new CNativeClass
 	native_obj.n=1234
-	obja=nativeToJS(native_obj)
-	global["a"]=obja
-	//defineProperty=JS.eval(JSObject,"Object.defineProperty")
-	//defineProperty.Call(int,obja,"n",prop)
-	global["CJSClass"]=cls
-	//errobj=JS.eval(JSObject,"Object.defineProperty(a,'n',{
-	//	get:function(){return 1},
-	//	set:function(value){}
-	//});")
-	//if errobj&&errobj.has("stack"):
-	//	System.Console.Writeln(errobj["stack"].as(string))
-	JS.debugEval("(function(){print('----------------');print(CJSClass.toString());print('CJSClass.prototype=',CJSClass.prototype);print('a=',a);print('a.n=',a.n);a.n+=4444;})()","<eval>")
+	global["a"]=native_obj
+	JS.debugEval("(function(){print('----------------');print('a=',a);print('a.n=',a.n);a.n+=4444;})()","<eval>")
 	Writeln('----------------')
 	JS.debugEval("parse error","<eval>")
 	Writeln('----------------')

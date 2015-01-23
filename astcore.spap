@@ -6885,33 +6885,33 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 			if pobj_var_done:
 				//if we have a dtor, we need to keep it
 				setUserFlag(pobj_tar,VAR_USER_KEEP_ORIGINAL)
+		if DEBUG_DUMP_FLATTEN:
+			Writeln(FormatAsText('remove-new ',dumpExpr(pe,fcolor_abbrv_blocks)))
+		pe_value=readPool(pe+EXPR_OFS_ARGS+1)
+		pe_func=readPool(pe_value+EXPR_OFS_FUNCTION)
+		//zero out the members and setnop the ctor
+		assert(readPool(pobj_tar)==g_vtid_RTVAR)
+		t_tar=readPool(pobj_tar+1)
+		p_members=readPool(t_tar+FUNCTION_OFS_PMEMBER_LIST)
+		n_members=readPool(t_tar+FUNCTION_OFS_NMEMBER_LIST)
+		as=new PExpression[]
+		for i=0:n_members-1
+			id_member=readPool(p_members+i)
+			if id_member==g_id_this||id_member==g_id_return:continue
+			pobj_member=lookupFunctionVariable(t_tar,id_member)
+			vtid=readPool(pobj_member)
+			if vtid!=g_vtid_RTVAR:continue
+			pobj_flattened=getFlattenedVariable(pobj_tar,pobj_member,0)
+			if !testUserFlag(pobj_flattened,VAR_USER_FLATTENED_VAR_IS_WRITTEN)&&readPool(pobj_member)==g_vtid_RTVAR:
+				//zero it out
+				t_member=readPool(pobj_member+1)
+				if tisbuiltin(t_member):
+					cid=getid_const(readPool(t_member+1),0LL)
+				else
+					cid=getid_const(CTYPE_TYPED_NULL,i64(t_member))
+				as.push(call(g_id_store,exprvar(pobj_flattened),exprcns(cid)))
+				//Writeln('zero out, cid=',cid,' type=',t_member,':',dumpType(t_member),' ',getBuiltinType(const_type(CTYPE_FLOAT,64)),' ',dumpExpr(as.back(),__zero(fcolorer_callback)))
 		if !testUserFlag(pobj_tar,VAR_USER_KEEP_ORIGINAL):
-			if DEBUG_DUMP_FLATTEN:
-				Writeln(FormatAsText('remove-new ',dumpExpr(pe,fcolor_abbrv_blocks)))
-			pe_value=readPool(pe+EXPR_OFS_ARGS+1)
-			pe_func=readPool(pe_value+EXPR_OFS_FUNCTION)
-			//zero out the members and setnop the ctor
-			assert(readPool(pobj_tar)==g_vtid_RTVAR)
-			t_tar=readPool(pobj_tar+1)
-			p_members=readPool(t_tar+FUNCTION_OFS_PMEMBER_LIST)
-			n_members=readPool(t_tar+FUNCTION_OFS_NMEMBER_LIST)
-			as=new PExpression[]
-			for i=0:n_members-1
-				id_member=readPool(p_members+i)
-				if id_member==g_id_this||id_member==g_id_return:continue
-				pobj_member=lookupFunctionVariable(t_tar,id_member)
-				vtid=readPool(pobj_member)
-				if vtid!=g_vtid_RTVAR:continue
-				pobj_flattened=getFlattenedVariable(pobj_tar,pobj_member,0)
-				if !testUserFlag(pobj_flattened,VAR_USER_FLATTENED_VAR_IS_WRITTEN)&&readPool(pobj_member)==g_vtid_RTVAR:
-					//zero it out
-					t_member=readPool(pobj_member+1)
-					if tisbuiltin(t_member):
-						cid=getid_const(readPool(t_member+1),0LL)
-					else
-						cid=getid_const(CTYPE_TYPED_NULL,i64(t_member))
-					as.push(call(g_id_store,exprvar(pobj_flattened),exprcns(cid)))
-					//Writeln('zero out, cid=',cid,' type=',t_member,':',dumpType(t_member),' ',getBuiltinType(const_type(CTYPE_FLOAT,64)),' ',dumpExpr(as.back(),__zero(fcolorer_callback)))
 			if isBuiltin(pe_func,g_id_function):
 				//it's a tuple construction, keep the function BUT STILL ZERO OUT THE MEMBERS
 				//pecaller=readPool(pe+EXPR_OFS_CALLER)
@@ -6921,7 +6921,9 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 				transformCode(pe,__zero(ftransformer_callback), as,0,PExpression[].NULL)
 				setnop(pe)
 		else
-			if DEBUG_DUMP_FLATTEN:
+			transformCode(pe,__zero(ftransformer_callback), as,0,PExpression[].NULL)
+		if DEBUG_DUMP_FLATTEN:
+			if testUserFlag(pobj_tar,VAR_USER_KEEP_ORIGINAL):
 				Writeln(FormatAsText('kept ',dumpExpr(pe,fcolor_abbrv_blocks)))
 	foreach pe in znew_pending_setnops
 		assert(isBuiltin(pe,g_id_stdot)||isBuiltin(pe,g_id_keep_alive))

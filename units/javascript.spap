@@ -437,6 +437,9 @@ module duktape
 			m_jsctx._push_object(m_handle)
 			_push_subscript(_ctx(),name)
 			m_jsctx._put_prop_and_pop(value)
+		inline as(T)
+			m_jsctx._push_object(m_handle)
+			return m_jsctx._pop_typed(T,1)
 		inline Call(T)
 			m_jsctx._push_object(m_handle)
 			arguments0=arguments
