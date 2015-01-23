@@ -11,11 +11,7 @@ class CNativeClass
 	//test: JSFunction, __JS_autocast, __JS_prototype
 	global=JS.GetGlobal()
 	js_print=JS.eval(JSFunction,"(function(c){print(c)})")
-	Writeln('------------------------ 0')
 	js_print.Call(JSObject,js_print)
-	//global["g_stash_array"]=JS.debugGetStashArray()
-	//Writeln('function at [',js_print.m_handle,']')
-	js_print.Call(JSObject,"------------------------ 1")
 	JS.eval(JSObject,"print(g_stash_array)")
 	//defineProperty=global["Object"]["defineProperty"].as(JSObject)
 	//objectCreate=global["Object"]["create"].as(JSObject)
