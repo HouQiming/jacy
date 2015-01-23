@@ -26,6 +26,7 @@ module duktape
 	duk_get_int=__c_function(int,"duk_get_int","duktape.h")
 	duk_get_pointer=__c_function(__pointer,"duk_get_pointer","duktape.h")
 	duk_get_length=__c_function(iptr,"duk_get_length","duktape.h")
+	duk_get_prototype=__c_function(int,"duk_get_prototype","duktape.h")
 	duk_push_heap_stash=__c_function(int,"duk_push_heap_stash","duktape.h")
 	duk_push_object=__c_function(int,"duk_push_object","duktape.h")
 	duk_push_array=__c_function(int,"duk_push_array","duktape.h")
@@ -174,6 +175,28 @@ module duktape
 				duk_push_pointer(_ctx(),value)
 			else if __has_member(value,"__JS_autocast"):
 				_push_value(value.__JS_autocast(this))
+			else if __has_member(value,"__JS_prototype")
+				////////////
+				//make into object and set the prototype if it has one
+				obj=variant(value)
+				__explicit_rc(obj,1)
+				//////////
+				rtti=iptr(__get_rtti(obj))
+				obj_proto=m_cached_prototypes[rtti]
+				if !obj_proto:
+					obj_proto=value.__JS_prototype(this)
+					m_cached_prototypes[rtti]=obj_proto
+				//////////
+				duk_push_object(_ctx())
+				duk_push_pointer(_ctx(),__cast(__pointer,obj))
+				duk_put_prop_index(_ctx(),-2,0);
+				_push_object(obj_proto.m_handle)
+				duk_set_prototype(_ctx(),-2)
+				////////////
+				//set the finalizer
+				__C(int,"duk_push_c_function(@1,s7_CB_duktape,1)",_ctx())
+				duk_set_magic(_ctx(),-1,0)
+				duk_set_finalizer(_ctx(),-2)
 			else
 				obj=variant(value)
 				__explicit_rc(obj,1)
@@ -185,17 +208,6 @@ module duktape
 				__C(int,"duk_push_c_function(@1,s7_CB_duktape,1)",_ctx())
 				duk_set_magic(_ctx(),-1,0)
 				duk_set_finalizer(_ctx(),-2)
-				////////////
-				//set the prototype if it has one
-				if __has_member(value,"__JS_prototype")
-					//todo: duk_set_prototype
-					rtti=iptr(__get_rtti(obj))
-					obj_proto=m_cached_prototypes[rtti]
-					if !obj_proto:
-						obj_proto=value.__JS_prototype(this)
-						m_cached_prototypes[rtti]=obj_proto
-					_push_object(obj_proto.m_handle)
-					duk_set_prototype(_ctx(),-2)
 		inline _put_prop_and_pop(value)
 			_push_value(value)
 			duk_put_prop(_ctx(),-3)
@@ -221,6 +233,15 @@ module duktape
 				//	ret=JSFunction(){"m_jsctx":this,"m_handle":refid}
 			else if T==__pointer:
 				ret=duk_get_pointer(_ctx(),-1)
+			else if __has_member(__zero(T),"__JS_prototype")
+				duk_get_prop_index(_ctx(),-1,0)
+				duk_to_primitive(_ctx(),-1,0)
+				vptr=duk_get_pointer(_ctx(),-1)
+				if !vptr:
+					ret=__zero(T)
+				else
+					ret=__cast(__variant,vptr).as(T)
+				duk_pop(_ctx())
 			else
 				//duk_to_pointer(_ctx(),-1)
 				duk_to_primitive(_ctx(),-1,0)
@@ -468,6 +489,11 @@ module duktape
 					m_jsctx._push_value(arguments0[i])
 			duk_pcall_method(_ctx(),arguments0.length-2)
 			return m_jsctx._pop_typed(T,1)
+		inline SetPrototype(JSObject proto)
+			m_jsctx._push_object(m_handle)
+			m_jsctx._push_object(proto.m_handle)
+			duk_set_prototype(_ctx(),-2)
+			duk_pop(_ctx())
 		auto __done__()
 			if m_handle:
 				m_jsctx._free_refid(m_handle)

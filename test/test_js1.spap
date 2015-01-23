@@ -11,6 +11,7 @@ class CNativeClass
 			js_this=JS.GetThis();
 			if !js_this:return 0
 			native_this=js_this.as(CNativeClass)
+			//Writeln('getter called ',!!native_this)
 			if !native_this:return 0
 			return JS.Return(native_this.n)
 		}
@@ -28,7 +29,6 @@ class CNativeClass
 (function(){
 	JS=new JSContext
 	///////////
-	//todo: test: __JS_prototype
 	global=JS.GetGlobal()
 	js_print=JS.eval(JSObject,"(function(c){print('js_print: ',c)})")
 	js_print.Call(JSObject,js_print)
@@ -37,7 +37,7 @@ class CNativeClass
 	native_obj=new CNativeClass
 	native_obj.n=1234
 	global["a"]=native_obj
-	JS.debugEval("(function(){print('----------------');print('a=',a);print('a.n=',a.n);a.n+=4444;})()","<eval>")
+	JS.debugEval("(function(){print('----------------');print('a.__proto__=',a.__proto__);print('a=',a);print('a.n=',a.n);a.n+=4444;})()","<eval>")
 	Writeln('----------------')
 	JS.debugEval("parse error","<eval>")
 	Writeln('----------------')
