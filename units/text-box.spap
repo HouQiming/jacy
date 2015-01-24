@@ -186,7 +186,7 @@ class CLayouter_baseline
 				fnt_scaled.embolden+=int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*3000.f/fnt_scaled.h)
 			//Writeln('after fnt_scaled ',m_font.h)
 			scalingd=double(scaling)
-		w_tab=double(m_tab_width)*double(Gui2D.detail.g_renderer.CacheGlyph(m_font,int(' '))[0].dx)
+		w_tab=double(m_tab_width)*double(g_renderer.GetCharacterAdvance(m_font,int(' ')))
 		hc=g_renderer.GetCharacterHeight(m_font)
 		x=__longlong_as_double(a[0])
 		y=__longlong_as_double(a[1])
@@ -203,16 +203,16 @@ class CLayouter_baseline
 						y+=hc
 					continue
 				else if ch==' ':
-					x+=double(Gui2D.detail.g_renderer.CacheGlyph(m_font,ch)[0].dx)
+					x+=double(g_renderer.GetCharacterAdvance(m_font,ch))
 				else if ch=='\t':
 					x=(floor(x/w_tab)+1.0)*w_tab
 				else
-					(gc_I,delta_y)=Gui2D.detail.g_renderer.CacheGlyph(m_font,ch)
+					dx_i=double(g_renderer.GetCharacterAdvance(m_font,ch))
 					if mode==MODE_RENDER:
 						//pt.push(TCharJob(){pos:double2(x,y),ch:ch,color:m_color})
 						//Writeln(x,' ',y,' ',m_font.h,' ',fnt_scaled.h,' ',scalingd,' ',ch,' ',m_color)
 						g_renderer.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),m_color, ch)
-					x+=gc_I.dx
+					x+=dx_i
 			//if got_newline:
 			//	x=0.
 			//	y+=hc
@@ -387,7 +387,7 @@ class CEditableText
 		pc_pnext=CSLNode.NULL
 		for(pc=nds_toadd.phead;pc;pc=pc_pnext)
 			pc_pnext=pc.pnext
-			if iptr(pc)!=iptr(nd_ignore)&&System.Algorithm.Random(float)<SKIPLIST_PROMOTION_PROBABILITY:
+			if iptr(pc)!=iptr(nd_ignore)&&System.Algorithm.Random(float)<SKIPLIST_PROMOTION_PROBABILITY&&nds_child.phead:
 				//finish off the dangling chain
 				nds_child.ptail.pnext=CSLNode.NULL
 				nds_ret.ptail.pchild=nds_child.phead
@@ -576,6 +576,7 @@ class CEditableText
 			if pb&&pb.s.n:
 				assert(ofs<pb.s.n)
 				poolString(pb.s[iptr(ofs):])
+				bop_current.sz+=i64(pb.s.n)-ofs
 			if s_pool_last_newline:
 				s_block=new(s_pool[:s_pool_last_newline-1])
 				if !bop_current.ss:
@@ -607,8 +608,6 @@ class CEditableText
 					//merge with the next block - it's mandatory for line-only guys
 					(pb,ofs)=BlockFromCcnt(ccnt_base+ofs)
 					assert(!ofs)
-					ccnt_base=op.ccnt-ofs
-					bop_current.ccnt=ccnt_base
 					ofs=0LL
 			//move by sz
 			if op.sz:

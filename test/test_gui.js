@@ -136,32 +136,37 @@ var demo_msgboxb=function(id,attrs){
 	UI.End();
 };
 
-var ed;
+//var ed;
 var demo_textbox=function(id,attrs){
 	attrs=UI.Keep(id,attrs);
 	//(embolden==undefined?5000/size:embolden)
 	var color_mask=(attrs.color_mask||0);
 	UI.Begin(attrs);
 		var wnd=UI.Begin(W.Window("app",{title:"Text box example",w:1024,h:768,bgcolor:0xffffffff^color_mask,designated_screen_size:1440,flags:UI.SDL_WINDOW_RESIZABLE,is_main_window:1}))
-			if(!ed){
-				ed=Duktape.__ui_new_editor({font:UI.Font("cmunrm",24),color:0xff000000^color_mask});
-				//ed=ED.New({font:UI.Font("cmunrm",12),color:0xff000000^color_mask});
-				//ed=ED.New({font:UI.Font("Inconsolata.ttf",16),color:0xff000000^color_mask});
-				ed.MassEdit([0,0,code_text]);
-				//print(ed.GetTextSize())
-				//print(ed.GetText())
-			}
+			//if(!ed){
+			//	ed=Duktape.__ui_new_editor({font:UI.Font("cmunrm",24),color:0xff000000^color_mask});
+			//	//ed=ED.New({font:UI.Font("cmunrm",12),color:0xff000000^color_mask});
+			//	//ed=ED.New({font:UI.Font("Inconsolata.ttf",16),color:0xff000000^color_mask});
+			//	ed.MassEdit([0,0,code_text]);
+			//	//print(ed.GetTextSize())
+			//	//print(ed.GetText())
+			//}
 			W.Hotkey("",{mod:UI.KMOD_LALT,key:UI.SDLK_F4,action:function(){UI.DestroyWindow(wnd)}});
 			W.Hotkey("",{key:UI.SDLK_ESCAPE,action:function(){UI.DestroyWindow(wnd)}});
-			ed.Render({x:0,y:0,w:1024-16,h:768-16, scr_x:8,scr_y:8,scale:1})
-			UI.SetCaret(wnd,8,8,3,24,0x7f000000,500)
+			//ed.Render({x:0,y:0,w:1024-16,h:768-16, scr_x:8,scr_y:8,scale:1})
+			//UI.SetCaret(wnd,8,8,3,24,0x7f000000,500)
+			var textbox=W.Edit("textbox",{
+				font:UI.Font("cmunrm",24),color:0xff000000^color_mask,
+				text:code_text,
+				x:8,y:8,w:1024-16,h:768-16
+			})
 			W.Button("invert",{
 				anchor:UI.context_parent,anchor_align:"right",anchor_valign:"down",
 				x:16,y:16,
 				font:UI.Font("arial",48),text:"Invert",
 				OnClick:function(){
 					attrs.color_mask=color_mask^0xffffff;
-					ed=null;
+					textbox.ed=null;//todo
 					UI.Refresh()
 				}});
 			W.Button("smooth",{

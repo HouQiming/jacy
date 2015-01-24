@@ -28,6 +28,7 @@ FTW_GetCharacterEx=__c_function(__pointer,"FTW_GetCharacterEx","stb_truetype.h",
 FTW_UnloadFont=__c_function(int,"FTW_UnloadFont","stb_truetype.h", "c_files","stb_truetype.c")
 FTW_GetGlyphId=__c_function(int,"FTW_GetGlyphId","stb_truetype.h", "c_files","stb_truetype.c")
 FTW_GetAscent=__c_function(float,"FTW_GetAscent","stb_truetype.h", "c_files","stb_truetype.c")
+FTW_GetGlyphAdvance=__c_function(float,"FTW_GetGlyphAdvance","stb_truetype.h", "c_files","stb_truetype.c")
 stbi_write_png_to_mem=__c_function(__pointer,"stbi_write_png_to_mem","stb_image_write.h", "c_files","stb_image_write.c")
 stbi_free_image_write=__c_function(__pointer,"stbi_free_image_write","stb_image_write.h", "c_files","stb_image_write.c")
 stbi_load_from_memory=__c_function(__pointer,"stbi_load_from_memory","stb_image.h", "c_files","stb_image.c")
@@ -946,6 +947,25 @@ g_renderer=(class(){
 				fnt_i.pfnt=pfnt_i
 				delta_y=max(delta_y,(pfnt.y_baseline_per_height-pfnt_i.y_baseline_per_height)*fnt.h)
 		return fnt.h+delta_y
+	auto SearchGlyph(CCoreFont pfnt,int ch)
+		ret_tuple=(CCoreFont.NULL,0)
+		if pfnt.fallbacks:
+			//look up the fallback chain
+			foreach pfnt_i in pfnt.fallbacks
+				ret_tuple=SearchGlyph(pfnt_i,ch)
+				if ret_tuple[0]:return ret_tuple
+		else
+			gid=FTW_GetGlyphId(pfnt.hfnt,ch)
+			if gid:
+				ret_tuple[0]=pfnt
+				ret_tuple[1]=gid
+		return ret_tuple
+	auto GetCharacterAdvance(TFont fnt,int ch)
+		(pfnt,gid)=SearchGlyph(fnt.pfnt,ch)
+		if pfnt:
+			return FTW_GetGlyphAdvance(pfnt.hfnt,fnt.h,gid)
+		else
+			return 0.f
 	auto ComputeTextLayout(TFont fnt, float w0,float h0,string s, int flags)
 		//simply emulate windows drawtext
 		s32=Utf8ToUnicode32(s)

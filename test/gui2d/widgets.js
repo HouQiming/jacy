@@ -138,7 +138,7 @@ W.Button=function(id,attrs0){
 }
 
 W.Edit=function(id,attrs0){
-	var attrs=UI.Keep(id,attrs0);
+	var attrs=UI.Keep(id,attrs0,1);
 	UI.StdStyling(id,attrs,attrs0, "edit",attrs.focus_state||"blur");
 	UI.StdAnchoring(id,attrs);
 	var ed=attrs.ed;
@@ -148,6 +148,16 @@ W.Edit=function(id,attrs0){
 		attrs.sel0=ed.CreateLocator(0,-1);
 		attrs.sel1=ed.CreateLocator(0,1);
 		attrs.ed=ed;
+		attrs.OnTextEdit=function(event){
+			//todo: draw an overlay
+		}
+		attrs.OnTextInput=function(event){
+			var ccnt0=attrs.sel0.ccnt;
+			var ccnt1=attrs.sel1.ccnt;
+			if(ccnt0>ccnt1){var tmp=ccnt1;ccnt1=ccnt0;ccnt0=tmp;}
+			ed.MassEdit([ccnt0,ccnt1-ccnt0,event.text])
+			UI.Refresh()
+		};
 	}
 	//todo: UI.SetFocus
 	//todo: scrolling
@@ -156,4 +166,5 @@ W.Edit=function(id,attrs0){
 		var ed_caret=ed.XYFromCcnt(attrs.sel1.ccnt);
 		UI.SetCaret(UI.context_window,attrs.x+ed_caret.x,attrs.y+ed_caret.y,attrs.caret_width||2,UI.GetFontHeight(attrs.font),attrs.caret_color||0xff000000,attrs.caret_flicker||500);
 	}
+	return attrs;
 }

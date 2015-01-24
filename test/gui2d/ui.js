@@ -935,7 +935,7 @@ UI.GetPreviousState=function(id){
 	return attrs_old;
 };
 
-UI.Keep=function(id,attrs){
+UI.Keep=function(id,attrs,test_autofocus){
 	var parent=UI.context_parent;
 	var attrs_old=parent[id];
 	var ret;
@@ -949,9 +949,9 @@ UI.Keep=function(id,attrs){
 		ret=attrs;
 		parent[id]=ret;
 	}
-	if(attrs.OnTextInput){
-		if(!UI.nd_focus&&(!UI.context_tentative_focus||(UI.context_tentative_focus.default_focus||0)<(attrs.default_focus||0))){
-			UI.context_tentative_focus=attrs;
+	if(test_autofocus){
+		if(!UI.nd_focus&&(!UI.context_tentative_focus||(UI.context_tentative_focus.default_focus||0)<(ret.default_focus||0))){
+			UI.context_tentative_focus=ret;
 		}
 	}
 	//parent[id]=attrs;
@@ -1295,6 +1295,7 @@ UI.Run=function(){
 			if(UI.context_window_painting){UI.EndPaint();}
 			if(!UI.nd_focus&&UI.context_tentative_focus){
 				UI.nd_focus=UI.context_tentative_focus;
+				UI.Refresh();
 			}
 			UI.EndFrame();
 			for(var i=0;i<UI.context_paint_queue.length;i++){
