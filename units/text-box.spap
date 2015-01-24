@@ -1,6 +1,5 @@
 /*
 todo:
-	faster way to get the metrics than CacheGlyph
 	basic event handling
 	basic interface
 		MassEdit

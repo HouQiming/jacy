@@ -48,6 +48,7 @@ module duktape
 	//duk_to_pointer=__c_function(int,"duk_to_pointer","duktape.h")
 	duk_to_primitive=__c_function(int,"duk_to_primitive","duktape.h")
 	duk_error=__c_function(int,"duk_error","duktape.h")
+	duk_is_error=__c_function(int,"duk_is_error","duktape.h")
 	///////
 	DUK_COMPILE_EVAL=(1 << 0)
 	DUK_COMPILE_FUNCTION=(1 << 1)
@@ -328,6 +329,7 @@ module duktape
 		auto debugEval(string scode,string fnamen)
 			errobj=eval(JSObject,scode,fnamen)
 			if errobj&&errobj.has("stack"):
+				//todo: duk_is_error
 				System.Console.Writeln(errobj["stack"].as(string))
 				return 0
 			else

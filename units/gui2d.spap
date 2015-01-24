@@ -1634,6 +1634,13 @@ auto setupModuleSystem(JSContext JS)
 	global["Duktape"]["__ui_seconds_between_ticks"]=function(JSContext JS){
 		return JS.Return(System.Time.TicksToSeconds(JS.Param(1).or(0LL)-JS.Param(0).or(0LL)))
 	}
+	global["Duktape"]["__byte_length"]=function(JSContext JS){
+		lg=0L
+		duktape.duk_dup(JS._ctx(),0)
+		duktape.duk_to_lstring(JS._ctx(),-1,&lg)
+		duktape.duk_pop(JS._ctx())
+		return JS.Return(lg)
+	}
 }
 
 createUIObject=Gui2D.detail.createUIObject

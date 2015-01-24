@@ -156,10 +156,13 @@ W.Edit=function(id,attrs0){
 			var ccnt1=attrs.sel1.ccnt;
 			if(ccnt0>ccnt1){var tmp=ccnt1;ccnt1=ccnt0;ccnt0=tmp;}
 			ed.MassEdit([ccnt0,ccnt1-ccnt0,event.text])
+			var lg=Duktape.__byte_length(event.text);
+			attrs.sel0.ccnt=ccnt0+lg;
+			attrs.sel1.ccnt=ccnt0+lg;
 			UI.Refresh()
 		};
 	}
-	//todo: UI.SetFocus
+	//todo: scaling - the editor should use unscaled units
 	//todo: scrolling
 	ed.Render({x:0,y:0,w:attrs.w,h:attrs.h, scr_x:attrs.x,scr_y:attrs.y, scale:(attrs.scale||1)});
 	if(UI.HasFocus(attrs)){
