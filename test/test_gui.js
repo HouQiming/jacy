@@ -144,9 +144,9 @@ var demo_textbox=function(id,attrs){
 	UI.Begin(attrs);
 		var wnd=UI.Begin(W.Window("app",{title:"Text box example",w:1024,h:768,bgcolor:0xffffffff^color_mask,designated_screen_size:1440,flags:UI.SDL_WINDOW_RESIZABLE,is_main_window:1}))
 			if(!ed){
-				//ed=ED.New({font:UI.Font("cmunrm",24),color:0xff000000^color_mask});
+				ed=ED.New({font:UI.Font("cmunrm",24),color:0xff000000^color_mask});
 				//ed=ED.New({font:UI.Font("cmunrm",12),color:0xff000000^color_mask});
-				ed=ED.New({font:UI.Font("Inconsolata.ttf",16),color:0xff000000^color_mask});
+				//ed=ED.New({font:UI.Font("Inconsolata.ttf",16),color:0xff000000^color_mask});
 				ed.MassEdit([0,0,code_text]);
 				//print(ed.GetTextSize())
 				//print(ed.GetText())

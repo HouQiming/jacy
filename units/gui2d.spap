@@ -847,20 +847,31 @@ g_renderer=(class(){
 						auto ret=new float[htap*2+1]
 						auto scale=float(PI)/float(aa)
 						auto scale2=float(PI)/float(aa*szwnd)
+						////////
+						//sinc
 						for i=1:htap
 							auto x=scale*float(i)
-							auto x2=scale2*float(i)
-							v=sin(x)*sin(x2)/(x*x2)
+							//auto x2=scale2*float(i)
+							//v=sin(x)*sin(x2)/(x*x2)
+							v=sin(x)/x
 							ret[htap+i]=v
 							ret[htap-i]=v
 						ret[htap]=1.f
 						////////
+						//sharpening
 						auto scale=font_sharpening
 						auto lap=new float[ret.n]
 						for i=1:ret.n-2
 							lap[i]=ret[i]*2.f-ret[i-1]-ret[i+1]
 						for i=0:ret.n-1
 							ret[i]+=lap[i]*scale
+						////////
+						//windowing
+						for i=1:htap
+							auto x2=scale2*float(i)
+							v=sin(x2)/x2
+							ret[htap+i]*=v
+							ret[htap-i]*=v
 						////////
 						auto wgt=0.f
 						for i=0:ret.n-1
@@ -877,8 +888,8 @@ g_renderer=(class(){
 							ret[i]=val
 						return ret
 					}
-					x_filter=lanczos_filter(x_aa,3)
-					y_filter=lanczos_filter(y_aa,3)
+					x_filter=lanczos_filter(x_aa,2)
+					y_filter=lanczos_filter(y_aa,2)
 					//x_filter=box_filter(x_aa)
 					//y_filter=box_filter(y_aa)
 					x_htaps=int(x_filter.n>>1)
