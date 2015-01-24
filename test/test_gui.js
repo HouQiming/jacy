@@ -144,8 +144,9 @@ var demo_textbox=function(id,attrs){
 	UI.Begin(attrs);
 		var wnd=UI.Begin(W.Window("app",{title:"Text box example",w:1024,h:768,bgcolor:0xffffffff^color_mask,designated_screen_size:1440,flags:UI.SDL_WINDOW_RESIZABLE,is_main_window:1}))
 			if(!ed){
-				ed=ED.New({font:UI.Font("cmunrm",24),color:0xff000000^color_mask});
-				//ed=ED.New({font:UI.Font("Inconsolata.ttf",16),color:0xff000000^color_mask});
+				//ed=ED.New({font:UI.Font("cmunrm",24),color:0xff000000^color_mask});
+				//ed=ED.New({font:UI.Font("cmunrm",12),color:0xff000000^color_mask});
+				ed=ED.New({font:UI.Font("Inconsolata.ttf",16),color:0xff000000^color_mask});
 				ed.MassEdit([0,0,code_text]);
 				//print(ed.GetTextSize())
 				//print(ed.GetText())
@@ -154,13 +155,22 @@ var demo_textbox=function(id,attrs){
 			W.Hotkey("",{key:UI.SDLK_ESCAPE,action:function(){UI.DestroyWindow(wnd)}});
 			ed.Render({x:0,y:0,w:1024-16,h:768-16, scr_x:8,scr_y:8,scale:1})
 			UI.SetCaret(wnd,8,8,3,24,0x7f000000,500)
-			W.Button("ok",{
+			W.Button("invert",{
 				anchor:UI.context_parent,anchor_align:"right",anchor_valign:"down",
 				x:16,y:16,
-				font:UI.Font("Inconsolata.ttf",48),text:"Invert",
+				font:UI.Font("arial",48),text:"Invert",
 				OnClick:function(){
 					state.color_mask=color_mask^0xffffff;
 					ed=null;
+					UI.Refresh()
+				}});
+			W.Button("smooth",{
+				anchor:UI.context_parent.$.invert,anchor_placement:"left",anchor_align:"left",anchor_valign:"up",anchor_spacing:16,
+				x:16,y:0,
+				font:UI.Font("arial",48),text:state.sharpen?"Smooth":"Sharpen",
+				OnClick:function(){
+					state.sharpen=!state.sharpen;
+					UI.SetFontSharpening(state.sharpen?1.5:0.0);
 					UI.Refresh()
 				}});
 		UI.End();

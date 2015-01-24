@@ -183,7 +183,7 @@ class CLayouter_baseline
 			fnt_scaled.h*=scaling
 			//smart emboldening for SRGB
 			if g_renderer.m_srgb_supported:
-				fnt_scaled.embolden+=int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*4000.f/fnt_scaled.h)
+				fnt_scaled.embolden+=int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*3000.f/fnt_scaled.h)
 			//Writeln('after fnt_scaled ',m_font.h)
 			scalingd=double(scaling)
 		w_tab=double(m_tab_width)*double(Gui2D.detail.g_renderer.CacheGlyph(m_font,int(' '))[0].dx)
@@ -727,7 +727,7 @@ class CEditableText
 	auto CreateLocator(i64 ccnt,int side)
 		ret=new CLocator(){ccnt:ccnt,side:i8(side)}
 		return ret
-	auto GetLocatorXY(CLocator loc)
+	auto XYFromCcnt(i64 ccnt)
 		hid=m_handler_registration["handler_id_renderer"].as(int)
 		a=GetStateAt(hid,ccnt)
 		return double2(__longlong_as_double(a[0]),__longlong_as_double(a[1]))
