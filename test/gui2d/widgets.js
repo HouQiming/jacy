@@ -8,22 +8,21 @@ UI.DestroyWindow=function(attrs){
 	if(attrs.is_main_window){
 		UI.SDL_PostQuitEvent();
 	}
-	UI.SDL_DestroyWindow(attrs.$.hwnd)
+	UI.SDL_DestroyWindow(attrs.hwnd)
 };
 
 UI.SetCaret=function(attrs,x,y,w,h,C,dt){
-	var state=attrs.$;
-	state.caret_x=x;
-	state.caret_y=y;
-	state.caret_w=w;
-	state.caret_h=h;
-	state.caret_C=C;
-	state.caret_state=1;
-	state.caret_dt=dt;
+	attrs.caret_x=x;
+	attrs.caret_y=y;
+	attrs.caret_w=w;
+	attrs.caret_h=h;
+	attrs.caret_C=C;
+	attrs.caret_state=1;
+	attrs.caret_dt=dt;
 };
 
 W.Window=function(id,attrs){
-	var state=UI.GetState(id,attrs);
+	attrs=UI.Keep(id,attrs);
 	//the dpi is not per-inch,
 	if(!UI.pixels_per_unit){
 		var display_mode=UI.SDL_GetCurrentDisplayMode();
@@ -36,16 +35,16 @@ W.Window=function(id,attrs){
 		UI.LoadPackedTexture=null;
 		UI.LoadStaticImages=null;
 	}
-	if(!state.hwnd){
+	if(!attrs.hwnd){
 		//no default event handler for the window
-		state.hwnd=UI.SDL_CreateWindow(attrs.title||"untitled",attrs.x||UI.SDL_WINDOWPOS_CENTERED,attrs.y||UI.SDL_WINDOWPOS_CENTERED,attrs.w*UI.pixels_per_unit,attrs.h*UI.pixels_per_unit, attrs.flags);
+		attrs.hwnd=UI.SDL_CreateWindow(attrs.title||"untitled",attrs.x||UI.SDL_WINDOWPOS_CENTERED,attrs.y||UI.SDL_WINDOWPOS_CENTERED,attrs.w*UI.pixels_per_unit,attrs.h*UI.pixels_per_unit, attrs.flags);
 	}
 	//defer the innards painting to the first OnPaint - need the GL context
-	state.bgcolor=(attrs.bgcolor)
-	UI.context_paint_queue.push(state);
+	attrs.bgcolor=(attrs.bgcolor)
+	UI.context_paint_queue.push(attrs);
 	UI.HackAllCallbacks(attrs);
 	if(UI.context_window_painting){UI.EndPaint();}
-	UI.BeginPaint(state.hwnd,attrs);
+	UI.BeginPaint(attrs.hwnd,attrs);
 	UI.context_window_painting=1;
 	attrs.x=0;
 	attrs.y=0;
@@ -95,8 +94,8 @@ W.Hotkey=function(id,attrs){
 }
 
 W.Region=function(id,attrs){
-	//state is needed to track OnClick and stuff, *even if we don't store any var*
-	var state=UI.GetState(id,attrs);
+	//attrs is needed to track OnClick and stuff, *even if we don't store any var*
+	attrs=UI.Keep(id,attrs);
 	UI.StdAnchoring(id,attrs);
 	UI.context_regions.push(attrs);
 	return attrs
@@ -104,11 +103,11 @@ W.Region=function(id,attrs){
 
 ////////////////////////////////////////
 //widgets
-W.Button=function(id,attrs){
+W.Button=function(id,attrs0){
 	//////////////////
 	//styling
-	var state=UI.GetState(id,attrs);
-	UI.StdStyling(id,attrs, "button",state.mouse_state||"out");
+	var attrs=UI.Keep(id,attrs0);
+	UI.StdStyling(id,attrs,attrs0, "button",attrs.mouse_state||"out");
 	//size estimation
 	var bmpid=(UI.rc[attrs.icon]||0);
 	if(attrs.w_icon){
@@ -119,15 +118,15 @@ W.Button=function(id,attrs){
 	}
 	UI.LayoutText(attrs);
 	var padding=(attrs.padding||4);
-	attrs.w=(attrs.w||(attrs.w_bmp+attrs.w_text+padding*2));
-	attrs.h=(attrs.h||(Math.max(attrs.h_bmp,attrs.h_text)+padding*2));
+	attrs.w=(attrs0.w||(attrs.w_bmp+attrs.w_text+padding*2));
+	attrs.h=(attrs0.h||(Math.max(attrs.h_bmp,attrs.h_text)+padding*2));
 	UI.StdAnchoring(id,attrs);
 	//////////////////
 	//standard events
-	attrs.OnMouseOver=(attrs.OnMouseOver||function(){state.mouse_state="over";UI.Refresh();});
-	attrs.OnMouseOut=(attrs.OnMouseOut||function(){state.mouse_state="out";UI.Refresh();});
-	attrs.OnMouseDown=(attrs.OnMouseDown||function(){state.mouse_state="down";UI.Refresh();});
-	attrs.OnMouseUp=(attrs.OnMouseUp||function(){state.mouse_state="over";UI.Refresh();});
+	attrs.OnMouseOver=(attrs.OnMouseOver||function(){attrs.mouse_state="over";UI.Refresh();});
+	attrs.OnMouseOut=(attrs.OnMouseOut||function(){attrs.mouse_state="out";UI.Refresh();});
+	attrs.OnMouseDown=(attrs.OnMouseDown||function(){attrs.mouse_state="down";UI.Refresh();});
+	attrs.OnMouseUp=(attrs.OnMouseUp||function(){attrs.mouse_state="over";UI.Refresh();});
 	//////////////////
 	//rendering
 	UI.RoundRect(attrs);
@@ -138,24 +137,23 @@ W.Button=function(id,attrs){
 	return W.Region(id,attrs);
 }
 
-W.Edit=function(id,attrs){
-	var state=UI.GetState(id,attrs);
-	UI.StdStyling(id,attrs, "edit",state.focus_state||"blur");
+W.Edit=function(id,attrs0){
+	var attrs=UI.Keep(id,attrs0);
+	UI.StdStyling(id,attrs,attrs0, "edit",attrs.focus_state||"blur");
 	UI.StdAnchoring(id,attrs);
-	var ed=state.ed;
+	var ed=attrs.ed;
 	if(!ed){
 		ed=Duktape.__ui_new_editor(attrs);
 		if(attrs.text){ed.MassEdit([0,0,code_text]);}
-		state.sel0=ed.CreateLocator(0,-1);
-		state.sel1=ed.CreateLocator(0,1);
-		state.ed=ed;
+		attrs.sel0=ed.CreateLocator(0,-1);
+		attrs.sel1=ed.CreateLocator(0,1);
+		attrs.ed=ed;
 	}
-	!? //todo: default focusing priority
 	//todo: UI.SetFocus
 	//todo: scrolling
 	ed.Render({x:0,y:0,w:attrs.w,h:attrs.h, scr_x:attrs.x,scr_y:attrs.y, scale:(attrs.scale||1)});
 	if(UI.HasFocus(attrs)){
-		var ed_caret=ed.XYFromCcnt(state.sel1.ccnt);
+		var ed_caret=ed.XYFromCcnt(attrs.sel1.ccnt);
 		UI.SetCaret(UI.context_window,attrs.x+ed_caret.x,attrs.y+ed_caret.y,attrs.caret_width||2,UI.GetFontHeight(attrs.font),attrs.caret_color||0xff000000,attrs.caret_flicker||500);
 	}
 }

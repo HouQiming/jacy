@@ -929,22 +929,32 @@ UI.setTimeout=function(f,ms){
 	return timer_id;
 };
 
-UI.GetState=function(id,attrs){
-	var parent=UI.context_parent.$;
+UI.GetPreviousState=function(id){
+	var parent=UI.context_parent;
+	var attrs_old=parent[id];
+	return attrs_old;
+};
+
+UI.Keep=function(id,attrs){
+	var parent=UI.context_parent;
 	var attrs_old=parent[id];
 	var ret;
 	if(attrs_old){
-		ret=attrs_old.$;
+		ret=attrs_old;
+		for(var key in attrs){
+			ret[key]=attrs[key];
+		}
+		ret.__anchored=0;
 	}else{
-		ret={};
+		ret=attrs;
+		parent[id]=ret;
 	}
 	if(attrs.OnTextInput){
 		if(!UI.nd_focus&&(!UI.context_tentative_focus||(UI.context_tentative_focus.default_focus||0)<(attrs.default_focus||0))){
 			UI.context_tentative_focus=attrs;
 		}
 	}
-	attrs.$=ret;
-	parent[id]=attrs;
+	//parent[id]=attrs;
 	return ret;
 }
 
@@ -1053,13 +1063,13 @@ UI.interpolators.text_color=UI.interpolators.color;
 UI.interpolators.icon_color=UI.interpolators.color;
 
 //todo: standardize hover tracking
-UI.StdStyling=function(id,attrs,s_default_style_name,child_style){
+UI.StdStyling=function(id,attrs,attrs0,s_default_style_name,child_style){
 	//styling
 	var style=attrs.style||UI.default_styles[s_default_style_name||"-"];
 	if(style){
 		//mover / mout / mdown stuff - child styles
 		for(var key in style){
-			if(key!="$"&&!attrs[key]){
+			if(key!="$"&&!attrs0[key]){
 				attrs[key]=style[key];
 			}
 		}
@@ -1067,7 +1077,7 @@ UI.StdStyling=function(id,attrs,s_default_style_name,child_style){
 			var cstyle=style.$[child_style];
 			if(cstyle){
 				for(var key in cstyle){
-					if(!attrs[key]){
+					if(!attrs0[key]){
 						attrs[key]=cstyle[key];
 					}
 				}
@@ -1076,7 +1086,7 @@ UI.StdStyling=function(id,attrs,s_default_style_name,child_style){
 	}
 	//transition
 	if(attrs.transition_dt){
-		var state=UI.GetState(id,attrs);
+		var state=(UI.GetPreviousState(id)||attrs);
 		//test whether we need a new transition
 		var ref_frame=state.transition_frame1||state.transition_current_frame;
 		if(!ref_frame){
@@ -1244,7 +1254,6 @@ UI.StdAnchoring=function(id,attrs){
 ////////////////////////////////////////
 UI.need_to_refresh=1;
 UI.nd_mouse_down=[];
-UI.$={};
 UI.Refresh=function(){UI.need_to_refresh=1;}
 
 UI.CaptureMouse=function(attrs){
@@ -1253,7 +1262,7 @@ UI.CaptureMouse=function(attrs){
 }
 
 UI.ReleaseMouse=function(attrs){
-	if(UI.nd_captured&&UI.nd_captured.$==attrs.$){UI.nd_captured=null;}
+	if(UI.nd_captured&&UI.nd_captured==attrs){UI.nd_captured=null;}
 }
 
 UI.SetFocus=function(attrs){
@@ -1266,7 +1275,7 @@ UI.SetFocus=function(attrs){
 }
 
 UI.HasFocus=function(attrs){
-	return UI.nd_focus&&UI.nd_focus.$==attrs.$;
+	return UI.nd_focus&&UI.nd_focus==attrs;
 }
 
 UI.Run=function(){
@@ -1407,7 +1416,7 @@ UI.Run=function(){
 					var obj_captured=UI.nd_captured;
 					for(var i=lg-1;i>=0;i--){
 						var attrs=regions[i];
-						if(obj_captured.$==attrs.$){
+						if(obj_captured==attrs){
 							nd_mouse_receiver=attrs;
 							break;
 						}
@@ -1424,7 +1433,7 @@ UI.Run=function(){
 				}
 				if(event.type==UI.SDL_MOUSEMOTION){
 					//nd_mouse_receiver
-					if(!UI.nd_mouse_over||UI.nd_mouse_over.$!=nd_mouse_receiver.$){
+					if(!UI.nd_mouse_over||UI.nd_mouse_over!=nd_mouse_receiver){
 						if(UI.nd_mouse_over){
 							UI.CallIfAvailable(UI.nd_mouse_over,"OnMouseOut",event);
 						}
@@ -1440,7 +1449,7 @@ UI.Run=function(){
 					}else{
 						var attrs_previous=UI.nd_mouse_down[event.button];
 						UI.CallIfAvailable(nd_mouse_receiver,"OnMouseUp",event);
-						if(attrs_previous&&attrs_previous.$==nd_mouse_receiver.$){
+						if(attrs_previous&&attrs_previous==nd_mouse_receiver){
 							UI.CallIfAvailable(nd_mouse_receiver,"OnClick",event);
 						}
 						UI.nd_mouse_down[event.button]=null;
