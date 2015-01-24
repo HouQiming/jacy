@@ -41,7 +41,7 @@ W.Window=function(id,attrs){
 		state.hwnd=UI.SDL_CreateWindow(attrs.title||"untitled",attrs.x||UI.SDL_WINDOWPOS_CENTERED,attrs.y||UI.SDL_WINDOWPOS_CENTERED,attrs.w*UI.pixels_per_unit,attrs.h*UI.pixels_per_unit, attrs.flags);
 	}
 	//defer the innards painting to the first OnPaint - need the GL context
-	state.bgcolor=(state.bgcolor||attrs.bgcolor)
+	state.bgcolor=(attrs.bgcolor)
 	UI.context_paint_queue.push(state);
 	UI.HackAllCallbacks(attrs);
 	if(UI.context_window_painting){UI.EndPaint();}

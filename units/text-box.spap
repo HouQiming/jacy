@@ -181,10 +181,13 @@ class CLayouter_baseline
 			//Writeln('before fnt_scaled ',m_font.h,' ',scaling)
 			fnt_scaled=m_font
 			fnt_scaled.h*=scaling
+			//smart emboldening for SRGB
+			if g_renderer.m_srgb_supported:
+				fnt_scaled.embolden+=int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*4000.f/fnt_scaled.h)
 			//Writeln('after fnt_scaled ',m_font.h)
 			scalingd=double(scaling)
 		w_tab=double(m_tab_width)*double(Gui2D.detail.g_renderer.CacheGlyph(m_font,int(' '))[0].dx)
-		hc=Gui2D.detail.g_renderer.GetCharacterHeight(m_font)
+		hc=g_renderer.GetCharacterHeight(m_font)
 		x=__longlong_as_double(a[0])
 		y=__longlong_as_double(a[1])
 		for i=0:line_breaks.n-2
@@ -328,8 +331,7 @@ class CEditableText
 		//m_handler_registration["m_is_line_only"]=m_is_line_only
 		m_state_ofs.push(ofs)
 		RecomputeStates(m_skiplist)
-		//todo: set a prototype object
-		return m_handler_registration
+		m_handler_registration["style"]=obj_style
 	auto RecomputeStates(CSLNode nd)
 		n=m_state_ofs.back()
 		ccnt=0LL
@@ -352,6 +354,33 @@ class CEditableText
 				ccnt+=pc.ccnt
 		nd.a=a
 		nd.ccnt=ccnt
+	auto BlockFromCcnt(i64 ccnt0)
+		nd=m_skiplist
+		ccnt_base=0LL
+		for(;;)
+			while ccnt_base+nd.ccnt<=ccnt0&&nd.pnext:
+				ccnt_base+=nd.ccnt
+				nd=nd.pnext
+			if nd.s:
+				return (nd,ccnt0-ccnt_base)
+			assert(!!nd.pchild)
+			nd=nd.pchild
+	auto GetStateAt(int hid,i64 ccnt0)
+		acc=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
+		handler=m_handlers[hid]
+		///////////
+		nd=m_skiplist
+		ccnt_base=0LL
+		for(;;)
+			while ccnt_base+nd.ccnt<=ccnt0&&nd.pnext:
+				ccnt_base+=nd.ccnt
+				handler.Add(acc,nd.a)
+				nd=nd.pnext
+			if nd.s:
+				handler.AddBlock(acc,nd.s[:iptr(ccnt0-ccnt_base-1LL)])
+				return acc
+			assert(!!nd.pchild)
+			nd=nd.pchild
 	auto skipListPromote(TSLList nds_ret0, TSLList nds_child0,TSLList nds_toadd,CSLNode nd_ignore)
 		nds_ret=nds_ret0
 		nds_child=nds_child0
@@ -450,24 +479,13 @@ class CEditableText
 		nds_ret.ptail.pchild=nds_child.phead;nds_child.ptail.pnext=CSLNode.NULL
 		RecomputeStates(nds_ret.ptail)
 		return nds_ret
-	auto BlockFromCcnt(i64 ccnt0)
-		nd=m_skiplist
-		ccnt_base=0LL
-		for(;;)
-			while ccnt_base+nd.ccnt<=ccnt0&&nd.pnext:
-				ccnt_base+=nd.ccnt
-				nd=nd.pnext
-			if nd.s:
-				return (nd,ccnt0-ccnt_base)
-			assert(!!nd.pchild)
-			nd=nd.pchild
 	auto SortLocators()
 		n2=0L
 		foreach loc,I in m_locators
 			if !loc.discarded:
 				m_locators[n2++]=loc
 		m_locators.resize(n2)
-		//todo: m_locators.Sortby(inline(loc){return loc.ccnt})
+		m_locators.Sortby(inline(loc){return loc.ccnt})
 	auto MassEdit(TEditop[] ops)
 		//editop -> block replace: mainly take-the-next-and-merge
 		//do the locators here
@@ -476,7 +494,38 @@ class CEditableText
 		ofs=0LL
 		//////////
 		SortLocators()
-		//todo: maintain m_locators
+		ploc=0L
+		pops=0L
+		lside_tar=0LL
+		rside_tar=0LL
+		//delta=0LL
+		while ploc<m_locators.n&&pops<ops.n:
+			ccnt0=ops[pops].ccnt
+			ccnt1=ccnt0+ops[pops].sz
+			loc=m_locators[ploc]
+			ccnt_loc=loc.ccnt
+			if ccnt_loc<ccnt0:
+				//it didn't overlap anything
+				loc.ccnt+=delta
+				ploc++
+				continue
+			lside_tar=ccnt0+delta
+			rside_tar=ccnt0+delta
+			if ops[pops].s:rside_tar+=ops[pops].s.n
+			if ccnt_loc<=ccnt1:
+				//it overlapped the deletion
+				if loc.side<1:
+					//push left
+					loc.ccnt=lside_tar
+				else
+					//push right
+					loc.ccnt=rside_tar
+				ploc++
+			else
+				//we're still to the left of the locator
+				pops++
+			if ops[pops].s:delta+=ops[pops].s.n
+			delta+=ccnt0-ccnt1
 		//////////
 		bops=new TBlockOp[]
 		bop_current=TBlockOp()
@@ -671,6 +720,17 @@ class CEditableText
 					ccnt_base+=pc.ccnt
 		dfsRender(m_skiplist,ccnt0,ccnt1)
 		R.PopCliprect()
+	/////////////////////////////////////////////////
+	//todo: locator undo, conservative pairs handling
+	//just record classes and ccnts - restoring ccnt for discarded locators is OK
+	//todo: port edcore to js for UI interaction
+	auto CreateLocator(i64 ccnt,int side)
+		ret=new CLocator(){ccnt:ccnt,side:i8(side)}
+		return ret
+	auto GetLocatorXY(CLocator loc)
+		hid=m_handler_registration["handler_id_renderer"].as(int)
+		a=GetStateAt(hid,ccnt)
+		return double2(__longlong_as_double(a[0]),__longlong_as_double(a[1]))
 	//todo: locator-based highlighting / hiding
 	//todo: style changing
 	/////////////////
@@ -729,7 +789,7 @@ class CEditableText
 			param_h,
 			param_scr_x*g_renderer.m_pixels_per_unit,
 			param_scr_y*g_renderer.m_pixels_per_unit,
-			param_scale*g_renderer.m_pixels_per_unit)
+			param_scale)
 		return 0
 	}
 	auto __JS_prototype(JSObject proto)

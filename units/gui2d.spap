@@ -801,7 +801,7 @@ g_renderer=(class(){
 	auto CreateFont(CCoreFont pfnt,float h,int embolden)
 		return TFont(){pfnt:pfnt,h:h,embolden:embolden}
 	auto CacheGlyph(TFont fnt, int ch)
-		embolden=float(fnt.embolden)*0.01f*fnt.h
+		embolden=float(max(min(fnt.embolden,511),-512))*fnt.h
 		x_aa=1
 		//if fnt.h<32:x_aa=3
 		//no matter how large the font is, x_aa always makes it sharper

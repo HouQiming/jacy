@@ -379,7 +379,7 @@ class Array(T)
 			m=((l+r)>>1)
 			if tooSmall(this[m]):l=m+1;else r=m-1
 		return l
-	inline __real_sort(const less)
+	inline __real_sort(const less0)
 		auto s=d;
 		auto n=this.n
 		auto dep=0
@@ -391,10 +391,13 @@ class Array(T)
 		//we'll ignore RC here when we can
 		if IS_STRUCT:
 			T_sort=T
+			less=less0
 		else if IS_CLASS:
 			T_sort=iptr
+			less=inline(a,b){return less0(__cast(T,a),__cast(T,b))}
 		else
 			T_sort=T
+			less=less0
 		inline S(auto i)
 			if IS_STRUCT:
 				return __cast(T_sort,s+sizeof(T_sort)*iptr(i))
