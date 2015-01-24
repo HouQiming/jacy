@@ -948,8 +948,12 @@ module detail
 	SDL_GetWindowSize=__c_function(int,"SDL_GetWindowSize","SDL.h")
 	SDL_GetWindowID=__c_function(int,"SDL_GetWindowID","SDL.h")
 	SDL_GetCurrentDisplayMode=__c_function(int,"SDL_GetCurrentDisplayMode","SDL.h")
+	SDL_SetWindowGrab=__c_function(int,"SDL_SetWindowGrab","SDL.h")
+	SDL_StartTextInput=__c_function(int,"SDL_StartTextInput","SDL.h")
+	SDL_StopTextInput=__c_function(int,"SDL_StopTextInput","SDL.h")
 	//////
 	g_sdl_gl_context=NULL
+	g_is_hwnd=new int[iptr]
 	auto createSDLJSObject(JSObject JS_SDL,int do_consts)
 		__generate_json("search_paths","SDL_PATH")
 		if Platform.ARCH=="win32":
@@ -996,11 +1000,17 @@ module detail
 			w=JS.Param(3).or(1024)
 			h=JS.Param(4).or(768)
 			flags=JS.Param(5).or(SDL_WINDOW_RESIZABLE)
-			return JS.Return(SDL_CreateWindow(title,x,y,w,h, SDL_WINDOW_OPENGL|SDL_WINDOW_ALLOW_HIGHDPI|flags))
+			hwnd=SDL_CreateWindow(title,x,y,w,h, SDL_WINDOW_OPENGL|SDL_WINDOW_ALLOW_HIGHDPI|flags)
+			if hwnd:
+				g_is_hwnd[iptr(hwnd)]=1
+			return JS.Return(hwnd)
 		}
 		JS_SDL["SDL_DestroyWindow"]=function(JSContext JS){
 			hwnd=JS.Param(0).or(NULL)
-			if hwnd:SDL_DestroyWindow(hwnd)
+			if !g_is_hwnd[iptr(hwnd)]:hwnd=NULL
+			if hwnd:
+				SDL_DestroyWindow(hwnd)
+				g_is_hwnd[iptr(hwnd)]=0
 			return 0
 		}
 		JS_SDL["SDL_GetCurrentDisplayMode"]=function(JSContext JS){
@@ -1051,6 +1061,7 @@ module detail
 		//}
 		JS_SDL["GL_Begin"]=function(JSContext JS){
 			hwnd=JS.Param(0).as(__pointer)
+			if !g_is_hwnd[iptr(hwnd)]:hwnd=NULL
 			if !hwnd:return 0
 			if !g_sdl_gl_context:
 				g_sdl_gl_context=SDL_GL_CreateContext(hwnd)
@@ -1063,16 +1074,16 @@ module detail
 		}
 		JS_SDL["GL_End"]=function(JSContext JS){
 			hwnd=JS.Param(0).as(__pointer)
-			if !hwnd:
-				return 0
+			if !g_is_hwnd[iptr(hwnd)]:hwnd=NULL
+			if !hwnd:return 0
 			SDL_GL_SwapWindow(hwnd)
 			SDL_GL_MakeCurrent(hwnd,NULL)
 			return 0
 		}
 		JS_SDL["SDL_GetWindowSize"]=function(JSContext JS){
 			hwnd=JS.Param(0).as(__pointer)
-			if !hwnd:
-				return 0
+			if !g_is_hwnd[iptr(hwnd)]:hwnd=NULL
+			if !hwnd:return 0
 			w=0
 			h=0
 			SDL_GetWindowSize(hwnd,&w,&h)
@@ -1080,6 +1091,21 @@ module detail
 			parr[0]=w
 			parr[1]=h
 			return JS.Return(parr)
+		}
+		JS_SDL["SDL_SetWindowGrab"]=function(JSContext JS){
+			hwnd=JS.Param(0).as(__pointer)
+			if !g_is_hwnd[iptr(hwnd)]:hwnd=NULL
+			if !hwnd:return 0
+			SDL_SetWindowGrab(hwnd,JS.Param(1).or(0))
+			return 0
+		}
+		JS_SDL["SDL_StartTextInput"]=function(JSContext JS){
+			SDL_StartTextInput()
+			return 0
+		}
+		JS_SDL["SDL_StopTextInput"]=function(JSContext JS){
+			SDL_StopTextInput()
+			return 0
 		}
 		return JS_SDL
 	auto createGLJSObject(JSObject JS_GL)

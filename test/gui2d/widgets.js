@@ -137,3 +137,25 @@ W.Button=function(id,attrs){
 	UI.DrawTextControl(attrs,x,attrs.y+(attrs.h-attrs.h_text)*0.5,attrs.text_color||0xffffffff)
 	return W.Region(id,attrs);
 }
+
+W.Edit=function(id,attrs){
+	var state=UI.GetState(id,attrs);
+	UI.StdStyling(id,attrs, "edit",state.focus_state||"blur");
+	UI.StdAnchoring(id,attrs);
+	var ed=state.ed;
+	if(!ed){
+		ed=Duktape.__ui_new_editor(attrs);
+		if(attrs.text){ed.MassEdit([0,0,code_text]);}
+		state.sel0=ed.CreateLocator(0,-1);
+		state.sel1=ed.CreateLocator(0,1);
+		state.ed=ed;
+	}
+	!? //todo: default focusing priority
+	//todo: UI.SetFocus
+	//todo: scrolling
+	ed.Render({x:0,y:0,w:attrs.w,h:attrs.h, scr_x:attrs.x,scr_y:attrs.y, scale:(attrs.scale||1)});
+	if(UI.HasFocus(attrs)){
+		var ed_caret=ed.XYFromCcnt(state.sel1.ccnt);
+		UI.SetCaret(UI.context_window,attrs.x+ed_caret.x,attrs.y+ed_caret.y,attrs.caret_width||2,UI.GetFontHeight(attrs.font),attrs.caret_color||0xff000000,attrs.caret_flicker||500);
+	}
+}

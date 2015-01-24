@@ -6,6 +6,6 @@ import System.Console.*
 (function(){
 	JS=new JSContext
 	setupModuleSystem(JS)
-	JS.GetGlobal()["ED"]=TextBox.createBaselineEditWidget(JS.New())
+	JS.GetGlobal()["Duktape"]["__ui_new_editor"]=TextBox.jsNewEditorBaseline
 	JS.debugRunFile("test/test_gui.js")
 })()

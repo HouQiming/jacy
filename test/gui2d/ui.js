@@ -938,6 +938,11 @@ UI.GetState=function(id,attrs){
 	}else{
 		ret={};
 	}
+	if(attrs.OnTextInput){
+		if(!UI.nd_focus&&(!UI.context_tentative_focus||(UI.context_tentative_focus.default_focus||0)<(attrs.default_focus||0))){
+			UI.context_tentative_focus=attrs;
+		}
+	}
 	attrs.$=ret;
 	parent[id]=attrs;
 	return ret;
@@ -989,6 +994,10 @@ UI.DiscardCaches=function(){
 UI.Begin=function(attrs){
 	attrs.__parent=UI.context_parent;
 	UI.context_parent=attrs;
+	if(attrs.hwnd){
+		attrs.__window_parent=UI.context_window;
+		UI.context_window=attrs;
+	}
 	return attrs;
 }
 
@@ -996,6 +1005,10 @@ UI.End=function(){
 	var attrs=UI.context_parent;
 	UI.context_parent=attrs.__parent;
 	attrs.__parent=null;
+	if(attrs.hwnd){
+		UI.context_window=attrs.__window_parent;
+		attrs.__window_parent=null;
+	}
 }
 
 ////////////////////////////////////////
@@ -1236,10 +1249,24 @@ UI.Refresh=function(){UI.need_to_refresh=1;}
 
 UI.CaptureMouse=function(attrs){
 	UI.nd_captured=attrs;
+	//todo: UI.SDL_SetWindowGrab(hwnd,1)
 }
 
 UI.ReleaseMouse=function(attrs){
 	if(UI.nd_captured&&UI.nd_captured.$==attrs.$){UI.nd_captured=null;}
+}
+
+UI.SetFocus=function(attrs){
+	UI.nd_focus=attrs;
+	if(attrs&&attrs.OnTextInput){
+		UI.SDL_StartTextInput()
+	}else{
+		UI.SDL_StopTextInput()
+	}
+}
+
+UI.HasFocus=function(attrs){
+	return UI.nd_focus&&UI.nd_focus.$==attrs.$;
 }
 
 UI.Run=function(){
@@ -1254,8 +1281,12 @@ UI.Run=function(){
 			UI.context_regions=[];
 			UI.context_parent=UI;
 			UI.context_window_painting=0;
+			UI.context_tentative_focus=null;
 			UI.Application("top",{});
 			if(UI.context_window_painting){UI.EndPaint();}
+			if(!UI.nd_focus&&UI.context_tentative_focus){
+				UI.nd_focus=UI.context_tentative_focus;
+			}
 			UI.EndFrame();
 			for(var i=0;i<UI.context_paint_queue.length;i++){
 				var obj=UI.context_paint_queue[i];
@@ -1338,7 +1369,19 @@ UI.Run=function(){
 					}
 				}
 				//keyboard focus
-				//todo
+				if(UI.nd_focus){
+					UI.CallIfAvailable(UI.nd_focus,event.type==UI.SDL_KEYDOWN?"OnKeyDown":"OnKeyUp",event);
+				}
+				break
+			case UI.SDL_TEXTEDITING:
+				if(UI.nd_focus){
+					UI.CallIfAvailable(UI.nd_focus,"OnTextEdit",event);
+				}
+				break
+			case UI.SDL_TEXTINPUT:
+				if(UI.nd_focus){
+					UI.CallIfAvailable(UI.nd_focus,"OnTextInput",event);
+				}
 				break
 			//todo: mouseover, mouseout
 			//UI.nd_mouse_over, UI.nd_key_focus, UI.nd_captured

@@ -498,7 +498,7 @@ class CEditableText
 		pops=0L
 		lside_tar=0LL
 		rside_tar=0LL
-		//delta=0LL
+		delta=0LL
 		while ploc<m_locators.n&&pops<ops.n:
 			ccnt0=ops[pops].ccnt
 			ccnt1=ccnt0+ops[pops].sz
@@ -757,7 +757,6 @@ class CEditableText
 	}
 	JS_GetText=function(JSContext JS){
 		ed=this
-		if !ed:return 0
 		range0=0LL
 		range1=ed.GetTextSize()
 		ccnt=JS.Param(0).or(range0)
@@ -772,7 +771,6 @@ class CEditableText
 	}
 	JS_Render=function(JSContext JS){
 		ed=this
-		if !ed:return 0
 		params=JS.Param(0).as(JSObject)
 		if !params:return 0
 		param_x=params["x"].or(0.)
@@ -792,21 +790,40 @@ class CEditableText
 			param_scale)
 		return 0
 	}
+	JS_CreateLocator=function(JSContext JS){
+		ccnt=JS.Param(0).or(0LL)
+		side=JS.Param(1).or(0)
+		range1=GetTextSize()
+		if u64(ccnt)>u64(range1):
+			return 0
+		else
+			return JS.Return(CreateLocator(ccnt,side))
+	}
+	JS_XYFromCcnt=function(JSContext JS){
+		ccnt=JS.Param(0).or(0LL)
+		range1=GetTextSize()
+		if u64(ccnt)>u64(range1):
+			return 0
+		xy=XYFromCcnt(ccnt)
+		ret=JS.New()
+		ret["x"]=xy[0]
+		ret["y"]=xy[1]
+		return JS.Return(ret)
+	}
 	auto __JS_prototype(JSObject proto)
 		proto.ExportProperty(this,"m_handler_registration")
 		proto.ExportMethod(this,"MassEdit",JS_MassEdit)
 		proto.ExportMethod(this,"GetText",JS_GetText)
 		proto.ExportMethod(this,"GetTextSize",JS_GetTextSize)
 		proto.ExportMethod(this,"Render",JS_Render)
+		proto.ExportMethod(this,"CreateLocator",JS_CreateLocator)
+		proto.ExportMethod(this,"XYFromCcnt",JS_XYFromCcnt)
 
-auto createBaselineEditWidget(JSObject JS_ED)
-	JS_ED["New"]=function(JSContext JS){
-		obj_style=JS.Param(0).as(JSObject)
-		if !obj_style:return 0
-		ret=new CEditableText
-		ret.AddStateHandler(new CLayouter_baseline)
-		ret.Init(obj_style)
-		return JS.Return(ret)
-	}
-	//the JS boundary has to be checked
-	return JS_ED
+jsNewEditorBaseline=function(JSContext JS){
+	obj_style=JS.Param(0).as(JSObject)
+	if !obj_style:return 0
+	ret=new CEditableText
+	ret.AddStateHandler(new CLayouter_baseline)
+	ret.Init(obj_style)
+	return JS.Return(ret)
+}

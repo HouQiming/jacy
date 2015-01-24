@@ -81,7 +81,7 @@ var demo_msgbox=function(id,attrs){
 				anchor:UI.context_parent,anchor_align:"left",anchor_valign:"up",
 				w:UI.context_parent.w-32,
 				x:16,y:16,
-				font:UI.Font("cmunrm",24,300),text:paper_text,
+				font:UI.Font("cmunrm",24,100),text:paper_text,
 				//font:UI.Font("dsanscn",128,-200),text:'标题很好看',
 				color:0xff000000,
 				//color:0xff111111,
@@ -144,7 +144,7 @@ var demo_textbox=function(id,attrs){
 	UI.Begin(attrs);
 		var wnd=UI.Begin(W.Window("app",{title:"Text box example",w:1024,h:768,bgcolor:0xffffffff^color_mask,designated_screen_size:1440,flags:UI.SDL_WINDOW_RESIZABLE,is_main_window:1}))
 			if(!ed){
-				ed=ED.New({font:UI.Font("cmunrm",24),color:0xff000000^color_mask});
+				ed=Duktape.__ui_new_editor({font:UI.Font("cmunrm",24),color:0xff000000^color_mask});
 				//ed=ED.New({font:UI.Font("cmunrm",12),color:0xff000000^color_mask});
 				//ed=ED.New({font:UI.Font("Inconsolata.ttf",16),color:0xff000000^color_mask});
 				ed.MassEdit([0,0,code_text]);

@@ -1342,6 +1342,11 @@ auto createUIObject(JSObject JS_UI)
 		assert(!!ret.pfnt)
 		return JS.Return(ret)
 	}
+	JS_UI["GetFontHeight"]=function(JSContext JS){
+		fnt=JS.Param(0).as(TFont)
+		if !fnt.pfnt:return 0
+		return JS.Return(fnt.h/g_renderer.m_pixels_per_unit)
+	}
 	JS_UI["_LayoutText"]=function(JSContext JS){
 		//just separate text creation and draw
 		attrs=JS.Param(0).as(JSObject)
@@ -1370,8 +1375,9 @@ auto createUIObject(JSObject JS_UI)
 		C=JS.Param(3).or(u32(-1))
 		layout=attrs["__layout"].as(CTextLayout)
 		if !layout:return 0
-		boxed_fnt=attrs["font"].as(__Box(TFont))
-		fnt=boxed_fnt.a
+		//boxed_fnt=attrs["font"].as(__Box(TFont))
+		//fnt=boxed_fnt.a
+		fnt=attrs["font"].as(TFont)
 		if !fnt.pfnt:return 0
 		foreach li in layout.chars
 			g_renderer.DrawChar(fnt,x0+li.pos.x,y0+li.pos.y,int(C),li.ch)
