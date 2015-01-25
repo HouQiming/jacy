@@ -19,6 +19,7 @@ UI.SetCaret=function(attrs,x,y,w,h,C,dt){
 	attrs.caret_C=C;
 	attrs.caret_state=1;
 	attrs.caret_dt=dt;
+	UI.SDL_SetTextInputRect(x*UI.pixels_per_unit,y*UI.pixels_per_unit,w*UI.pixels_per_unit,h*UI.pixels_per_unit)
 };
 
 W.Window=function(id,attrs){
@@ -148,8 +149,11 @@ W.Edit=function(id,attrs0){
 		attrs.sel0=ed.CreateLocator(0,-1);
 		attrs.sel1=ed.CreateLocator(0,1);
 		attrs.ed=ed;
+		ed.m_caret_locator=attrs.sel1;
 		attrs.OnTextEdit=function(event){
-			//todo: draw an overlay
+			//print(">>> ",JSON.stringify(event));
+			ed.m_IME_overlay=event;
+			UI.Refresh()
 		}
 		attrs.OnTextInput=function(event){
 			var ccnt0=attrs.sel0.ccnt;
@@ -162,12 +166,20 @@ W.Edit=function(id,attrs0){
 			UI.Refresh()
 		};
 	}
-	//todo: scaling - the editor should use unscaled units
 	//todo: scrolling
-	ed.Render({x:0,y:0,w:attrs.w,h:attrs.h, scr_x:attrs.x,scr_y:attrs.y, scale:(attrs.scale||1)});
+	var scale=(attrs.scale||1);
+	var scroll_x=(attrs.scroll_x||0);
+	var scroll_y=(attrs.scroll_y||0);
+	ed.Render({x:scroll_x,y:scroll_y,w:attrs.w,h:attrs.h, scr_x:attrs.x,scr_y:attrs.y, scale:scale});
+	//if(ed.m_IME_overlay){print("Render ",JSON.stringify(ed.m_IME_overlay));}
 	if(UI.HasFocus(attrs)){
 		var ed_caret=ed.XYFromCcnt(attrs.sel1.ccnt);
-		UI.SetCaret(UI.context_window,attrs.x+ed_caret.x,attrs.y+ed_caret.y,attrs.caret_width||2,UI.GetFontHeight(attrs.font),attrs.caret_color||0xff000000,attrs.caret_flicker||500);
+		var x_caret=attrs.x+(ed_caret.x-scroll_x+ed.m_caret_offset)*scale;
+		var y_caret=attrs.y+(ed_caret.y-scroll_y)*scale;
+		UI.SetCaret(UI.context_window,
+			x_caret,y_caret,
+			attrs.caret_width*scale||2,UI.GetFontHeight(attrs.font)*scale,
+			attrs.caret_color||0xff000000,attrs.caret_flicker||500);
 	}
 	return attrs;
 }

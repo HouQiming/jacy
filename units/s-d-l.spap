@@ -951,6 +951,7 @@ module detail
 	SDL_SetWindowGrab=__c_function(int,"SDL_SetWindowGrab","SDL.h")
 	SDL_StartTextInput=__c_function(int,"SDL_StartTextInput","SDL.h")
 	SDL_StopTextInput=__c_function(int,"SDL_StopTextInput","SDL.h")
+	SDL_SetTextInputRect=__c_function(int,"SDL_SetTextInputRect","SDL.h")
 	//////
 	g_sdl_gl_context=NULL
 	g_is_hwnd=new int[iptr]
@@ -1105,6 +1106,19 @@ module detail
 		}
 		JS_SDL["SDL_StopTextInput"]=function(JSContext JS){
 			SDL_StopTextInput()
+			return 0
+		}
+		JS_SDL["SDL_SetTextInputRect"]=function(JSContext JS){
+			prect=__C(__pointer,"@decl:SDL_Rect @1={0}")
+			x=JS.Param(0).or(0)
+			y=JS.Param(1).or(0)
+			w=JS.Param(2).or(1)
+			h=JS.Param(3).or(1)
+			__C(int,"((SDL_Rect*)@1)->x=@2",prect,x)
+			__C(int,"((SDL_Rect*)@1)->y=@2",prect,y)
+			__C(int,"((SDL_Rect*)@1)->w=@2",prect,w)
+			__C(int,"((SDL_Rect*)@1)->h=@2",prect,h)
+			SDL_SetTextInputRect(prect)
 			return 0
 		}
 		return JS_SDL

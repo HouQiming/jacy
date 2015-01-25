@@ -168,48 +168,60 @@ module duktape
 				__C(int,"duk_push_c_function(@1,s7_CB_duktape,DUK_VARARGS)",_ctx())
 				duk_set_magic(_ctx(),-1,fid)
 			else if T==JSObject://||T==JSFunction:
-				if Platform.BUILD=="debug":
-					if __cast(iptr,value.m_jsctx)!=__cast(iptr,this):
-						__basic_api.spapReportError("cannot mix JS objects from different contexts")
-				_push_object(value.m_handle)
+				if !value:
+					duk_push_undefined(_ctx())
+				else
+					if Platform.BUILD=="debug":
+						if __cast(iptr,value.m_jsctx)!=__cast(iptr,this):
+							__basic_api.spapReportError("cannot mix JS objects from different contexts")
+					_push_object(value.m_handle)
 			else if T==__pointer:
 				duk_push_pointer(_ctx(),value)
 			else if __has_member(value,"__JS_autocast"):
-				_push_value(value.__JS_autocast(this))
+				if !value:
+					duk_push_undefined(_ctx())
+				else
+					_push_value(value.__JS_autocast(this))
 			else if __has_member(value,"__JS_prototype")
 				////////////
 				//make into object and set the prototype if it has one
-				obj=variant(value)
-				__explicit_rc(obj,1)
-				//////////
-				rtti=iptr(__get_rtti(obj))
-				obj_proto=m_cached_prototypes[rtti]
-				if !obj_proto:
-					obj_proto=New()
-					value.__JS_prototype(obj_proto)
-					m_cached_prototypes[rtti]=obj_proto
-				//////////
-				duk_push_object(_ctx())
-				duk_push_pointer(_ctx(),__cast(__pointer,obj))
-				duk_put_prop_index(_ctx(),-2,0);
-				_push_object(obj_proto.m_handle)
-				duk_set_prototype(_ctx(),-2)
-				////////////
-				//set the finalizer
-				__C(int,"duk_push_c_function(@1,s7_CB_duktape,1)",_ctx())
-				duk_set_magic(_ctx(),-1,0)
-				duk_set_finalizer(_ctx(),-2)
+				if !value:
+					duk_push_undefined(_ctx())
+				else
+					obj=variant(value)
+					__explicit_rc(obj,1)
+					//////////
+					rtti=iptr(__get_rtti(obj))
+					obj_proto=m_cached_prototypes[rtti]
+					if !obj_proto:
+						obj_proto=New()
+						value.__JS_prototype(obj_proto)
+						m_cached_prototypes[rtti]=obj_proto
+					//////////
+					duk_push_object(_ctx())
+					duk_push_pointer(_ctx(),__cast(__pointer,obj))
+					duk_put_prop_index(_ctx(),-2,0);
+					_push_object(obj_proto.m_handle)
+					duk_set_prototype(_ctx(),-2)
+					////////////
+					//set the finalizer
+					__C(int,"duk_push_c_function(@1,s7_CB_duktape,1)",_ctx())
+					duk_set_magic(_ctx(),-1,0)
+					duk_set_finalizer(_ctx(),-2)
 			else
-				obj=variant(value)
-				__explicit_rc(obj,1)
-				duk_push_pointer(_ctx(),__cast(__pointer,obj))
-				//set a releasing finalizer
-				duk_to_object(_ctx(),-1)
-				////////////
-				//set the finalizer
-				__C(int,"duk_push_c_function(@1,s7_CB_duktape,1)",_ctx())
-				duk_set_magic(_ctx(),-1,0)
-				duk_set_finalizer(_ctx(),-2)
+				if !value:
+					duk_push_undefined(_ctx())
+				else
+					obj=variant(value)
+					__explicit_rc(obj,1)
+					duk_push_pointer(_ctx(),__cast(__pointer,obj))
+					//set a releasing finalizer
+					duk_to_object(_ctx(),-1)
+					////////////
+					//set the finalizer
+					__C(int,"duk_push_c_function(@1,s7_CB_duktape,1)",_ctx())
+					duk_set_magic(_ctx(),-1,0)
+					duk_set_finalizer(_ctx(),-2)
 		inline _put_prop_and_pop(value)
 			_push_value(value)
 			duk_put_prop(_ctx(),-3)
@@ -308,6 +320,7 @@ module duktape
 				return 0
 			else
 				__error("JSContext.Return can only take 0 or 1 arguments")
+		//todo: make it return-able
 		inline Error(string serr)
 			s=new(serr)
 			s.push(char(0))
