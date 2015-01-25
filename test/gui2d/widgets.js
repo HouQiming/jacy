@@ -174,6 +174,8 @@ var Edit_prototype={
 		var ed=this.ed;
 		var IsKey=UI.IsKey;
 		var is_shift=UI.IsModifier(event,["SHIFT"]);
+		!? //todo: should be a general criteria
+		if(ed.m_IME_overlay&&ed.m_IME_overlay.text&&ed.m_IME_overlay.text.length){return;}
 		//todo: scrolling
 		if(0){
 		}else if(IsKey(event,["UP"])||IsKey(event,["SHIFT","UP"])){
@@ -222,7 +224,7 @@ var Edit_prototype={
 			UI.Refresh();
 		}else if(IsKey(event,["RETURN"])||IsKey(event,["RETURN2"])){
 			//todo: DOS mode test
-			OnTextInput({"text":"\n"})
+			this.OnTextInput({"text":"\n"})
 		}else{
 		}
 	},

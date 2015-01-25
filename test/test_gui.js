@@ -152,7 +152,6 @@ var demo_textbox=function(id,attrs){
 			//	//print(ed.GetText())
 			//}
 			W.Hotkey("",{key:["ALT","F4"],action:function(){UI.DestroyWindow(wnd)}});
-			W.Hotkey("",{key:'ESCAPE',action:function(){UI.DestroyWindow(wnd)}});
 			//ed.Render({x:0,y:0,w:1024-16,h:768-16, scr_x:8,scr_y:8,scale:1})
 			//UI.SetCaret(wnd,8,8,3,24,0x7f000000,500)
 			var textbox=W.Edit("textbox",{

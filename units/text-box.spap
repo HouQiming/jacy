@@ -12,30 +12,9 @@ import System.Algorithm.*
 import System.Math.*
 import System.Console.*
 
-struct TMouseMap
-	double2 pos
-	i64 ccnt
-
-//struct TCharJob
-//	pos=float2()
-//	ch=0
-//	color=0
-
 struct TRenderingInfo
 	double2 bb
-	//TCharJob[] pt
-	TMouseMap[] mm
-
-auto SearchMouseMap(TMouseMap[] mm,double x,double y)
-	//y=y0
-	//p=0L
-	//for iiter=0:1
-	p=mm.Bisect(function(TMouseMap a){return a.pos.y<y||a.pos.y==y&&a.pos.x<x})
-	//if y!=mm[p].pos.y:
-	//	y=mm[p].pos.y
-	//else
-	//	break
-	return p
+	iptr seek_ret
 
 ///////////////////////////////
 //double should be as-ed
@@ -103,6 +82,16 @@ inline Utf8Chars(string s)
 inline epsEqual(a,b)
 	return abs(__double_as_longlong(double(a))-__double_as_longlong(double(b)))<(1LL<<32)
 
+inline epsUp(a)
+	ret=__double_as_longlong(double(a))
+	ret+=(1LL<<32)^(ret>>63)
+	return __longlong_as_double(ret)
+
+inline epsDown(a)
+	ret=__double_as_longlong(double(a))
+	ret-=(1LL<<32)^(ret>>63)
+	return __longlong_as_double(ret)
+
 auto GetStringWidth(TFont m_font,string s)
 	w_overlay=0.
 	foreach ch,I in Utf8Chars(s)
@@ -111,7 +100,7 @@ auto GetStringWidth(TFont m_font,string s)
 
 class CLayouter_baseline
 	MODE_BB=0
-	MODE_MOUSE_MAP=1
+	MODE_SEEK=1
 	MODE_RENDER=2
 	/////////
 	m_word_wrap=0
@@ -149,27 +138,7 @@ class CLayouter_baseline
 		return ret
 	}
 	SeekInBlock=function(i64[] a,i64[] line_breaks,string s,i64[] b){
-		//x=__longlong_as_double(b[0])
-		//y=__longlong_as_double(b[1])-__longlong_as_double(a[1])
-		//if y>0.0:
-		//	x-=__longlong_as_double(a[0])
-		//hc=Gui2D.detail.g_renderer.GetCharacterHeight(m_font)
-		//line_id=int(floor(y/hc))
-		//if line_id<0:
-		//	return 0L
-		//else if line_id>line_breaks.n-1:
-		//	return s.n
-		//else
-		//	l0=line_breaks[line_id]
-		//	l1=line_breaks[line_id+1]
-		//	mm=_RenderText(MODE_MOUSE_MAP,a,[0L,l1-l0],s[iptr(l0):iptr(l1)-1], 0.,0.,0.f).mm
-		//	x=__longlong_as_double(b[0])
-		//	y=__longlong_as_double(b[1])
-		//	return iptr(l0)+SearchMouseMap(mm,x,y)
-		mm=_RenderText(MODE_MOUSE_MAP,a,line_breaks,s, 0.,0.,0.f).mm
-		x=__longlong_as_double(b[0])
-		y=__longlong_as_double(b[1])
-		return SearchMouseMap(mm,x,y)
+		return iptr(_RenderText(MODE_SEEK,a,line_breaks,s, __longlong_as_double(b[0]),__longlong_as_double(b[1]),0.f).seek_ret)
 	}
 	/////////////////
 	double3 m_caret_overlay
@@ -201,10 +170,6 @@ class CLayouter_baseline
 		return m_caret_offset
 	}
 	_RenderText=function(int mode,i64[] a,i64[] line_breaks,string s, double dx,double dy,float scaling){
-		if mode==MODE_MOUSE_MAP:
-			mm=new TMouseMap[]
-		else
-			mm=TMouseMap[].NULL
 		if mode==MODE_RENDER:
 			//Writeln('before fnt_scaled ',m_font.h,' ',scaling)
 			fnt_scaled=m_font
@@ -225,8 +190,10 @@ class CLayouter_baseline
 			//got_newline=0
 			//todo: justified wrapping
 			for ch,I in Utf8Chars(s[iptr(line_breaks[i]):iptr(min(line_breaks[i+1],s.n))-1])
-				if mode==MODE_MOUSE_MAP:
-					mm.push(TMouseMap(){pos:double2(x,y),ccnt:line_breaks[i]+I})
+				if mode==MODE_SEEK:
+					if y>epsUp(dy)||dy>=epsDown(y)&&dy<epsDown(y+hc)&&x>=dx:
+						return TRenderingInfo(){bb:double2(x,y),seek_ret:iptr(line_breaks[i]+I)}
+					//mm.push(TMouseMap(){pos:double2(x,y),ccnt:line_breaks[i]+I})
 				if mode==MODE_RENDER:
 					if epsEqual(x,m_caret_overlay.x)&&epsEqual(y,m_caret_overlay.y):
 						if m_overlay_obj["type"].as(string)=="IME":
@@ -286,7 +253,7 @@ class CLayouter_baseline
 			//if got_newline:
 			//	x=0.
 			//	y+=hc
-		return TRenderingInfo(){bb:double2(x,y),mm:mm}
+		return TRenderingInfo(){bb:double2(x,y),seek_ret:s.n}
 	}
 	RenderText=function(i64[] a,i64[] pp,string s, double dx,double dy,float scaling){
 		_RenderText(MODE_RENDER,a,pp,s,dx,dy,scaling)
@@ -811,9 +778,14 @@ class CEditableText
 		return _Bisect(acc,m_handlers[hid],0LL,m_skiplist,b)
 	auto SeekXY(double x,double y)
 		hid=m_handler_registration["handler_id_renderer"].as(int)
+		//ccnt0=Bisect(hid,[__double_as_longlong(x),__double_as_longlong(y)])
+		//xy=XYFromCcnt(ccnt0)
+		//return Bisect(hid,[__double_as_longlong(x),__double_as_longlong(xy.y)])
 		ccnt0=Bisect(hid,[__double_as_longlong(x),__double_as_longlong(y)])
 		xy=XYFromCcnt(ccnt0)
-		return Bisect(hid,[__double_as_longlong(x),__double_as_longlong(xy.y)])
+		if xy.y>y&&ccnt0>0LL&&GetText(ccnt0-1,1LL)=="\n":
+			ccnt0--
+		return ccnt0
 	auto Render(double x,double y,double w,double h, float scr_x,float scr_y,float scale)
 		//x,y,w,h refer to the world space window
 		g_renderer.PushCliprect(scr_x,scr_y,float(w)*scale,float(h)*scale)
@@ -1051,7 +1023,7 @@ class CEditableText
 	}
 	JS_SeekXY=function(JSContext JS){
 		x=JS.Param(0).as(double)
-		y=JS.Param(0).as(double)
+		y=JS.Param(1).as(double)
 		return JS.Return(SeekXY(x,y))
 	}
 	JS_GetCharacterHeightAt=function(JSContext JS){
