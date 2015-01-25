@@ -1033,6 +1033,7 @@ class CEditableText
 		return JS.Return(GetCharacterHeightAt(ccnt))
 	}
 	JS_SnapToCharBoundary=function(JSContext JS){
+		!?
 		ccnt=JS.Param(0).or(0LL)
 		range1=GetTextSize()
 		if u64(ccnt)>u64(range1):return 0

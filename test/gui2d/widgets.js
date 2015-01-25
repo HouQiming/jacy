@@ -162,46 +162,43 @@ var Edit_prototype={
 	OnKeyDown:function(event){
 		/*
 		implement the baseline here, leave the rest to plugins
-			(test) arrow keys
-			(test) selection
-			(test) backspace delete
 			word move
-			home end pgup pgdn
+				a general native "MoveTo"
+				SnapToCharBoundary
+			enhanced home
 			copy cut paste
-			ctrl+a
 			undo/redo
 		*/
 		var ed=this.ed;
 		var IsKey=UI.IsKey;
 		var is_shift=UI.IsModifier(event,["SHIFT"]);
-		!? //todo: should be a general criteria
-		if(ed.m_IME_overlay&&ed.m_IME_overlay.text&&ed.m_IME_overlay.text.length){return;}
+		var epilog=function(){
+			if(!is_shift){this.sel0.ccnt=this.sel1.ccnt;}
+			//todo: autoscroll
+			UI.Refresh();
+		};
 		//todo: scrolling
 		if(0){
 		}else if(IsKey(event,["UP"])||IsKey(event,["SHIFT","UP"])){
 			var ed_caret=ed.XYFromCcnt(this.sel1.ccnt);
 			this.sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y-1.0);
-			if(!is_shift){this.sel0.ccnt=this.sel1.ccnt;}
-			UI.Refresh();
+			epilog();
 		}else if(IsKey(event,["DOWN"])||IsKey(event,["SHIFT","DOWN"])){
 			var hc=ed.GetCharacterHeightAt(this.sel1.ccnt);
 			var ed_caret=ed.XYFromCcnt(this.sel1.ccnt);
 			this.sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y+hc);
-			if(!is_shift){this.sel0.ccnt=this.sel1.ccnt;}
-			UI.Refresh();
+			epilog();
 		}else if(IsKey(event,["LEFT"])||IsKey(event,["SHIFT","LEFT"])){
 			var ccnt=this.sel1.ccnt;
 			if(ccnt>0){
 				this.sel1.ccnt=ed.SnapToCharBoundary(ccnt-1,-1);
-				if(!is_shift){this.sel0.ccnt=this.sel1.ccnt;}
-				UI.Refresh();
+				epilog();
 			}
 		}else if(IsKey(event,["RIGHT"])||IsKey(event,["SHIFT","RIGHT"])){
 			var ccnt=this.sel1.ccnt;
 			if(ccnt<ed.GetTextSize()){
 				this.sel1.ccnt=ed.SnapToCharBoundary(ccnt+1,1);
-				if(!is_shift){this.sel0.ccnt=this.sel1.ccnt;}
-				UI.Refresh();
+				epilog();
 			}
 		}else if(IsKey(event,["BACKSPACE"])||IsKey(event,["DELETE"])){
 			var ccnt0=this.sel0.ccnt;
@@ -225,6 +222,24 @@ var Edit_prototype={
 		}else if(IsKey(event,["RETURN"])||IsKey(event,["RETURN2"])){
 			//todo: DOS mode test
 			this.OnTextInput({"text":"\n"})
+		}else if(IsKey(event,["HOME"])||IsKey(event,["SHIFT","HOME"])){
+			//todo: enhanced home
+			var ed_caret=ed.XYFromCcnt(this.sel1.ccnt);
+			this.sel1.ccnt=ed.SeekXY(0,ed_caret.y);
+			epilog();
+		}else if(IsKey(event,["END"])||IsKey(event,["SHIFT","END"])){
+			var ed_caret=ed.XYFromCcnt(this.sel1.ccnt);
+			this.sel1.ccnt=ed.SeekXY(1e127,ed_caret.y);
+			epilog();
+		}else if(IsKey(event,["PAGEUP"])||IsKey(event,["SHIFT","PAGEUP"])){
+			var ed_caret=ed.XYFromCcnt(this.sel1.ccnt);
+			this.sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y-this.h);
+			epilog();
+		}else if(IsKey(event,["PAGEDOWN"])||IsKey(event,["SHIFT","PAGEDOWN"])){
+			var hc=ed.GetCharacterHeightAt(this.sel1.ccnt);
+			var ed_caret=ed.XYFromCcnt(this.sel1.ccnt);
+			this.sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y+this.h);
+			epilog();
 		}else{
 		}
 	},

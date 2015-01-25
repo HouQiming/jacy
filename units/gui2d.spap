@@ -813,7 +813,7 @@ g_renderer=(class(){
 		//if fnt.h<32:x_aa=3
 		//no matter how large the font is, x_aa always makes it sharper
 		if fnt.h<128.f:x_aa=3
-		if fnt.h<16:
+		if fnt.h<16.f:
 			x_aa=5
 			y_aa=5
 		ret=CGlyphCacheItem.NULL

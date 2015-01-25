@@ -931,6 +931,8 @@ UI.KMOD_SHIFT=UI.KMOD_LSHIFT|UI.KMOD_RSHIFT
 UI.KMOD_GUI=UI.KMOD_LGUI|UI.KMOD_RGUI
 UI.KMOD_WIN=UI.KMOD_LWIN|UI.KMOD_RWIN
 UI.SDLK_ESC=UI.SDLK_ESCAPE
+UI.SDLK_PGDN=UI.SDLK_PAGEDOWN
+UI.SDLK_PGUP=UI.SDLK_PAGEUP
 
 UI.setTimeout=function(f,ms){
 	var timer_id;
@@ -1266,6 +1268,7 @@ UI.StdAnchoring=function(id,attrs){
 
 ////////////////////////////////////////
 UI.need_to_refresh=1;
+UI.inside_IME=0;
 UI.nd_mouse_down=[];
 UI.Refresh=function(){UI.need_to_refresh=1;}
 
@@ -1279,11 +1282,13 @@ UI.ReleaseMouse=function(attrs){
 }
 
 UI.SetFocus=function(attrs){
+	//todo: events
 	UI.nd_focus=attrs;
 	if(attrs&&attrs.OnTextInput){
 		UI.SDL_StartTextInput()
 	}else{
 		UI.SDL_StopTextInput()
+		UI.inside_IME=0
 	}
 }
 
@@ -1296,8 +1301,14 @@ UI.IsKey=function(event,name){
 	var sym_tested=0;
 	if(typeof name=="string"){name=[name];};
 	for(var i=0;i<name.length;i++){
-		if(event.keysym==UI["SDLK_"+name[i]]){sym_tested=1;continue;}
-		var mod_mask=UI["KMOD_"+name[i]];
+		var name_i=name[i];
+		if(event.keysym==UI["SDLK_"+name_i]){sym_tested=1;continue;}
+		if(name_i.length==1){
+			var asc_code=name_i.charCodeAt(0);
+			if(asc_code>=65&&asc_code<=90){asc_code+=32;}
+			if(event.keysym==asc_code){sym_tested=1;continue;}
+		}
+		var mod_mask=UI["KMOD_"+name_i];
 		if(mod_mask&&(mod&mod_mask)){
 			mod&=~mod_mask;
 		}else{
@@ -1332,7 +1343,7 @@ UI.Run=function(){
 			UI.Application("top",{});
 			if(UI.context_window_painting){UI.EndPaint();}
 			if(!UI.nd_focus&&UI.context_tentative_focus){
-				UI.nd_focus=UI.context_tentative_focus;
+				UI.SetFocus(UI.context_tentative_focus);
 				UI.Refresh();
 			}
 			UI.EndFrame();
@@ -1409,6 +1420,7 @@ UI.Run=function(){
 				break
 			case UI.SDL_KEYDOWN:
 			case UI.SDL_KEYUP:
+				if(UI.inside_IME){break;}
 				if(event.type==UI.SDL_KEYDOWN){
 					var hotkeys=UI.context_hotkeys;
 					var lg=hotkeys.length;
@@ -1429,6 +1441,7 @@ UI.Run=function(){
 				if(UI.nd_focus){
 					UI.CallIfAvailable(UI.nd_focus,"OnTextEdit",event);
 				}
+				UI.inside_IME=(event.text.length>0)
 				break
 			case UI.SDL_TEXTINPUT:
 				if(UI.nd_focus){
