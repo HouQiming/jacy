@@ -234,7 +234,9 @@ class CLayouter_baseline
 								cmap.push(s_overlay.n)
 								overlay_sel0=m_overlay_obj["start"].as(iptr)
 								overlay_sel1=overlay_sel0+m_overlay_obj["length"].as(iptr)
-								if uptr(overlay_sel0)<=uptr(cmap.n)&&uptr(overlay_sel1)<=uptr(cmap.n):
+								overlay_sel0=min(overlay_sel0,cmap.n-1)
+								overlay_sel1=min(overlay_sel1,cmap.n-1)
+								if uptr(overlay_sel0)<uptr(cmap.n)&&uptr(overlay_sel1)<uptr(cmap.n):
 									x_sel0=GetStringWidth(m_font,s_overlay[:cmap[overlay_sel0]-1])
 									x_sel1=GetStringWidth(m_font,s_overlay[:cmap[overlay_sel1]-1])
 									m_caret_offset=x_sel1

@@ -3,8 +3,8 @@ Duktape.__ui_add_path("test")
 Duktape.__ui_add_path("../kara/ide/res")
 
 //the duktape with system is completely unusable - we have to put all exports in the global object
-require("gui2d/ui");
-require("gui2d/widgets");
+var UI=require("gui2d/ui");
+var W=require("gui2d/widgets");
 
 UI.default_styles.button={
 	transition_dt:0.1,

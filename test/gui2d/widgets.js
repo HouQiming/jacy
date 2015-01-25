@@ -1,10 +1,10 @@
 ////////////////////////////////////////
 //basic primitives
-var UI=require("gui2d/ui").UI;
-W={};
+var UI=require("gui2d/ui");
+var W=exports;
 
 UI.DestroyWindow=function(attrs){
-	UI.CallIfAvailable(attrs,"OnDestroy",attrs);
+	UI.CallIfAvailable(attrs,"OnDestroy");
 	if(attrs.is_main_window){
 		UI.SDL_PostQuitEvent();
 	}
@@ -104,10 +104,16 @@ W.Region=function(id,attrs){
 
 ////////////////////////////////////////
 //widgets
+var Button_prototype={
+	OnMouseOver:function(){this.mouse_state="over";UI.Refresh();},
+	OnMouseOut:function(){this.mouse_state="out";UI.Refresh();},
+	OnMouseDown:function(){this.mouse_state="down";UI.Refresh();},
+	OnMouseUp:function(){this.mouse_state="over";UI.Refresh();}
+};
 W.Button=function(id,attrs0){
 	//////////////////
 	//styling
-	var attrs=UI.Keep(id,attrs0);
+	var attrs=UI.Keep(id,attrs0,Button_prototype);
 	UI.StdStyling(id,attrs,attrs0, "button",attrs.mouse_state||"out");
 	//size estimation
 	var bmpid=(UI.rc[attrs.icon]||0);
@@ -123,12 +129,6 @@ W.Button=function(id,attrs0){
 	attrs.h=(attrs0.h||(Math.max(attrs.h_bmp,attrs.h_text)+padding*2));
 	UI.StdAnchoring(id,attrs);
 	//////////////////
-	//standard events
-	attrs.OnMouseOver=(attrs.OnMouseOver||function(){attrs.mouse_state="over";UI.Refresh();});
-	attrs.OnMouseOut=(attrs.OnMouseOut||function(){attrs.mouse_state="out";UI.Refresh();});
-	attrs.OnMouseDown=(attrs.OnMouseDown||function(){attrs.mouse_state="down";UI.Refresh();});
-	attrs.OnMouseUp=(attrs.OnMouseUp||function(){attrs.mouse_state="over";UI.Refresh();});
-	//////////////////
 	//rendering
 	UI.RoundRect(attrs);
 	var x=attrs.x+padding;
@@ -138,8 +138,25 @@ W.Button=function(id,attrs0){
 	return W.Region(id,attrs);
 }
 
+var Edit_prototype={
+	OnTextEdit:function(event){
+		this.ed.m_IME_overlay=event;
+		UI.Refresh()
+	},
+	OnTextInput:function(event){
+		var ed=this.ed;
+		var ccnt0=this.sel0.ccnt;
+		var ccnt1=this.sel1.ccnt;
+		if(ccnt0>ccnt1){var tmp=ccnt1;ccnt1=ccnt0;ccnt0=tmp;}
+		ed.MassEdit([ccnt0,ccnt1-ccnt0,event.text])
+		var lg=Duktape.__byte_length(event.text);
+		this.sel0.ccnt=ccnt0+lg;
+		this.sel1.ccnt=ccnt0+lg;
+		UI.Refresh()
+	}
+};
 W.Edit=function(id,attrs0){
-	var attrs=UI.Keep(id,attrs0,1);
+	var attrs=UI.Keep(id,attrs0,Edit_prototype);
 	UI.StdStyling(id,attrs,attrs0, "edit",attrs.focus_state||"blur");
 	UI.StdAnchoring(id,attrs);
 	var ed=attrs.ed;
@@ -150,28 +167,12 @@ W.Edit=function(id,attrs0){
 		attrs.sel1=ed.CreateLocator(0,1);
 		attrs.ed=ed;
 		ed.m_caret_locator=attrs.sel1;
-		attrs.OnTextEdit=function(event){
-			//print(">>> ",JSON.stringify(event));
-			ed.m_IME_overlay=event;
-			UI.Refresh()
-		}
-		attrs.OnTextInput=function(event){
-			var ccnt0=attrs.sel0.ccnt;
-			var ccnt1=attrs.sel1.ccnt;
-			if(ccnt0>ccnt1){var tmp=ccnt1;ccnt1=ccnt0;ccnt0=tmp;}
-			ed.MassEdit([ccnt0,ccnt1-ccnt0,event.text])
-			var lg=Duktape.__byte_length(event.text);
-			attrs.sel0.ccnt=ccnt0+lg;
-			attrs.sel1.ccnt=ccnt0+lg;
-			UI.Refresh()
-		};
 	}
 	//todo: scrolling
 	var scale=(attrs.scale||1);
 	var scroll_x=(attrs.scroll_x||0);
 	var scroll_y=(attrs.scroll_y||0);
 	ed.Render({x:scroll_x,y:scroll_y,w:attrs.w,h:attrs.h, scr_x:attrs.x,scr_y:attrs.y, scale:scale});
-	//if(ed.m_IME_overlay){print("Render ",JSON.stringify(ed.m_IME_overlay));}
 	if(UI.HasFocus(attrs)){
 		var ed_caret=ed.XYFromCcnt(attrs.sel1.ccnt);
 		var x_caret=attrs.x+(ed_caret.x-scroll_x+ed.m_caret_offset)*scale;

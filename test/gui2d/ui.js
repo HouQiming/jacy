@@ -1,6 +1,6 @@
 ////////////////////////////////////////
 //native interaction
-UI={};
+var UI=exports;
 
 Duktape.__ui_native_hack(UI,"UI");
 Duktape.__ui_native_hack(UI,"SDL");
@@ -935,10 +935,14 @@ UI.GetPreviousState=function(id){
 	return attrs_old;
 };
 
-UI.Keep=function(id,attrs,test_autofocus){
+UI.Keep=function(id,attrs,prototype){
 	var parent=UI.context_parent;
 	var attrs_old=parent[id];
 	var ret;
+	if(prototype&&!attrs_old){
+		attrs_old=Object.create(prototype);
+		parent[id]=attrs_old;
+	}
 	if(attrs_old){
 		ret=attrs_old;
 		for(var key in attrs){
@@ -949,7 +953,7 @@ UI.Keep=function(id,attrs,test_autofocus){
 		ret=attrs;
 		parent[id]=ret;
 	}
-	if(test_autofocus){
+	if(ret.OnTextInput){
 		if(!UI.nd_focus&&(!UI.context_tentative_focus||(UI.context_tentative_focus.default_focus||0)<(ret.default_focus||0))){
 			UI.context_tentative_focus=ret;
 		}
@@ -973,7 +977,7 @@ UI.HackAllCallbacks=function(attrs){
 
 UI.CallIfAvailable=function(parent,id,attrs){
 	var cb=parent[id];
-	return cb&&cb(attrs);
+	return cb&&cb.call(parent,attrs);
 }
 
 UI.core_font_cache={};
@@ -1465,5 +1469,3 @@ UI.Run=function(){
 	}
 	return UI;
 }
-
-exports.UI=UI;
