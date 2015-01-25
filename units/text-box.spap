@@ -26,15 +26,15 @@ struct TRenderingInfo
 	//TCharJob[] pt
 	TMouseMap[] mm
 
-auto SearchMouseMap(TMouseMap[] mm,double x,double y0)
-	y=y0
-	p=0L
-	for iiter=0:1
-		p=mm.Bisect(function(TMouseMap a){return a.pos.y<y||a.pos.y==y&&a.pos.x<x})
-		if y!=mm[p].pos.y:
-			y=mm[p].pos.y
-		else
-			break
+auto SearchMouseMap(TMouseMap[] mm,double x,double y)
+	//y=y0
+	//p=0L
+	//for iiter=0:1
+	p=mm.Bisect(function(TMouseMap a){return a.pos.y<y||a.pos.y==y&&a.pos.x<x})
+	//if y!=mm[p].pos.y:
+	//	y=mm[p].pos.y
+	//else
+	//	break
 	return p
 
 ///////////////////////////////
@@ -66,10 +66,10 @@ class ITextStateHandler
 	//for JS operations
 	function(JSObject proto) __JS_prototype
 
-auto combineBB(double2 bb0,double2 bb1)
+auto combineEditorOffset(double2 bb0,double2 bb1)
 	bb=bb0
 	if bb1.y:
-		bb.x=0.
+		bb.x=bb1.x
 		bb.y+=bb1.y
 	else
 		bb.x+=bb1.x
@@ -100,8 +100,8 @@ inline Utf8Chars(string s)
 			fbody(ch,II)
 	}}	
 
-inline epsEqual(double a,double b)
-	return abs(__double_as_longlong(a)-__double_as_longlong(b))<(1LL<<32)
+inline epsEqual(a,b)
+	return abs(__double_as_longlong(double(a))-__double_as_longlong(double(b)))<(1LL<<32)
 
 auto GetStringWidth(TFont m_font,string s)
 	w_overlay=0.
@@ -128,16 +128,16 @@ class CLayouter_baseline
 		if m_word_wrap:
 			//todo: m_word_wrap
 		else
+			//it's the *additional* line_breaks
 			line_breaks.push(0LL)
 			line_breaks.push(i64(s.n))
 		bb=_RenderText(MODE_BB,a,line_breaks,s[:ofs-1], 0.,0.,0.f).bb
-		bb=combineBB(double2(__longlong_as_double(a[0]),__longlong_as_double(a[1])),bb)
 		a[0]=__double_as_longlong(bb.x)
 		a[1]=__double_as_longlong(bb.y)
 		return line_breaks
 	}
 	Add=function(i64[] a,i64[] b){
-		bb=combineBB(double2(__longlong_as_double(a[0]),__longlong_as_double(a[1])),double2(__longlong_as_double(b[0]),__longlong_as_double(b[1])))
+		bb=combineEditorOffset(double2(__longlong_as_double(a[0]),__longlong_as_double(a[1])),double2(__longlong_as_double(b[0]),__longlong_as_double(b[1])))
 		a[0]=__double_as_longlong(bb.x)
 		a[1]=__double_as_longlong(bb.y)
 	}
@@ -149,23 +149,27 @@ class CLayouter_baseline
 		return ret
 	}
 	SeekInBlock=function(i64[] a,i64[] line_breaks,string s,i64[] b){
+		//x=__longlong_as_double(b[0])
+		//y=__longlong_as_double(b[1])-__longlong_as_double(a[1])
+		//if y>0.0:
+		//	x-=__longlong_as_double(a[0])
+		//hc=Gui2D.detail.g_renderer.GetCharacterHeight(m_font)
+		//line_id=int(floor(y/hc))
+		//if line_id<0:
+		//	return 0L
+		//else if line_id>line_breaks.n-1:
+		//	return s.n
+		//else
+		//	l0=line_breaks[line_id]
+		//	l1=line_breaks[line_id+1]
+		//	mm=_RenderText(MODE_MOUSE_MAP,a,[0L,l1-l0],s[iptr(l0):iptr(l1)-1], 0.,0.,0.f).mm
+		//	x=__longlong_as_double(b[0])
+		//	y=__longlong_as_double(b[1])
+		//	return iptr(l0)+SearchMouseMap(mm,x,y)
+		mm=_RenderText(MODE_MOUSE_MAP,a,line_breaks,s, 0.,0.,0.f).mm
 		x=__longlong_as_double(b[0])
-		y=__longlong_as_double(b[1])-__longlong_as_double(a[1])
-		if y>0.0:
-			x-=__longlong_as_double(a[0])
-		hc=Gui2D.detail.g_renderer.GetCharacterHeight(m_font)
-		line_id=int(floor(y/hc))
-		if line_id<0:
-			return 0L
-		else if line_id>line_breaks.n-1:
-			return s.n
-		else
-			l0=line_breaks[line_id]
-			l1=line_breaks[line_id+1]
-			mm=_RenderText(MODE_MOUSE_MAP,a,[0L,l1-l0],s[iptr(l0):iptr(l1)-1], 0.,0.,0.f).mm
-			x=__longlong_as_double(b[0])
-			y=__longlong_as_double(b[1])
-			return SearchMouseMap(mm,x,y)
+		y=__longlong_as_double(b[1])
+		return SearchMouseMap(mm,x,y)
 	}
 	/////////////////
 	double3 m_caret_overlay
@@ -370,7 +374,7 @@ class CLocator
 class CHLRange
 	CLocator p0
 	CLocator p1
-	int C
+	int color
 	i16 category
 	i8 invertible
 	i8 discarded
@@ -381,7 +385,7 @@ class CHLRange
 	auto __JS_prototype(JSObject proto)
 		proto.ExportProperty(this,"p0")
 		proto.ExportProperty(this,"p1")
-		proto.ExportProperty(this,"C")
+		proto.ExportProperty(this,"color")
 		proto.ExportProperty(this,"invertible")
 		proto.ExportProperty(this,"category")
 		proto.ExportMethod(this,"discard",discard)
@@ -631,13 +635,14 @@ class CEditableText
 			if ops[pops].s:rside_tar+=ops[pops].s.n
 			if ccnt_loc<=ccnt1:
 				//it overlapped the deletion
-				if loc.side<1:
+				if loc.side<1||ccnt_loc<ccnt1:
 					//push left
 					loc.ccnt=lside_tar
 				else
 					//push right
 					loc.ccnt=rside_tar
 				ploc++
+				continue
 			else
 				//we're still to the left of the locator
 				pops++
@@ -789,7 +794,7 @@ class CEditableText
 			n0=m_state_ofs.back()
 			ofspp=nd.a[n0+handler.id]
 			ofspp2=(handler.id==m_handlers.n-1?i64(nd.a.n):nd.a[n0+handler.id+1])
-			return ccnt_base0+handler.SeekInBlock(acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s,b)
+			return ccnt_base0+i64(handler.SeekInBlock(acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s,b))
 		else
 			ccnt_base=ccnt_base0
 			acc2=new(acc)
@@ -804,13 +809,18 @@ class CEditableText
 	auto Bisect(int hid,i64[] b)
 		acc=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
 		return _Bisect(acc,m_handlers[hid],0LL,m_skiplist,b)
+	auto SeekXY(double x,double y)
+		hid=m_handler_registration["handler_id_renderer"].as(int)
+		ccnt0=Bisect(hid,[__double_as_longlong(x),__double_as_longlong(y)])
+		xy=XYFromCcnt(ccnt0)
+		return Bisect(hid,[__double_as_longlong(x),__double_as_longlong(xy.y)])
 	auto Render(double x,double y,double w,double h, float scr_x,float scr_y,float scale)
 		//x,y,w,h refer to the world space window
 		g_renderer.PushCliprect(scr_x,scr_y,float(w)*scale,float(h)*scale)
 		hid=m_handler_registration["handler_id_renderer"].as(int)
 		handler=m_handlers[hid]
-		wnd_ccnt0=Bisect(hid,[__double_as_longlong(x),__double_as_longlong(y)])
-		wnd_ccnt1=Bisect(hid,[__double_as_longlong(x+w),__double_as_longlong(y+h)])
+		wnd_ccnt0=SeekXY(x,y)
+		wnd_ccnt1=SeekXY(x+w,y+h)
 		rendering_started=0
 		scaled=double(scale)
 		dx=double(scr_x)-x*scaled
@@ -844,16 +854,20 @@ class CEditableText
 			if ccnt1<=wnd_ccnt0||ccnt0>=wnd_ccnt1:continue
 			xy0=(testOverlay(XYFromCcnt(ccnt0))*scaled+double2(dx,dy)).as(float)
 			xy1=(testOverlay(XYFromCcnt(ccnt1))*scaled+double2(dx,dy)).as(float)
+			//Writeln(xy0,' ',xy1,' ',ccnt0,' ',ccnt1)
+			//Writeln(__double_as_longlong(xy0.y)-__double_as_longlong(xy1.y))
+			//Writeln(abs(__double_as_longlong(xy0.y)-__double_as_longlong(xy1.y)))
+			//Writeln('epsEqual')
 			if epsEqual(xy0.y,xy1.y):
 				hc=GetCharacterHeightAt(ccnt1)*scale
-				g_renderer.DrawBitmap(0, xy0.x,xy0.y,xy1.x-xy0.x,hc, hl.C)
+				g_renderer.DrawBitmap(0, xy0.x,xy0.y,xy1.x-xy0.x,hc, hl.color)
 			else
 				//draw 3 rects, we have a cliprect, don't worry
 				hc=GetCharacterHeightAt(ccnt0)*scale
-				g_renderer.DrawBitmap(0, xy0.x,xy0.y,max(scr_x+float(w)*scale-xy0.x,0.f),hc, hl.C)
-				g_renderer.DrawBitmap(0, scr_x,xy0.y+hc,float(w)*scale,max(xy1.y-(xy0.y+hc),0.f), hl.C)
+				g_renderer.DrawBitmap(0, xy0.x,xy0.y,max(scr_x+float(w)*scale-xy0.x,0.f),hc, hl.color)
+				g_renderer.DrawBitmap(0, scr_x,xy0.y+hc,float(w)*scale,max(xy1.y-(xy0.y+hc),0.f), hl.color)
 				hc=GetCharacterHeightAt(ccnt1)*scale
-				g_renderer.DrawBitmap(0, scr_x,xy1.y,max(xy1.x-scr_x,0.f),hc, hl.C)
+				g_renderer.DrawBitmap(0, scr_x,xy1.y,max(xy1.x-scr_x,0.f),hc, hl.color)
 		m_highlights.resize(n2)
 		//////////////////////////////
 		//really draw the blocks
@@ -903,8 +917,7 @@ class CEditableText
 		if !js_ops:return 0
 		n=iptr(js_ops["length"].as(double))
 		if !(n>0)||(n%3):
-			JS.Error("bad operation array length @1".Replace(["@1",string(n)]))
-			return 0
+			return JS.ReturnError("bad operation array length @1".Replace(["@1",string(n)]))
 		//one array with even-odd packing
 		range0=0LL
 		range1=GetTextSize()
@@ -912,8 +925,7 @@ class CEditableText
 		for i=0:3:n-3
 			op=TEditop(){ccnt:i64(js_ops[i].as(double)),sz:i64(js_ops[i+1].as(double)),s:js_ops[i+2].as(string)}
 			if u64(op.ccnt)<u64(range0)||u64(op.ccnt+op.sz)>u64(range1)||u64(op.ccnt+op.sz)<u64(op.ccnt):
-				JS.Error("invalid operation #@1".Replace(["@1",string(i)]))
-				return 0
+				return JS.ReturnError("invalid operation #@1".Replace(["@1",string(i)]))
 			range0=op.ccnt+op.sz
 			ops.push(op)
 		MassEdit(ops)
@@ -926,8 +938,7 @@ class CEditableText
 		ccnt=JS.Param(0).or(range0)
 		sz=JS.Param(1).or(range1)
 		if u64(ccnt)<u64(range0)||u64(ccnt+sz)>u64(range1)||u64(ccnt+sz)<u64(ccnt):
-			JS.Error("invalid range")
-			return 0
+			return 0//JS.ReturnError("invalid range")
 		return JS.Return(ed.GetText(ccnt,sz))
 	}
 	JS_GetTextSize=function(JSContext JS){
@@ -982,6 +993,96 @@ class CEditableText
 		ret["y"]=xy[1]
 		return JS.Return(ret)
 	}
+	//only need to support "l" and "d"
+	EncodeStateArray=function(JSContext JS,JSObject js_array,string stypes){
+		if !stypes||!js_array:return i64[].NULL
+		n=js_array["length"].as(iptr)
+		if n!=stypes.n:return i64[].NULL
+		ret=new i64[n]
+		for i=0:n-1
+			d=js_array[i].as(double)
+			if stypes[i]=='l':
+				l=i64(d)
+			else if stypes[i]=='d':
+				l=__double_as_longlong(d)
+			else
+				return i64[].NULL
+			ret[i]=l
+		return ret
+	}
+	DecodeStateArray=function(JSContext JS,i64[] a,string stypes){
+		if !stypes||!a:return JSObject.NULL
+		n=a.n
+		if n!=stypes.n:return JSObject.NULL
+		ret=JS.NewArray()
+		for i=0:n-1
+			l=a[i]
+			if stypes[i]=='l':
+				d=double(l)
+			else if stypes[i]=='d':
+				d=__longlong_as_double(l)
+			else
+				return JSObject.NULL
+			ret[i]=d
+		return ret
+	}
+	JS_Bisect=function(JSContext JS){
+		hid=JS.Param(0).as(int)
+		if uptr(hid)>=uptr(m_handlers.n):return JS.ReturnError("invalid handler id")
+		b=EncodeStateArray(JS,JS.Param(1).as(JSObject),JS.Param(2).as(string))
+		if !b:return JS.ReturnError("invalid type description")
+		n_std=m_state_ofs[hid+1]-m_state_ofs[hid]
+		if b.n!=n_std:return JS.ReturnError("invalid state array length @1, should be @2".Replace(["@1",string(b.n),"@2",string(n_std)]))
+		return JS.Return(Bisect(hid,b))
+	}
+	JS_GetStateAt=function(JSContext JS){
+		hid=JS.Param(0).as(int)
+		if uptr(hid)>=uptr(m_handlers.n):return JS.ReturnError("invalid handler id")
+		ccnt0=JS.Param(1).as(i64)
+		range1=GetTextSize()
+		if u64(ccnt0)>u64(range1):return JS.ReturnError("invalid location")
+		stypes=JS.Param(2).as(string)
+		a=GetStateAt(hid,ccnt0)
+		ret=DecodeStateArray(JS,a,stypes)
+		if !ret:
+			return JS.ReturnError("invalid type description")
+		else
+			return JS.Return(ret)
+	}
+	JS_SeekXY=function(JSContext JS){
+		x=JS.Param(0).as(double)
+		y=JS.Param(0).as(double)
+		return JS.Return(SeekXY(x,y))
+	}
+	JS_GetCharacterHeightAt=function(JSContext JS){
+		ccnt=JS.Param(0).or(0LL)
+		range1=GetTextSize()
+		if u64(ccnt)>u64(range1):return 0
+		return JS.Return(GetCharacterHeightAt(ccnt))
+	}
+	JS_SnapToCharBoundary=function(JSContext JS){
+		ccnt=JS.Param(0).or(0LL)
+		range1=GetTextSize()
+		if u64(ccnt)>u64(range1):return 0
+		for(;;)
+			if ccnt==range1:break
+			ch=GetText(ccnt,1LL)[0]
+			if (ch&0xc0)==0x80||ch=='\n'&&ccnt&&GetText(ccnt-1LL,2LL)=='\r\n':
+				direction=JS.Param(1).or(1)
+				if direction<1:
+					if ccnt:
+						ccnt--
+					else
+						break
+				else
+					if ccnt<range1:
+						ccnt++
+					else
+						break
+			else
+				break
+		return JS.Return(ccnt)
+	}
 	auto __JS_prototype(JSObject proto)
 		proto.ExportProperty(this,"m_handler_registration")
 		proto.ExportProperty(this,"m_caret_locator")
@@ -994,6 +1095,11 @@ class CEditableText
 		proto.ExportMethod(this,"CreateLocator",JS_CreateLocator)
 		proto.ExportMethod(this,"CreateHighlight",JS_CreateHighlight)
 		proto.ExportMethod(this,"XYFromCcnt",JS_XYFromCcnt)
+		proto.ExportMethod(this,"SeekXY",JS_SeekXY)
+		proto.ExportMethod(this,"Bisect",JS_Bisect)
+		proto.ExportMethod(this,"GetStateAt",JS_GetStateAt)
+		proto.ExportMethod(this,"GetCharacterHeightAt",JS_GetCharacterHeightAt)
+		proto.ExportMethod(this,"SnapToCharBoundary",JS_SnapToCharBoundary)
 
 jsNewEditorBaseline=function(JSContext JS){
 	obj_style=JS.Param(0).as(JSObject)

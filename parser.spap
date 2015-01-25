@@ -1320,8 +1320,8 @@ auto parseC0(int id_fn_current,TToken[] toks)
 			else
 				pe=expr(LEVEL_MAX)
 				pe=call(g_id_block,call(g_id_store,exprvar(g_id_return),pe),call(g_id_blockex,exprstr(g_id_return)))
-		else if id==g_id_auto:
-			if peek()!=TOK_EOF&&toks[ptr+1].tok=='(':
+		else if id==g_id_auto||id==g_id_var:
+			if peek()!=TOK_EOF&&toks[ptr+1].tok=='('&&id==g_id_auto:
 				//function-like
 				ptr--
 				toks[ptr].tok=TOK_ID+g_id_function

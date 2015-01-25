@@ -139,6 +139,11 @@ W.Button=function(id,attrs0){
 }
 
 var Edit_prototype={
+	caret_width:2,
+	caret_color:0xff000000,
+	caret_flicker:500,
+	color:0xff000000,
+	bgcolor_selection:0xffffe0d0,
 	OnTextEdit:function(event){
 		this.ed.m_IME_overlay=event;
 		UI.Refresh()
@@ -153,7 +158,74 @@ var Edit_prototype={
 		this.sel0.ccnt=ccnt0+lg;
 		this.sel1.ccnt=ccnt0+lg;
 		UI.Refresh()
-	}
+	},
+	OnKeyDown:function(event){
+		/*
+		implement the baseline here, leave the rest to plugins
+			(test) arrow keys
+			(test) selection
+			(test) backspace delete
+			word move
+			home end pgup pgdn
+			copy cut paste
+			ctrl+a
+			undo/redo
+		*/
+		var ed=this.ed;
+		var IsKey=UI.IsKey;
+		var is_shift=UI.IsModifier(event,["SHIFT"]);
+		//todo: scrolling
+		if(0){
+		}else if(IsKey(event,["UP"])||IsKey(event,["SHIFT","UP"])){
+			var ed_caret=ed.XYFromCcnt(this.sel1.ccnt);
+			this.sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y-1.0);
+			if(!is_shift){this.sel0.ccnt=this.sel1.ccnt;}
+			UI.Refresh();
+		}else if(IsKey(event,["DOWN"])||IsKey(event,["SHIFT","DOWN"])){
+			var hc=ed.GetCharacterHeightAt(this.sel1.ccnt);
+			var ed_caret=ed.XYFromCcnt(this.sel1.ccnt);
+			this.sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y+hc);
+			if(!is_shift){this.sel0.ccnt=this.sel1.ccnt;}
+			UI.Refresh();
+		}else if(IsKey(event,["LEFT"])||IsKey(event,["SHIFT","LEFT"])){
+			var ccnt=this.sel1.ccnt;
+			if(ccnt>0){
+				this.sel1.ccnt=ed.SnapToCharBoundary(ccnt-1,-1);
+				if(!is_shift){this.sel0.ccnt=this.sel1.ccnt;}
+				UI.Refresh();
+			}
+		}else if(IsKey(event,["RIGHT"])||IsKey(event,["SHIFT","RIGHT"])){
+			var ccnt=this.sel1.ccnt;
+			if(ccnt<ed.GetTextSize()){
+				this.sel1.ccnt=ed.SnapToCharBoundary(ccnt+1,1);
+				if(!is_shift){this.sel0.ccnt=this.sel1.ccnt;}
+				UI.Refresh();
+			}
+		}else if(IsKey(event,["BACKSPACE"])||IsKey(event,["DELETE"])){
+			var ccnt0=this.sel0.ccnt;
+			var ccnt1=this.sel1.ccnt;
+			if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
+			if(ccnt0==ccnt1){
+				if(IsKey(event,["BACKSPACE"])){
+					if(ccnt0>0){ccnt0=ed.SnapToCharBoundary(ccnt0-1,-1);}
+				}else{
+					if(ccnt1<ed.GetTextSize()){ccnt1=ed.SnapToCharBoundary(ccnt1+1,1);}
+				}
+			}
+			if(ccnt0<ccnt1){
+				ed.MassEdit([ccnt0,ccnt1-ccnt0,null])
+				UI.Refresh();
+			}
+		}else if(IsKey(event,["CTRL","A"])){
+			this.sel0.ccnt=0;
+			this.sel1.ccnt=ed.GetTextSize();
+			UI.Refresh();
+		}else if(IsKey(event,["RETURN"])||IsKey(event,["RETURN2"])){
+			//todo: DOS mode test
+			OnTextInput({"text":"\n"})
+		}else{
+		}
+	},
 };
 W.Edit=function(id,attrs0){
 	var attrs=UI.Keep(id,attrs0,Edit_prototype);
@@ -164,8 +236,11 @@ W.Edit=function(id,attrs0){
 		ed=Duktape.__ui_new_editor(attrs);
 		if(attrs.text){ed.MassEdit([0,0,code_text]);}
 		attrs.sel0=ed.CreateLocator(0,-1);
-		attrs.sel1=ed.CreateLocator(0,1);
+		attrs.sel1=ed.CreateLocator(0,-1);
 		attrs.ed=ed;
+		attrs.sel_hl=ed.CreateHighlight(attrs.sel0,attrs.sel1);
+		attrs.sel_hl.color=attrs.bgcolor_selection;
+		attrs.sel_hl.invertible=1;
 		ed.m_caret_locator=attrs.sel1;
 	}
 	//todo: scrolling
@@ -179,8 +254,8 @@ W.Edit=function(id,attrs0){
 		var y_caret=attrs.y+(ed_caret.y-scroll_y)*scale;
 		UI.SetCaret(UI.context_window,
 			x_caret,y_caret,
-			attrs.caret_width*scale||2,UI.GetFontHeight(attrs.font)*scale,
-			attrs.caret_color||0xff000000,attrs.caret_flicker||500);
+			attrs.caret_width*scale,UI.GetFontHeight(attrs.font)*scale,
+			attrs.caret_color,attrs.caret_flicker);
 	}
 	return attrs;
 }

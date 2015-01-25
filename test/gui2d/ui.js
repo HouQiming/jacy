@@ -13,6 +13,7 @@ UI.KMOD_CAPS=8192
 UI.KMOD_LALT=256
 UI.KMOD_LCTRL=64
 UI.KMOD_LGUI=1024
+UI.KMOD_LWIN=1024
 UI.KMOD_LSHIFT=1
 UI.KMOD_MODE=16384
 UI.KMOD_NONE=0
@@ -21,6 +22,7 @@ UI.KMOD_RALT=512
 UI.KMOD_RCTRL=128
 UI.KMOD_RESERVED=32768
 UI.KMOD_RGUI=2048
+UI.KMOD_RWIN=2048
 UI.KMOD_RSHIFT=2
 UI.SDLK_0=48
 UI.SDLK_1=49
@@ -922,6 +924,13 @@ UI.SDL_WINDOW_MOUSE_FOCUS=1024
 UI.SDL_WINDOW_OPENGL=2
 UI.SDL_WINDOW_RESIZABLE=32
 UI.SDL_WINDOW_SHOWN=4
+//////////////////////////////////////////////////////////////
+UI.KMOD_ALT=UI.KMOD_LALT|UI.KMOD_RALT
+UI.KMOD_CTRL=UI.KMOD_LCTRL|UI.KMOD_RCTRL
+UI.KMOD_SHIFT=UI.KMOD_LSHIFT|UI.KMOD_RSHIFT
+UI.KMOD_GUI=UI.KMOD_LGUI|UI.KMOD_RGUI
+UI.KMOD_WIN=UI.KMOD_LWIN|UI.KMOD_RWIN
+UI.SDLK_ESC=UI.SDLK_ESCAPE
 
 UI.setTimeout=function(f,ms){
 	var timer_id;
@@ -1282,6 +1291,31 @@ UI.HasFocus=function(attrs){
 	return UI.nd_focus&&UI.nd_focus==attrs;
 }
 
+UI.IsKey=function(event,name){
+	var mod=event.keymod;
+	var sym_tested=0;
+	if(typeof name=="string"){name=[name];};
+	for(var i=0;i<name.length;i++){
+		if(event.keysym==UI["SDLK_"+name[i]]){sym_tested=1;continue;}
+		var mod_mask=UI["KMOD_"+name[i]];
+		if(mod_mask&&(mod&mod_mask)){
+			mod&=~mod_mask;
+		}else{
+			return 0;
+		}
+	}
+	if(mod!=0){return 0;}
+	if(sym_tested){
+		return 1;
+	}else{
+		return undefined;
+	}
+};
+
+UI.IsModifier=function(event,name){
+	return UI.IsKey(event,name)==undefined;
+};
+
 UI.Run=function(){
 	var event=null;
 	for(;;){
@@ -1306,7 +1340,11 @@ UI.Run=function(){
 				var obj=UI.context_paint_queue[i];
 				UI.GL_Begin(obj.hwnd)
 				UI.Clear(obj.bgcolor||0xffffffff)
-				UI.DrawWindow(obj.hwnd)
+				if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
+					UI.DrawWindow(obj.hwnd,obj.caret_x,obj.caret_y,obj.caret_w,obj.caret_h,obj.caret_C);
+				}else{
+					UI.DrawWindow(obj.hwnd);
+				}
 				UI.GL_End(obj.hwnd)
 				if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
 					if(!obj.has_caret_callback){
@@ -1314,9 +1352,9 @@ UI.Run=function(){
 						UI.setTimeout((function(obj){var fn_ret=function(){
 							UI.GL_Begin(obj.hwnd)
 							UI.Clear(obj.bgcolor||0xffffffff)
-							if(obj.caret_state){
+							if(obj.caret_state>0){
 								UI.DrawWindow(obj.hwnd,obj.caret_x,obj.caret_y,obj.caret_w,obj.caret_h,obj.caret_C);
-								obj.caret_state=0;
+								obj.caret_state--;
 							}else{
 								UI.DrawWindow(obj.hwnd)
 								obj.caret_state=1;
@@ -1376,7 +1414,7 @@ UI.Run=function(){
 					var lg=hotkeys.length;
 					for(var i=lg-1;i>=0;i--){
 						var attrs=hotkeys[i];
-						if(event.keymod==(attrs.mod||0)&&event.keysym==attrs.key){
+						if(UI.IsKey(event,attrs.key)){
 							attrs.action();
 							break;
 						}

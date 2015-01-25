@@ -1622,8 +1622,7 @@ auto setupModuleSystem(JSContext JS)
 		s_fname=(s_modname+".js").ToLower()
 		sret=UIReadAll(s_fname)
 		if !sret:
-			JS.Error("cannot find module '@1'".Replace(["@1",s_modname]))
-			return 0
+			return JS.ReturnError("cannot find module '@1'".Replace(["@1",s_modname]))
 		else
 			return JS.Return(sret)
 	}

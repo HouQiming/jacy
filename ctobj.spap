@@ -1160,6 +1160,7 @@ g_id_memory=getid("__memory")
 g_id_set_memory=getid("set___memory")
 /////////////////////
 //template
+g_id_var=getid("var")
 g_id_auto=getid("auto")
 g_id_const=getid("const")
 g_id_is_type=getid("__is_type")
