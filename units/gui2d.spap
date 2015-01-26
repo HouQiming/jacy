@@ -1478,6 +1478,17 @@ auto createUIObject(JSObject JS_UI)
 		return 0
 	}
 	///////////////////////////////////
+	JS_UI["GetCharacterHeight"]=function(JSContext JS){
+		fnt=JS.Param(0).as(TFont)
+		if !fnt.pfnt:return 0
+		return JS.Return(g_renderer.GetCharacterHeight(fnt))
+	}
+	JS_UI["GetCharacterAdvance"]=function(JSContext JS){
+		fnt=JS.Param(0).as(TFont)
+		if !fnt.pfnt:return 0
+		return JS.Return(g_renderer.GetCharacterAdvance(fnt,JS.Param(1).or(int(' '))))
+	}
+	///////////////////////////////////
 	//timer
 	timer_user_data=new JSObject[int]
 	sdl_badapi_hack_callback_to_timer_id=new int[iptr]

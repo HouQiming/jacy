@@ -1,7 +1,5 @@
 /*
 todo:
-	highlight colors interface... build from locators, maintain persistent list, same JS object + discard
-		sel color and stuff on JS side
 	drawing: look up per-block ranges during Render
 	syntax highlighter
 */
@@ -35,6 +33,7 @@ class ITextStateHandler
 	function(JSObject obj) SetTextStyle
 	function(i64[] a,i64[] pp,string s, double dx,double dy,float scaling) RenderText
 	function(i64[] a,i64[] pp,string s,iptr ofs):float GetCharacterHeightAt
+	function():TFont GetDefaultFont
 	function(double2 xy,JSObject obj):double SetCaretOverlay
 	function():double GetCaretOffset
 	//function(string s):i64[] PreprocessBlock
@@ -307,6 +306,9 @@ class CLayouter_baseline
 	GetCharacterHeightAt=function(i64[] a,i64[] pp,string s,iptr ofs){
 		return g_renderer.GetCharacterHeight(m_font)
 	}
+	GetDefaultFont=function(){
+		return m_font
+	}
 	//////////////////////////////
 	__JS_prototype=function(JSObject proto){
 		proto.ExportProperty(this,"m_color")
@@ -338,12 +340,6 @@ hybrid line-size consistency
 				allow block size to exceed C
 				but still merge short lines
 /*/
-struct TEditop
-	//delete first, add after
-	i64 ccnt
-	i64 sz
-	string s
-
 struct TBlockOp
 	//delete first, add after
 	i64 ccnt
@@ -370,10 +366,17 @@ struct TSLList
 		ret.ptail=b.ptail
 		return ret
 
+struct TEditop
+	//delete first, add after
+	i64 ccnt
+	i64 sz
+	string s
+
 //this will be directly passed to JS... research class wrapping
 class CLocator
 	i64 ccnt
 	i8 side
+	i8 undo_tracked
 	i8 discarded
 	discard=function(JSContext JS){
 		discarded=i8(1)
@@ -382,6 +385,7 @@ class CLocator
 	auto __JS_prototype(JSObject proto)
 		proto.ExportProperty(this,"ccnt")
 		proto.ExportProperty(this,"side")
+		proto.ExportProperty(this,"undo_tracked")
 		proto.ExportMethod(this,"discard",discard)
 
 class CHLRange
@@ -402,6 +406,15 @@ class CHLRange
 		proto.ExportProperty(this,"invertible")
 		proto.ExportProperty(this,"category")
 		proto.ExportMethod(this,"discard",discard)
+
+struct TLocatorUndoItem
+	//test undo_tracked...
+	CLocator loc
+	i64 ccnt
+
+struct TUndoItem
+	TEditop[] ops
+	TLocatorUndoItem[] locs
 
 SKIPLIST_PROMOTION_PROBABILITY=0.25f//1.0/2.71828
 //the internal methods *should not* validate parameters
@@ -429,6 +442,7 @@ class CEditableText
 		m_handlers.push(getInterface(a,ITextStateHandler))
 		return m_handlers.n-1
 	auto Init(JSObject obj_style)
+		//todo: validate the creation - must have ["renderer"]
 		m_js=obj_style.m_jsctx
 		m_handler_registration=m_js.New()
 		ofs=0L
@@ -442,13 +456,13 @@ class CEditableText
 			m_state_ofs.push(ofs)
 			ofs+=hstate.stateSize()
 			///////////
-			m_handler_registration["handler_id_"+hstate.name()]=I
+			m_handler_registration[hstate.name()]=I
 			if hstate.SetTextStyle:
 				hstate.SetTextStyle(obj_style)
 		//m_handler_registration["m_is_line_only"]=m_is_line_only
 		m_state_ofs.push(ofs)
 		RecomputeStates(m_skiplist)
-		m_handler_registration["style"]=obj_style
+		//m_handler_registration["style"]=obj_style
 		m_ascii_wordchars=MakeCharSet(obj_style["charset_word"].or("0-9A-Za-z_"))
 	auto isWordChar(int ch)
 		if ch>=128:
@@ -508,10 +522,9 @@ class CEditableText
 			assert(!!nd.pchild)
 			nd=nd.pchild
 	auto GetCharacterHeightAt(i64 ccnt0)
-		hid=m_handler_registration["handler_id_renderer"].as(int)
+		hid=m_handler_registration["renderer"].as(int)
 		handler=m_handlers[hid]
 		acc=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
-		handler=m_handlers[hid]
 		///////////
 		nd=m_skiplist
 		ccnt_base=0LL
@@ -632,7 +645,7 @@ class CEditableText
 				m_locators[n2++]=loc
 		m_locators.resize(n2)
 		m_locators.Sortby(inline(loc){return loc.ccnt})
-	auto MassEdit(TEditop[] ops)
+	auto RawEdit(TEditop[] ops)
 		//editop -> block replace: mainly take-the-next-and-merge
 		//do the locators here
 		pb=CSLNode.NULL
@@ -670,9 +683,9 @@ class CEditableText
 				continue
 			else
 				//we're still to the left of the locator
+				if ops[pops].s:delta+=ops[pops].s.n
+				delta+=ccnt0-ccnt1
 				pops++
-			if ops[pops].s:delta+=ops[pops].s.n
-			delta+=ccnt0-ccnt1
 		//////////
 		bops=new TBlockOp[]
 		bop_current=TBlockOp()
@@ -721,9 +734,11 @@ class CEditableText
 			s_pool_last_newline=max(p_last_newline-p_last_flush,0L)
 		auto flush()
 			if pb&&pb.s.n:
-				assert(ofs<pb.s.n)
-				poolString(pb.s[iptr(ofs):])
-				bop_current.sz+=i64(pb.s.n)-ofs
+				if ofs<pb.s.n:
+					poolString(pb.s[iptr(ofs):])
+					bop_current.sz+=i64(pb.s.n)-ofs
+				else
+					//assert last block
 			if s_pool_last_newline:
 				s_block=new(s_pool[:s_pool_last_newline-1])
 				if !bop_current.ss:
@@ -753,7 +768,8 @@ class CEditableText
 				assert(ofs<=pb.ccnt)
 				if ofs==pb.ccnt:
 					//merge with the next block - it's mandatory for line-only guys
-					(pb,ofs)=BlockFromCcnt(ccnt_base+ofs)
+					ccnt_base+=ofs
+					(pb,ofs)=BlockFromCcnt(ccnt_base)
 					assert(!ofs)
 					ofs=0LL
 			//move by sz
@@ -801,6 +817,55 @@ class CEditableText
 		return buf
 	inline GetTextSize()
 		return m_skiplist.ccnt
+	////////////////////////////////////
+	//undo/redo enabled editing
+	m_undo_queue=new TUndoItem[]
+	m_redo_queue=new TUndoItem[]
+	auto InvertEditops(TEditop[] ops)
+		//Here we assume ops is sorted
+		ops2=new TEditop[ops.n]
+		delta=0LL
+		foreach op,I in ops
+			op2=op
+			op2.ccnt+=delta
+			if op.sz:
+				op2.s=GetText(op.ccnt,op.sz)
+				delta-=op.sz
+			else
+				op2.s=string.NULL
+			if op.s:
+				op2.sz=i64(op.s.n)
+				delta+=i64(op.s.n)
+			else
+				op2.sz=0LL
+			ops2[I]=op2
+		return ops2
+	auto UndoableEdit(TEditop[] ops,TUndoItem[] queue)
+		locs=new TLocatorUndoItem[]
+		foreach loc,I in m_locators
+			if loc.undo_tracked:
+				locs.push(TLocatorUndoItem(){loc:loc,ccnt:loc.ccnt})
+		queue.push(TUndoItem(){ops:InvertEditops(ops),locs:locs})
+		RawEdit(ops)
+	auto Edit(TEditop[] ops)
+		m_redo_queue.discard()
+		UndoableEdit(ops,m_undo_queue)
+	auto RawUndo(TUndoItem[] queue_in,TUndoItem[] queue_out)
+		uitem=queue_in.pop()
+		UndoableEdit(uitem.ops,queue_out)
+		foreach loci in uitem.locs
+			loci.loc.ccnt=loci.ccnt
+		//single-insert special case: return the info in the API, select it in js code
+		ret=long2(0LL,0LL)
+		if uitem.ops.n==1:
+			if !uitem.ops[0].sz&&uitem.ops[0].s&&uitem.ops[0].s.n:
+				ret=long2(uitem.ops[0].ccnt,i64(uitem.ops[0].s.n))
+		return ret
+	inline Undo()
+		return RawUndo(m_undo_queue,m_redo_queue)
+	inline Redo()
+		return RawUndo(m_redo_queue,m_undo_queue)
+	////////////////////////////////////
 	/*
 	how exactly do we do a backward bracket lookup? the thing is state-dependent and *not* monotone!
 		--
@@ -835,7 +900,7 @@ class CEditableText
 		acc=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
 		return _Bisect(acc,m_handlers[hid],0LL,m_skiplist,b)
 	auto SeekXY(double x,double y)
-		hid=m_handler_registration["handler_id_renderer"].as(int)
+		hid=m_handler_registration["renderer"].as(int)
 		//ccnt0=Bisect(hid,[__double_as_longlong(x),__double_as_longlong(y)])
 		//xy=XYFromCcnt(ccnt0)
 		//return Bisect(hid,[__double_as_longlong(x),__double_as_longlong(xy.y)])
@@ -847,7 +912,7 @@ class CEditableText
 	auto Render(double x,double y,double w,double h, float scr_x,float scr_y,float scale)
 		//x,y,w,h refer to the world space window
 		g_renderer.PushCliprect(scr_x,scr_y,float(w)*scale,float(h)*scale)
-		hid=m_handler_registration["handler_id_renderer"].as(int)
+		hid=m_handler_registration["renderer"].as(int)
 		handler=m_handlers[hid]
 		wnd_ccnt0=SeekXY(x,y)
 		wnd_ccnt1=SeekXY(x+w,y+h)
@@ -936,7 +1001,7 @@ class CEditableText
 		m_highlights.push(ret)
 		return ret
 	auto XYFromCcnt(i64 ccnt)
-		hid=m_handler_registration["handler_id_renderer"].as(int)
+		hid=m_handler_registration["renderer"].as(int)
 		a=GetStateAt(hid,ccnt)
 		return double2(__longlong_as_double(a[0]),__longlong_as_double(a[1]))
 	//todo: locator-based highlighting / hiding
@@ -993,9 +1058,10 @@ class CEditableText
 			break
 		return (ch0,ch1)
 	/////////////////
-	JS_MassEdit=function(JSContext JS){
+	JS_Edit=function(JSContext JS){
 		js_ops=JS.Param(0).as(JSObject)
 		if !js_ops:return 0
+		is_raw=JS.Param(1).or(0)
 		n=iptr(js_ops["length"].as(double))
 		if !(n>0)||(n%3):
 			return JS.ReturnError("bad operation array length @1".Replace(["@1",string(n)]))
@@ -1009,8 +1075,24 @@ class CEditableText
 				return JS.ReturnError("invalid operation #@1".Replace(["@1",string(i)]))
 			range0=op.ccnt+op.sz
 			ops.push(op)
-		MassEdit(ops)
+		if is_raw:
+			RawEdit(ops)
+		else
+			Edit(ops)
 		return 0
+	}
+	JS_Undo=function(JSContext JS){
+		sside=JS.Param(0).or("undo")
+		if sside=="undo":
+			if !m_undo_queue.n:return 0
+			ret=Undo()
+		else
+			if !m_redo_queue.n:return 0
+			ret=Redo()
+		jsret=JS.New()
+		jsret["ccnt"]=ret.x
+		jsret["sz"]=ret.y
+		return JS.Return(jsret)
 	}
 	JS_GetText=function(JSContext JS){
 		ed=this
@@ -1141,6 +1223,11 @@ class CEditableText
 		if u64(ccnt)>u64(range1):return 0
 		return JS.Return(GetCharacterHeightAt(ccnt))
 	}
+	JS_GetDefaultFont=function(JSContext JS){
+		hid=m_handler_registration["renderer"].as(int)
+		handler=m_handlers[hid]
+		return JS.Return(handler.GetDefaultFont())
+	}
 	JS_SnapToCharBoundary=function(JSContext JS){
 		ccnt=JS.Param(0).or(0LL)
 		range1=GetTextSize()
@@ -1203,12 +1290,22 @@ class CEditableText
 				if limit<=0:return JS.Return(ccnti)
 			return JS.Return(GetTextSize())
 	}
+	JS_GetUtf8CharNeighborhood=function(JSContext JS){
+		ccnt=JS.Param(0).or(0LL)
+		range1=GetTextSize()
+		if u64(ccnt)>u64(range1):return 0
+		(ch0,ch1)=GetUtf8CharNeighborhood(ccnt)
+		ret=JS.NewArray()
+		ret[0]=ch0
+		ret[1]=ch1
+		return JS.Return(ret)
+	}
 	auto __JS_prototype(JSObject proto)
 		proto.ExportProperty(this,"m_handler_registration")
 		proto.ExportProperty(this,"m_caret_locator")
 		proto.ExportProperty(this,"m_IME_overlay")
 		proto.ExportProperty(this,"m_caret_offset")
-		proto.ExportMethod(this,"MassEdit",JS_MassEdit)
+		proto.ExportMethod(this,"Edit",JS_Edit)
 		proto.ExportMethod(this,"GetText",JS_GetText)
 		proto.ExportMethod(this,"GetTextSize",JS_GetTextSize)
 		proto.ExportMethod(this,"Render",JS_Render)
@@ -1219,8 +1316,11 @@ class CEditableText
 		proto.ExportMethod(this,"Bisect",JS_Bisect)
 		proto.ExportMethod(this,"GetStateAt",JS_GetStateAt)
 		proto.ExportMethod(this,"GetCharacterHeightAt",JS_GetCharacterHeightAt)
+		proto.ExportMethod(this,"GetDefaultFont",JS_GetDefaultFont)
 		proto.ExportMethod(this,"SnapToCharBoundary",JS_SnapToCharBoundary)
 		proto.ExportMethod(this,"MoveToBoundary",JS_MoveToBoundary)
+		proto.ExportMethod(this,"Undo",JS_Undo)
+		proto.ExportMethod(this,"GetUtf8CharNeighborhood",JS_GetUtf8CharNeighborhood)
 
 jsNewEditorBaseline=function(JSContext JS){
 	obj_style=JS.Param(0).as(JSObject)

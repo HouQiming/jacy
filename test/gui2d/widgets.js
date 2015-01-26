@@ -139,11 +139,68 @@ W.Button=function(id,attrs0){
 }
 
 var Edit_prototype={
+	//////////
+	scale:1,
+	scroll_x:0,
+	scroll_y:0,
+	x_updown:0,
+	//////////
 	caret_width:2,
 	caret_color:0xff000000,
 	caret_flicker:500,
 	color:0xff000000,
 	bgcolor_selection:0xffffe0d0,
+	GetHandlerID:function(name){
+		return this.ed.m_handler_registration[name];
+	},
+	AutoScroll:function(mode){
+		//'show' 'center' 'center_if_hidden'
+		var ccnt0=this.sel0.ccnt;
+		var ccnt1=this.sel1.ccnt;
+		var ed=this.ed;
+		var ed_caret=ed.XYFromCcnt(ccnt1);
+		var y_original=this.scroll_y;
+		var ytot=ed.GetStateAt(this.GetHandlerID("renderer"),ed.GetTextSize(),"dd")[1];
+		var wc=UI.GetCharacterAdvance(ed.GetDefaultFont(),' ');
+		var hc=ed.GetCharacterHeightAt(ccnt1);
+		var page_height=this.h;
+		if(mode!='show'){
+			if(this.scroll_y>ed_caret.y||this.scroll_y<=ed_caret.y-page_height||emphasize=='center'){
+				//mode 'center_if_hidden': only center when the thing was invisible
+				this.scroll_y=ed_caret.y-(page_height-hc)/2;
+			}
+		}
+		this.scroll_y=Math.min(this.scroll_y,ed_caret.y)
+		if(ed_caret.y-this.scroll_y>=page_height-hc){
+			this.scroll_y=(ed_caret.y-(page_height-hc));
+		}
+		var wwidth=this.w-wc;
+		if(mode!='show'&&this.sel0.ccnt!=this.sel1.ccnt){
+			//make sure sel0 shows up
+			this.scroll_x=Math.min(this.scroll_x,Math.min(ed.XYFromCcnt(ccnt0).x,ed_caret.x))
+		}
+		this.scroll_x=Math.min(this.scroll_x,ed_caret.x);
+		//if .do_wrap&&this.scroll_x&&ed_caret.x<wwidth:
+		//	this.scroll_x=0
+		if(ed_caret.x-this.scroll_x>=wwidth){
+			//going over the right
+			var chneib=ed.GetUtf8CharNeighborhood(ccnt1);
+			var ch=chneib[1];
+			if(ch==13||ch==10){
+				//line end, don't do anything funny
+				this.scroll_x=ed_caret.x-wwidth;
+			}else{
+				//line middle, scroll to a more middle-ish position
+				var right_side_autoscroll_space=(this.right_side_autoscroll_space||16);
+				this.scroll_x=ed_caret.x-wwidth+Math.min(wwidth/2,right_side_autoscroll_space*wc);
+			}
+		}
+		this.scroll_x=Math.max(this.scroll_x,0);
+		this.scroll_y=Math.max(Math.min(this.scroll_y,ytot-page_height),0);
+		this.x_updown=ed_caret.x
+		//TestTrigger(KEYCODE_ANY_MOVE)
+		//todo: ui animation?
+	},
 	OnTextEdit:function(event){
 		this.ed.m_IME_overlay=event;
 		UI.Refresh()
@@ -153,7 +210,7 @@ var Edit_prototype={
 		var ccnt0=this.sel0.ccnt;
 		var ccnt1=this.sel1.ccnt;
 		if(ccnt0>ccnt1){var tmp=ccnt1;ccnt1=ccnt0;ccnt0=tmp;}
-		ed.MassEdit([ccnt0,ccnt1-ccnt0,event.text])
+		ed.Edit([ccnt0,ccnt1-ccnt0,event.text])
 		var lg=Duktape.__byte_length(event.text);
 		this.sel0.ccnt=ccnt0+lg;
 		this.sel1.ccnt=ccnt0+lg;
@@ -163,31 +220,34 @@ var Edit_prototype={
 		//todo: global hotkey table - keyed using things like "CTRL+C", if not found, tokenize at +
 		//allow multiple keys
 		/*
-		implement the baseline here, leave the rest to plugins
-			undo/redo
 		mouse messages
 		*/
 		var ed=this.ed;
 		var IsKey=UI.IsKey;
-		var is_shift=UI.IsModifier(event,["SHIFT"]);
+		var is_shift=event.keymod&(UI.KMOD_LSHIFT|UI.KMOD_RSHIFT);
 		var sel0=this.sel0;
 		var sel1=this.sel1;
+		var this_outer=this;
 		var epilog=function(){
 			if(!is_shift){sel0.ccnt=sel1.ccnt;}
-			//todo: autoscroll
+			this_outer.AutoScroll("show");
 			UI.Refresh();
 		};
 		//todo: scrolling
 		if(0){
 		}else if(IsKey(event,["UP"])||IsKey(event,["SHIFT","UP"])){
 			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
-			sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y-1.0);
+			var bk=this.x_updown;
+			sel1.ccnt=ed.SeekXY(this.x_updown,ed_caret.y-1.0);
 			epilog();
+			this.x_updown=bk;
 		}else if(IsKey(event,["DOWN"])||IsKey(event,["SHIFT","DOWN"])){
 			var hc=ed.GetCharacterHeightAt(sel1.ccnt);
 			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
-			sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y+hc);
+			var bk=this.x_updown;
+			sel1.ccnt=ed.SeekXY(this.x_updown,ed_caret.y+hc);
 			epilog();
+			this.x_updown=bk;
 		}else if(IsKey(event,["LEFT"])||IsKey(event,["SHIFT","LEFT"])){
 			var ccnt=sel1.ccnt;
 			if(ccnt>0){
@@ -224,9 +284,15 @@ var Edit_prototype={
 				}
 			}
 			if(ccnt0<ccnt1){
-				ed.MassEdit([ccnt0,ccnt1-ccnt0,null])
+				ed.Edit([ccnt0,ccnt1-ccnt0,null])
 				UI.Refresh();
 			}
+		}else if(IsKey(event,["CTRL","HOME"])||IsKey(event,["CTRL","SHIFT","HOME"])){
+			sel1.ccnt=0;
+			epilog()
+		}else if(IsKey(event,["CTRL","END"])||IsKey(event,["CTRL","SHIFT","END"])){
+			sel1.ccnt=ed.GetTextSize();
+			epilog()
 		}else if(IsKey(event,["CTRL","A"])){
 			sel0.ccnt=0;
 			sel1.ccnt=ed.GetTextSize();
@@ -270,12 +336,28 @@ var Edit_prototype={
 			if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
 			if(ccnt0<ccnt1){
 				UI.SDL_SetClipboardText(ed.GetText(ccnt0,ccnt1-ccnt0))
-				ed.MassEdit([ccnt0,ccnt1-ccnt0,null])
+				ed.Edit([ccnt0,ccnt1-ccnt0,null])
 				UI.Refresh();
 			}
 		}else if(IsKey(event,["CTRL","V"])||IsKey(event,["SHIFT","INSERT"])){
 			var stext=UI.SDL_GetClipboardText()
 			this.OnTextInput({"text":stext})
+		}else if(IsKey(event,["CTRL","Z"])||IsKey(event,["ALT","BACKSPACE"])){
+			var ret=ed.Undo()
+			if(ret&&ret.sz){
+				sel0.ccnt=ret.ccnt;
+				sel1.ccnt=ret.ccnt+ret.sz;
+				this.AutoScroll("center_if_hidden");
+			}
+			UI.Refresh();
+		}else if(IsKey(event,["CTRL","SHIFT","Z"])||IsKey(event,["CTRL","Y"])){
+			var ret=ed.Undo("redo")
+			if(ret&&ret.sz){
+				sel0.ccnt=ret.ccnt;
+				sel1.ccnt=ret.ccnt+ret.sz;
+				this.AutoScroll("center_if_hidden");
+			}
+			UI.Refresh();
 		}else{
 		}
 	},
@@ -287,9 +369,9 @@ W.Edit=function(id,attrs0){
 	var ed=attrs.ed;
 	if(!ed){
 		ed=Duktape.__ui_new_editor(attrs);
-		if(attrs.text){ed.MassEdit([0,0,attrs.text]);}
-		attrs.sel0=ed.CreateLocator(0,-1);
-		attrs.sel1=ed.CreateLocator(0,-1);
+		if(attrs.text){ed.Edit([0,0,attrs.text],1);}
+		attrs.sel0=ed.CreateLocator(0,-1);attrs.sel0.undo_tracked=1;
+		attrs.sel1=ed.CreateLocator(0,-1);attrs.sel1.undo_tracked=1;
 		attrs.ed=ed;
 		attrs.sel_hl=ed.CreateHighlight(attrs.sel0,attrs.sel1);
 		attrs.sel_hl.color=attrs.bgcolor_selection;
@@ -297,9 +379,9 @@ W.Edit=function(id,attrs0){
 		ed.m_caret_locator=attrs.sel1;
 	}
 	//todo: scrolling
-	var scale=(attrs.scale||1);
-	var scroll_x=(attrs.scroll_x||0);
-	var scroll_y=(attrs.scroll_y||0);
+	var scale=attrs.scale;
+	var scroll_x=attrs.scroll_x;
+	var scroll_y=attrs.scroll_y;
 	ed.Render({x:scroll_x,y:scroll_y,w:attrs.w,h:attrs.h, scr_x:attrs.x,scr_y:attrs.y, scale:scale});
 	if(UI.HasFocus(attrs)){
 		var ed_caret=ed.XYFromCcnt(attrs.sel1.ccnt);

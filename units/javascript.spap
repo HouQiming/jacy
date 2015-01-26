@@ -236,7 +236,7 @@ module duktape
 			if duk_is_null_or_undefined(_ctx(),-1):
 				ret=NULL
 			else
-				ret=duk_to_string(_ctx(),-1)
+				ret=__C(__pointer,"(char*)@1",duk_to_string(_ctx(),-1))
 			if count==1:
 				duk_pop(_ctx())
 			else
