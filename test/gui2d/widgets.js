@@ -160,13 +160,10 @@ var Edit_prototype={
 		UI.Refresh()
 	},
 	OnKeyDown:function(event){
+		//todo: global hotkey table - keyed using things like "CTRL+C", if not found, tokenize at +
+		//allow multiple keys
 		/*
 		implement the baseline here, leave the rest to plugins
-			word move
-				a general native "MoveTo"
-				SnapToCharBoundary
-			enhanced home
-			copy cut paste
 			undo/redo
 		mouse messages
 		*/
@@ -238,15 +235,14 @@ var Edit_prototype={
 			//todo: DOS mode test
 			this.OnTextInput({"text":"\n"})
 		}else if(IsKey(event,["HOME"])||IsKey(event,["SHIFT","HOME"])){
-			//todo: enhanced home
-			//todo: charset won't cut it: CJK symbols - need a speed test
-			//local string look up, context size, context test, JS regexp search, index-to-bytelength conversion
-			//reverse string for backward searches - native reverse
-			//we're just searching for enhanced home and word boundary
-			//not worth the effort, just do it native
-			//todo
 			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
-			sel1.ccnt=ed.SeekXY(0,ed_caret.y);
+			var ccnt_lhome=ed.SeekXY(0,ed_caret.y);
+			var ccnt_ehome=ed.MoveToBoundary(ccnt_lhome,1,"space");
+			if(sel1.ccnt==ccnt_ehome){
+				sel1.ccnt=ccnt_lhome;
+			}else{
+				sel1.ccnt=ccnt_ehome;
+			}
 			epilog();
 		}else if(IsKey(event,["END"])||IsKey(event,["SHIFT","END"])){
 			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
@@ -261,6 +257,25 @@ var Edit_prototype={
 			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
 			sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y+this.h);
 			epilog();
+		}else if(IsKey(event,["CTRL","C"])||IsKey(event,["CTRL","INSERT"])){
+			var ccnt0=sel0.ccnt;
+			var ccnt1=sel1.ccnt;
+			if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
+			if(ccnt0<ccnt1){
+				UI.SDL_SetClipboardText(ed.GetText(ccnt0,ccnt1-ccnt0))
+			}
+		}else if(IsKey(event,["CTRL","X"])||IsKey(event,["SHIFT","DELETE"])){
+			var ccnt0=sel0.ccnt;
+			var ccnt1=sel1.ccnt;
+			if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
+			if(ccnt0<ccnt1){
+				UI.SDL_SetClipboardText(ed.GetText(ccnt0,ccnt1-ccnt0))
+				ed.MassEdit([ccnt0,ccnt1-ccnt0,null])
+				UI.Refresh();
+			}
+		}else if(IsKey(event,["CTRL","V"])||IsKey(event,["SHIFT","INSERT"])){
+			var stext=UI.SDL_GetClipboardText()
+			this.OnTextInput({"text":stext})
 		}else{
 		}
 	},

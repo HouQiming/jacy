@@ -952,6 +952,10 @@ module detail
 	SDL_StartTextInput=__c_function(int,"SDL_StartTextInput","SDL.h")
 	SDL_StopTextInput=__c_function(int,"SDL_StopTextInput","SDL.h")
 	SDL_SetTextInputRect=__c_function(int,"SDL_SetTextInputRect","SDL.h")
+	SDL_SetClipboardText=__c_function(int,"SDL_SetClipboardText","SDL.h")
+	SDL_GetClipboardText=__c_function(__pointer,"SDL_GetClipboardText","SDL.h")
+	SDL_HasClipboardText=__c_function(int,"SDL_HasClipboardText","SDL.h")
+	SDL_free=__c_function(int,"SDL_free","SDL.h")
 	//////
 	g_sdl_gl_context=NULL
 	g_is_hwnd=new int[iptr]
@@ -1120,6 +1124,25 @@ module detail
 			__C(int,"((SDL_Rect*)@1)->h=@2",prect,h)
 			SDL_SetTextInputRect(prect)
 			return 0
+		}
+		//clipboard
+		JS_SDL["SDL_SetClipboardText"]=function(JSContext JS){
+			s=JS.Param(0).asCString()
+			if !s:
+				return 0
+			else
+				return JS.Return(SDL_SetClipboardText(s)==0)
+		}
+		JS_SDL["SDL_GetClipboardText"]=function(JSContext JS){
+			s=SDL_GetClipboardText()
+			if !s:return 0
+			Javascript.duktape.duk_push_string(JS._ctx(),s)
+			SDL_free(s)
+			ret=JS._pop_typed(JSObject,1)
+			return JS.Return(ret)
+		}
+		JS_SDL["SDL_HasClipboardText"]=function(JSContext JS){
+			return JS.Return(SDL_HasClipboardText())
 		}
 		return JS_SDL
 	auto createGLJSObject(JSObject JS_GL)
