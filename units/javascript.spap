@@ -421,7 +421,8 @@ module duktape
 				duk_dup(_ctx(),-1)
 				if duk_has_prop(_ctx(),-3):
 					duk_get_prop(_ctx(),-2)//for the *previous* subscript
-					return m_jsctx._pop_typed(T,2)
+					if !duk_is_null_or_undefined(_ctx(),-1):
+						return m_jsctx._pop_typed(T,2)
 			duk_pop_2(_ctx())
 			return dflt
 		inline set_operator[](name,value)

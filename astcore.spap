@@ -1516,6 +1516,7 @@ auto coreInit()
 				g_code_buffer.pop()
 			g_code_buffer.push('){')
 		//for is_type_only, the context is never actually used, but we need to generate the type anyway
+		assert(!(fn.flags&FFLAG_LAMBDA_NEEDS_PARENT_POINTER)||(fn.flags&FFLAG_LAMBDA_NEEDS_CONTEXT))
 		if is_type_only||(fn.flags&FFLAG_LAMBDA_NEEDS_CONTEXT):
 			//generate the lambda struct decl, and new it
 			sbk=g_code_buffer

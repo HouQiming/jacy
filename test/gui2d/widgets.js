@@ -168,41 +168,56 @@ var Edit_prototype={
 			enhanced home
 			copy cut paste
 			undo/redo
+		mouse messages
 		*/
 		var ed=this.ed;
 		var IsKey=UI.IsKey;
 		var is_shift=UI.IsModifier(event,["SHIFT"]);
+		var sel0=this.sel0;
+		var sel1=this.sel1;
 		var epilog=function(){
-			if(!is_shift){this.sel0.ccnt=this.sel1.ccnt;}
+			if(!is_shift){sel0.ccnt=sel1.ccnt;}
 			//todo: autoscroll
 			UI.Refresh();
 		};
 		//todo: scrolling
 		if(0){
 		}else if(IsKey(event,["UP"])||IsKey(event,["SHIFT","UP"])){
-			var ed_caret=ed.XYFromCcnt(this.sel1.ccnt);
-			this.sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y-1.0);
+			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
+			sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y-1.0);
 			epilog();
 		}else if(IsKey(event,["DOWN"])||IsKey(event,["SHIFT","DOWN"])){
-			var hc=ed.GetCharacterHeightAt(this.sel1.ccnt);
-			var ed_caret=ed.XYFromCcnt(this.sel1.ccnt);
-			this.sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y+hc);
+			var hc=ed.GetCharacterHeightAt(sel1.ccnt);
+			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
+			sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y+hc);
 			epilog();
 		}else if(IsKey(event,["LEFT"])||IsKey(event,["SHIFT","LEFT"])){
-			var ccnt=this.sel1.ccnt;
+			var ccnt=sel1.ccnt;
 			if(ccnt>0){
-				this.sel1.ccnt=ed.SnapToCharBoundary(ccnt-1,-1);
+				sel1.ccnt=ed.SnapToCharBoundary(ccnt-1,-1);
 				epilog();
 			}
 		}else if(IsKey(event,["RIGHT"])||IsKey(event,["SHIFT","RIGHT"])){
-			var ccnt=this.sel1.ccnt;
+			var ccnt=sel1.ccnt;
 			if(ccnt<ed.GetTextSize()){
-				this.sel1.ccnt=ed.SnapToCharBoundary(ccnt+1,1);
+				sel1.ccnt=ed.SnapToCharBoundary(ccnt+1,1);
+				epilog();
+			}
+		}else if(IsKey(event,["CTRL","LEFT"])||IsKey(event,["CTRL","SHIFT","LEFT"])){
+			var ccnt=sel1.ccnt;
+			if(ccnt>0){
+				sel1.ccnt=ed.MoveToBoundary(ed.SnapToCharBoundary(ccnt-1,-1),-1,"ctrl_lr_stop")
+				epilog();
+			}
+		}else if(IsKey(event,["CTRL","RIGHT"])||IsKey(event,["CTRL","SHIFT","RIGHT"])){
+			var ccnt=sel1.ccnt;
+			if(ccnt<ed.GetTextSize()){
+				sel1.ccnt=ed.MoveToBoundary(ed.SnapToCharBoundary(ccnt+1,1),1,"ctrl_lr_stop")
 				epilog();
 			}
 		}else if(IsKey(event,["BACKSPACE"])||IsKey(event,["DELETE"])){
-			var ccnt0=this.sel0.ccnt;
-			var ccnt1=this.sel1.ccnt;
+			var ccnt0=sel0.ccnt;
+			var ccnt1=sel1.ccnt;
 			if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
 			if(ccnt0==ccnt1){
 				if(IsKey(event,["BACKSPACE"])){
@@ -216,29 +231,35 @@ var Edit_prototype={
 				UI.Refresh();
 			}
 		}else if(IsKey(event,["CTRL","A"])){
-			this.sel0.ccnt=0;
-			this.sel1.ccnt=ed.GetTextSize();
+			sel0.ccnt=0;
+			sel1.ccnt=ed.GetTextSize();
 			UI.Refresh();
 		}else if(IsKey(event,["RETURN"])||IsKey(event,["RETURN2"])){
 			//todo: DOS mode test
 			this.OnTextInput({"text":"\n"})
 		}else if(IsKey(event,["HOME"])||IsKey(event,["SHIFT","HOME"])){
 			//todo: enhanced home
-			var ed_caret=ed.XYFromCcnt(this.sel1.ccnt);
-			this.sel1.ccnt=ed.SeekXY(0,ed_caret.y);
+			//todo: charset won't cut it: CJK symbols - need a speed test
+			//local string look up, context size, context test, JS regexp search, index-to-bytelength conversion
+			//reverse string for backward searches - native reverse
+			//we're just searching for enhanced home and word boundary
+			//not worth the effort, just do it native
+			//todo
+			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
+			sel1.ccnt=ed.SeekXY(0,ed_caret.y);
 			epilog();
 		}else if(IsKey(event,["END"])||IsKey(event,["SHIFT","END"])){
-			var ed_caret=ed.XYFromCcnt(this.sel1.ccnt);
-			this.sel1.ccnt=ed.SeekXY(1e127,ed_caret.y);
+			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
+			sel1.ccnt=ed.SeekXY(1e127,ed_caret.y);
 			epilog();
 		}else if(IsKey(event,["PAGEUP"])||IsKey(event,["SHIFT","PAGEUP"])){
-			var ed_caret=ed.XYFromCcnt(this.sel1.ccnt);
-			this.sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y-this.h);
+			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
+			sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y-this.h);
 			epilog();
 		}else if(IsKey(event,["PAGEDOWN"])||IsKey(event,["SHIFT","PAGEDOWN"])){
-			var hc=ed.GetCharacterHeightAt(this.sel1.ccnt);
-			var ed_caret=ed.XYFromCcnt(this.sel1.ccnt);
-			this.sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y+this.h);
+			var hc=ed.GetCharacterHeightAt(sel1.ccnt);
+			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
+			sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y+this.h);
 			epilog();
 		}else{
 		}
@@ -251,7 +272,7 @@ W.Edit=function(id,attrs0){
 	var ed=attrs.ed;
 	if(!ed){
 		ed=Duktape.__ui_new_editor(attrs);
-		if(attrs.text){ed.MassEdit([0,0,code_text]);}
+		if(attrs.text){ed.MassEdit([0,0,attrs.text]);}
 		attrs.sel0=ed.CreateLocator(0,-1);
 		attrs.sel1=ed.CreateLocator(0,-1);
 		attrs.ed=ed;

@@ -708,11 +708,12 @@ class Array(T)
 					for(I=0L;I<=n;I++)
 						ch=(I==n?0:int(__memory(u8,d+I)))
 						if ch<256&&(ok[ch>>5]&(1u<<(ch&31)))||I==n:
-							if allow_empty?(Ilast<=I):(Ilast<I):
-								ret=this.slice(Ilast,I-1)
-								fbody(ret,Ilast,I)
-								ret=string.NULL
+							Ilast0=Ilast
 							Ilast=I+1
+							if allow_empty?(Ilast0<=I):(Ilast0<I):
+								ret=this.slice(Ilast0,I-1)
+								fbody(ret,Ilast0,I)
+								ret=string.NULL
 				}
 			}
 		inline Tokenize(string cset){return TokenizeEx(cset,0)}
