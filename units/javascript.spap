@@ -291,6 +291,10 @@ module duktape
 		/////////
 		inline GetGlobal()
 			return new JSObject(){"m_jsctx":this}
+		inline operator[](name)
+			return GetGlobal()[name]
+		inline set_operator[](name,value)
+			GetGlobal()[name]=value
 		inline debugGetStashArray()
 			_push_stash_array()
 			return _pop_typed(JSObject,1)
@@ -363,7 +367,7 @@ module duktape
 				sfile=arguments[2]
 			else
 				sfile="<eval>"
-			duk_push_lstring(_ctx(),__pointer(sfile.d),s.n)
+			duk_push_lstring(_ctx(),sfile,sfile.n)
 			duk_eval_raw(_ctx(),s,s.n,DUK_COMPILE_EVAL|DUK_COMPILE_SAFE|DUK_COMPILE_NOSOURCE)
 			//todo: check the return status to see whether it's an error
 			ret=_pop_typed(T,1)

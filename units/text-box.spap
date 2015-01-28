@@ -1,6 +1,5 @@
 /*
 todo:
-	drawing: look up per-block ranges during Render
 	syntax highlighter
 */
 import Gui2D.*
@@ -104,6 +103,23 @@ inline CharToUtf8Backward(auto s,T)
 
 inline Utf8Chars(string s)
 	return CharToUtf8(s,iptr)
+
+inline Utf8CodeAt(string s,ofs)
+	ret=0
+	foreach ch in (CharToUtf8({'forEach':inline(fbody){
+				for i=iptr(ofs):s.n-1
+					fbody(s[i],i)
+			}},iptr))
+		ret=ch
+		break
+	return ret
+
+inline Utf8Length(int ch)
+	ret=1
+	if ch>=128:ret++
+	if ch>=2048:ret++
+	if ch>=65536:ret++
+	return ret
 
 auto MakeCharSet(string e)
 	ok=new u32[8]
@@ -314,6 +330,266 @@ class CLayouter_baseline
 		proto.ExportProperty(this,"m_color")
 	}
 
+///////////////////////////////
+class CHyphenInfo
+	int[][string] exceptions
+	u16[] dfa
+	u16[] ops
+	int n_char_types
+	int[int] char_map
+	auto HyphenateWord(string sword)
+		exception=exceptions[sword.ToLower()]
+		if exception:return exception
+		//returns int separation points
+		hyp_levels=new u8[]
+		hyp_points=new int[]
+		n=n_char_types
+		local_dfa=dfa
+		local_char_map=char_map
+		local_ops=ops
+		st=0
+		inline goDown(int ch)
+			st=int(local_dfa[st*n+ch])
+			if st>=32768:
+				st-=32768
+				for(;;)
+					op=int(local_ops[st])
+					if op>=32768:
+						st=op-32768
+						break
+					//4as. - it *could* try to place a value on pos 0
+					addr=int(hyp_levels.n)-(op&0xff)
+					if u32(addr)<u32(hyp_levels.n):
+						lv0=int(hyp_levels[addr])
+						lv1=(op>>8)
+						if lv0<lv1:
+							hyp_levels[addr]=lv1
+					//else
+					//	Writeln(int(hyp_levels.n),' ',(op&0xff))
+					assert(u32(addr+1)<=u32(hyp_levels.n))
+					st++
+		goDown(0)
+		foreach ch,I in Utf8Chars(sword)
+			hyp_points.push(int(I))
+			hyp_levels.push(u8(0))
+			goDown(local_char_map[ch])
+		hyp_points.push(int(sword.n))
+		hyp_levels.push(u8(0))
+		goDown(0)
+		//use -3 to make sure we ignore the word tail
+		//Writeln(hyp_levels)
+		//Writeln(hyp_points)
+		n2=0
+		for i=0:hyp_points.n-3
+			if int(hyp_levels[i])&1:
+				hyp_points[n2++]=hyp_points[i+1]
+		hyp_points.resize(n2)
+		return hyp_points
+	auto debugDumpHyphenation(string sword)
+		hyp_points=[0]
+		hyp_points.push(HyphenateWord(sword))
+		hyp_points.push(int(sword.n))
+		s=new string
+		for i=0:hyp_points.n-2
+			if i:SWrite(s,'-')
+			SWrite(s,sword[hyp_points[i]:hyp_points[i+1]-1])
+		return s
+	
+auto parseTexHyphenFile(JSContext JS,string sdata)
+	//pack ops at the tail as i8
+	ret=new CHyphenInfo
+	is_pattern=1
+	all_patterns=new string[]
+	all_exceptions=new int[][string]
+	foreach sline in sdata.Tokenize("\r\n")
+		if sline[0]=='%':continue
+		if sline[0]=='\\':
+			is_pattern=(sline.StartsWith("\\pattern"))
+			continue
+		if sline.n>=128:
+			if Platform.BUILD=="debug":
+				Writeln('pattern too long: ',sline)
+			return CHyphenInfo.NULL
+		if sline[0]=='{'||sline[0]=='}':continue
+		spattern=new string
+		if is_pattern:
+			//insert into 
+			ops=new string
+			foreach chc,I in sline
+				ch=int(u8(chc))
+				if u32(ch-int('0'))<10u:
+					ops.push(i8(spattern.n))
+					ops.push(i8(ch-int('0')))
+				else
+					spattern.push(chc)
+			spattern.push(i8(0))
+			all_patterns.push(spattern+ops)
+		else
+			opsi=new int[]
+			foreach chc,I in sline
+				if chc=='-':
+					opsi.push(int(spattern.n))
+				else
+					spattern.push(chc)
+			all_exceptions[spattern]=opsi
+			//Writeln(spattern,' ',opsi)
+	ret.exceptions=all_exceptions
+	///////////
+	//todo: make this a function
+	chappeared=new int[int]
+	foreach spattern in all_patterns
+		foreach ch,I in Utf8Chars(spattern)
+			if !ch:break
+			if ch!=char('.'):
+				chappeared[ch]=1
+	chlist=new int[]
+	foreach d,k,I in chappeared
+		chlist.push(k)
+		chappeared.D(I)=int(chlist.n)
+	//do the upper case
+	chlist_upper=Utf8ToUnicode32(JS["String"]["prototype"]["toUpperCase"].CallAsMethod(string,Unicode32ToUtf8(chlist)))
+	if chlist_upper.n!=chlist.n:
+		if Platform.BUILD=="debug":
+			Writeln('bad upper case conversion');
+			Writeln('  ',Unicode32ToUtf8(chlist))
+			Writeln('  ',Unicode32ToUtf8(chlist_upper))
+		return CHyphenInfo.NULL
+	for i=0:chlist.n-1
+		chappeared[chlist_upper[i]]=chappeared[chlist[i]]
+	ret.char_map=chappeared
+	n_char_types=int(chlist.n+1)
+	ret.n_char_types=n_char_types
+	//first-char lists
+	//all_patterns.Sort()
+	fc_lists=new int[][n_char_types]
+	for i=0:fc_lists.n-1
+		fc_lists[i]=new int[]
+	foreach spattern,I in all_patterns
+		ch0=Utf8CodeAt(spattern,0L)
+		fc_lists[chappeared[ch0]].push(int(I)|(1<<16))
+	//multi-state DFA -> single-state DFA
+	if all_patterns.n>=32768:
+		if Platform.BUILD=="debug":
+			Writeln('too many patterns: ',all_patterns.n)
+		return CHyphenInfo.NULL
+	state_map=new int[int[]]
+	ops_map=new int[u16[]]
+	state_addrs=[0]
+	Q=[new int[]]
+	dfa=new u16[n_char_types]
+	dfa_ops=new u16[]
+	for(i=0L;i<Q.n;i++)
+		cur_states=Q[i]
+		my_addr=i*n_char_types
+		tran=new int[][n_char_types]
+		for j=0:tran.n-1
+			tran[j]=new(fc_lists[j])
+		//fc_lists
+		foreach stpacked in cur_states
+			pid=(stpacked&0xffff)
+			pos=(stpacked>>16)
+			s_pid=all_patterns[pid]
+			ch_utf8=Utf8CodeAt(s_pid,pos)
+			ch_std=chappeared[ch_utf8]
+			pos+=Utf8Length(ch_utf8)
+			if !s_pid[pos]:
+				//add action
+				tran[ch_std].push(~pid)
+			else
+				tran[ch_std].push(pid+(pos<<16))
+		//Write(cur_states,' ')
+		for j=0:tran.n-1
+			new_states=tran[j]
+			new_states.Sort()
+			new_states.Unique()
+			actions=u16[].NULL
+			if new_states.n&&new_states[0]<0:
+				//actions
+				actions=new u16[]
+				p_states=new_states.n
+				for k=0:new_states.n-1
+					if new_states[k]>=0:
+						p_states=k
+						break
+					else
+						pid=~new_states[k]
+						s_pid=all_patterns[pid]
+						pzero=s_pid.IndexOf(char(0))
+						for paction=pzero+1:2:s_pid.n-2
+							action_pos=pzero-int(u8(s_pid[paction]))
+							action_value=int(u8(s_pid[paction+1]))
+							actions.push(u16(action_value*256+action_pos+1))
+				actions.Sort()
+				actions.Unique()
+				new_states=new_states[p_states:]
+			new_stid=state_map[new_states]
+			if !new_stid:
+				if new_states.n:
+					new_stid=int(Q.n)
+					Q.push(new_states)
+					dfa.resize(dfa.n+n_char_types)
+					assert(dfa.n==n_char_types*Q.n)
+					state_map[new_states]=new_stid
+			if actions:
+				//fill dfa
+				actions.push(u16(32768+new_stid))
+				opid=ops_map[actions]
+				if !opid:
+					opid=32768+int(dfa_ops.n)
+					dfa_ops.push(actions)
+					ops_map[actions]=opid
+				addr_j=opid
+			else
+				addr_j=new_stid
+			dfa[my_addr+j]=u16(addr_j)
+			//Write(' ',new_stid)
+		//Writeln()
+	ret.dfa=dfa
+	if Q.n>=32768:
+		if Platform.BUILD=="debug":
+			Writeln('dfa too complicated: ',Q.n)
+		return CHyphenInfo.NULL
+	if dfa_ops.n>=32767:
+		if Platform.BUILD=="debug":
+			Writeln('ops too complicated: ',dfa_ops.n)
+		return CHyphenInfo.NULL
+	//Writeln('patterns = ',all_patterns.n)
+	//Writeln('dfa size = ',dfa.n)
+	//Writeln('ops size = ',dfa_ops.n)
+	//Writeln('states = ',Q.n)
+	//Writeln(dfa)
+	//Writeln(dfa_ops)
+	ret.ops=dfa_ops
+	return ret
+
+/*auto DPTextLayout(TFont fnt,string s)
+	//todo: word separation first
+	isLetter=inline(int ch){return u32(ch-64)<64u&&((134217726>>(ch&31))&1)}
+	ch0=int('\n')
+	foreach ch in Utf8Chars(s)
+		wc=g_renderer.GetCharacterAdvance(m_font,ch)
+		!?
+		ch0=ch
+*/
+
+/*(function(){
+	JS=new JSContext
+	sdata=System.IO.ReadAll("test/ushyph.tex")
+	hinfo=parseTexHyphenFile(JS,sdata)
+	Writeln('parsed...')
+	Writeln(hinfo.debugDumpHyphenation('university'))
+	Writeln(hinfo.debugDumpHyphenation('republic'))
+	Writeln(hinfo.debugDumpHyphenation('industrialization'))
+	Writeln(hinfo.debugDumpHyphenation('Illumination'))
+	Writeln(hinfo.debugDumpHyphenation('as'))
+	Writeln(hinfo.debugDumpHyphenation('in'))
+	Writeln(hinfo.debugDumpHyphenation("a"))
+	Writeln(hinfo.debugDumpHyphenation("I"))
+	Writeln(hinfo.debugDumpHyphenation('girl'))
+	Writeln(hinfo.debugDumpHyphenation('okonomiyaki'))
+	Writeln(hinfo.debugDumpHyphenation('tsunami'))
+	Writeln(hinfo.debugDumpHyphenation('table'))
+})()*/
 ///////////////////////////////
 /*/
 hybrid line-size consistency
