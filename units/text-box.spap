@@ -180,7 +180,7 @@ class CLayouter_baseline
 			line_breaksi=DPLayoutText(m_font,s,m_wrap_width, caller.isWordChar,m_hyphenator)
 			line_breaks=new i64[line_breaksi.n]
 			for i=0:line_breaks.n-1
-				line_breaks[i]=line_breaksi[i]
+				line_breaks[i]=i64(line_breaksi[i]&0x7fffffff)|(i64(line_breaksi[i]&0x80000000)<<32)
 		else
 			//it's the *additional* line_breaks
 			line_breaks.push(0LL)
@@ -188,7 +188,7 @@ class CLayouter_baseline
 		return line_breaks
 	}
 	AddString=function(i64[] a,i64[] line_breaks,string s,iptr ofs){
-		bb=_RenderText(MODE_BB,a,line_breaks,s[:ofs-1], 0.,0.,0.f).bb
+		bb=_RenderText(MODE_BB,a,line_breaks,s,ofs, 0.,0.,0.f).bb
 		a[0]=__double_as_longlong(bb.x)
 		a[1]=__double_as_longlong(bb.y)
 	}
@@ -205,7 +205,7 @@ class CLayouter_baseline
 		return ret
 	}
 	SeekInBlock=function(i64[] a,i64[] line_breaks,string s,i64[] b){
-		return iptr(_RenderText(MODE_SEEK,a,line_breaks,s, __longlong_as_double(b[0]),__longlong_as_double(b[1]),0.f).seek_ret)
+		return iptr(_RenderText(MODE_SEEK,a,line_breaks,s,s.n, __longlong_as_double(b[0]),__longlong_as_double(b[1]),0.f).seek_ret)
 	}
 	/////////////////
 	double3 m_caret_overlay
@@ -237,7 +237,7 @@ class CLayouter_baseline
 		//	Writeln(m_overlay_obj["text"].as(string))
 		return m_caret_offset
 	}
-	_RenderText=function(int mode,i64[] a,i64[] line_breaks,string s, double dx,double dy,float scaling){
+	_RenderText=function(int mode,i64[] a,i64[] line_breaks,string s,iptr ofs, double dx,double dy,float scaling){
 		if mode==MODE_RENDER:
 			//Writeln('before fnt_scaled ',m_font.h,' ',scaling)
 			fnt_scaled=m_font
@@ -255,10 +255,43 @@ class CLayouter_baseline
 			if epsEqual(y,m_caret_overlay.y)&&x>m_caret_overlay.x:
 				x+=m_caret_overlay.z
 		//Writeln('>>> ',dx,' ',dy)
+		is_wrapping=(m_wrap_width>0.f)
+		w_space=double(g_renderer.GetCharacterAdvance(m_font,int(' ')))
+		w_hyphen=double(g_renderer.GetCharacterAdvance(m_font,int('-')))
 		for i=0:line_breaks.n-2
-			//got_newline=0
-			//todo: justified wrapping
-			for ch,I in Utf8Chars(s[iptr(line_breaks[i]):iptr(min(line_breaks[i+1],s.n))-1])
+			got_newline=0
+			//justified wrapping
+			space_padding=0.
+			has_hyphen=0
+			if is_wrapping&&i<line_breaks.n-1:
+				nspaces=0
+				n_trailing_space=0
+				w_total=0.
+				if line_breaks[i+1]<0LL:
+					//we have a hyphen
+					has_hyphen=1
+					w_total+=w_hyphen
+				for ch,I in Utf8Chars(s[iptr(line_breaks[i]&0x7fffffffffffffffLL):iptr((line_breaks[i+1]&0x7fffffffffffffffLL)-1)])
+					if ch=='\r'||ch=='\n':
+						//nothing
+						if ch=='\n':
+							got_newline=1
+						continue
+					else if ch==' '||ch=='\t':
+						nspaces++
+						n_trailing_space++
+						w_total+=w_space
+					else
+						n_trailing_space=0
+						w_total+=double(g_renderer.GetCharacterAdvance(m_font,ch))
+				nspaces-=n_trailing_space
+				remaining_space=double(m_wrap_width)-(w_total-w_space*double(n_trailing_space))
+				if nspaces>0&&remaining_space>0.f&&!got_newline:
+					space_padding=remaining_space/float(nspaces)
+				//Writeln(space_padding,' ',nspaces,' ',space_padding)
+			got_newline=0
+			///////////////
+			for ch,I in Utf8Chars(s[iptr(line_breaks[i]&0x7fffffffffffffffLL):iptr(min(line_breaks[i+1]&0x7fffffffffffffffLL,ofs))-1])
 				if mode==MODE_SEEK:
 					if y>epsUp(dy)||dy>=epsDown(y)&&dy<epsDown(y+hc)&&x>=dx:
 						return TRenderingInfo(){bb:double2(x,y),seek_ret:iptr(line_breaks[i]+I)}
@@ -303,14 +336,18 @@ class CLayouter_baseline
 				if ch=='\r'||ch=='\n':
 					//nothing
 					if ch=='\n':
-						//got_newline=1
-						x=0.
-						y+=hc
+						got_newline=1
+						if !is_wrapping:
+							x=0.
+							y+=hc
 					continue
 				else if ch==' ':
-					x+=double(g_renderer.GetCharacterAdvance(m_font,ch))
+					x+=w_space+space_padding
 				else if ch=='\t':
-					x=(floor(x/w_tab)+1.0)*w_tab
+					if is_wrapping:
+						x+=w_space+space_padding
+					else
+						x=(floor(x/w_tab)+1.0)*w_tab
 				else
 					dx_i=double(g_renderer.GetCharacterAdvance(m_font,ch))
 					if mode==MODE_RENDER:
@@ -318,14 +355,17 @@ class CLayouter_baseline
 						//Writeln(x,' ',y,' ',m_font.h,' ',fnt_scaled.h,' ',scalingd,' ',ch,' ',m_color)
 						g_renderer.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),m_color, ch)
 					x+=dx_i
-			if line_breaks[i+1]>=s.n:break
-			//if got_newline:
-			//	x=0.
-			//	y+=hc
+			if is_wrapping:
+				if mode==MODE_RENDER&&has_hyphen:
+					g_renderer.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),m_color, int('-'))
+				if got_newline||i<line_breaks.n-1:
+					x=0.
+					y+=hc
+			if (line_breaks[i+1]&0x7fffffffffffffffLL)>=ofs:break
 		return TRenderingInfo(){bb:double2(x,y),seek_ret:s.n}
 	}
 	RenderText=function(i64[] a,i64[] pp,string s, double dx,double dy,float scaling){
-		_RenderText(MODE_RENDER,a,pp,s,dx,dy,scaling)
+		_RenderText(MODE_RENDER,a,pp,s,s.n,dx,dy,scaling)
 	}
 	GetCharacterHeightAt=function(i64[] a,i64[] pp,string s,iptr ofs){
 		return g_renderer.GetCharacterHeight(m_font)
@@ -597,35 +637,38 @@ auto DPLayoutParagraph(TFont fnt,string s,float w_line, function(int ch):int isW
 	w_space=g_renderer.GetCharacterAdvance(fnt,int(' '))
 	HYPHEN_BADNESS=spaceBadness(w_hyphen*0.5f)
 	auto addWord(iptr a,iptr b)
-		if s.n<=MAX_HYPHENATABLE_WORD:
-			hpoints=hyp.HyphenateWord(s)
+		if b-a<=MAX_HYPHENATABLE_WORD:
+			hpoints=hyp.HyphenateWord(s[a:b-1])
 		else
 			hpoints=new int[]
+		//Writeln('hpoints=',hpoints)
 		w_current=0.f
-		nc=0
+		I_last=0L
 		ph=0
 		foreach ch,I in Utf8Chars(s[a:b-1])
 			wc=g_renderer.GetCharacterAdvance(fnt,ch)
 			w2=w_current+wc
-			if nc&&(w2>w_line-w_hyphen||ph<hpoints.n&&I==hpoints[ph]):
-				atoms.push(TDPAtom(){nc_flags:nc+FLAG_WORD,lg:w_current})
+			if I>I_last&&(w2>w_line-w_hyphen||ph<hpoints.n&&I==hpoints[ph]):
+				atoms.push(TDPAtom(){nc_flags:int(I-I_last)+FLAG_WORD,lg:w_current})
 				w_current=0.f
-				nc=0
+				I_last=I
 				while ph<hpoints.n&&I>=hpoints[ph]
 					ph++
+				w2=w_current+wc
 			w_current=w2
-			nc++
-		if nc:
-			atoms.push(TDPAtom(){nc_flags:nc+FLAG_WORD,lg:w_current})
+		if I_last<b-a:
+			atoms.push(TDPAtom(){nc_flags:int(b-a-I_last)+FLAG_WORD,lg:w_current})
 	p_last_word=0L
+	inline isCJK(int ch)
+		return ch>=0x2E80&&ch<0xA640||ch>=0xAC00&&ch<0xD7FF||ch>=0xF900&&ch<0xFAFF||ch>=0xFE30&&ch<0xFE4F||ch>=0x20000
 	foreach ch,I in Utf8Chars(s)
-		if !isWordChar(ch):
+		if !isWordChar(ch)||isCJK(ch):
 			if p_last_word<I:
 				addWord(p_last_word,I)
 			p_last_word=I+1
 			//////
 			lg=g_renderer.GetCharacterAdvance(fnt,ch==int('\t')?int(' '):ch)
-			nc_flags=0
+			nc_flags=Utf8Length(ch)
 			if ch=='\r':
 				lg=0.f
 			else if ch==' '||ch=='\t':
@@ -687,10 +730,16 @@ auto DPLayoutParagraph(TFont fnt,string s,float w_line, function(int ch):int isW
 		p=blast[p]
 	/////
 	nc=0
-	for i=0:atoms.n-1
+	v0=0
+	for i=0:n-1
 		v=atoms[i].nc_flags
-		atoms[i].nc_flags=nc
+		nc_i=nc
+		if v&v0&FLAG_WORD:
+			nc_i|=0x80000000
+		v0=v
+		atoms[i].nc_flags=nc_i
 		nc+=(v&FLAG_NC)
+	atoms.push(TDPAtom(){nc_flags:nc})
 	lbreaks_fwd=new int[lbreaks.n]
 	for i=0:lbreaks.n-1
 		lbreaks_fwd[lbreaks.n-1-i]=atoms[lbreaks[i]].nc_flags
@@ -699,18 +748,30 @@ auto DPLayoutParagraph(TFont fnt,string s,float w_line, function(int ch):int isW
 auto DPLayoutText(TFont fnt,string s,float w_line, function(int ch):int isWordChar,CHyphenator hyp)
 	//\n handling
 	lbreaks_ret=new int[]
-	p_last_line=0L
-	foreach ch,I in s
-		if ch=='\n':
-			lbreaks_paragraph=DPLayoutParagraph(fnt,s[p_last_line:I-1],w_line, isWordChar,hyp)
-			foreach d in lbreaks_paragraph
-				lbreaks_ret.push(d+int(p_last_line))
-			p_last_line=I+1
-	if p_last_line<s.n:
-		lbreaks_paragraph=DPLayoutParagraph(fnt,s[p_last_line:],w_line, isWordChar,hyp)
+	foreach sline,I in s.TokenizeEx("\n",1)
+		lbreaks_paragraph=DPLayoutParagraph(fnt,sline,w_line, isWordChar,hyp)
+		lbreaks_paragraph.pop()
 		foreach d in lbreaks_paragraph
-			lbreaks_ret.push(d+int(p_last_line))
+			lbreaks_ret.push(d+int(I))
+	lbreaks_ret.push(int(s.n))
+	//Writeln(s,' ',lbreaks_ret)
+	//for i=0:lbreaks_ret.n-2
+	//	Write(s[(lbreaks_ret[i]&0x7fffffff):(lbreaks_ret[i+1]&0x7fffffff)-1])
+	//	if lbreaks_ret[i+1]<0:Write('-')
+	//	Writeln()
 	return lbreaks_ret
+
+//todo
+(function(){
+	JS=new JSContext
+	sdata=System.IO.ReadAll("test/ushyph.tex")
+	hinfo=parseTexHyphenFile(JS,sdata)
+	Writeln('parsed...')
+	Writeln(hinfo.debugDumpHyphenation('gather'))
+	Writeln(hinfo.debugDumpHyphenation('directly'))
+	Writeln(hinfo.debugDumpHyphenation('corresponding'))
+	g_default_hyphenator=hinfo
+})()
 
 ///////////////////////////////
 /*/
@@ -962,6 +1023,7 @@ class CEditableText
 				nds_child=TSLList(){phead:pc,ptail:pc}
 			if !nds_child.phead:
 				nds_child.phead=pc
+				nds_child.ptail=pc
 			else
 				nds_child.ptail.pnext=pc
 			nds_child.ptail=pc
@@ -1198,6 +1260,7 @@ class CEditableText
 					RecomputeStates(nd_new)
 					if !nds_pc.phead:
 						nds_pc.phead=nd_new
+						nds_pc.ptail=nd_new
 					else
 						nds_pc.ptail.pnext=nd_new
 						nds_pc.ptail=nd_new

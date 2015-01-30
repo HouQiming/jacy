@@ -427,6 +427,7 @@ g_renderer=(class(){
 	m_tick0=0LL
 	m_frame_ticks=0LL
 	auto BeginFrame()
+		//Writeln('----------------')
 		m_drawcalls.clear()
 		m_vbo.clear()
 		m_glyph_cache_prev=m_glyph_cache
@@ -696,6 +697,10 @@ g_renderer=(class(){
 		inline f2i_uv(float f)
 			//return max(min(int(f*float(m_uv16_scale)),65535),0)
 			return max(min(__float_as_int(f*float(m_uv16_scale)+8388608.f)-0x4b000000,65535),0)
+		assert(x>=m_clip.x&&x<=m_clip.z)
+		assert(x+w>=m_clip.x&&x+w<=m_clip.z)
+		assert(y>=m_clip.y&&y<=m_clip.w)
+		assert(y+h>=m_clip.y&&y+h<=m_clip.w)
 		if is_static:
 			n0=m_vbo.n
 			m_vbo.resize(n0+VERTEX_SIZE*4)
@@ -932,6 +937,7 @@ g_renderer=(class(){
 		y_final=y+gcitem.y_draw+delta_y
 		if m_text_y_snap:y_final=floor(y_final+0.5f)
 		_DrawBitmap(gcitem.tex_id, x+gcitem.x_draw,y_final,gcitem.w_draw,float(gcitem.bmp.h-2), C, 0)
+		//Writeln(x,' ',y,' ',char(ch))
 	////////////////
 	EDT_END_ELLIPSIS=1
 	EDT_EXPANDTABS=2

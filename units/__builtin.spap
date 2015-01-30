@@ -158,9 +158,9 @@ class Array(T)
 		if Platform.BUILD=="debug":
 			if destructor_nbound_or_slice_reference:
 				if destructor_nbound_or_slice_reference&-(MAX_DTOR_TYPES*2):
-					__basic_api.spapReportError("array can't be resized while it's still referenced by slices")
+					__basic_api.spapReportError("array can't be resized while it's still referenced by slices\0")
 				else
-					__basic_api.spapReportError("array can't be resized while it's bound to external pointers")
+					__basic_api.spapReportError("array can't be resized while it's bound to external pointers\0")
 				return
 		//if n_new>10000000:
 		//	assert(0)
@@ -179,7 +179,7 @@ class Array(T)
 				d=iptr(__basic_api.realloc(__pointer(d),szbytes))
 			if Platform.BUILD=="debug":
 				if !d:
-					__basic_api.spapReportError("failed to allocate an array of @1 bytes".Replace(["@1",string(szbytes)]))
+					__basic_api.spapReportError("failed to allocate an array of @1 bytes\0".Replace(["@1",string(szbytes)]))
 			szold=sizeof(T)*n
 			__basic_api.memset(__pointer(d+szold),0,szbytes-szold)
 			sz=sz_new
@@ -215,7 +215,7 @@ class Array(T)
 	inline pop()
 		if Platform.BUILD=="debug":
 			if !n:
-				__basic_api.spapReportError("can't pop an empty array")
+				__basic_api.spapReportError("can't pop an empty array\0")
 		r=n-1
 		a=this[r]
 		if NEED_RC:
@@ -285,7 +285,7 @@ class Array(T)
 		sz2=szbytes/esz2
 		if nbytes!=n2*esz2:
 			if Platform.BUILD=="debug":
-				__basic_api.spapReportError("in Array.ConvertToAsBinary, the input dat size isn't a multiply of the output element size")
+				__basic_api.spapReportError("in Array.ConvertToAsBinary, the input dat size isn't a multiply of the output element size\0")
 			return Array(T2).NULL
 		ret=new Array(T2)
 		ret.d=d
@@ -305,11 +305,11 @@ class Array(T)
 		a=a0
 		if Platform.BUILD=="debug":
 			if uptr(a)>uptr(b+1):
-				__basic_api.spapReportError("the slice range @1:@2 is invalid".Replace(["@1",string(a),"@2",string(b)]))
+				__basic_api.spapReportError("the slice range @1:@2 is invalid\0".Replace(["@1",string(a),"@2",string(b)]))
 			if b>=n:
-				__basic_api.spapReportError("the slice range @1:@2 is out of bound 0:@3".Replace(["@1",string(a),"@2",string(b),"@3",string(n-1)]))
+				__basic_api.spapReportError("the slice range @1:@2 is out of bound 0:@3\0".Replace(["@1",string(a),"@2",string(b),"@3",string(n-1)]))
 			if !this:
-				__basic_api.spapReportError("slicing a NULL array at @1:@2 is invalid".Replace(["@1",string(a),"@2",string(b)]))
+				__basic_api.spapReportError("slicing a NULL array at @1:@2 is invalid\0".Replace(["@1",string(a),"@2",string(b)]))
 				return Array(T).NULL
 		ret=Array(T)();
 		if a==b+1:return ret;
@@ -498,7 +498,7 @@ class Array(T)
 	inline UniqueBy(const fgetkey)
 		if destructor_nbound_or_slice_reference:
 			if Platform.BUILD=="debug":
-				__basic_api.spapReportError("cannot Unique an array bound to external pointers")
+				__basic_api.spapReportError("cannot Unique an array bound to external pointers\0")
 			return
 		if n>0:
 			n2=1L
@@ -742,7 +742,7 @@ class Array(T)
 		auto Replace(char[][] rules)
 			if Platform.BUILD=="debug":
 				if rules.n&1:
-					__basic_api.spapReportError("in string.Replace, the replace rules didn't come in pairs")
+					__basic_api.spapReportError("in string.Replace, the replace rules didn't come in pairs\0")
 			if !rules.n:return this
 			ac=__detail.spapAhoCorasickBegin(rules,d,n)
 			ret=string()
@@ -1009,7 +1009,7 @@ __meta_state("stdfn.clone")=clone
 inline assert(cond)
 	if Platform.BUILD=="debug":
 		if !cond:
-			__basic_api.spapReportError("assertion failed")
+			__basic_api.spapReportError("assertion failed\0")
 
 inline __int_range(a0,b0,c0)
 	T=typeof(c0)
@@ -1036,7 +1036,7 @@ if Platform.BUILD=="debug":
 	auto __reportRangeCheckError(iptr i,iptr n)
 		//__basic_api.printf("subscript [%d] is out of bound: array size is %d\n",i,n);
 		//if i>0:__basic_api.spapReportError("rangecheck")
-		__basic_api.spapReportError("subscript [@1] is out of bound: array size is @2".Replace(["@1",string(i),"@2",string(n)]))
+		__basic_api.spapReportError("subscript [@1] is out of bound: array size is @2\0".Replace(["@1",string(i),"@2",string(n)]))
 
 inline __compare(a,b,cb_less,cb_equal,cb_greater)
 	T=typeof(a)
