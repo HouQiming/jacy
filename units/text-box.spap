@@ -23,8 +23,9 @@ class ITextStateHandler
 	//The "add" function must be associative
 	//The result should be written to "a"
 	//if AddBlock returns anything... it's considered as a per-block cache
-	//todo: context
-	function(i64[] a,string s,iptr ofs):i64[] AddBlock
+	//todo: request context
+	function(CEditableText caller,i64[] a,string s):i64[] PreprocessBlock
+	function(i64[] a,i64[] pp,string s,iptr ofs) AddString
 	function(i64[] a,i64[] b) Add
 	//For coloring states, we need a colorer
 	function(i64[] a,string s):u8[] ComputeCharColorID
@@ -35,7 +36,6 @@ class ITextStateHandler
 	function():TFont GetDefaultFont
 	function(double2 xy,JSObject obj):double SetCaretOverlay
 	function():double GetCaretOffset
-	//function(string s):i64[] PreprocessBlock
 	//For seeking states, we need comparison and in-block seeking
 	function(i64[] a,i64[] b):int Compare
 	function(i64[] a,i64[] pp,string s,i64[] b):iptr SeekInBlock
@@ -163,27 +163,34 @@ class CLayouter_baseline
 	MODE_SEEK=1
 	MODE_RENDER=2
 	/////////
-	m_word_wrap=0
+	m_wrap_width=0.f
 	m_tab_width=8
 	m_font=TFont()
 	m_color=0xff000000
 	m_bgcolor_selection=0xff800000
+	CHyphenator m_hyphenator
+	/////////////////
 	name=function(){return "renderer"}
 	stateSize=function(){return 2}
 	isLineOnly=function(){return 1}
 	/////////////////
-	AddBlock=function(i64[] a,string s,iptr ofs){
+	PreprocessBlock=function(CEditableText caller,i64[] a,string s){
 		line_breaks=new i64[]
-		if m_word_wrap:
-			//todo: m_word_wrap
+		if m_wrap_width>0.f:
+			line_breaksi=DPLayoutText(m_font,s,m_wrap_width, caller.isWordChar,m_hyphenator)
+			line_breaks=new i64[line_breaksi.n]
+			for i=0:line_breaks.n-1
+				line_breaks[i]=line_breaksi[i]
 		else
 			//it's the *additional* line_breaks
 			line_breaks.push(0LL)
 			line_breaks.push(i64(s.n))
+		return line_breaks
+	}
+	AddString=function(i64[] a,i64[] line_breaks,string s,iptr ofs){
 		bb=_RenderText(MODE_BB,a,line_breaks,s[:ofs-1], 0.,0.,0.f).bb
 		a[0]=__double_as_longlong(bb.x)
 		a[1]=__double_as_longlong(bb.y)
-		return line_breaks
 	}
 	Add=function(i64[] a,i64[] b){
 		bb=combineEditorOffset(double2(__longlong_as_double(a[0]),__longlong_as_double(a[1])),double2(__longlong_as_double(b[0]),__longlong_as_double(b[1])))
@@ -210,7 +217,8 @@ class CLayouter_baseline
 		m_color=int(obj["color"].or(u32(m_color)))
 		m_bgcolor_selection=int(obj["bgcolor_selection"].or(u32(m_bgcolor_selection)))
 		m_tab_width=obj["tab_width"].or(8)
-		m_word_wrap=obj["word_wrap"].or(0)
+		m_wrap_width=obj["wrap_width"].or(0.f)
+		m_hyphenator=obj["hyphenator"].or(g_default_hyphenator)
 	}
 	SetCaretOverlay=function(double2 xy,JSObject obj){
 		m_overlay_obj=obj
@@ -331,7 +339,7 @@ class CLayouter_baseline
 	}
 
 ///////////////////////////////
-class CHyphenInfo
+class CHyphenator
 	int[][string] exceptions
 	u16[] dfa
 	u16[] ops
@@ -394,10 +402,21 @@ class CHyphenInfo
 			if i:SWrite(s,'-')
 			SWrite(s,sword[hyp_points[i]:hyp_points[i+1]-1])
 		return s
-	
+
+auto createDefaultHyphenator()
+	ret=new CHyphenator
+	ret.exceptions=new int[][string]
+	ret.dfa=[u16(0)]
+	ret.ops=new u16[]
+	ret.n_char_types=1
+	ret.char_map=new int[int]
+	return ret
+
+g_default_hyphenator=createDefaultHyphenator()
+
 auto parseTexHyphenFile(JSContext JS,string sdata)
 	//pack ops at the tail as i8
-	ret=new CHyphenInfo
+	ret=new CHyphenator
 	is_pattern=1
 	all_patterns=new string[]
 	all_exceptions=new int[][string]
@@ -409,7 +428,7 @@ auto parseTexHyphenFile(JSContext JS,string sdata)
 		if sline.n>=128:
 			if Platform.BUILD=="debug":
 				Writeln('pattern too long: ',sline)
-			return CHyphenInfo.NULL
+			return CHyphenator.NULL
 		if sline[0]=='{'||sline[0]=='}':continue
 		spattern=new string
 		if is_pattern:
@@ -453,7 +472,7 @@ auto parseTexHyphenFile(JSContext JS,string sdata)
 			Writeln('bad upper case conversion');
 			Writeln('  ',Unicode32ToUtf8(chlist))
 			Writeln('  ',Unicode32ToUtf8(chlist_upper))
-		return CHyphenInfo.NULL
+		return CHyphenator.NULL
 	for i=0:chlist.n-1
 		chappeared[chlist_upper[i]]=chappeared[chlist[i]]
 	ret.char_map=chappeared
@@ -471,7 +490,7 @@ auto parseTexHyphenFile(JSContext JS,string sdata)
 	if all_patterns.n>=32768:
 		if Platform.BUILD=="debug":
 			Writeln('too many patterns: ',all_patterns.n)
-		return CHyphenInfo.NULL
+		return CHyphenator.NULL
 	state_map=new int[int[]]
 	ops_map=new int[u16[]]
 	state_addrs=[0]
@@ -548,11 +567,11 @@ auto parseTexHyphenFile(JSContext JS,string sdata)
 	if Q.n>=32768:
 		if Platform.BUILD=="debug":
 			Writeln('dfa too complicated: ',Q.n)
-		return CHyphenInfo.NULL
+		return CHyphenator.NULL
 	if dfa_ops.n>=32767:
 		if Platform.BUILD=="debug":
 			Writeln('ops too complicated: ',dfa_ops.n)
-		return CHyphenInfo.NULL
+		return CHyphenator.NULL
 	//Writeln('patterns = ',all_patterns.n)
 	//Writeln('dfa size = ',dfa.n)
 	//Writeln('ops size = ',dfa_ops.n)
@@ -562,34 +581,137 @@ auto parseTexHyphenFile(JSContext JS,string sdata)
 	ret.ops=dfa_ops
 	return ret
 
-/*auto DPTextLayout(TFont fnt,string s)
-	//todo: word separation first
-	isLetter=inline(int ch){return u32(ch-64)<64u&&((134217726>>(ch&31))&1)}
-	ch0=int('\n')
-	foreach ch in Utf8Chars(s)
-		wc=g_renderer.GetCharacterAdvance(m_font,ch)
-		!?
-		ch0=ch
-*/
+auto DPLayoutParagraph(TFont fnt,string s,float w_line, function(int ch):int isWordChar,CHyphenator hyp)
+	//ignore tabs
+	FLAG_WORD=0x80000000
+	FLAG_SPACE=0x40000000
+	FLAG_NC=0x3fffffff
+	MAX_HYPHENATABLE_WORD=256
+	LEADING_SPACE_BADNESS=1e18f
+	inline spaceBadness(w){return w*w*w}
+	struct TDPAtom
+		int nc_flags
+		float lg
+	atoms=new TDPAtom[]
+	w_hyphen=g_renderer.GetCharacterAdvance(fnt,int('-'))
+	w_space=g_renderer.GetCharacterAdvance(fnt,int(' '))
+	HYPHEN_BADNESS=spaceBadness(w_hyphen*0.5f)
+	auto addWord(iptr a,iptr b)
+		if s.n<=MAX_HYPHENATABLE_WORD:
+			hpoints=hyp.HyphenateWord(s)
+		else
+			hpoints=new int[]
+		w_current=0.f
+		nc=0
+		ph=0
+		foreach ch,I in Utf8Chars(s[a:b-1])
+			wc=g_renderer.GetCharacterAdvance(fnt,ch)
+			w2=w_current+wc
+			if nc&&(w2>w_line-w_hyphen||ph<hpoints.n&&I==hpoints[ph]):
+				atoms.push(TDPAtom(){nc_flags:nc+FLAG_WORD,lg:w_current})
+				w_current=0.f
+				nc=0
+				while ph<hpoints.n&&I>=hpoints[ph]
+					ph++
+			w_current=w2
+			nc++
+		if nc:
+			atoms.push(TDPAtom(){nc_flags:nc+FLAG_WORD,lg:w_current})
+	p_last_word=0L
+	foreach ch,I in Utf8Chars(s)
+		if !isWordChar(ch):
+			if p_last_word<I:
+				addWord(p_last_word,I)
+			p_last_word=I+1
+			//////
+			lg=g_renderer.GetCharacterAdvance(fnt,ch==int('\t')?int(' '):ch)
+			nc_flags=0
+			if ch=='\r':
+				lg=0.f
+			else if ch==' '||ch=='\t':
+				nc_flags|=FLAG_SPACE
+			atoms.push(TDPAtom(){nc_flags:nc_flags,lg:lg})
+	if p_last_word<s.n:
+		addWord(p_last_word,s.n)
+	//////////////////////////////
+	//the real DP
+	//start from max-greedy, stop when the current line clearly makes it suboptimal
+	n=int(atoms.n)
+	best=new float[n+1]
+	blast=new int[n+1]
+	for i=1:n
+		best_i=1e18f
+		w0=0.f
+		base_badness=0.f
+		if i<n&&(atoms[i].nc_flags&atoms[i-1].nc_flags&FLAG_WORD):
+			//need a hyphen
+			w0=w_hyphen
+			base_badness=HYPHEN_BADNESS
+		if i<n&&(atoms[i].nc_flags&FLAG_SPACE):
+			//spaces can't lead a line
+			base_badness=LEADING_SPACE_BADNESS
+		//greedy first
+		w=w0
+		j_min=i-1
+		for j=i-1:-1:0
+			w_j=atoms[j].lg
+			if j==i-1&&(atoms[i-1].nc_flags&FLAG_SPACE):
+				//trailing space doesn't count
+				w_j=0.f
+			w2=w+w_j
+			if w2>=w_line:break
+			w=w2
+			j_min=j
+		w_tail=max(w_line-w,0.f)
+		blast_i=j_min
+		for j=j_min:i-1
+			if j==i-1&&(atoms[i-1].nc_flags&FLAG_SPACE):
+				break
+			cost=best[j]
+			if i!=n:
+				cost_j=spaceBadness(w_tail)
+				if cost_j>best_i:
+					break
+				cost+=cost_j
+			if best_i>cost:
+				best_i=cost
+				blast_i=j
+			w_tail+=atoms[j].lg
+		best[i]=best_i+base_badness
+		blast[i]=blast_i
+	lbreaks=new int[]
+	p=n
+	for(;;)
+		lbreaks.push(p)
+		if !p:break
+		p=blast[p]
+	/////
+	nc=0
+	for i=0:atoms.n-1
+		v=atoms[i].nc_flags
+		atoms[i].nc_flags=nc
+		nc+=(v&FLAG_NC)
+	lbreaks_fwd=new int[lbreaks.n]
+	for i=0:lbreaks.n-1
+		lbreaks_fwd[lbreaks.n-1-i]=atoms[lbreaks[i]].nc_flags
+	return lbreaks_fwd
 
-/*(function(){
-	JS=new JSContext
-	sdata=System.IO.ReadAll("test/ushyph.tex")
-	hinfo=parseTexHyphenFile(JS,sdata)
-	Writeln('parsed...')
-	Writeln(hinfo.debugDumpHyphenation('university'))
-	Writeln(hinfo.debugDumpHyphenation('republic'))
-	Writeln(hinfo.debugDumpHyphenation('industrialization'))
-	Writeln(hinfo.debugDumpHyphenation('Illumination'))
-	Writeln(hinfo.debugDumpHyphenation('as'))
-	Writeln(hinfo.debugDumpHyphenation('in'))
-	Writeln(hinfo.debugDumpHyphenation("a"))
-	Writeln(hinfo.debugDumpHyphenation("I"))
-	Writeln(hinfo.debugDumpHyphenation('girl'))
-	Writeln(hinfo.debugDumpHyphenation('okonomiyaki'))
-	Writeln(hinfo.debugDumpHyphenation('tsunami'))
-	Writeln(hinfo.debugDumpHyphenation('table'))
-})()*/
+auto DPLayoutText(TFont fnt,string s,float w_line, function(int ch):int isWordChar,CHyphenator hyp)
+	//\n handling
+	lbreaks_ret=new int[]
+	p_last_line=0L
+	foreach ch,I in s
+		if ch=='\n':
+			lbreaks_paragraph=DPLayoutParagraph(fnt,s[p_last_line:I-1],w_line, isWordChar,hyp)
+			foreach d in lbreaks_paragraph
+				lbreaks_ret.push(d+int(p_last_line))
+			p_last_line=I+1
+	if p_last_line<s.n:
+		lbreaks_paragraph=DPLayoutParagraph(fnt,s[p_last_line:],w_line, isWordChar,hyp)
+		foreach d in lbreaks_paragraph
+			lbreaks_ret.push(d+int(p_last_line))
+	return lbreaks_ret
+
 ///////////////////////////////
 /*/
 hybrid line-size consistency
@@ -757,7 +879,10 @@ class CEditableText
 			ccnt=i64(s.n)
 			foreach hstate,I in m_handlers
 				a_slice=a[m_state_ofs[I]:m_state_ofs[I+1]-1]
-				block_state=hstate.AddBlock(a_slice,s,s.n)
+				block_state=i64[].NULL
+				if hstate.PreprocessBlock:
+					block_state=hstate.PreprocessBlock(this,a_slice,s)
+				hstate.AddString(a_slice,block_state,s,s.n)
 				a_slice.discard()
 				a[n+I]=i64(a.n)
 				if block_state:
@@ -793,7 +918,10 @@ class CEditableText
 				handler.Add(acc,nd.a)
 				nd=nd.pnext
 			if nd.s:
-				handler.AddBlock(acc,nd.s,iptr(ccnt0-ccnt_base))
+				n0=m_state_ofs.back()
+				ofspp=nd.a[n0+handler.id]
+				ofspp2=(handler.id==m_handlers.n-1?i64(nd.a.n):nd.a[n0+handler.id+1])
+				handler.AddString(acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s,iptr(ccnt0-ccnt_base))
 				return acc
 			assert(!!nd.pchild)
 			nd=nd.pchild
