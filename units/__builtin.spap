@@ -688,7 +688,9 @@ class Array(T)
 				return T(ci)
 			else
 				__error("I don't know how to convert a hex string into type '@1'",T)
-		inline TokenizeEx(string cset,int allow_empty)
+		TOKENIZE_ALLOW_EMPTY=1
+		TOKENIZE_INCLUDE_SEPARATOR=2
+		inline TokenizeEx(string cset,int flags)
 			return {
 				forEach:inline(fbody){
 					ok=u32[8]
@@ -712,9 +714,9 @@ class Array(T)
 						if ch<256&&(ok[ch>>5]&(1u<<(ch&31)))||I==n:
 							Ilast0=Ilast
 							Ilast=I+1
-							if allow_empty?(Ilast0<=I):(Ilast0<I):
-								ret=this.slice(Ilast0,I-1)
-								fbody(ret,Ilast0,I)
+							if (flags&TOKENIZE_ALLOW_EMPTY)?(Ilast0<=I):(Ilast0<I):
+								ret=this.slice(Ilast0,(flags&TOKENIZE_INCLUDE_SEPARATOR)?I-(I==n):I-1)
+								fbody(ret,Ilast0,(flags&TOKENIZE_INCLUDE_SEPARATOR)?I+(I<n):I)
 								ret=string.NULL
 				}
 			}

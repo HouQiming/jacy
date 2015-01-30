@@ -165,7 +165,7 @@ var Edit_prototype={
 		var hc=ed.GetCharacterHeightAt(ccnt1);
 		var page_height=this.h;
 		if(mode!='show'){
-			if(this.scroll_y>ed_caret.y||this.scroll_y<=ed_caret.y-page_height||emphasize=='center'){
+			if(this.scroll_y>ed_caret.y||this.scroll_y<=ed_caret.y-page_height||mode=='center'){
 				//mode 'center_if_hidden': only center when the thing was invisible
 				this.scroll_y=ed_caret.y-(page_height-hc)/2;
 			}

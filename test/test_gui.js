@@ -155,10 +155,10 @@ var demo_textbox=function(id,attrs){
 			//ed.Render({x:0,y:0,w:1024-16,h:768-16, scr_x:8,scr_y:8,scale:1})
 			//UI.SetCaret(wnd,8,8,3,24,0x7f000000,500)
 			var textbox=W.Edit("textbox",{
-				font:UI.Font("cmunrm",24),color:0xff000000^color_mask,
-				wrap_width:800,
+				//font:UI.Font("cmunrm",24),color:0xff000000^color_mask,
+				font:UI.Font("cmunrm",32),color:0xff000000^color_mask,
+				text:paper_text,wrap_width:800,
 				//text:code_text,
-				text:paper_text,
 				x:8,y:8,w:1024-16,h:768-16
 			})
 			W.Button("invert",{

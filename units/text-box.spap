@@ -355,13 +355,13 @@ class CLayouter_baseline
 						//Writeln(x,' ',y,' ',m_font.h,' ',fnt_scaled.h,' ',scalingd,' ',ch,' ',m_color)
 						g_renderer.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),m_color, ch)
 					x+=dx_i
+			if (line_breaks[i+1]&0x7fffffffffffffffLL)>ofs:break
 			if is_wrapping:
 				if mode==MODE_RENDER&&has_hyphen:
 					g_renderer.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),m_color, int('-'))
 				if got_newline||i<line_breaks.n-1:
 					x=0.
 					y+=hc
-			if (line_breaks[i+1]&0x7fffffffffffffffLL)>=ofs:break
 		return TRenderingInfo(){bb:double2(x,y),seek_ret:s.n}
 	}
 	RenderText=function(i64[] a,i64[] pp,string s, double dx,double dy,float scaling){
@@ -385,9 +385,11 @@ class CHyphenator
 	u16[] ops
 	int n_char_types
 	int[int] char_map
+	min_hyphen=6
 	auto HyphenateWord(string sword)
 		exception=exceptions[sword.ToLower()]
 		if exception:return exception
+		if sword.n<min_hyphen:return new int[]
 		//returns int separation points
 		hyp_levels=new u8[]
 		hyp_points=new int[]
@@ -665,10 +667,10 @@ auto DPLayoutParagraph(TFont fnt,string s,float w_line, function(int ch):int isW
 		if !isWordChar(ch)||isCJK(ch):
 			if p_last_word<I:
 				addWord(p_last_word,I)
-			p_last_word=I+1
 			//////
 			lg=g_renderer.GetCharacterAdvance(fnt,ch==int('\t')?int(' '):ch)
 			nc_flags=Utf8Length(ch)
+			p_last_word=I+nc_flags
 			if ch=='\r':
 				lg=0.f
 			else if ch==' '||ch=='\t':
@@ -682,6 +684,7 @@ auto DPLayoutParagraph(TFont fnt,string s,float w_line, function(int ch):int isW
 	n=int(atoms.n)
 	best=new float[n+1]
 	blast=new int[n+1]
+	//todo: need O(n) j_min
 	for i=1:n
 		best_i=1e18f
 		w0=0.f
@@ -748,7 +751,7 @@ auto DPLayoutParagraph(TFont fnt,string s,float w_line, function(int ch):int isW
 auto DPLayoutText(TFont fnt,string s,float w_line, function(int ch):int isWordChar,CHyphenator hyp)
 	//\n handling
 	lbreaks_ret=new int[]
-	foreach sline,I in s.TokenizeEx("\n",1)
+	foreach sline,I in s.TokenizeEx("\n",s.TOKENIZE_ALLOW_EMPTY|s.TOKENIZE_INCLUDE_SEPARATOR)
 		lbreaks_paragraph=DPLayoutParagraph(fnt,sline,w_line, isWordChar,hyp)
 		lbreaks_paragraph.pop()
 		foreach d in lbreaks_paragraph
@@ -1011,7 +1014,7 @@ class CEditableText
 		pc_pnext=CSLNode.NULL
 		for(pc=nds_toadd.phead;pc;pc=pc_pnext)
 			pc_pnext=pc.pnext
-			if iptr(pc)!=iptr(nd_ignore)&&System.Algorithm.Random(float)<SKIPLIST_PROMOTION_PROBABILITY&&nds_child.phead:
+			if iptr(pc)!=iptr(nd_ignore)&&nds_child.phead&&System.Algorithm.Random(float)<SKIPLIST_PROMOTION_PROBABILITY:
 				//finish off the dangling chain
 				nds_child.ptail.pnext=CSLNode.NULL
 				nds_ret.ptail.pchild=nds_child.phead
@@ -1021,17 +1024,19 @@ class CEditableText
 				nds_ret.ptail.pnext=nd_new
 				nds_ret.ptail=nd_new
 				nds_child=TSLList(){phead:pc,ptail:pc}
-			if !nds_child.phead:
-				nds_child.phead=pc
-				nds_child.ptail=pc
 			else
-				nds_child.ptail.pnext=pc
-			nds_child.ptail=pc
+				if !nds_child.phead:
+					nds_child.phead=pc
+					//nds_child.ptail=pc
+				else
+					nds_child.ptail.pnext=pc
+				nds_child.ptail=pc
 		return (nds_ret,nds_child)
 	auto skipListPromoteToRoot(TSLList nds_toadd0)
 		nds_toadd=nds_toadd0
 		for(;;)
 			if iptr(nds_toadd.phead)==iptr(nds_toadd.ptail):
+				assert(!nds_toadd.phead.pnext)
 				return nds_toadd.phead
 			//promote the head
 			nd_new=new CSLNode
@@ -1060,8 +1065,12 @@ class CEditableText
 			p0=p
 			while p<bops.n&&bops[p].ccnt<ccnt_base+pc.ccnt:
 				p++
+			assert(p==bops.n||bops[p].ccnt==ccnt_base+pc.ccnt)
+			!? //each bop could cover *multiple* children... need a mergesort-like pass
+			//Writeln('>>> ',formatNumber(iptr(pc),{base:16,align:8}),' ',formatNumber(iptr(pc_pnext),{base:16,align:8}),' ',p0,' ',p,' ',ccnt_base,' ',pc.ccnt)
 			if p0<p:
 				bk=bops[p-1]
+				bk2=bops[p0]
 				bops[p-1].sz=min(ccnt_base+pc.ccnt-bops[p-1].ccnt,bops[p-1].sz)
 				if bops[p-1].sz<bk.sz:
 					bops[p-1].ss=string[].NULL
@@ -1070,7 +1079,7 @@ class CEditableText
 				bops[p0].sz-=bops[p0].ccnt
 				assert(bops[p-1].sz>0LL)
 				assert(bops[p0].sz>0LL)
-				if p0==p-1&&!bops[p0].ss&&bops[p0].ccnt==ccnt_base&&bops[p0].sz==pc.ccnt:
+				if p0==p-1&&(!bops[p0].ss||ccnt_base+pc.ccnt!=bops[p0].ccnt+bops[p0].sz)&&bops[p0].ccnt==ccnt_base&&bops[p0].sz==pc.ccnt:
 					//completely deleted, discard the child
 					continue
 				if pc.s:
@@ -1085,7 +1094,8 @@ class CEditableText
 							nds_pc.phead=nd_new
 						else
 							nds_pc.ptail.pnext=nd_new
-							nds_pc.ptail=nd_new
+						nds_pc.ptail=nd_new
+					//Writeln(formatNumber(iptr(nds_pc.phead),{base:16,align:8}),' ',formatNumber(iptr(nds_pc.ptail),{base:16,align:8}))
 					if bops[p0].sz:
 						//throw away pc
 						assert(bops[p0].sz==pc.ccnt)
@@ -1095,6 +1105,7 @@ class CEditableText
 				else
 					nds_pc=BlockEdit(pc,ccnt_base,bops[p0:p-1])
 				(nds_ret,nds_child)=skipListPromote(nds_ret, nds_child,nds_pc,pc)
+				bops[p0]=bk2
 				bops[p-1]=bk
 			else
 				pc.pnext=CSLNode.NULL
@@ -1260,24 +1271,23 @@ class CEditableText
 					RecomputeStates(nd_new)
 					if !nds_pc.phead:
 						nds_pc.phead=nd_new
-						nds_pc.ptail=nd_new
 					else
 						nds_pc.ptail.pnext=nd_new
-						nds_pc.ptail=nd_new
+					nds_pc.ptail=nd_new
 		m_skiplist=skipListPromoteToRoot(nds_pc)
+		assert(!m_skiplist.pnext)
+		//debugDumpSL()
 	auto _GetText(string buf,iptr ofs, CSLNode nd,i64 ccnt0,i64 ccnt1)
 		if nd.s:
 			copy(buf[ofs:],nd.s[iptr(ccnt0):iptr(ccnt1-1LL)])
 		else
 			ccnt_base=0LL
-			ofs_i=ofs
 			for(pc=nd.pchild;pc;pc=pc.pnext)
 				p0=max(ccnt0-ccnt_base,0LL)
 				p1=min(ccnt1-ccnt_base,pc.ccnt)
 				if p1>p0:
-					_GetText(buf,ofs_i, pc,p0,p1)
+					_GetText(buf,ofs+iptr(max(ccnt_base-ccnt0,0LL)), pc,p0,p1)
 				ccnt_base+=pc.ccnt
-				ofs_i+=iptr(pc.ccnt)
 	auto GetText(i64 ccnt,i64 sz)
 		buf=new char[sz]
 		_GetText(buf,0L, m_skiplist,ccnt,ccnt+sz)
@@ -1361,6 +1371,7 @@ class CEditableText
 				if handler.Compare(acc2,b)>0:
 					acc2=i64[].NULL
 					return _Bisect(acc, handler,ccnt_base,pc,b)
+				copy(acc,acc2)
 				ccnt_base+=pc.ccnt
 			return ccnt_base
 	auto Bisect(int hid,i64[] b)
@@ -1616,6 +1627,9 @@ class CEditableText
 		ccnt=JS.Param(0).or(0LL)
 		range1=GetTextSize()
 		if u64(ccnt)>u64(range1):
+			//todo
+			debugDumpSL()
+			//todo
 			return 0
 		xy=XYFromCcnt(ccnt)
 		ret=JS.New()
@@ -1767,6 +1781,32 @@ class CEditableText
 		ret[1]=ch1
 		return JS.Return(ret)
 	}
+	///////////////////////////
+	auto debugDumpSL()
+		levels=new string[]
+		auto _debugDumpSL(int level,CSLNode nd0)
+			if levels.n<=level*2:
+				levels.push(new string)
+				levels.push(new string)
+			for(nd=nd0;nd;nd=nd.pnext)
+				sname=levels[level*2+0]
+				sdash=levels[level*2+1]
+				if nd.s:
+					sdash.push(nd.s.Replace(["\r",".", "\t",".", "\n","."]))
+					assert(nd.s.n==nd.ccnt)
+				else
+					if nd.ccnt:sdash.push('+')
+					for i=1:int(nd.ccnt)-1
+						sdash.push('-')
+				sname.push(formatNumber(iptr(nd),{base:16,align:8}))
+				sname.resize(sdash.n)
+				if nd.pchild:
+					_debugDumpSL(level+1,nd.pchild)
+		_debugDumpSL(0,m_skiplist)
+		foreach s in levels
+			Writeln(s.Replace(["\0","."]))
+		Writeln()
+	///////////////////////////
 	auto __JS_prototype(JSObject proto)
 		proto.ExportProperty(this,"m_handler_registration")
 		proto.ExportProperty(this,"m_caret_locator")
