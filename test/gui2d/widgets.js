@@ -214,6 +214,7 @@ var Edit_prototype={
 		var lg=Duktape.__byte_length(event.text);
 		this.sel0.ccnt=ccnt0+lg;
 		this.sel1.ccnt=ccnt0+lg;
+		this.AutoScroll("show");
 		UI.Refresh()
 	},
 	OnKeyDown:function(event){

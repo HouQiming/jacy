@@ -23,7 +23,7 @@ class ITextStateHandler
 	//The "add" function must be associative
 	//The result should be written to "a"
 	//if AddBlock returns anything... it's considered as a per-block cache
-	//todo: request context
+	//todo: request context, eof block detection
 	function(CEditableText caller,i64[] a,string s):i64[] PreprocessBlock
 	function(i64[] a,i64[] pp,string s,iptr ofs) AddString
 	function(i64[] a,i64[] b) Add
@@ -286,7 +286,8 @@ class CLayouter_baseline
 						w_total+=double(g_renderer.GetCharacterAdvance(m_font,ch))
 				nspaces-=n_trailing_space
 				remaining_space=double(m_wrap_width)-(w_total-w_space*double(n_trailing_space))
-				if nspaces>0&&remaining_space>0.f&&!got_newline:
+				//with paragraph consistency, got_newline should hold for i==line_breaks.n-2 unless we're at eof
+				if nspaces>0&&remaining_space>0.f&&!got_newline&&i<line_breaks.n-2:
 					space_padding=remaining_space/float(nspaces)
 				//Writeln(space_padding,' ',nspaces,' ',space_padding)
 			got_newline=0
@@ -359,7 +360,7 @@ class CLayouter_baseline
 			if is_wrapping:
 				if mode==MODE_RENDER&&has_hyphen:
 					g_renderer.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),m_color, int('-'))
-				if got_newline||i<line_breaks.n-1:
+				if got_newline||i<line_breaks.n-2:
 					x=0.
 					y+=hc
 		return TRenderingInfo(){bb:double2(x,y),seek_ret:s.n}
@@ -1035,7 +1036,7 @@ class CEditableText
 	auto skipListPromoteToRoot(TSLList nds_toadd0)
 		nds_toadd=nds_toadd0
 		for(;;)
-			if iptr(nds_toadd.phead)==iptr(nds_toadd.ptail):
+			if iptr(nds_toadd.phead)==iptr(nds_toadd.ptail)&&!nds_toadd.phead.s:
 				assert(!nds_toadd.phead.pnext)
 				return nds_toadd.phead
 			//promote the head
@@ -1061,12 +1062,13 @@ class CEditableText
 		pc_pnext=CSLNode.NULL
 		for(pc=nd.pchild;pc;pc=pc_pnext)
 			pc_pnext=pc.pnext
+			pc_ccnt=pc.ccnt
 			//intersect cut bops with the child
 			p0=p
 			while p<bops.n&&bops[p].ccnt<ccnt_base+pc.ccnt:
 				p++
-			assert(p==bops.n||bops[p].ccnt==ccnt_base+pc.ccnt)
-			!? //each bop could cover *multiple* children... need a mergesort-like pass
+			//assert(p==bops.n||bops[p].ccnt==ccnt_base+pc.ccnt)
+			//each bop could cover *multiple* children... need to test it
 			//Writeln('>>> ',formatNumber(iptr(pc),{base:16,align:8}),' ',formatNumber(iptr(pc_pnext),{base:16,align:8}),' ',p0,' ',p,' ',ccnt_base,' ',pc.ccnt)
 			if p0<p:
 				bk=bops[p-1]
@@ -1079,40 +1081,45 @@ class CEditableText
 				bops[p0].sz-=bops[p0].ccnt
 				assert(bops[p-1].sz>0LL)
 				assert(bops[p0].sz>0LL)
-				if p0==p-1&&(!bops[p0].ss||ccnt_base+pc.ccnt!=bops[p0].ccnt+bops[p0].sz)&&bops[p0].ccnt==ccnt_base&&bops[p0].sz==pc.ccnt:
+				if p0==p-1&&(!bops[p0].ss||ccnt_base+pc.ccnt<bops[p0].ccnt+bops[p0].sz)&&bops[p0].ccnt==ccnt_base&&bops[p0].sz==pc.ccnt:
 					//completely deleted, discard the child
-					continue
-				if pc.s:
-					assert(p0==p-1)
-					assert(!!bops[p0].ss)
-					assert(bops[p0].ccnt==ccnt_base)
-					nds_pc=TSLList()
-					foreach s in bops[p0].ss
-						nd_new=new CSLNode(){s:s,ccnt:s.n}
-						RecomputeStates(nd_new)
-						if !nds_pc.phead:
-							nds_pc.phead=nd_new
-						else
-							nds_pc.ptail.pnext=nd_new
-						nds_pc.ptail=nd_new
-					//Writeln(formatNumber(iptr(nds_pc.phead),{base:16,align:8}),' ',formatNumber(iptr(nds_pc.ptail),{base:16,align:8}))
-					if bops[p0].sz:
-						//throw away pc
-						assert(bops[p0].sz==pc.ccnt)
-					else
-						//keep it
-						nds_pc=nds_pc.cat(TSLList(){phead:pc,ptail:pc})
+					//do nothing here but continue on with the loop code
 				else
-					nds_pc=BlockEdit(pc,ccnt_base,bops[p0:p-1])
-				(nds_ret,nds_child)=skipListPromote(nds_ret, nds_child,nds_pc,pc)
+					if pc.s:
+						assert(p0==p-1)
+						assert(!!bops[p0].ss)
+						assert(bops[p0].ccnt==ccnt_base)
+						nds_pc=TSLList()
+						foreach s in bops[p0].ss
+							nd_new=new CSLNode(){s:s,ccnt:s.n}
+							RecomputeStates(nd_new)
+							if !nds_pc.phead:
+								nds_pc.phead=nd_new
+							else
+								nds_pc.ptail.pnext=nd_new
+							nds_pc.ptail=nd_new
+						//Writeln(formatNumber(iptr(nds_pc.phead),{base:16,align:8}),' ',formatNumber(iptr(nds_pc.ptail),{base:16,align:8}))
+						if bops[p0].sz:
+							//throw away pc
+							assert(bops[p0].sz==pc.ccnt)
+						else
+							//keep it
+							nds_pc=nds_pc.cat(TSLList(){phead:pc,ptail:pc})
+					else
+						nds_pc=BlockEdit(pc,ccnt_base,bops[p0:p-1])
+					(nds_ret,nds_child)=skipListPromote(nds_ret, nds_child,nds_pc,pc)
 				bops[p0]=bk2
 				bops[p-1]=bk
+				//the last bop covers multiple segments
+				if ccnt_base+pc_ccnt<bops[p-1].ccnt+bops[p-1].sz:
+					p--
 			else
 				pc.pnext=CSLNode.NULL
 				nds_child=nds_child.cat(TSLList(){phead:pc,ptail:pc})
-			ccnt_base+=pc.ccnt
+			ccnt_base+=pc_ccnt
 		//coulddo: removing nd itself
-		nds_ret.ptail.pchild=nds_child.phead;nds_child.ptail.pnext=CSLNode.NULL
+		nds_ret.ptail.pchild=nds_child.phead;
+		if nds_child.ptail:nds_child.ptail.pnext=CSLNode.NULL
 		RecomputeStates(nds_ret.ptail)
 		return nds_ret
 	auto SortLocators()
@@ -1247,8 +1254,11 @@ class CEditableText
 					//merge with the next block - it's mandatory for line-only guys
 					ccnt_base+=ofs
 					(pb,ofs)=BlockFromCcnt(ccnt_base)
-					assert(!ofs)
-					ofs=0LL
+					if ofs==pb.ccnt:
+						//do nothing, it's the tail
+					else
+						assert(!ofs)
+						ofs=0LL
 			//move by sz
 			if op.sz:
 				ofs+=op.sz
@@ -1276,6 +1286,9 @@ class CEditableText
 					nds_pc.ptail=nd_new
 		m_skiplist=skipListPromoteToRoot(nds_pc)
 		assert(!m_skiplist.pnext)
+		if !m_skiplist.ccnt:
+			m_skiplist=new CSLNode(){s:new string}
+			RecomputeStates(m_skiplist)
 		//debugDumpSL()
 	auto _GetText(string buf,iptr ofs, CSLNode nd,i64 ccnt0,i64 ccnt1)
 		if nd.s:
