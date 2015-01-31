@@ -183,6 +183,9 @@ class Array(T)
 			szold=sizeof(T)*n
 			__basic_api.memset(__pointer(d+szold),0,szbytes-szold)
 			sz=sz_new
+		else if n<n_new:
+			szold=sizeof(T)*n
+			__basic_api.memset(__pointer(d+szold),0,sizeof(T)*n_new-szold)
 		else
 			if NEED_RC:
 				__MassRelease(n_new,n)

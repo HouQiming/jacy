@@ -765,18 +765,6 @@ auto DPLayoutText(TFont fnt,string s,float w_line, function(int ch):int isWordCh
 	//	Writeln()
 	return lbreaks_ret
 
-//todo
-(function(){
-	JS=new JSContext
-	sdata=System.IO.ReadAll("test/ushyph.tex")
-	hinfo=parseTexHyphenFile(JS,sdata)
-	Writeln('parsed...')
-	Writeln(hinfo.debugDumpHyphenation('gather'))
-	Writeln(hinfo.debugDumpHyphenation('directly'))
-	Writeln(hinfo.debugDumpHyphenation('corresponding'))
-	g_default_hyphenator=hinfo
-})()
-
 ///////////////////////////////
 /*/
 hybrid line-size consistency
@@ -1480,9 +1468,7 @@ class CEditableText
 		g_renderer.PopCliprect()
 		m_caret_offset=handler.GetCaretOffset()
 	/////////////////////////////////////////////////
-	//todo: locator undo, conservative pairs handling
 	//just record classes and ccnts - restoring ccnt for discarded locators is OK
-	//todo: port edcore to js for UI interaction
 	auto CreateLocator(i64 ccnt,int side)
 		ret=new CLocator(){ccnt:ccnt,side:i8(side)}
 		m_locators.push(ret)
@@ -1495,7 +1481,6 @@ class CEditableText
 		hid=m_handler_registration["renderer"].as(int)
 		a=GetStateAt(hid,ccnt)
 		return double2(__longlong_as_double(a[0]),__longlong_as_double(a[1]))
-	//todo: locator-based highlighting / hiding
 	//todo: style changing
 	/////////////////
 	inline enumCharsForward(i64 ccnt0)
@@ -1640,9 +1625,7 @@ class CEditableText
 		ccnt=JS.Param(0).or(0LL)
 		range1=GetTextSize()
 		if u64(ccnt)>u64(range1):
-			//todo
-			debugDumpSL()
-			//todo
+			//debugDumpSL()
 			return 0
 		xy=XYFromCcnt(ccnt)
 		ret=JS.New()

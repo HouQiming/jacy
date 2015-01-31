@@ -514,6 +514,21 @@ g_renderer=(class(){
 				//		if !is_capable:
 				//			m_srgb_supported=0
 			//m_srgb_supported=0
+	auto debugDumpVBO()
+		Writeln('=========== Draw')
+		inline i2f_P(int i)
+			return (__int_as_float(i+0x4b000000)-8388608.f)/float(m_crd16_scale)
+		inline i2f_uv(int i)
+			return (__int_as_float(i+0x4b000000)-8388608.f)/float(m_uv16_scale)
+		for i=0:VERTEX_SIZE:m_vbo.n-VERTEX_SIZE
+			P_x=i2f_P(m_vbo[i]&0xffff)
+			P_y=i2f_P((m_vbo[i]>>16)&0xffff)
+			u=i2f_uv(m_vbo[i+1]&0xffff)
+			v=i2f_uv((m_vbo[i+1]>>16)&0xffff)
+			Writeln(formatNumber(P_x,{frac:1}),' ',formatNumber(P_y,{frac:1}),' ',formatNumber(u,{frac:3}),' ',formatNumber(v,{frac:3}),' ',
+				formatNumber(u32(m_vbo[i+2]),{base:16,align:8}))
+			if ((i/VERTEX_SIZE)&3)==3:
+				Writeln('-------')
 	auto DrawWindow(__pointer hwnd_onlydraw)
 		TestSRGB()
 		m_texture_downloaded=0
@@ -586,6 +601,7 @@ g_renderer=(class(){
 			m_tech.SetFragmentShader("void main(){vec4 C_tex=texture2D(tex0,uv);gl_FragColor=vec4(pow(C_tex.xyz,vec3("+formatNumber(m_gamma,{frac:7})+")),C_tex.w)*C;}")
 		else
 			m_tech.SetFragmentShader("void main(){gl_FragColor=texture2D(tex0,uv)*C;}")
+		//debugDumpVBO()
 		foreach dc in m_drawcalls
 			if dc.hwnd==hwnd_onlydraw||!hwnd_onlydraw:
 				pslice=m_vbo[dc.pv:]
@@ -1220,8 +1236,6 @@ g_renderer=(class(){
 					bmpid_xy=-1
 				else
 					bmpid_xy=bmpid
-				n0=m_vbo.n
-				m_vbo.resize(n0+VERTEX_SIZE*4)
 				//clipping
 				if x0<m_clip.x:
 					dx=m_clip.x-x0
@@ -1249,10 +1263,10 @@ g_renderer=(class(){
 					dv=(v1-v0)*t
 					v1+=dv
 				if !(y1>y0):continue
+				n0=m_vbo.n
+				m_vbo.resize(n0+VERTEX_SIZE*4)
 				if bmpid_xy==-1:
 					//all 0.f anyway, should work as is
-					n0=m_vbo.n
-					m_vbo.resize(n0+VERTEX_SIZE*4)
 					m_vbo[n0+(VERTEX_SIZE*0+0)]=(f2i_P(y0)<<16)+f2i_P(x0)
 					m_vbo[n0+(VERTEX_SIZE*0+1)]=(f2i_uv(v0)<<16)+f2i_uv(u0)
 					m_vbo[n0+(VERTEX_SIZE*0+2)]=C0
