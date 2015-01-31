@@ -1,0 +1,84 @@
+import System.Console.*
+import System.Algorithm.*
+
+auto makeCaseTable(int2[] src)
+	s=new string
+	cur_delta=0
+	cur_chars=new int[]
+	auto flush()
+		if cur_chars.n:
+			SWrite(s,cur_delta,' ',cur_chars,'\n')
+	foreach pp in src
+		delta=pp.y-pp.x
+		if delta!=cur_delta:
+			flush()
+			cur_delta=delta
+			cur_chars=new int[]
+		cur_chars.push(pp.x)
+	flush()
+	return s
+	
+(function(){
+	wanted=['Ll','Lu','Lt','Lo','Lm','Nd','Pc']
+	is_wanted=new int[string]
+	foreach s in wanted
+		is_wanted[s]=1
+	//////
+	r0=-2;r1=-2
+	//sret=new int[]
+	coderet=new string
+	auto flush(int r0,int r1)
+		//sret.push(r0)
+		//sret.push(r1)
+		coderet.push(string(r0))
+		coderet.push(',')
+		coderet.push(string(r1+1))
+		coderet.push(',')
+	auto goodChar(int ch)
+		if r0<0:r0=ch
+		r1=ch
+	auto badChar(int ch)
+		if r1>=0:
+			flush(r0,r1)
+		r0=-1;r1=-1
+	//////
+	to_upper=new int2[]
+	to_lower=new int2[]
+	sdata=System.IO.ReadAll("c:\\tp\\osslib\\unicodedata.txt")
+	c0=0
+	foreach sline,I in sdata.Tokenize("\r\n")
+		swords=new string[]
+		foreach sword in sline.TokenizeEx(";",1)
+			swords.push(sword)
+		ch=swords[0].asHex(int)
+		s_lower_case=swords[swords.n-2]
+		s_upper_case=swords[swords.n-1]
+		if s_lower_case.n:
+			to_lower.push(int2(ch,s_lower_case.asHex(int)))
+		if s_upper_case.n:
+			to_upper.push(int2(ch,s_upper_case.asHex(int)))
+		sdesc=swords[1]
+		scategory=swords[2]
+		if sdesc.EndsWith("First>"):
+			c0=ch
+		else if sdesc.EndsWith("Last>"):
+			if is_wanted[scategory]:
+				//for chi=c0:ch
+				goodChar(c0)
+				goodChar(ch)
+			else
+				badChar(c0)
+				badChar(ch)
+		else
+			if is_wanted[scategory]:
+				goodChar(ch)
+			else
+				badChar(ch)
+	flush(r0,r1)
+	//System.IO.CreateFile("test\\wordchars.txt").Write(Unicode32ToUtf8(sret))
+	//Writeln(to_lower)
+	//Writeln(to_upper)
+	System.IO.CreateFile("test\\to_upper.txt").Write(makeCaseTable(to_upper))
+	System.IO.CreateFile("test\\to_lower.txt").Write(makeCaseTable(to_lower))
+	System.IO.CreateFile("test\\wordchars.txt").Write(coderet)
+})()

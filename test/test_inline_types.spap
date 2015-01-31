@@ -1,0 +1,21 @@
+import System.Console.*
+import System.Algorithm.*
+
+inline finline(double a,double b){return a+b}
+inline finline2(double[] a,double b){a.push(b)}
+a=double2(1.0,2.0)
+a=double2(3.0,4.0)
+b=a.as(float)
+d=new double[]
+e=new float[]
+//Writeln(
+//	f(1.0,2.0),' ',
+//	f(1.f,2.f),' ',
+//	f(b.x,b.y),' ',
+//	__double_as_longlong(3.f))
+c=0.
+c=finline(1.0,2.0)+finline(1.f,2.f)+finline(b.x,b.y)
+finline2(d,1.0)
+finline2(e,1.0)
+Writeln(c,' ',d)
+//__double_as_longlong(3.f)

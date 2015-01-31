@@ -637,7 +637,8 @@ g_id_deriv_pulling_masks=getid("_deriv_pulling_masks")
 g_id_deriv_reusable_components=getid("_deriv_reusable_components")
 g_id__=getid("_")
 g_id_powd=getid("powd")
-g_id_gvn_ctunique=getid(">gvn_ctunique")
+g_id_gvn_ctunique=getid("<gvn_ctunique>")
+g_id_assert_type=getid("__assert_type")
 g_fakectval_gvn_cns=0
 g_fakectval_gvn_str=0
 
@@ -674,14 +675,36 @@ auto coreInit()
 			setnop(pecall)
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
 		pe_decl=readPool(pobjfn+FUNCTION_OFS_PEDECL)
+		pe_param_checks=PExpression[].NULL
 		for i=0:n_funcargs-1
 			pe_argi=readPool(pecall+EXPR_OFS_ARGS+i)
-			t_expected=getExprValueAs(readPool(pe_decl+EXPR_OFS_ARGS+i*2+1),g_vtid_CTVAL)
-			if !t_expected:continue
+			pe_typei=readPool(pe_decl+EXPR_OFS_ARGS+i*2+1)
+			val_t_expected=getExprValue(pe_typei)
+			t_expected=0
+			if val_t_expected.tid==g_vtid_CTVAL:
+				t_expected=val_t_expected.val
+			else if val_t_expected.tid==g_vtid_STR:
+				//auto
+				continue
+			else if val_t_expected.tid==g_vtid_UNINIT:
+				t_expected=0
+			else
+				assert(0)
+				continue
 			t=getExprType(pe_argi)
-			if !t:continue
+			if !t:
+				//typed inline parameters *MUST* be typed before expanding
+				sccpQueueReach(pe_argi)
+				return TSCCPValue(){'tid':g_vtid_UNINIT}
+			if !t_expected:
+				//wait for the type later
+				if !pe_param_checks:
+					pe_param_checks=new PExpression[]
+				pe_param_checks.push(fillepos(call(g_id_assert_ctval,exprstr(g_id_assert_type),getid("type mismatch at parameter #@3 of @4: '@1' is expected but '@2' provided".Replace(["@1",dumpType(t_expected),"@2",dumpType(t),"@3",string(i),"@4",dumpFunction(pobjfn)])),
+					cloneExpr(pe_typei),exprctval(t)),readPool(pe_argi+EXPR_OFS_EPOS),0))
+			//Writeln(dumpFunction(pobjfn),' ',i,' ',dumpType(t_expected),' ',dumpType(t))
 			if !parameterTypeCheck(t_expected,t):
-				errorAtExpr(ETYPE_ERROR,pe_argi,"parameter #@3 type mismatch for @4: '@1' expected but '@2' provided".Replace(["@1",dumpType(t_expected),"@2",dumpType(t),"@3",string(i),"@4",dumpFunction(pobjfn)]))
+				errorAtExpr(ETYPE_ERROR,pe_argi,"type mismatch at parameter #@3 of @4: '@1' expected but '@2' provided".Replace(["@1",dumpType(t_expected),"@2",dumpType(t),"@3",string(i),"@4",dumpFunction(pobjfn)]))
 				setnop(pecall)
 				return TSCCPValue(){'tid':g_vtid_UNINIT}
 		//actual expanding
@@ -915,10 +938,12 @@ auto coreInit()
 		//	epos0=readPool(pecall+1)
 		//	epos1=readPool(pecall+2)
 		//	pe_expanded=fillepos(call(g_id_block,call(g_id_callstack,exprctval(pobjfn),expriptr(0)),pe_expanded,call(g_id_callstack,expriptr(0))),epos0,epos1)
+		as_before=[pe_check]
+		if pe_param_checks:
+			as_before.push(pe_param_checks)
 		if pe_store_this:
-			as_before=[pe_check,pe_store_this,pe_expanded]
-		else
-			as_before=[pe_check,pe_expanded]
+			as_before.push(pe_store_this)
+		as_before.push(pe_expanded)
 		pecaller_original=readPool(pecall+EXPR_OFS_CALLER)
 		pe_final=transformCode(pecall,__zero(ftransformer_callback), as_before,pe_return_value,PExpression[].NULL)
 		//somehow we're needing this - test_js0.spap
@@ -2125,9 +2150,19 @@ auto coreInit()
 		n_args=getFCallNArgs(pecall)
 		if n_args<2:return TSCCPValue(){'tid':g_vtid_UNINIT}
 		pearg0=readPool(pecall+EXPR_OFS_ARGS+0)
-		id_error=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+1),g_vtid_STR)
+		if getExprValueAs(pearg0,g_vtid_STR)==g_id_assert_type:
+			//type assertion
+			assert(n_args==4)
+			val_t_expected=getExprValue(readPool(pecall+EXPR_OFS_ARGS+2))
+			if val_t_expected.tid==g_vtid_UNINIT:return TSCCPValue(){'tid':g_vtid_UNINIT}
+			t=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+3),g_vtid_CTVAL)
+			if !(val_t_expected.tid==g_vtid_CTVAL&&val_t_expected.val==t):
+				id_error=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+1),g_vtid_STR)
+				errorAtExpr(ETYPE_ERROR,pearg0,new(getIdString(id_error)).Replace(["@1",citeexpr(pearg0)]))
+			return TSCCPValue(){'tid':g_vtid_UNINIT}
 		val=getExprValue(pearg0)
 		if val.tid==g_vtid_RTVAR:
+			id_error=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+1),g_vtid_STR)
 			errorAtExpr(ETYPE_ERROR,pearg0,new(getIdString(id_error)).Replace(["@1",citeexpr(pearg0)]))
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
@@ -11004,9 +11039,10 @@ auto genCode(PExpression pe,int expr_oplevel)
 			pftype=getExprType(pecallee)
 			if !tisfunction(pftype):
 				//todo: improve error message - operator[] case, method case, ...
+				errorAtExpr(ETYPE_ERROR,pecallee,"'@1' is not a function and can't be called here, it's currently of type '@2'".Replace(["@1",citeexpr(pecallee),"@2",dumpType(pftype)]))
 				//Writeln(dumpType(pftype))
 				//Writeln(">>> "+dumpExpr(pe,fcolor_abbrv_blocks))
-				errorAtExpr(ETYPE_ERROR,pecallee,"'@1' is not a function and can't be called here, it's currently of type '@2'".Replace(["@1",citeexpr(pecallee),"@2",dumpType(pftype)]))
+				//assert(0)
 				return
 			t_raw_function_type=getRawFunctionType(pftype)
 			//ft=readPoolTyped(t_raw_function_type,TFunctionType)
