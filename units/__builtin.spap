@@ -301,7 +301,7 @@ class Array(T)
 		destructor_nbound_or_slice_reference=0L
 		return ret
 	inline substr(iptr a,iptr n)
-		return slice(a,a+n)
+		return slice(a,a+n-1)
 	////////////////////////////////
 	//slicing
 	auto slice(iptr a0,iptr b)
@@ -787,8 +787,8 @@ class Array(T)
 				if arguments.length>3:
 					__error("ReadAt can only take 2 or 3 parameters")
 				else
-					n=arguments[2]
-					return slice(a,a+sizeof(T)*n).ConvertToAsBinary(T)
+					n2=arguments[2]
+					return slice(a,a+sizeof(T)*n2-1).ConvertToAsBinary(T)
 			else
 				if uptr(a+sizeof(T))>uptr(n):
 					__reportRangeCheckError(a+sizeof(T),n)

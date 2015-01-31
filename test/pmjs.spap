@@ -60,14 +60,14 @@ auto resample(int[] img,int w0,int h0,int w,int h)
 auto writeico(auto f,int[] img0,int w,int h)
 	sz=w*h*4+max(w>>3,4)*h
 	header=[0x28,w,h*2,0x200001,0,sz]
-	f.Write(header)
+	f.Write(header.ConvertToAsBinary(char))
 	f.Write("\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
 	img=new int[w*h]
 	for i=0:h-1
 		for j=0:w-1
 			aa=img0[i*w+j]
 			img[(h-1-i)*w+j]=(aa&0xff00ff00)+((aa>>16)&0xff)+((aa&0xff)<<16)
-	f.Write(img)
+	f.Write(img.ConvertToAsBinary(char))
 	binmask=new int[]
 	for i=0:h-1
 		for j=0:32:w-1
@@ -75,7 +75,7 @@ auto writeico(auto f,int[] img0,int w,int h)
 			for k=0:min(31,int(w-1-j))
 				mk|=1<<k
 			binmask.push(mk)
-	f.Write(binmask)
+	f.Write(binmask.ConvertToAsBinary(char))
 
 (function(){
 	JS=new JSContext
@@ -123,15 +123,17 @@ auto writeico(auto f,int[] img0,int w,int h)
 		if !System.IO.FileExists(fn_new):return JS.Return(0)
 		return JS.Return(i64(MyGetFileTime(fn_new)-MyGetFileTime(fn_old))>i64(0)||!System.IO.FileExists(fn_old))
 	}
-	auto shellcmd(auto shell_args)
+	global["find"]=function(JSContext JS){
+		fn0=JS.Param(0).or("*")
+		return JS.Return([new(fn) foreach fn in System.IO.EnumFiles(fn0,System.IO.ENUM_FILE|System.IO.ENUM_RECURSIVE)])
+	}
+	auto shellcmd(auto shell_args,int do_system)
 		if !shell_args:
-			JS.Error("invalid shell arguments - it must be an object")
-			return ""
+			return JS.ReturnError("invalid shell arguments - it must be an object")
 		//properly quote the args
 		n=shell_args.length()
 		if !(n>0):
-			JS.Error("invalid shell arguments - it must be an array object of positive length")
-			return ""
+			return JS.ReturnError("invalid shell arguments - it must be an array object of positive length")
 		scmd=new string
 		for i=0:n-1
 			s_args_i=shell_args[i].as(string)
@@ -140,18 +142,18 @@ auto writeico(auto f,int[] img0,int w,int h)
 				s_args_i="\""+genString(s_args_i)+"\""
 			if i:scmd.push(' ')
 			scmd.push(s_args_i)
-		scmd.push(char(0))
-		return scmd
+		if do_system:
+			scmd.push(char(0))
+			return JS.Return(c_system(scmd))
+		else
+			return JS.Return(scmd)
 	global["shell"]=function(JSContext JS){
 		auto shell_args=JS.Param(0).as(JSObject)
-		scmd=shellcmd(shell_args)
-		ret=c_system(scmd)
-		return JS.Return(ret)
+		return shellcmd(shell_args,1)
 	}
 	global["shellcmd"]=function(JSContext JS){
 		auto shell_args=JS.Param(0).as(JSObject)
-		scmd=shellcmd(shell_args)
-		return JS.Return(scmd)
+		return shellcmd(shell_args,0)
 	}
 	global["ExpandEnvironmentStrings"]=function(JSContext JS){
 		return JS.Return(System.Env.ExpandEnvironmentStrings(JS.Param(0).or("")))
@@ -239,8 +241,7 @@ auto writeico(auto f,int[] img0,int w,int h)
 		auto lg=JS.Param(1).or(8)
 		auto ret=SHA1Digest(s)
 		if lg<0||lg>ret.n:
-			JS.Error("invalid SHA1 length @1".Replace(["@1",string(lg)]))
-			return 0
+			return JS.ReturnError("invalid SHA1 length @1".Replace(["@1",string(lg)]))
 		return JS.Return(ret[:lg-1])
 	}
 	global["cd"]=function(JSContext JS){
@@ -257,12 +258,12 @@ auto writeico(auto f,int[] img0,int w,int h)
 	global["g_cli_args"]=js_args
 	s_arch=Platform.ARCH
 	global["g_current_arch"]=s_arch
-	if Platform.BUILD=="debug":
-		if Platform.IS_UNIX:
-			global["g_root"]="."
-		else
-			global["g_root"]="c:/tp/kara/pure"
-	else
-		global["g_root"]=System.Env.GetExecutablePath()+"../.."
+	//if Platform.BUILD=="debug":
+	//	if Platform.IS_UNIX:
+	//		global["g_root"]="."
+	//	else
+	//		global["g_root"]="c:/tp/kara/pure"
+	//else
+	global["g_root"]=System.Env.GetExecutablePath()+"../.."
 	exit(!JS.debugRunFile(global["g_root"].as(string)+"/js/main.js"))
 })()

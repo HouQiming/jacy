@@ -3,6 +3,9 @@ import Gui2D.*
 import Javascript.*
 import System.Console.*
 
+__generate_json("js_units","gui2d/ui.js")
+__generate_json("js_units","gui2d/widgets.js")
+
 (function(){
 	JS=new JSContext
 	setupModuleSystem(JS)

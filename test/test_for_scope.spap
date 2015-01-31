@@ -1,0 +1,7 @@
+import System.Console.*
+
+(function(){
+	for(i=0;i<100;i++)
+		a=i?a+1:30
+	Writeln(a)
+})()

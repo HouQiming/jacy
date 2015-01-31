@@ -261,10 +261,10 @@ auto main()
 	auto callPMJS()
 		if call_pmjs:
 			if Platform.IS_WINDOWS:
-				if Platform.BUILD=="debug":
-					s_pmjs="d:\\build_tmp\\pmjs.exe"
-				else
-					s_pmjs=System.Env.GetExecutablePath()+"pmjs.exe"
+				//if Platform.BUILD=="debug":
+				//	s_pmjs="d:\\build_tmp\\pmjs.exe"
+				//else
+				s_pmjs=System.Env.GetExecutablePath()+"pmjs.exe"
 			else
 				s_pmjs=System.Env.GetExecutablePath()+"pmjs"
 			//scmdline="\""+s_pmjs+"\" make \""+fn_output_json+"\""

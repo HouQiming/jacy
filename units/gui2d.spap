@@ -33,6 +33,7 @@ stbi_write_png_to_mem=__c_function(__pointer,"stbi_write_png_to_mem","stb_image_
 stbi_free_image_write=__c_function(__pointer,"stbi_free_image_write","stb_image_write.h", "c_files","stb_image_write.c")
 stbi_load_from_memory=__c_function(__pointer,"stbi_load_from_memory","stb_image.h", "c_files","stb_image.c")
 stbi_zlib_decode_malloc=__c_function(__pointer,"stbi_zlib_decode_malloc","stb_image.h", "c_files","stb_image.c")
+stbi_zlib_decode_noheader_malloc=__c_function(__pointer,"stbi_zlib_decode_noheader_malloc","stb_image.h", "c_files","stb_image.c")
 osal_mmap_res_zip=__c_function(__pointer,"osal_mmap_res_zip","spaprt_portable.h")
 class CFinalBuffers
 	tex0=int[].NULL
@@ -1542,7 +1543,7 @@ auto createUIObject(JSObject JS_UI)
 
 auto inflate(string sin)
 	outlen=0
-	ptr_ret=stbi_zlib_decode_malloc(__pointer(sin.d),sin.n, &outlen);
+	ptr_ret=stbi_zlib_decode_noheader_malloc(__pointer(sin.d),sin.n, &outlen);
 	ret=new string
 	ret.d=iptr(ptr_ret)
 	ret.n=iptr(outlen)
@@ -1556,14 +1557,14 @@ class CZipFile
 	string dat
 	compressed_files=new CZipItem[string]
 	auto ReadAll(string fname0)
-		fname=fname0.Replace("\\","/").ToLower()
+		fname=fname0.Replace(["\\","/"]).ToLower()
 		item=compressed_files[fname]
 		if !item:return string.NULL
 		return item.method==0?item.dat:inflate(item.dat)
 	inline AllFileNames()
 		return {forEach:inline(fbody){
 			foreach d,k,I in compressed_files
-				fbody(d,k,I)
+				fbody(k,d,I)
 		}}
 auto ParseZip(string dat)
 	MAX_COMMENT=65535
@@ -1588,7 +1589,7 @@ auto ParseZip(string dat)
 		if uptr(pos0+46L)>=uptr(dat.n):return NULL
 		nmk=dat.ReadAt(pos0+28L,u16,3)
 		szcrap=iptr(nmk[0])+iptr(nmk[1])+iptr(nmk[2])
-		ofs_local=iptr(dat.Read(pos0+42L,u32))
+		ofs_local=iptr(dat.ReadAt(pos0+42L,u32))
 		if uptr(pos0+46L+szcrap)>=uptr(dat.n):return NULL
 		////////////
 		if uptr(ofs_local+30L)>=uptr(dat.n)||uptr(ofs_local)>=uptr(dat.n):return NULL
@@ -1598,8 +1599,8 @@ auto ParseZip(string dat)
 		szextra=iptr(dat.ReadAt(ofs_local+28L,u16))
 		if uptr(ofs_local+30L+szname)>=uptr(dat.n):return NULL
 		sname=dat.substr(ofs_local+30L,szname)
-		pfiledata=ofs_local+30L+szname.n+szextra
-		sname=sname.Replace("\\","/").ToLower()
+		pfiledata=ofs_local+30L+szname+szextra
+		sname=sname.Replace(["\\","/"]).ToLower()
 		ret.compressed_files[sname]=new CZipItem(){dat:dat[pfiledata:pfiledata+szdata-1],method:method}
 		////////////
 		ofs=pos0+46L+szcrap
@@ -1641,6 +1642,7 @@ auto setupModuleSystem(JSContext JS)
 				arr_res_zip.__bind(1,iptr(pzip),iptr(sz))
 		else
 			arr_res_zip=System.IO.ReadAll(System.Env.GetExecutablePath()+"res.zip")
+		g_ui_zip=ParseZip(arr_res_zip)
 		return 0
 	}
 	global["Duktape"]["__ui_add_path"]=function(JSContext JS){

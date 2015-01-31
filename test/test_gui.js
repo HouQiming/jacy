@@ -1,5 +1,6 @@
-Duktape.__ui_add_path("test")
+//Duktape.__ui_add_path("test")
 //Duktape.__ui_add_path("../ide/assets")
+Duktape.__ui_load_zip()
 Duktape.__ui_add_path("../kara/ide/res")
 
 //the duktape with system is completely unusable - we have to put all exports in the global object
