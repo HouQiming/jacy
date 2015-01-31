@@ -9244,9 +9244,9 @@ auto translateLambdas()
 					//if it's the global... it's simple
 					setFFlag(lambda_stack[0],FFLAG_LAMBDA_NEEDS_CONTEXT)
 				d_levels=int(lambda_stack.n-1-their_level)
-				//if tid_var==g_vtid_CTVAL:
-				//	Writeln('::: ',dumpFunction(pobj_local_owner),' ',dumpFunction(pfowner),' ',d_levels,' ',their_level,' ',dumpExpr(pe,__zero(fcolorer_callback)))
-				//	return 1
+				if tid_var==g_vtid_CTVAL:
+					//Writeln('::: ',dumpFunction(pobj_local_owner),' ',dumpFunction(pfowner),' ',d_levels,' ',their_level,' ',dumpExpr(pe,__zero(fcolorer_callback)))
+					return 1
 				//Writeln('scanned lambda: ',d_levels)
 				pecontext=call(g_id_get_lambda_context,expriptr(their_level==0?0x80000000:d_levels))
 				pecaller=readPool(pe+EXPR_OFS_CALLER)
