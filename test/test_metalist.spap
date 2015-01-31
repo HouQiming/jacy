@@ -1,0 +1,8 @@
+import System.Console.*
+(function(){
+	Writeln([int(ch) foreach ch in "hello"])
+	Writeln([s foreach s in "hello world".Tokenize(" ")])
+	Writeln([int(ch) foreach ch,I in "hello" if I&1])
+	Writeln([int(ch) foreach ch,I in "hello" if I&1].n)
+	Writeln([a*a foreach a in [7,10]].Sum())
+})()

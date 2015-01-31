@@ -867,6 +867,60 @@ inline copy(a,b)
 	//__rc_barrier()
 
 //////////////////////////////////////////////
+//reduce ops
+inline __internal_run_metalist(container,fmap,fcallback)
+	container.forEach(inline(){
+		arguments0=arguments
+		n=arguments.length
+		arg_new=__tuple(n+1)
+		for i in crange(n)
+			arg_new[i+1]=arguments0[i]
+		arg_new[0]=fcallback
+		fmap.call(arg_new)
+	})
+
+inline __reduce_(container,fmap,got_if)
+	T=__uninit()
+	if !got_if&&__has_member(container,"getForEachRepeatCount"):
+		n=container.getForEachRepeatCount()
+		ret=new T[n]
+		i=0L
+		fcallback=inline(val_i){
+			T=typeof(val_i)
+			ret[i]=val_i
+			i++
+		}
+	else
+		ret=new T[]
+		fcallback=inline(val_i){
+			T=typeof(val_i)
+			ret.push(val_i)
+		}
+	__internal_run_metalist(container,fmap,fcallback)
+	return ret
+
+inline __reduce_n(container,fmap,got_if)
+	if !got_if&&__has_member(container,"getForEachRepeatCount"):
+		return container.getForEachRepeatCount()
+	else
+		ret=0L
+		fcallback=inline(val_i){
+			ret++
+		}
+		__internal_run_metalist(container,fmap,fcallback)
+		return ret
+
+inline __reduce_Sum(container,fmap,got_if)
+	T=__uninit()
+	ret=__zero(T)
+	fcallback=inline(val_i){
+		T=typeof(val_i)
+		ret+=val_i
+	}
+	__internal_run_metalist(container,fmap,fcallback)
+	return ret
+
+//////////////////////////////////////////////
 class Map(T0,T1)
 	struct KVPair
 		k=__zero(T0)

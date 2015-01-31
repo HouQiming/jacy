@@ -895,6 +895,85 @@ auto parseC0(int id_fn_current,TToken[] toks)
 		if id_name:
 			pe=fillepos(call(g_id_store,exprvar(id_name),pe,expriptr(0)),epos0,epos1)
 		return pe
+	//////////////////////////////////
+	auto parseForeach()
+		vars=new int[]
+		for(;;)
+			id_var=wantid()
+			if !id_var:break
+			vars.push(id_var)
+			if !want(int(',')):break
+		if vars.n==1&&want(int('=')):
+			//intslice for
+			pe_a=expr(LEVEL_MAX)
+			if !want(int(':')):
+				error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"':' expected here")
+				vars=int[].NULL
+				pe_container=expriptr(0)
+			else
+				pe_b=expr(LEVEL_MAX)
+				if want(int(':')):
+					pe_c=expr(LEVEL_MAX)
+				else
+					pe_c=pe_b
+					pe_b=expriptr(1)
+				pe_container=call(g_id_int_range,pe_a,pe_b,pe_c)
+		else
+			if !want(TOK_ID+g_id_in):
+				error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"'in' expected after 'for var'")
+				vars=int[].NULL
+				pe_container=expriptr(0)
+			else
+				pe_container=expr(LEVEL_MAX)
+		return (vars,pe_container)
+	auto parseMetaList(iptr epos0,PExpression pe_body0)
+		(vars,pe_container)=parseForeach()
+		if !vars:
+			return expriptr(0)
+		pe_body=call(g_id_block,indcall([exprvar(g_id_map_callback),pe_body0]))
+		got_if=0
+		if want(TOK_ID+g_id_if):
+			pecond=expr(LEVEL_SELECT)
+			pe_body=call(g_id_block,call(g_id_if,pecond,pe_body,expriptr(0),expriptr(0)))
+			got_if=1
+		/////////////
+		//create the map part
+		as=new PExpression[]
+		as.push(exprstr(g_id_inline_loopbody))
+		as.push(exprstr(g_id_auto))
+		as.push(exprstr(g_id_map_callback))
+		foreach id_var in vars
+			as.push(exprstr(g_id_auto))
+			as.push(exprstr(id_var))
+		as.push(pe_body)
+		pe_inline_body=vcall(g_id_function,as)
+		epos1=toks[ptr].epos1
+		if !want(int(']')):
+			epos1=toks[ptr].epos0
+			error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos1,"'[' - ']' mismatch: need a ']' here")
+			return expriptr(0)
+		id_reduce_op=g_id_reduce_
+		es=new int[]
+		es.push(pe_container)
+		es.push(pe_inline_body)
+		es.push(expriptr(got_if))
+		if want(int('.')):
+			id_op_body=wantid()
+			if !id_op_body:
+				error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"identifier expected after [].")
+				return expriptr(0)
+			id_reduce_op=catid(id_reduce_op,id_op_body)
+			if id_op_body!=g_id_n:
+				if !want(int('(')):
+					error(ETYPE_ERROR,toks[ptr-1].epos0,toks[ptr-1].epos1,"you cannot access members of a [... for ...] list directly")
+					return expriptr(0)
+				while !want(int(')'))&&!eof():
+					pe=expr(LEVEL_SELECT)
+					if !want(int(','))&&peek()!=int(')'):
+						error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"this function parameter expression has terminated prematurely.")
+						continue
+					es.push(pe)
+		return fillepos(vcall(id_reduce_op,es),epos0,epos1)
 	auto atom()
 		auto lex=peek()
 		if (lex&TOK_TYPE_MASK)==TOK_CONST:
@@ -907,7 +986,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 			return ret
 		else if (lex&TOK_TYPE_MASK)==TOK_ID:
 			id0=wantid()
-			if id0==g_id_function||id0==g_id_inline||id0==g_id_class||id0==g_id_struct:
+			if id0==g_id_function||id0==g_id_inline||id0==g_id_inline_loopbody||id0==g_id_class||id0==g_id_struct:
 				return parseFunction(id0)
 			else if id0==g_id_module:
 				epos0=toks[ptr-1].epos0
@@ -959,6 +1038,9 @@ auto parseC0(int id_fn_current,TToken[] toks)
 				//tok0=peek()
 				//pe=expr(LEVEL_MAX)
 				pe=expr(LEVEL_SELECT)
+				if !es.n&&(want(TOK_ID+g_id_for)||want(TOK_ID+g_id_foreach_lang)):
+					//[value for var in container if cond].op(args)
+					return parseMetaList(epos0,pe)
 				if !want(int(','))&&!peek()==int(']'):
 					error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"a ',' is expected between list/map elements")
 					ptr++
@@ -1274,31 +1356,9 @@ auto parseC0(int id_fn_current,TToken[] toks)
 					pe=call(g_id_block,pe_init,pe)
 			else
 				//for in
-				vars=new int[]
-				for(;;)
-					id_var=wantid()
-					if !id_var:break
-					vars.push(id_var)
-					if !want(int(',')):break
-				if vars.n==1&&id==g_id_for&&want(int('=')):
-					//intslice for
-					pe_a=expr(LEVEL_MAX)
-					if !want(int(':')):
-						error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"':' expected here")
-						return expriptr(0)
-					pe_b=expr(LEVEL_MAX)
-					if want(int(':')):
-						pe_c=expr(LEVEL_MAX)
-					else
-						pe_c=pe_b
-						pe_b=expriptr(1)
-					pe_container=call(g_id_int_range,pe_a,pe_b,pe_c)
-				else
-					if !want(TOK_ID+g_id_in):
-						error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"'in' expected after 'for var'")
-						return expriptr(0)
-					pe_container=expr(LEVEL_MAX)
+				(vars,pe_container)=parseForeach()
 				want(int(':'))
+				if !vars:return expriptr(0)
 				pe_body=statement()
 				as=new PExpression[]
 				as.push(exprstr(g_id_inline_loopbody))

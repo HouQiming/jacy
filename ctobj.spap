@@ -1129,6 +1129,9 @@ g_id_nop=getid("__nop")
 g_id_C_autocast=getid("__C_autocast")
 g_id_C_wrap=getid("__C")
 g_id_C_wrap_pure=getid("__C_pure")
+g_id_reduce_=getid("__reduce_")
+g_id_n=getid("n")
+g_id_map_callback=getid("__map_callback")
 /////////////////////
 //context, target var ctobj
 g_id_ldlambda=getid("__ldlambda")
