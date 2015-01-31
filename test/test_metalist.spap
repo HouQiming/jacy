@@ -5,4 +5,6 @@ import System.Console.*
 	Writeln([int(ch) foreach ch,I in "hello" if I&1])
 	Writeln([int(ch) foreach ch,I in "hello" if I&1].n)
 	Writeln([a*a foreach a in [7,10]].Sum())
+	ele_list=[int2(404,1000),int2(404,-500),int2(405,333),int2(408,1),int2(408,1),int2(408,1)]
+	Writeln([int2(key,[a.y for a in group].Sum()) for key,group in ele_list.Groupby(inline(a){return a.x})])
 })()
