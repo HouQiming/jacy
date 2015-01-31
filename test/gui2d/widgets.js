@@ -196,7 +196,7 @@ var Edit_prototype={
 			}
 		}
 		this.scroll_x=Math.max(this.scroll_x,0);
-		this.scroll_y=Math.max(Math.min(this.scroll_y,ytot-page_height),0);
+		this.scroll_y=Math.max(Math.min(this.scroll_y,ytot-(page_height-hc)),0);
 		this.x_updown=ed_caret.x
 		//TestTrigger(KEYCODE_ANY_MOVE)
 		//todo: ui animation?

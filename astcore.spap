@@ -6341,6 +6341,45 @@ auto evalCodeDependingFunctions()
 	g_has_untranslated_cdf=(cdf_set.n>0)
 	return ret
 
+auto isCtorEmpty(PCTObject t_tar)
+	assert(tisclass(t_tar))
+	pvret_t_tar=readPool(t_tar+FUNCTION_OFS_PVAR_RETURN)
+	is_empty=1
+	f_test_emptiness=function(PExpression pe){
+		if isExpr(pe,EFLAG_FCALL):
+			if isBuiltin(pe,g_id_block):return 1
+			if isBuiltin(pe,g_id_nop)||isBuiltin(pe,g_id_callstack):return 0
+			if isBuiltin(pe,g_id_C_return):return 1
+			//only allow zero-valued stores and the standard getcontext / return
+			//and methods
+			//do not recurse into valid stores
+			if !isBuiltin(pe,g_id_store):
+				if DEBUG_DUMP_FLATTEN:
+					if is_empty:
+						Writeln(dumpObject(t_tar)+' not empty: '+dumpExpr(pe,fcolor_abbrv_blocks))
+				is_empty=0
+				return 0
+			auto pe_var=readPool(pe+EXPR_OFS_ARGS+0)
+			auto pe_value=readPool(pe+EXPR_OFS_ARGS+1)
+			if isBuiltin(pe_value,g_id_get_lambda_context)||isBuiltin(pe_value,g_id_ldparam):return 0
+			if readPool(pe_var)==EFLAG_VARIABLE+pvret_t_tar:return 0
+			var_value=getExprValue(pe_var)
+			if var_value.tid!=g_vtid_RTVAR:
+				//not a real member, ignore
+				return 0
+			val_value=getExprValue(pe_value)
+			if isValueZero(val_value)||isBuiltin(pe_value,g_id_uninit):
+				//zero valued
+				return 0
+			if DEBUG_DUMP_FLATTEN:
+				if is_empty:
+					Writeln(dumpObject(t_tar)+' not empty: '+dumpExpr(pe,fcolor_abbrv_blocks))
+			is_empty=0
+		return is_empty
+	}
+	dfsExpr(readPool(t_tar+FUNCTION_OFS_CODE),f_test_emptiness)
+	return is_empty
+	
 g_strflatten_monitored_variables=new PCTObject[][PExpression]
 //g_strflatten_monitored_variables=new PCTObject[]
 //g_strflatten_eval_queue=new PExpression[]
@@ -6700,41 +6739,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 							pe_decl_t_tar=readPool(t_tar+FUNCTION_OFS_PEDECL)
 							if !testUserFlag(pe_decl_t_tar,USER_FLAG_EMPTY_NEW_TESTED):
 								//test for empty new
-								pvret_t_tar=readPool(t_tar+FUNCTION_OFS_PVAR_RETURN)
-								is_empty=1
-								f_test_emptiness=function(PExpression pe){
-									if isExpr(pe,EFLAG_FCALL):
-										if isBuiltin(pe,g_id_block):return 1
-										if isBuiltin(pe,g_id_nop):return 0
-										//only allow zero-valued stores and the standard getcontext / return
-										//and methods
-										//do not recurse into valid stores
-										if !isBuiltin(pe,g_id_store):
-											if DEBUG_DUMP_FLATTEN:
-												if is_empty:
-													Writeln(dumpObject(t_tar)+' not empty: '+dumpExpr(pe,fcolor_abbrv_blocks))
-											is_empty=0
-											return 0
-										auto pe_var=readPool(pe+EXPR_OFS_ARGS+0)
-										auto pe_value=readPool(pe+EXPR_OFS_ARGS+1)
-										if isBuiltin(pe_value,g_id_get_lambda_context):return 0
-										if readPool(pe_var)==EFLAG_VARIABLE+pvret_t_tar:return 0
-										var_value=getExprValue(pe_var)
-										if var_value.tid!=g_vtid_RTVAR:
-											//not a real member, ignore
-											return 0
-										val_value=getExprValue(pe_value)
-										if isValueZero(val_value)||isBuiltin(pe_value,g_id_uninit):
-											//zero valued
-											return 0
-										is_empty=0
-										if DEBUG_DUMP_FLATTEN:
-											if is_empty:
-												Writeln(dumpObject(t_tar)+' not empty: '+dumpExpr(pe,fcolor_abbrv_blocks))
-									return is_empty
-								}
-								dfsExpr(readPool(t_tar+FUNCTION_OFS_CODE),f_test_emptiness)
-								if is_empty:
+								if isCtorEmpty(t_tar):
 									setUserFlag(pe_decl_t_tar,USER_FLAG_IS_EMPTY_NEW)
 									if DEBUG_DUMP_FLATTEN:
 										Writeln('ctor detected as empty: '+dumpObject(t_tar))
@@ -7898,50 +7903,73 @@ auto deadelim()
 	did=0
 	//redoDefUseChains()
 	//expr liveness labeling
+	//need an explicit clause for empty ctors - the NULL construction is marked as live but the ctor should be removed anyway
 	FLAG_IS_LIVE=1
 	FLAG_EXPR_PARENT_SCAN_DONE=2
+	//FLAG_IS_CTOR_ZERO_STORE=4
 	clearUserFlags(g_pe_top,0)
 	Q=new PExpression[]
 	fn_caller_lists=new PExpression[][PCTObject]
-	dfsRootLives=function(PExpression pe){
+	auto dfsRootLives(PExpression pe,int in_class)
 		if !isExpr(pe,EFLAG_FCALL):return 0
 		if !testUserFlag(pe,QUEUE_FLAG_REACH):
 			return 0
-		auto pobjfn=getExprFunction(pe)
-		if !pobjfn:
-			Q.push(pe)
-			return 1
-		else
-			auto fflag=getFFlag(pobjfn)
-			if (fflag&FFLAG_IMPORTED)&&!(fflag&FFLAG_IS_PURE)||(fflag&FFLAG_IS_PRELIVE):
+		in_class_recurse=in_class
+		(inline(){
+			auto pobjfn=getExprFunction(pe)
+			if !pobjfn:
+				if DEBUG_DUMP_DEADELIM:
+					Writeln('indcall prelive: ',dumpExpr(pe,fcolor_abbrv_blocks))
 				Q.push(pe)
 				return 1
-			//else if isBuiltin(pe,g_id_set_memory)||isBuiltin(pe,g_id_C_wrap)||isBuiltin(pe,g_id_force_alive)||isBuiltin(pe,g_id_export)||isBuiltin(pe,g_id_blockex):
-			//	Q.push(pe)
-			//	return 1
-			if isBuiltin(pe,g_id_stdot):
-				pobj_member=getDotMember(pe,0)
-				if pobj_member&&readPool(pobj_member)==g_vtid_RTVAR:
-					if tisclass(readPool(pobj_member+1)):
-						//class member store / struct memcpy - it's prelive
-						Q.push(pe)
-						return 1
-			else if isBuiltin(pe,g_id_store):
-				pobj_var=getVariable(readPool(pe+EXPR_OFS_ARGS+0))
-				if pobj_var&&readPool(pobj_var)==g_vtid_RTVAR:
-					if tisstruct(readPool(pobj_var+1)):
-						//implicit memcpy - it's prelive
-						Q.push(pe)
-						return 1
-			if pobjfn:
-				callers=fn_caller_lists[pobjfn]
-				if !callers:
-					callers=new PExpression[]
-					fn_caller_lists[pobjfn]=callers
-				callers.push(pe)
-		return 1
-	}
-	dfsExpr(g_pe_top,dfsRootLives)
+			else
+				auto fflag=getFFlag(pobjfn)
+				if (fflag&FFLAG_IMPORTED)&&!(fflag&FFLAG_IS_PURE)||(fflag&FFLAG_IS_PRELIVE):
+					if DEBUG_DUMP_DEADELIM:
+						Writeln('impure prelive: ',dumpExpr(pe,fcolor_abbrv_blocks))
+					Q.push(pe)
+					return 1
+				//else if isBuiltin(pe,g_id_set_memory)||isBuiltin(pe,g_id_C_wrap)||isBuiltin(pe,g_id_force_alive)||isBuiltin(pe,g_id_export)||isBuiltin(pe,g_id_blockex):
+				//	Q.push(pe)
+				//	return 1
+				if isBuiltin(pe,g_id_stdot):
+					pobj_member=getDotMember(pe,0)
+					if pobj_member&&readPool(pobj_member)==g_vtid_RTVAR:
+						if tisclass(readPool(pobj_member+1)):
+							//class member store / struct memcpy - it's prelive
+							if DEBUG_DUMP_DEADELIM:
+								Writeln('class member prelive: ',dumpExpr(pe,fcolor_abbrv_blocks))
+							Q.push(pe)
+							return 1
+				else if isBuiltin(pe,g_id_store):
+					//if in_class&&isValueZero(getExprValue(readPool(pe+EXPR_OFS_ARGS+1))):
+					//	//empty ctor flag
+					//	setUserFlag(pe,FLAG_IS_CTOR_ZERO_STORE)
+					pobj_var=getVariable(readPool(pe+EXPR_OFS_ARGS+0))
+					if pobj_var&&readPool(pobj_var)==g_vtid_RTVAR:
+						if tisstruct(readPool(pobj_var+1)):
+							id_var=readPool(pobj_var+VAR_OFS_ID)
+							if id_var!=g_id_this&&id_var!=g_id_return:
+								//implicit memcpy - it's prelive
+								if DEBUG_DUMP_DEADELIM:
+									Writeln('memcpy prelive: ',dumpExpr(pe,fcolor_abbrv_blocks))
+								Q.push(pe)
+								return 1
+				if pobjfn:
+					callers=fn_caller_lists[pobjfn]
+					if !callers:
+						callers=new PExpression[]
+						fn_caller_lists[pobjfn]=callers
+					callers.push(pe)
+			return 1
+		})()
+		if isBuiltin(pe,g_id_function):
+			pf_owner_recurse=getExprValueAs(pe,g_vtid_CTVAL)
+			in_class_recurse=isFunctionClassOrStruct(pf_owner_recurse)
+		n_args=getFCallNArgs(pe)
+		for i=-1:n_args-1
+			dfsRootLives(readPool(pe+EXPR_OFS_ARGS+i),in_class_recurse)
+	dfsRootLives(g_pe_top,0)
 	foreach pe in Q
 		setUserFlag(pe,FLAG_IS_LIVE)
 	///////////////////////////////
@@ -7979,6 +8007,9 @@ auto deadelim()
 			if DEBUG_DUMP_DEADELIM:
 				Writeln('var live: ',dumpObject(pobj_var))
 			for(pestore=readPool(pobj_var+VAR_OFS_STORE_QUEUE);pestore;pestore=readPool(pestore+EXPR_OFS_NEXT_V_USER))
+				//if testUserFlag(pestore,FLAG_IS_CTOR_ZERO_STORE):
+				//	//avoid marking zero stores from here
+				//	continue
 				if DEBUG_DUMP_DEADELIM:
 					Writeln('  mark store: ',dumpExpr(pestore,fcolor_abbrv_blocks))
 				marklive(pestore)
@@ -8026,6 +8057,8 @@ auto deadelim()
 					pobjfn=getExprValueAs(pei,g_vtid_CTVAL)
 					assert(!!pobjfn)
 					if pobjfn:
+						if DEBUG_DUMP_DEADELIM:
+							Writeln('  mark function: ',dumpFunction(pobjfn))
 						if tisclass(pobjfn):
 							//if it's a class, the return value is always alive
 							markreturn(pobjfn)
@@ -9446,6 +9479,7 @@ auto translateLambdas()
 		writePool(pfowner_cur+FUNCTION_OFS_PLAMBDA_VARS,p0+plast)
 	//translate struct returns / extra returns
 	queue_dfsTranslateStruct=new int3[]
+	setnop_jobs=new PExpression[]
 	auto dfsTranslateStruct(PExpression pe,PCTObject pf_owner)
 		if !isExpr(pe,EFLAG_FCALL):return
 		//if !testUserFlag(pe,QUEUE_FLAG_REACH)&&isBuiltin(pe,g_id_block):return
@@ -9583,6 +9617,13 @@ auto translateLambdas()
 				pe_new=indcall(as)
 				writePool(pe_new+EXPR_OFS_VALUE,readPool(pe+EXPR_OFS_VALUE))
 				writePool(pe_new+EXPR_OFS_VALUE+1,readPool(pe+EXPR_OFS_VALUE+1))
+				//Writeln('SHIT! ',dumpExpr(pe_new,__zero(fcolorer_callback)),' ',pobjfn?string(tisstruct(pobjfn))+" "+string(tisstruct(pobjfn)&&isCtorEmpty(pobjfn)):"")
+				if pobjfn&&tisstruct(pobjfn)&&isCtorEmpty(pobjfn):
+					//remove empty ctors
+					//Writeln('ctor removed ',dumpExpr(pe_new,__zero(fcolorer_callback)))
+					setnop_jobs.push(pe_new)
+				//else
+				//	Writeln('ctor kept ',dumpExpr(pe_new,__zero(fcolorer_callback)))
 				//Write('>>> ');Writeln(dumpExpr(pe_new,fcolor_abbrv_blocks))
 				if replace_caller:
 					//pecaller_caller=readPool(pecaller+EXPR_OFS_CALLER)
@@ -10112,6 +10153,9 @@ auto translateLambdas()
 	//coulddo: generate cloners
 	//generate finalizers... for each lambdaed function
 	sccp(0)
+	foreach pe in setnop_jobs
+		//the empty ctor shit, must remove after sccp to avoid queueing mess
+		setnop(pe)
 	foreach pobjfn in g_all_functions
 		if !(getFFlag(pobjfn)&FFLAG_LAMBDA_NEEDS_CONTEXT):continue
 		//Write('>>> ');Writeln(dumpCode(readPool(pobjfn+FUNCTION_OFS_PEDECL),fcolor_reach_eval))
