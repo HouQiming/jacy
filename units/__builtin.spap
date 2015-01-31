@@ -962,7 +962,7 @@ range=inline(n){
 	}
 }
 
-crange=inline(int n){
+crange=inline(n){
 	auto frepeat=inline(start,count,fbody){
 		if count==1:
 			__blockex("__blockex","continue",{

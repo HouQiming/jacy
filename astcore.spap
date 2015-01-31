@@ -9201,10 +9201,22 @@ auto translateLambdas()
 			if getExprValueAs(pe_levels,g_vtid_CNS)==0&&!is_tentative:
 				//function pointer contexts are tentative: NULL is a good substitution
 				setFFlag(pobj_local_owner,FFLAG_LAMBDA_NEEDS_CONTEXT)
-		else if isExpr(pe,EFLAG_VARIABLE):
-			pobj_var=getVariable(pe)
-			pfowner=readPool(pobj_var+VAR_OFS_OWNER)
-			if pfowner!=pobj_local_owner&&pfowner&&readPool(pobj_var)==g_vtid_RTVAR:
+		else if isExpr(pe,EFLAG_VARIABLE)||isExpr(pe,EFLAG_CTVAL)&&readPool(readPool(pe+EXPR_OFS_CALLER)+EXPR_OFS_FUNCTION)==pe:
+			if isExpr(pe,EFLAG_VARIABLE):
+				pobj_var=getVariable(pe)
+				tid_var=readPool(pobj_var)
+				pfowner=readPool(pobj_var+VAR_OFS_OWNER)
+			else
+				valx=getExprValue(pe)
+				tid_var=valx.tid
+				assert(tid_var==g_vtid_CTVAL)
+				pf_called=valx.val
+				if !isFunction(pf_called):return 1
+				if (getFFlag(pf_called)&FFLAG_BUILTIN)||getCcnv(pf_called)!=g_id_function:return 1
+				pfowner=getOwningFunction(readPool(readPool(pf_called+FUNCTION_OFS_PEDECL)+EXPR_OFS_CALLER))
+				//coulddo: accelerate the 0 case
+			//tid_var==g_vtid_CTVAL
+			if pfowner!=pobj_local_owner&&pfowner&&(tid_var==g_vtid_RTVAR||tid_var==g_vtid_CTVAL):
 				//get their context and mark all outer levels as "outer-lambda-needed"
 				their_level=-1
 				for j=lambda_stack.n-2:-1:0
@@ -9232,6 +9244,9 @@ auto translateLambdas()
 					//if it's the global... it's simple
 					setFFlag(lambda_stack[0],FFLAG_LAMBDA_NEEDS_CONTEXT)
 				d_levels=int(lambda_stack.n-1-their_level)
+				//if tid_var==g_vtid_CTVAL:
+				//	Writeln('::: ',dumpFunction(pobj_local_owner),' ',dumpFunction(pfowner),' ',d_levels,' ',their_level,' ',dumpExpr(pe,__zero(fcolorer_callback)))
+				//	return 1
 				//Writeln('scanned lambda: ',d_levels)
 				pecontext=call(g_id_get_lambda_context,expriptr(their_level==0?0x80000000:d_levels))
 				pecaller=readPool(pe+EXPR_OFS_CALLER)

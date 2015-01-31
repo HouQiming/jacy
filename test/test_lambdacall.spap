@@ -1,0 +1,14 @@
+import System.Console.*
+
+(function(){
+	a=0
+	fexternal=function(int b){a+=b;}
+	flevel1=function(int c){
+		flevel2=function(int c){
+			fexternal(c)
+		}
+		flevel2(c);
+	}
+	flevel1(100)
+	Writeln(a)
+})()
