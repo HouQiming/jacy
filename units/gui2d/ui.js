@@ -1245,16 +1245,16 @@ UI.StdAnchoring=function(id,attrs){
 		UI.doHAlign(anchor_align,attrs,obj_anchor);
 		UI.doVAlign(anchor_valign,attrs,obj_anchor);
 	}else if(anchor_placement=="up"){
-		attrs.y=obj_anchor.y-attrs.h-anchor_spacing;
+		attrs.y=obj_anchor.y-attrs.h-anchor_spacing-attrs.y;
 		UI.doHAlign(anchor_align,attrs,obj_anchor);
 	}else if(anchor_placement=="down"){
-		attrs.y=obj_anchor.y+obj_anchor.h+anchor_spacing;
+		attrs.y=obj_anchor.y+obj_anchor.h+anchor_spacing+attrs.y;
 		UI.doHAlign(anchor_align,attrs,obj_anchor);
 	}else if(anchor_placement=="left"){
-		attrs.x=obj_anchor.x-attrs.w-anchor_spacing;
+		attrs.x=obj_anchor.x-attrs.w-anchor_spacing-attrs.x;
 		UI.doVAlign(anchor_valign,attrs,obj_anchor);
 	}else if(anchor_placement=="right"){
-		attrs.x=obj_anchor.x+obj_anchor.w+anchor_spacing;
+		attrs.x=obj_anchor.x+obj_anchor.w+anchor_spacing+attrs.x;
 		UI.doVAlign(anchor_valign,attrs,obj_anchor);
 	}else{
 		//bad anchor placement - consider as "absolute"
