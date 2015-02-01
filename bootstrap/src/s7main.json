@@ -1,0 +1,1 @@
+{"Platform_ARCH":["win32"],"Platform_BUILD":["release"],"c_files":["pm_tmp/win32_release/main/s7main.c","spaprt_portable.c"],"h_files":["stdlib.h","string.h","spaprt_portable.h","stdio.h","math.h","wrapper_defines.h","windows.h"],"input_files":["main.jc"],"ldflags":["/STACK:67108864"]}

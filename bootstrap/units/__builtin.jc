@@ -1,0 +1,1855 @@
+module __basic_api
+	malloc=__c_function(__pointer,"malloc","stdlib.h")
+	realloc=__c_function(__pointer,"realloc","stdlib.h")
+	free=__c_function(int,"free","stdlib.h")
+	memset=__c_function(__pointer,"memset","string.h")
+	memcpy=__c_function(__pointer,"memcpy","string.h")
+	memmove=__c_function(__pointer,"memmove","string.h")
+	memcmp=__c_function(int,"memcmp","string.h")
+	memchr=__c_function(__pointer,"memchr","string.h")
+	spapReportError=__c_function(__pointer,"spapReportError","spaprt_portable.h")
+	//spapReportError=__c_function(__pointer,"puts","stdio.h")
+	printf=__c_function(int,"printf","stdio.h")
+	///////
+	log=__c_function(__pointer,"log","math.h")
+	__FFLAG_PURE=1<<19
+	__FFLAG_IS_PARALLEL=1<<21
+	__fflag(log)=__FFLAG_PURE
+
+__meta_state("stdfn.functional_or")=inline(f0,f1){
+	return inline(){
+		//the 3rd argument of __prototype_matches is a dependency placeholder
+		if __prototype_matches(arguments,f1,0):
+			return f1.call(arguments)
+		else
+			return f0.call(arguments)
+	}
+}
+
+inline operator&&(a,b)
+	if a:
+		if b:
+			return 1
+		else
+			return 0
+	else
+		return 0
+
+inline operator||(a,b)
+	if a:
+		return 1
+	else
+		if b:
+			return 1
+		else
+			return 0
+
+inline __select(a,b,c)
+	//T=typeof(b)
+	if a:
+		return b
+	else
+		//Tc=typeof(c)
+		//if T==Tc:
+		//	return c
+		//else
+		//	return T(c)
+		return c
+
+class __Box(T)
+	a=T()
+__meta_state("stdtype.box")=__Box
+
+inline __zero(T)
+	if __is_type("builtin",T)
+		return T(0)
+	else if __is_type("struct",T)
+		return T()
+	else
+		return T.NULL
+
+class __variant
+	inline as(T)
+		if __is_type("builtin",T)
+			if __get_rtti(this)==__get_rtti(__Box(T)):
+				return __cast(__Box(T),this).a
+			else
+				return T(0)
+		else if __is_type("struct",T)
+			if __get_rtti(this)==__get_rtti(__Box(T)):
+				return __cast(__Box(T),this).a
+			else
+				return T()
+		else
+			if __get_rtti(this)==__get_rtti(T):
+				return __cast(T,this)
+			else
+				return T.NULL
+__meta_state("stdtype.variant")=__variant
+
+inline variant(pobj)
+	__reach(__variant)
+	T=typeof(pobj)
+	if __is_type("builtin",T)||__is_type("struct",T):
+		return __cast(__variant,__Box(T)(){a:pobj})
+	else
+		return __cast(__variant,pobj)
+
+struct __FunctionImpl(__ftype_raw)
+	ptr_this=__force_var(__variant.NULL)
+	ptr_fn=__force_var(NULL)
+	inline Bind(fn_this)
+		return typeof(this)(){ptr_this:__cast(__variant,fn_this),ptr_fn:ptr_fn}
+
+__meta_state("stdtype.function_impl")=__FunctionImpl
+__meta_state("stdfn.make_function")=inline(T,fn_this,fn,dummy){
+	//__reach(__variant)
+	dummy;
+	return T(){ptr_this:__cast(__variant,fn_this),ptr_fn:fn}
+}
+
+class Array(T)
+	IS_ARRAY=1
+	IS_STRUCT=__is_type("struct",T)
+	IS_CLASS=__is_type("class",T)
+	NEED_RC=(IS_STRUCT||IS_CLASS)
+	MIN_SIZE=8L
+	MAX_DTOR_TYPES=8
+	///////////
+	//the names are hardcoded in the compiler, do not touch
+	d=0L
+	n=0L
+	sz=0L
+	destructor_nbound_or_slice_reference=0L
+	////////////////////////////////
+	//basic C-like array
+	inline __builtin_ctor(ndata,i16 dummy)
+		if ndata:
+			szbytes=sizeof(T)*iptr(ndata)
+			d=iptr(__basic_api.malloc(szbytes))
+			__basic_api.memset(__pointer(d),0,szbytes)
+			sz=iptr(ndata)
+			n=iptr(ndata)
+	inline __range_check(auto i0)
+		i=iptr(i0)
+		if uptr(i)>=uptr(n):
+			__reportRangeCheckError(i,n)
+	inline operator[](auto i)
+		if Platform.BUILD=="debug":
+			__range_check(i)
+		if IS_STRUCT:
+			return __cast(T,d+sizeof(T)*iptr(i))
+		else
+			return __memory(T,d+sizeof(T)*iptr(i))
+	inline set_operator[](auto i,value)
+		if Platform.BUILD=="debug":
+			__range_check(i)
+		if IS_STRUCT:
+			ptr=__cast(T,d+sizeof(T)*iptr(i))
+			__struct_copy(ptr,value)
+		else
+			if IS_CLASS:
+				__explicit_rc(value,1)
+				__explicit_rc(__memory(T,d+sizeof(T)*iptr(i)),-1)
+			__memory(T,d+sizeof(T)*iptr(i))=value
+	////////////////////////////////
+	//basic C-like array
+	auto resize(iptr n_new)
+		if Platform.BUILD=="debug":
+			if destructor_nbound_or_slice_reference:
+				if destructor_nbound_or_slice_reference&-(MAX_DTOR_TYPES*2):
+					__basic_api.spapReportError("array can't be resized while it's still referenced by slices\0")
+				else
+					__basic_api.spapReportError("array can't be resized while it's bound to external pointers\0")
+				return
+		//if n_new>10000000:
+		//	assert(0)
+		//coulddo: de-templatify, the bound case
+		assert(n_new>=0L)
+		if sz<n_new:
+			sz_new=sz*2
+			if sz_new<n_new:
+				sz_new=n_new
+				if sz_new<MIN_SIZE:
+					sz_new=MIN_SIZE
+			szbytes=sizeof(T)*sz_new
+			if !d:
+				d=iptr(__basic_api.malloc(szbytes))
+			else
+				d=iptr(__basic_api.realloc(__pointer(d),szbytes))
+			if Platform.BUILD=="debug":
+				if !d:
+					__basic_api.spapReportError("failed to allocate an array of @1 bytes\0".Replace(["@1",string(szbytes)]))
+			szold=sizeof(T)*n
+			__basic_api.memset(__pointer(d+szold),0,szbytes-szold)
+			sz=sz_new
+		else if n<n_new:
+			szold=sizeof(T)*n
+			__basic_api.memset(__pointer(d+szold),0,sizeof(T)*n_new-szold)
+		else
+			if NEED_RC:
+				__MassRelease(n_new,n)
+		n=n_new
+	inline push(a)
+		TA=typeof(a)
+		if TA==T:
+			n0=n
+			if n0>=sz:
+				resize(n0+1)
+			n=n0+1
+			this[n0]=a
+		else if TA==Array(T):
+			n0=n
+			resize(n0+a.n)
+			if NEED_RC:
+				n1=n
+				for(i=n0;i<n1;i++)
+					this[i]=a[i-n0]
+			else
+				__basic_api.memcpy(__pointer(d+n0*sizeof(T)),__pointer(a.d),a.n*sizeof(T))
+		else if __is_type("builtin",TA)&&__is_type("builtin",T):
+			n0=n
+			if n0>=sz:
+				resize(n0+1)
+			n=n0+1
+			this[n0]=T(a)
+		else
+			__error("invalid operation @1[].push(@2)",Array(T),TA)
+	inline pop()
+		if Platform.BUILD=="debug":
+			if !n:
+				__basic_api.spapReportError("can't pop an empty array\0")
+		r=n-1
+		a=this[r]
+		if NEED_RC:
+			this[r]=T.NULL
+		n--
+		return a
+	inline back()
+		return this[n-1]
+	////////////////////////////////
+	//binding and destruction
+	if NEED_RC:
+		auto __MassRelease(iptr p0,iptr p1)
+			for(i=p0;i<p1;i++)
+				this[i]=T.NULL
+	auto __bind(int dtor_id, iptr bound_d,iptr bound_sz)
+		//coulddo: de-templatify
+		assert(u32(dtor_id)<u32(MAX_DTOR_TYPES))
+		assert(!d)
+		d=bound_d
+		n=bound_sz
+		sz=bound_sz
+		destructor_nbound_or_slice_reference=iptr(dtor_id*2)
+	inline discard()
+		__done__()
+		d=0L
+		n=0L
+		sz=0L
+		destructor_nbound_or_slice_reference=0L
+	inline clear()
+		resize(0)
+	auto __done__()
+		//coulddo: de-templatify
+		//dtor 1 is empty
+		if d:
+			if destructor_nbound_or_slice_reference&1:
+				if IS_CLASS://todo: NEED_RC
+					for(i=0;i<n;i++)
+						tmp=this[i]
+						__explicit_rc(tmp,-1)
+				//slice
+				src=__cast(Array(T),destructor_nbound_or_slice_reference-1L)
+				src.destructor_nbound_or_slice_reference-=MAX_DTOR_TYPES*2;
+				__explicit_rc(src,-1)
+				//safety precaution
+				destructor_nbound_or_slice_reference=0L
+			else
+				if NEED_RC:
+					__MassRelease(0L,n)
+				dtor_id=(int(destructor_nbound_or_slice_reference>>1)&(MAX_DTOR_TYPES-1))
+				if dtor_id==0:
+					__basic_api.free(__pointer(d))
+					//safety precaution
+					d=0L
+				else if dtor_id>1:
+					__all_array_dtors[dtor_id](d,sz*sizeof(T))
+					//safety precaution
+					d=0L
+				//for dtor_id==1, leave d around so that later accesses happen to work
+	auto ConvertToAsBinary(const T2)
+		//checks are ignored...
+		if T2==__variant:
+			__force_alive(variant(__zero(T)))
+		nbytes=sizeof(T)*n
+		szbytes=sizeof(T)*sz
+		esz2=sizeof(T2)
+		n2=nbytes/esz2
+		sz2=szbytes/esz2
+		if nbytes!=n2*esz2:
+			if Platform.BUILD=="debug":
+				__basic_api.spapReportError("in Array.ConvertToAsBinary, the input dat size isn't a multiply of the output element size\0")
+			return Array(T2).NULL
+		ret=new Array(T2)
+		ret.d=d
+		ret.n=n2
+		ret.sz=sz2
+		ret.destructor_nbound_or_slice_reference=destructor_nbound_or_slice_reference
+		d=0L
+		n=0L
+		sz=0L
+		destructor_nbound_or_slice_reference=0L
+		return ret
+	inline substr(iptr a,iptr n)
+		return slice(a,a+n-1)
+	////////////////////////////////
+	//slicing
+	auto slice(iptr a0,iptr b)
+		a=a0
+		if Platform.BUILD=="debug":
+			if uptr(a)>uptr(b+1):
+				__basic_api.spapReportError("the slice range @1:@2 is invalid\0".Replace(["@1",string(a),"@2",string(b)]))
+			if b>=n:
+				__basic_api.spapReportError("the slice range @1:@2 is out of bound 0:@3\0".Replace(["@1",string(a),"@2",string(b),"@3",string(n-1)]))
+			if !this:
+				__basic_api.spapReportError("slicing a NULL array at @1:@2 is invalid\0".Replace(["@1",string(a),"@2",string(b)]))
+				return Array(T).NULL
+		ret=Array(T)();
+		if a==b+1:return ret;
+		ndata=b+1-a;
+		src=this
+		//we can't just use another dtor - it packs a full pointer
+		a=src.d+a*sizeof(T)
+		for(;src.destructor_nbound_or_slice_reference&1L;)
+			//flatten nested slice
+			src=__cast(Array(T),src.destructor_nbound_or_slice_reference-1L)
+		__explicit_rc(src,1);
+		src.destructor_nbound_or_slice_reference+=MAX_DTOR_TYPES*2;
+		ret.d=a;
+		ret.n=ndata;
+		ret.sz=ndata;
+		//hack for slice
+		ret.destructor_nbound_or_slice_reference=__cast(iptr,src)+1L;
+		if IS_CLASS://todo: NEED_RC
+			for i in range(ndata)
+				tmp=ret[i]
+				__explicit_rc(tmp,1)
+		return ret;
+	inline __slice(a)
+		if arguments.length<2:
+			return slice(a,n-1)
+		else
+			return slice(a,arguments[1])
+	/////////////////
+	//callbacks - clone / forEach / __C_autocast
+	inline __clone__()
+		ret=Array(T)(n,i16(0))
+		if NEED_RC:
+			for i in range(n)
+				ret[i]=this[i]
+		else
+			__basic_api.memcpy(__pointer(ret.d),__pointer(d),n*sizeof(T))
+		return ret
+	inline getForEachRepeatCount(){return n}
+	inline forEach(fbody)
+		//coulddo: lock it and use the pointer directly
+		for(i=0L;i<n;i++)
+			fbody(this[i],i)
+	inline ReverseOrder()
+		return {
+			forEach:inline(fbody){
+				for(i=n-1L;i>=0L;i--)
+					fbody(this[i],i)
+			}
+		}
+	inline __C_autocast(){return __pointer(d)}
+	inline __JS_autocast(JS)
+		ret=JS.NewArray()
+		for(i=0L;i<n;i++)
+			ret[i]=this[i]
+		return ret
+	/////////////////
+	//aggregated ops, sort and unique
+	auto Bisect(function(T a):int tooSmall)
+		l=0L;r=n-1
+		while l<=r
+			m=((l+r)>>1)
+			if tooSmall(this[m]):l=m+1;else r=m-1
+		return l
+	inline InlineBisect(tooSmall)
+		l=0L;r=n-1
+		while l<=r
+			m=((l+r)>>1)
+			if tooSmall(this[m]):l=m+1;else r=m-1
+		return l
+	inline __real_sort(const less0)
+		auto s=d;
+		auto n=this.n
+		auto dep=0
+		auto N=(iptr==i64?72:36)
+		sstk=iptr[N]
+		nstk=iptr[N]
+		dstk=int[N]
+		sp=0
+		//we'll ignore RC here when we can
+		if IS_STRUCT:
+			T_sort=T
+			less=less0
+		else if IS_CLASS:
+			T_sort=iptr
+			less=inline(a,b){return less0(__cast(T,a),__cast(T,b))}
+		else
+			T_sort=T
+			less=less0
+		inline S(auto i)
+			if IS_STRUCT:
+				return __cast(T_sort,s+sizeof(T_sort)*iptr(i))
+			else
+				return __memory(T_sort,s+sizeof(T_sort)*iptr(i))
+		inline set_S(auto i,value)
+			if IS_STRUCT:
+				ptr=__cast(T_sort,s+sizeof(T_sort)*iptr(i))
+				__struct_copy(ptr,value)
+			else
+				__memory(T_sort,s+sizeof(T_sort)*iptr(i))=value
+		for(;;)
+			for(;;)
+				if n<=16:{
+					//sort_insert
+					if n<=1:break;
+					d2=S(0)
+					for(i=1L;i<n;i++)
+						d0=S(i)
+						if less(d0,d2):
+							j=i-1
+							d3=d2
+							for(;;)
+								S(j+1)=d3
+								if --j<0:break
+								d3=S(j)
+								if !less(d0,d3):break
+							S(j+1)=d0
+						else
+							d2=d0
+					break
+				}
+				if (uptr(1)<<dep)>=uptr(n):{
+					//sort_heap
+					for(i=n>>1;i>=0;i--)
+						x=S(i)
+						t=i
+						for(;;)
+							t2=t+t+1
+							if t2>=n:break
+							if t2+1<n&&less(S(t2),S(t2+1)):t2++
+							if less(x,S(t2)):
+								S(t)=S(t2)
+								t=t2
+							else
+								break
+						if t!=i:S(t)=x
+					for(i=n-1;i>=1;i--)
+						x=S(i)
+						S(i)=S(0)
+						t=0
+						for(;;)
+							t2=t+t+1
+							if t2>=i:break
+							if t2+1<i&&less(S(t2),S(t2+1)):t2++
+							if less(x,S(t2)):
+								S(t)=S(t2)
+								t=t2
+							else
+								break
+						S(t)=x
+					break
+				}
+				j=n-1
+				i=(n>>1);x=S(i);S(i)=S(j)
+				i=0L
+				for(;;)
+					while i!=j&&less(S(i),x): i++
+					if i!=j:{S(j)=S(i);j--}else break
+					while i!=j&&!less(S(j),x): j--
+					if i!=j:{S(i)=S(j);i++}else break
+				S(i)=x
+				j++
+				while j<n&&!less(x,S(j)): j++
+				n0=i;n1=n-j
+				if n0<n1:
+					sstk[sp]=s;nstk[sp]=n0;dstk[sp]=dep+1;sp++
+					s=s+j*sizeof(T);n=n1;dep++
+				else
+					sstk[sp]=(s+j*sizeof(T));nstk[sp]=n1;dstk[sp]=dep+1;sp++
+					n=n0;dep++
+			if sp:
+				sp--;s=sstk[sp];n=nstk[sp];dep=dstk[sp]
+			else
+				break
+	auto __sort_default()
+		__real_sort(inline(a,b){return __less(a,b)})
+	inline Sort()
+		if arguments.length>1:
+			__error("Sort takes at most 1 parameter, not @1",arguments.length)
+		else if arguments.length==1:
+			__real_sort(arguments[0])
+		else
+			__sort_default()
+	inline Sortby(const fgetkey)
+		__real_sort(inline(a,b){return __less(fgetkey(a),fgetkey(b))})
+	/////////////////
+	inline UniqueBy(const fgetkey)
+		if destructor_nbound_or_slice_reference:
+			if Platform.BUILD=="debug":
+				__basic_api.spapReportError("cannot Unique an array bound to external pointers\0")
+			return
+		if n>0:
+			n2=1L
+			key_last=fgetkey(this[0])
+			for i=1:n-1
+				di=this[i]
+				keyi=fgetkey(di)
+				if !__equal(key_last,di):
+					this[n2++]=di
+					key_last=keyi
+			n=n2
+	auto __unique_default()
+		UniqueBy(inline(a){return a})
+	inline Unique()
+		if arguments.length>1:
+			__error("Unique takes at most 1 parameter, not @1",arguments.length)
+		else if arguments.length==1:
+			UniqueBy(arguments[0])
+		else
+			__unique_default()
+	inline Groupby(const fgetkey)
+		return {
+			forEach:inline(fbody){
+				Tkey=typeof(fgetkey(this[0]))
+				key_i=__zero(Tkey)
+				key_i2=__zero(Tkey)
+				if n:key_i2=fgetkey(this[0])
+				for(i=0L;i<n;){
+					key_i=key_i2
+					i0=i
+					for(i2=i+1;i2<n;i2++){
+						key_i2=fgetkey(this[i2])
+						if(!__equal(key_i,key_i2))break;
+					}
+					fbody(key_i,{
+						forEach:inline(fbody_inner){
+							for(I=i0;I<i2;I++){
+								fbody_inner(this[I],I-i0,I)
+							}
+						}
+					},i)
+					i=i2;
+				}
+			}
+		}
+	/////////////////
+	inline __hash__(){return __detail.__raw_hash(d,n*sizeof(T))}
+	auto __compare__(Array(T) b)
+		if !this:
+			if !b:
+				return 0
+			else
+				return -1
+		else
+			if !b:return 1
+		n_min=n
+		if n_min>b.n:n_min=b.n
+		if T==i8||T==u8:
+			ret=__basic_api.memcmp(__pointer(d),__pointer(b.d),n_min)
+			if !ret:
+				if n<b.n:
+					return -1
+				else if n==b.n:
+					return 0
+				else
+					return 1
+			else
+				return ret
+		else
+			for(i=0L;i<n_min;i++)
+				ret=__C_compare(this[i],b[i])
+				if ret!=0:return ret
+			if n<b.n:
+				return -1
+			else if n==b.n:
+				return 0
+			else
+				return 1
+	/////////////////
+	if T==char:
+		//string operators
+		__init__=(inline(a){
+			TA=typeof(a)
+			if TA==int
+				resize(16)
+				n=iptr(__detail.FormatInt(d,16, 0,1,1,10, i64(a)))
+			else if TA==u32
+				resize(16)
+				n=iptr(__detail.FormatInt(d,16, 0,0,1,10, i64(a)))
+			else if TA==float
+				lg=__detail.FormatDouble(0L,0,0,0,1,7, f64(a))
+				resize(lg)
+				__detail.FormatDouble(d,lg,0,0,1,7, f64(a))
+			else if TA==double
+				lg=__detail.FormatDouble(0L,0,0,0,1,7, a)
+				resize(lg)
+				__detail.FormatDouble(d,lg,0,0,1,7, a)
+			else if TA==u64
+				resize(32)
+				n=iptr(__detail.FormatInt(d,32, 0,0,1,10, i64(a)))
+			else if TA==i64
+				resize(32)
+				n=iptr(__detail.FormatInt(d,32, 0,1,1,10, a))
+			else if TA==i16
+				__init__(int(a))
+			else if TA==u16||TA==u8:
+				__init__(u32(a))
+			else if TA==char
+				push(a)
+			else if TA==Array(T)
+				push(a)
+			else
+				__error("type '@1' cannot be converted to a string",TA)
+		}|inline(double a,int nfrac){
+			lg=__detail.FormatDouble(0L,0,0,0,0,nfrac, a)
+			resize(lg)
+			__detail.FormatDouble(d,lg,0,0,0,nfrac, a)
+		}|inline(float a,int nfrac){
+			lg=__detail.FormatDouble(0L,0,0,0,0,nfrac, f64(a))
+			resize(lg)
+			__detail.FormatDouble(d,lg,0,0,0,nfrac, f64(a))
+		}|__builtin_ctor)
+		//////////////////////////////////
+		auto as(const T)
+			ret=T(0)
+			if !n:return T(0)
+			s=d;s2=d+n
+			if T==i32||T==u32||T==i16||T==u16||T==u8:
+				if T==i32||T==i16:
+					isneg=0
+					if s!=s2&&__memory(char,s)=='-':
+						s++
+						isneg=1
+				ci=0
+				for(;s!=s2;s++)
+					si=int(__memory(u8,s))-int('0')
+					if u32(si)>=10u:break
+					ci=ci*4+ci
+					ci=ci*2+si
+				if T==i32||T==i16:
+					if isneg:ci=-ci
+					ret=T(ci)
+				else
+					ret=T(u32(ci))
+			else if T==char:
+				return this[0]
+			else if T==i64||T==u64:
+				if T==i64:
+					isneg=0
+					if __memory(i8,s)=='-':
+						s++
+						isneg=1
+				ci=0LL
+				for(;s!=s2;s++)
+					si=int(__memory(u8,s))-int('0')
+					if u32(si)>=10u:break
+					ci=ci*10LL+i64(si)
+				if T==i64:
+					if isneg:ci=-ci
+				ret=T(ci)
+			else if T==float:
+				ret=__detail.spapParseFloat(s,s2)
+			else if T==double:
+				ret=__detail.spapParseDouble(s,s2)
+			else
+				__error("I don't know how to convert a string into type @1",T)
+			return ret
+		auto asHex(const T)
+			s=d;
+			s2=d+n;
+			if T==i32||T==u32||T==i16||T==u16||T==i8||T==u8:
+				ci=0
+				for(;s!=s2;s++)
+					si=int(__memory(u8,s))
+					si=((si-int('0'))&0x1f)
+					if si>=0x10:si-=7
+					ci<<=4;ci+=si
+				return T(ci)
+			else if T==i64||T==u64:
+				ci=0LL
+				for(;s!=s2;s++)
+					si=int(__memory(u8,s))
+					if u32(si-'0')>9u&&u32(si-'a')>5u&&u32(si-'A')>5u:break
+					si=((si-'0')&0x1f)
+					if si>=0x10:si-=7
+					ci<<=4;ci+=i64(si)
+				return T(ci)
+			else
+				__error("I don't know how to convert a hex string into type '@1'",T)
+		TOKENIZE_ALLOW_EMPTY=1
+		TOKENIZE_INCLUDE_SEPARATOR=2
+		inline TokenizeEx(string cset,int flags)
+			return {
+				forEach:inline(fbody){
+					ok=u32[8]
+					inv=0
+					s=0
+					if cset[0]=='^':
+						inv=1;s++
+					for(;s<cset.n;s++)
+						if s+2<cset.n&&cset[s+1]=='-':
+							for(i=u32(u8(cset[s]));i<=u32(u8(cset[s+2]));i++)
+								ok[i>>5]|=(1u<<int(i&31u));
+							s+=2
+						else
+							ok[u32(u8(cset[s]))>>5]|=(1u<<int(u32(u8(cset[s]))&31u));
+					if inv:
+						for i in range(8)
+							ok[i]=~ok[i]
+					Ilast=0L
+					for(I=0L;I<=n;I++)
+						ch=(I==n?0:int(__memory(u8,d+I)))
+						if ch<256&&(ok[ch>>5]&(1u<<(ch&31)))||I==n:
+							Ilast0=Ilast
+							Ilast=I+1
+							if (flags&TOKENIZE_ALLOW_EMPTY)?(Ilast0<=I):(Ilast0<I):
+								ret=this.slice(Ilast0,(flags&TOKENIZE_INCLUDE_SEPARATOR)?I-(I==n):I-1)
+								fbody(ret,Ilast0,(flags&TOKENIZE_INCLUDE_SEPARATOR)?I+(I<n):I)
+								ret=string.NULL
+				}
+			}
+		inline Tokenize(string cset){return TokenizeEx(cset,0)}
+		inline append_str(iptr s,iptr lg)
+			n0=n
+			resize(n0+lg)
+			__basic_api.memcpy(__pointer(d+n0),__pointer(s),lg)
+		inline IndexOf(pattern)
+			Ta=typeof(pattern)
+			if Ta==char:
+				p=__basic_api.memchr(__pointer(d),int(pattern),n)
+				if !p:
+					return -1L
+				else
+					return iptr(p)-d
+			else if Ta==string:
+				return __detail.memmem_twoway(this,pattern)
+			else
+				__error("invalid type for IndexOf: '@1'",T)
+		auto LastIndexOf(char ch)
+			for(i=n-1;i>=0L;i--)
+				if __memory(char,d+i)==ch:break
+			return i
+		auto Replace(char[][] rules)
+			if Platform.BUILD=="debug":
+				if rules.n&1:
+					__basic_api.spapReportError("in string.Replace, the replace rules didn't come in pairs\0")
+			if !rules.n:return this
+			ac=__detail.spapAhoCorasickBegin(rules,d,n)
+			ret=string()
+			s0=d
+			for(;;)
+				(s,pmatched)=__detail.spapAhoCorasickNext(ac)
+				if pmatched>=0:
+					a=rules[pmatched*2]
+					b=rules[pmatched*2+1]
+					ret.append_str(s0,iptr(s-a.n)-iptr(s0))
+					ret.push(b)
+				else
+					ret.append_str(s0,iptr(s)-iptr(s0))
+				s0=s
+				if uptr(s)-uptr(d)>=uptr(n):break
+			return ret
+		////////////
+		auto StartsWith(char[] b)
+			return n>=b.n&&__basic_api.memcmp(__pointer(d),__pointer(b.d),b.n)==0
+		auto EndsWith(char[] b)
+			return n>=b.n&&__basic_api.memcmp(__pointer(d+n-b.n),__pointer(b.d),b.n)==0
+		////////////
+		auto ToUpper()
+			ret=__clone__()
+			for i=0:ret.n-1
+				ch=ret[i]
+				if ch>='a'&&ch<='z':ret[i]=char(ch-0x20)
+			return ret
+		auto ToLower()
+			ret=__clone__()
+			for i=0:ret.n-1
+				ch=ret[i]
+				if ch>='A'&&ch<='Z':ret[i]=char(ch+0x20)
+			return ret
+		inline ReadAt(a,T)
+			if arguments.length>2:
+				if arguments.length>3:
+					__error("ReadAt can only take 2 or 3 parameters")
+				else
+					n2=arguments[2]
+					return slice(a,a+sizeof(T)*n2-1).ConvertToAsBinary(T)
+			else
+				if Platform.BUILD=="debug":
+					if uptr(a+sizeof(T))>uptr(n):
+						__reportRangeCheckError(a+sizeof(T),n)
+					else if a<0L:
+						__reportRangeCheckError(a,n)
+				return __memory(T,d+a)
+	else
+		__init__=__builtin_ctor
+
+string=Array(char)
+(string+string)=inline(a,b){
+	ret=char[a.n+b.n]
+	__basic_api.memcpy(__pointer(ret.d),__pointer(a.d),a.n)
+	__basic_api.memcpy(__pointer(ret.d+a.n),__pointer(b.d),b.n)
+	return ret
+}
+
+inline __ptrToString(feed,lg)
+	auto ret=new char[lg]
+	__basic_api.memcpy(__pointer(ret.d),__pointer(feed),lg)
+	return ret
+
+inline __define_comparisons(T)
+	(T==T)=inline(a,b){return a.__compare__(b)==0}
+	(T!=T)=inline(a,b){return a.__compare__(b)!=0}
+	(T<T)=inline(a,b){return a.__compare__(b)<0}
+	(T>T)=inline(a,b){return a.__compare__(b)>0}
+	(T<=T)=inline(a,b){return a.__compare__(b)<=0}
+	(T>=T)=inline(a,b){return a.__compare__(b)>=0}
+__define_comparisons(string)
+
+__FArrayDtor=function(iptr p,iptr sz):int
+__all_array_dtors=__FArrayDtor[2]
+__meta_state("stdtype.array")=Array
+__meta_state("stdtype.string")=Array(char)
+__meta_state("stdfn.make_string")=inline(ret){
+	//there's a built-in rc for class-returners
+	//__explicit_rc(ret,1)
+	return ret
+}
+
+auto __registerArrayBinder(__FArrayDtor a)
+	__all_array_dtors.push(a)
+	assert(__all_array_dtors.n<=16)
+	return int(__all_array_dtors.n-1);
+
+inline copy(a,b)
+	//for struct pointer assignment
+	Ta=typeof(a)
+	Tb=typeof(b)
+	if !readOptionalMember(a,"IS_ARRAY",0):
+		__error("the target a of copy(a,b) can only be an array, not @1",Ta)
+	else if !readOptionalMember(b,"IS_ARRAY",0):
+		__error("the source b of copy(a,b) can only be an array, not @1",Tb)
+	else if Ta!=Tb:
+		__error("the source type @1 doesn't match the target type @2 in this copy",Tb,Ta)
+	else
+		T=a.T
+		szcopy=b.n
+		if szcopy>a.n:
+			szcopy=a.n
+		a0=uptr(a.d);a1=a0+uptr(szcopy)*uptr(sizeof(T))
+		b0=uptr(b.d);b1=b0+uptr(szcopy)*uptr(sizeof(T))
+		if a.NEED_RC:
+			if b0<a1&&b1>a0&&a0>b0:
+				for i=szcopy-1:-1:0
+					a[i]=b[i]
+			else
+				for i=0:szcopy-1
+					a[i]=b[i]
+		else
+			if b0<a1&&b1>a0:
+				__basic_api.memmove(__pointer(a0),__pointer(b0),szcopy*sizeof(T))
+			else
+				__basic_api.memcpy(__pointer(a0),__pointer(b0),szcopy*sizeof(T))
+	//__rc_barrier()
+
+//////////////////////////////////////////////
+//reduce ops
+inline __internal_run_metalist(container,fmap,fcallback)
+	container.forEach(inline(){
+		arguments0=arguments
+		n=arguments.length
+		arg_new=__tuple(n+1)
+		for i in crange(n)
+			arg_new[i+1]=arguments0[i]
+		arg_new[0]=fcallback
+		fmap.call(arg_new)
+	})
+
+inline __reduce_(container,fmap,got_if)
+	T=__uninit()
+	if !got_if&&__has_member(container,"getForEachRepeatCount"):
+		n=container.getForEachRepeatCount()
+		ret=new T[n]
+		i=0L
+		fcallback=inline(val_i){
+			T=typeof(val_i)
+			ret[i]=val_i
+			i++
+		}
+	else
+		ret=new T[]
+		fcallback=inline(val_i){
+			T=typeof(val_i)
+			ret.push(val_i)
+		}
+	__internal_run_metalist(container,fmap,fcallback)
+	return ret
+
+inline __reduce_n(container,fmap,got_if)
+	if !got_if&&__has_member(container,"getForEachRepeatCount"):
+		return container.getForEachRepeatCount()
+	else
+		ret=0L
+		fcallback=inline(val_i){
+			ret++
+		}
+		__internal_run_metalist(container,fmap,fcallback)
+		return ret
+
+inline __reduce_Sum(container,fmap,got_if)
+	T=__uninit()
+	ret=__zero(T)
+	fcallback=inline(val_i){
+		T=typeof(val_i)
+		ret+=val_i
+	}
+	__internal_run_metalist(container,fmap,fcallback)
+	return ret
+
+//////////////////////////////////////////////
+class Map(T0,T1)
+	struct KVPair
+		k=__zero(T0)
+		v=__zero(T1)
+	m_data=KVPair[1]
+	m_hash=iptr[0]
+	inline __clone__()
+		ret=Map(T0,T1)()
+		ret.m_data=__builtin.clone(m_data)
+		ret.m_hash=__builtin.clone(m_hash)
+		return ret
+	auto _grow_from(iptr sz)
+		hash2=iptr[sz?sz*2:8L]
+		mask=hash2.n-1
+		for kv,I in m_data
+			if I:
+				b=(iptr(__detail.hash(kv.k))&mask)
+				slot=-1L
+				delta=1L
+				for(;;)
+					if !hash2[b]:
+						slot=b
+						break
+					b+=delta++
+					b&=mask
+				hash2[slot]=I
+		m_hash=hash2
+	auto _find(int CREATE_NEW,T0 key)
+		sz=m_hash.n
+		if !CREATE_NEW:
+			if !sz:return 0L
+		else
+			if !sz:
+				_grow_from(sz)
+				sz=m_hash.n
+		slot=-1L
+		mask=sz-1
+		b=(iptr(__detail.hash(key))&mask)
+		delta=1L
+		hash=m_hash
+		data=m_data
+		for(;;)
+			pi=hash[b]
+			if !pi:
+				slot=b
+				break
+			else if __equal(data[pi].k,key):
+				return pi
+			b+=delta++
+			b&=mask
+		if !CREATE_NEW:
+			return 0L
+		pdata=data.n
+		data.push(KVPair(){"k":__builtin.clone(key)})
+		hash[slot]=pdata
+		if sz-data.n<(sz>>2):
+			_grow_from(sz)
+		return pdata
+	inline forEach(fbody)
+		//coulddo: lock it and use the pointer directly
+		auto n=m_data.n
+		for(I=1;I<n;I++)
+			kv=m_data[I]
+			fbody(kv.v,kv.k,I)
+	inline D(iptr I)
+		return m_data[I].v
+	inline set_D(iptr I,T1 value)
+		m_data[I].v=value
+	inline operator[](T0 key)
+		slot=_find(0,key);
+		return m_data[slot].v
+	inline set_operator[](T0 key,T1 value)
+		slot=_find(1,key);
+		m_data[slot].v=value
+	inline discard()
+		m_data=KVPair[1]
+		m_hash=iptr[0]
+	clear=discard
+	inline empty(){return m_data.n==1L}
+
+__meta_state("stdtype.map")=Map
+
+//////////////////////////////////////////////
+range=inline(n){
+	return {
+		getForEachRepeatCount:inline(){return n},
+		forEach:inline(fbody){
+			auto T=typeof(n)
+			for(i=T(0);i<n;i++){
+				fbody(i);
+			}
+		}
+	}
+}
+
+crange=inline(n){
+	auto frepeat=inline(start,count,fbody){
+		if count==1:
+			__blockex("__blockex","continue",{
+				fbody(start)
+			})
+		else
+			chalf=(count>>1)
+			frepeat(start,chalf,fbody)
+			frepeat(start+chalf,count-chalf,fbody)
+	}
+	if n<0:
+		__error("crange(@1) is invalid",n)
+	else if n>1048576:
+		__error("crange(@1) is invalid - loop count too large",n)
+	return {
+		getForEachRepeatCount:inline(){return n},
+		forEach:inline(fbody){
+			__blockex("__blockex","break",{
+				if n>0&&n<=1048576:
+					frepeat(0,n,fbody)
+			})
+		}
+	}
+}
+
+inline clone(a)
+	T=typeof(a)
+	if __has_member(a,"__clone__"):
+		if !a:
+			return T.NULL
+		else
+			return a.__clone__()
+	else if __is_type("builtin",T)
+		return a
+	else
+		if __is_type("class",T)
+			if !a:
+				return T.NULL
+		ret=T()
+		members=__member_list(a)
+		for i in crange(members.length):
+			id_name=members[i]
+			__is_variable(__dot(ret,id_name),{
+				__dot(ret,id_name)=__dot(a,id_name)
+			})
+		return ret
+__meta_state("stdfn.clone")=clone
+
+inline assert(cond)
+	if Platform.BUILD=="debug":
+		if !cond:
+			__basic_api.spapReportError("assertion failed\0")
+
+inline __int_range(a0,b0,c0)
+	T=typeof(c0)
+	a=T(a0)
+	b=T(b0)
+	c=T(c0)
+	return {
+		getForEachRepeatCount:inline(){
+			auto n=(c-a)
+			auto d=b
+			if d<0:
+				n=-n
+				d=-d
+			return (n+1)/d
+		},
+		forEach:inline(fbody){
+			for(i=a;b<0?(i>=c):(i<=c);i+=b){
+				fbody(i);
+			}
+		}
+	}
+
+if Platform.BUILD=="debug":
+	auto __reportRangeCheckError(iptr i,iptr n)
+		//__basic_api.printf("subscript [%d] is out of bound: array size is %d\n",i,n);
+		//if i>0:__basic_api.spapReportError("rangecheck")
+		__basic_api.spapReportError("subscript [@1] is out of bound: array size is @2\0".Replace(["@1",string(i),"@2",string(n)]))
+
+inline __compare(a,b,cb_less,cb_equal,cb_greater)
+	T=typeof(a)
+	if !T:
+		return cb_equal()
+	else if T!=typeof(b):
+		__error("cannot compare mismatching types '@1' and '@2'",T,typeof(b))
+	else if (__is_type("struct",T)||__is_type("class",T))&&!__is_type("function",T):
+		if __has_member(a,"__compare__"):
+			ret=a.__compare__(b)
+			if ret<0:
+				return cb_less()
+			else if ret==0:
+				return cb_equal()
+			else
+				return cb_greater()
+			//todo: __is_overloaded
+		else
+			members=__member_list(a)
+			inline frecurse(i)
+				if i>=members.length:
+					return cb_equal()
+				else
+					id_name=members[i]
+					return __compare(__dot(a,id_name),__dot(b,id_name),cb_less,inline(){return frecurse(i+1)},cb_greater)
+			return frecurse(0)
+	else
+		if a<b:
+			return cb_less()
+		else if a==b:
+			return cb_equal()
+		else
+			return cb_greater()
+
+inline __less(a,b)
+	return __compare(a,b,inline(){return 1},inline(){return 0},inline(){return 0})
+
+inline __equal(a,b)
+	return __compare(a,b,inline(){return 0},inline(){return 1},inline(){return 0})
+
+inline __C_compare(a,b)
+	return __compare(a,b,inline(){return -1},inline(){return 0},inline(){return 1})
+
+//////////////////////////////////////////////
+auto getInterface(obj,const IInterface)
+	ret=IInterface()
+	members=__member_list(ret)
+	for i in crange(members.length):
+		id_name=members[i]
+		if __has_member(obj,id_name):
+			__dot(ret,id_name)=__dot(obj,id_name)
+	return ret
+
+//////////////////////////////////////////////
+module __detail
+	POWBASE=40
+	POWBASE64=310
+	pows=float[].NULL
+	pows64=double[].NULL
+	pows_ready=0
+	auto powint(float a,int x)
+		if x==0:return 1.f;
+		d=powint(a,x>>1);
+		d*=d;
+		if x&1:d*=a;
+		return d;
+	auto powintd(double a,int x)
+		if x==0:return 1.;
+		d=powintd(a,x>>1);
+		d*=d;
+		if x&1:d*=a;
+		return d
+	auto init_powers()
+		pows_ready=1
+		pows=float[POWBASE*2+1]
+		pows64=double[POWBASE64*2+1]
+		for i in range(POWBASE)
+			pows[POWBASE+i]=powint(10.f,int(i));
+		for i in range(POWBASE-1)
+			pows[POWBASE-i-1]=1.f/powint(10.f,int(i+1));
+		for i in range(POWBASE64)
+			pows64[POWBASE64+i]=powintd(10.,int(i));
+		for i in range(POWBASE64-1)
+			pows64[POWBASE64-i-1]=1./powintd(10.,int(i+1));
+	inline parsereal(const T,iptr s,iptr s2)
+		peek=inline(){return __memory(char,s)}
+		cnt=0;ofs=-1;delt=0;ch=0;isneg=0
+		feed0=s
+		if s!=s2:
+			ch=int(peek())
+			if ch=='-':
+				isneg=1
+				s++
+				feed0=s
+				if s!=s2:ch=int(peek())
+		for(;;)
+			if ch=='.':
+				if ofs!=-1:
+					break
+				ofs=cnt;
+			else if ch=='e'||ch=='E'||ch=='d'||ch=='D':
+				//always e/E
+				s++;ch=0;if s!=s2:ch=int(peek())
+				isneg2=0;
+				if ch=='-':
+					isneg2=1;
+					s++;ch=0;if s!=s2:ch=int(peek())
+				else if ch=='+':
+					s++;ch=0;if s!=s2:ch=int(peek())
+				if s!=s2:
+					for(;;)
+						delt+=(delt<<2);
+						delt=delt*2+(ch-int('0'));
+						s++;
+						if s!=s2:
+							ch=int(peek())
+							if u32(ch-int('0'))<10u:
+								continue
+						break
+				if isneg2:delt=-delt;
+				break;
+			else if u32(ch-int('0'))>=10u:
+				break;
+			else
+				cnt++;
+			s++;
+			if s!=s2:
+				ch=int(peek())
+			else
+				break
+		if ofs==-1:ofs=cnt;
+		if T==float:
+			ofs+=delt+(POWBASE-1);
+			if ofs<0:ofs=0
+			if ofs>POWBASE*2:ofs=POWBASE*2;
+		else
+			ofs+=delt+(POWBASE64-1);
+			if ofs<0:ofs=0
+			if ofs>POWBASE64*2:ofs=POWBASE64*2;
+		ret=T(0.);
+		s=feed0
+		for(;s!=s2;)
+			ch=int(__memory(u8,s))-int('0');s++
+			if u32(ch)>9u:
+				if ch!=int('.'-'0'):
+					break;
+				else
+					continue;
+			uu=ch+0x4b000000
+			digitf=__memory(float,iptr(&uu))-8388608.f
+			if T==float:
+				ret+=digitf*pows[ofs];
+			else
+				ret+=T(digitf)*pows64[ofs]
+			ofs--;
+			if ofs<0:break
+		if isneg:ret=-ret
+		return ret
+	auto spapParseFloat(iptr s,iptr s2)
+		if !pows_ready:init_powers()
+		return parsereal(float,s,s2)
+	auto spapParseDouble(iptr s,iptr s2)
+		if !pows_ready:init_powers()
+		return parsereal(double,s,s2)
+	//////////////////////////////////////////
+	g_formatint_tmp=char[].NULL
+	auto FormatInt(iptr ret,iptr szret,int do_plus_sign,int signed,int align,int base, i64 d)
+		//digits="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		tmp=g_formatint_tmp
+		if !tmp:
+			tmp=char[64]
+			g_formatint_tmp=tmp
+		p=0
+		dd=u64(d)
+		if i64(dd)<0LL&&signed:
+			ch='-'
+			dd=-dd
+		else
+			ch='+'
+		if do_plus_sign||ch=='-':
+			if p<szret:__memory(char,ret+p)=char(ch)
+			p++
+		p2=0
+		for(;u64(dd)>u64(0)||p2<align;)
+			dd2=dd/u64(base)
+			dig=int(dd-dd2*u64(base))
+			if dig>=10:dig+=int('A'-'0')-10
+			tmp[p2++]=dig+int('0')
+			dd=dd2
+		for(i=p2-1;i>=0;i--)
+			if p<szret:__memory(char,ret+p)=tmp[i]
+			p++
+		return p
+	auto FormatDouble(iptr ret,iptr szret,int force_sign,int scientific,int clamp_trail,int nfrac, f64 d)
+		if !pows_ready:init_powers()
+		darr=d
+		p=0
+		d64=__memory(u64,iptr(&darr))
+		dd=d
+		if i64(d64)<0LL:
+			ch='-'
+			dd=-dd
+		else
+			ch='+'
+		if force_sign||ch=='-':
+			if p<szret:__memory(char,ret+p)=char(ch)
+			p++
+		expo=((int(d64>>52))&2047)
+		if expo==2047:
+			if d64&((u64(1)<<52)-u64(1)):
+				//NAN
+				s='1.#NAN'
+			else
+				//INF
+				s='1.#INF'
+			szcpy=szret-p
+			if szcpy>6L:szcpy=6L
+			if szcpy>0L:__basic_api.memcpy(__pointer(ret+p),s,szcpy)
+			return p+6
+		//the main body
+		if scientific:
+			pdot=0
+		else
+			pdot=POWBASE64
+		if !(d64<<1):
+			pw=POWBASE64
+		else
+			pw=int(__basic_api.log(dd)/__basic_api.log(10.))+2+POWBASE64
+			if pw>POWBASE64*2:pw=POWBASE64*2
+			if pw<POWBASE64:pw=POWBASE64
+			for(;dd<pows64[pw]&&pw>pdot;)
+				pw--
+		if scientific:
+			pdot=pw
+		pdot--
+		pgoal=pdot-nfrac
+		delta0=0.
+		if pgoal>=0:
+			delta0=pows64[pgoal]*5.
+			//dd0=dd
+			//dd+=delta0
+			//delta0=dd-dd0
+		else
+			pgoal=-1
+		for(;pw>pgoal;)
+			if pw==pdot:
+				if p<szret:__memory(char,ret+p)='.'
+				p++
+			dig=int((dd+delta0)/pows64[pw])
+			if dig>9:dig=9
+			if p<szret:__memory(char,ret+p)=char(int('0')+dig)
+			p++
+			dd-=f64(dig)*pows64[pw]
+			pw--
+			if clamp_trail&&!(dd>0.)&&pw<=pdot:break
+		//E+XXX
+		if scientific:
+			pdot+=1-POWBASE64
+			if p<szret:__memory(char,ret+p)='E'
+			p++
+			p+=FormatInt(ret+p,szret-p>0L?szret-p:0L, 1,1,3,10, i64(pdot))
+		return p
+	/////////////////////////////////////////////////
+	class TACAutomation
+		ctype=i16[].NULL
+		nc=0
+		tran=int[].NULL
+		//+nc: match, +nc+1: lg, +nc+2: next
+		//match info
+		st=0
+		s=0L
+		send=0L
+	auto spapAhoCorasickBegin(char[][] rules, iptr sall,iptr ssz)
+		NEXTRA=3
+		ret=TACAutomation(){ctype:i16[256],s:sall,send:sall+ssz}
+		cset=u32[8]
+		for(i=0;i<rules.n;i+=2)
+			s=rules[i]
+			for j in range(s.n)
+				ch=int(u8(s[j]))
+				cset[ch>>5]|=1u<<(ch&31)
+		ctype=ret.ctype
+		nc=1
+		for i in range(256)
+			if cset[i>>5]&(1u<<(i&31)):
+				ctype[i]=i16(nc++)
+			else
+				ctype[i]=0
+		ret.nc=nc
+		//compose the trie
+		tran=int[nc+NEXTRA]
+		dad=int[2]
+		__basic_api.memset(__pointer(tran.d),-1,(nc+NEXTRA)*sizeof(int))
+		tran[nc+1]=0
+		dad[0]=-1;dad[1]=-1
+		for(i=0;i<rules.n;i+=2)
+			mst=-1
+			st=0
+			s=rules[i]
+			for j in range(s.n)
+				ch=int(u8(s[j]))
+				ch=int(ctype[ch])
+				st2=tran[st*(nc+NEXTRA)+ch]
+				if st2<0:
+					//new state
+					tran[st*(nc+NEXTRA)+ch]=int(dad.n>>1)
+					n0=tran.n;tran.resize(n0+nc+NEXTRA)
+					__basic_api.memset(__pointer(tran.d+sizeof(int)*n0),-1,(nc+NEXTRA)*sizeof(int))
+					dad.push(st);dad.push(ch)
+					st2=tran[st*(nc+NEXTRA)+ch]
+				st=st2
+				tran[st*(nc+NEXTRA)+nc+1]=int(j+1)
+				pnc=st*(nc+NEXTRA)+nc
+				if tran[pnc]<0:
+					tran[pnc]=mst
+				else
+					mst=~(st*(nc+NEXTRA))
+			tran[st*(nc+NEXTRA)+nc]=int(i>>1)
+		//bfs ordering
+		ord=int[dad.n>>1]
+		ord[0]=0
+		t=1
+		for(h=0;h<t;h++)
+			hd=ord[h]*(nc+NEXTRA)
+			for j in range(nc)
+				if tran[hd+j]>=0:
+					st=tran[hd+j]
+					if tran[st*(nc+NEXTRA)+nc+2]==-1:
+						tran[st*(nc+NEXTRA)+nc+2]=-2
+						ord[t++]=st
+		//compute next
+		next=int[dad.n>>1]
+		if next.n:
+			next[0]=-1
+		for(ii=1;ii<next.n;ii++)
+			i=ord[ii]
+			nxt0=next[dad[i*2]];dadch=dad[i*2+1]
+			for(;nxt0>=0&&tran[nxt0*(nc+NEXTRA)+dadch]<0;)
+				nxt0=next[nxt0]
+			if nxt0<0:
+				next[i]=0
+			else
+				next[i]=tran[nxt0*(nc+NEXTRA)+dadch]
+		//update transitions with next
+		//use 0x80000000 as backward tag, it doesn't affect st effectiveness
+		for i in range(nc)
+			if tran[i]<0:
+				tran[i]=0
+			else
+				tran[i]*=nc+NEXTRA
+		//tran[nc+2]=-1
+		for(ii=1;ii<next.n;ii++)
+			i=ord[ii]
+			base=i*(nc+NEXTRA)
+			bnxt=next[i]*(nc+NEXTRA)
+			for j in range(nc)
+				if tran[base+j]<0:
+					tran[base+j]=(tran[bnxt+j]|0x80000000)
+				else
+					tran[base+j]*=(nc+NEXTRA)
+			tran[base+nc+2]=next[i]*(nc+NEXTRA)
+		ret.tran=tran
+		return ret
+	//it returns a tail pointer
+	auto spapAhoCorasickNext(TACAutomation ac)
+		//note: this may degenerate for specific combinations
+		pmatched=-1
+		ret=0L
+		tuple_ret=(ret,pmatched)
+		nc=ac.nc
+		ctype=ac.ctype
+		tran=ac.tran
+		st=ac.st
+		s=ac.s
+		for(;s!=ac.send;s++)
+			ch=int(__memory(u8,s))
+			ch=int(ctype[ch])
+			st2=tran[st+ch]
+			if st2<0:
+				if tran[st+nc]!=-1:
+					//test match
+					if tran[st+nc]<0:
+						st2=~tran[st+nc]
+						assert(tran[st2+nc]>=0)
+						pmatched=tran[st2+nc]
+						ret=s-(tran[st+nc+1]-tran[st2+nc+1])
+					else
+						pmatched=tran[st+nc]
+						ret=s
+				if ret:
+					//roll back lg to exclude previous match from current prefix
+					lgstd=s-ret
+					for(;st>0&&tran[st+nc+1]>lgstd;)
+						st=tran[st+nc+2]
+					if st<0:st=0
+					ac.st=st
+					ac.s=s
+					tuple_ret[0]=ret
+					tuple_ret[1]=pmatched
+					return tuple_ret
+			st=(st2&0x7fffffff)
+		if tran[st+nc]!=-1:
+			//test match
+			if tran[st+nc]<0:
+				st2=~tran[st+nc]
+				pmatched=tran[st2+nc]
+				ret=s-(tran[st+nc+1]-tran[st2+nc+1])
+			else
+				pmatched=tran[st+nc]
+				ret=s
+		else
+			ret=s
+		ac.st=0
+		ac.s=s
+		tuple_ret[0]=ret
+		tuple_ret[1]=pmatched
+		return tuple_ret
+	//////////////////////////////////////////////
+	//two-way memmem fallback
+	//http://www-igm.univ-mlv.fr/~lecroq/string/node26.html#SECTION00260
+	auto maxSuf(string x,int mask)
+		ms = -1L;
+		j = 0L;
+		k = 1L;
+		p = 1L;
+		m=x.n
+		while (j + k < m)
+			a = int(u8(x[j + k]))^mask;
+			b = int(u8(x[ms + k]))^mask;
+			if (a < b)
+				j += k;
+				k = 1L;
+				p = j - ms;
+			else
+				if (a == b)
+					if (k != p)
+						++k;
+					else
+						j += p;
+						k = 1L;
+				else
+					ms = j;
+					j = ms + 1;
+					k = 1L
+					p = 1L;
+		return (ms,p)
+	auto memmem_twoway(string y,string x)
+		/* Preprocessing */
+		(i,p) = maxSuf(x, 0);
+		(j,q) = maxSuf(x, -1);
+		if (i > j)
+			ell = i;
+			per = p;
+		else
+			ell = j;
+			per = q;
+		/* Searching */
+		m=x.n
+		n=y.n
+		if __basic_api.memcmp(__pointer(x.d), __pointer(x.d+per), ell + 1) == 0:
+			j = 0L;
+			memory = -1L;
+			while (j <= n - m)
+				i = max(ell, memory) + 1;
+				while (i < m && x[i] == y[i + j])
+					++i;
+				if (i >= m)
+					i = ell;
+					while (i > memory && x[i] == y[i + j])
+						--i;
+					if (i <= memory)
+						return j;
+					j += per;
+					memory = m - per - 1L;
+				else
+					j += (i - ell);
+					memory = -1L;
+		else
+			per = max(ell + 1, m - ell - 1) + 1;
+			j = 0L;
+			while (j <= n - m)
+				i = ell + 1;
+				while (i < m && x[i] == y[i + j])
+					++i;
+				if (i >= m)
+					i = ell;
+					while (i >= 0 && x[i] == y[i + j])
+						--i;
+					if (i < 0)
+						return j;
+					j += per;
+				else
+					j += (i - ell);
+		return -1L
+	//////////////////////////////////////////////
+	inline __hash_avalanche(u32 h0)
+		h=h0
+		h ^= h << 3;
+		h += h >> 5;
+		h ^= h << 4;
+		h += h >> 17;
+		h ^= h << 25;
+		h += h >> 6;
+		return h
+	auto __raw_hash(iptr data0,iptr len0)
+		//http://www.azillionmonkeys.com/qed/hash.html
+		data=data0
+		len=len0
+		h=u32(len)
+		if len<=0L||!data:return uptr(1)
+		rem = len & 3;
+		len >>= 2;
+		/* Main loop */
+		for (;len > 0; len--)
+			h  += u32(__memory(u16,data));
+			tmp = ((u32(__memory(u16,data+sizeof(u16)))) << 11) ^ h;
+			h	= (h << 16) ^ tmp;
+			data  += 2*sizeof(u16);
+			h  += h >> 11;
+		/* Handle end cases */
+		if rem==3:
+			h += u32(__memory(u16,data));
+			h ^= h << 16;
+			h ^= u32(__memory(u8,data+2L)) << 18;
+			h += h >> 11;
+		else if rem==2:
+			h += u32(__memory(u16,data));
+			h ^= h << 11;
+			h += h >> 17;
+		else if rem==1:
+			h += u32(__memory(u8,data));
+			h ^= h << 10;
+			h += h >> 1;
+		/* Force "avalanching" of final 127 bits */
+		h=__hash_avalanche(h)
+		return uptr(h);
+	inline hash(a)
+		T=typeof(a)
+		if __has_member(a,"__hash__"):
+			return a.__hash__()
+		else if __is_type("builtin",T)
+			if sizeof(T)<=2:
+				return uptr(a)
+			else if sizeof(T)==4&&T!=u32:
+				slot=a
+				return hash(__memory(u32,&slot))
+			else if sizeof(T)==8&&T!=u64:
+				slot=a
+				return hash(__memory(u64,&slot))
+			else if T==u32:
+				h=u32(4)
+				h  += (a&0xffffu);
+				tmp = ((a>>16) << 11) ^ h;
+				h	= (h << 16) ^ tmp;
+				h  += h >> 11;
+				///////////
+				h=__hash_avalanche(h)
+				return h
+			else if T==u64:
+				h=u32(4)
+				h  += (u32(a)&0xffffu);
+				tmp = ((u32(a)>>16) << 11) ^ h;
+				h	= (h << 16) ^ tmp;
+				h  += h >> 11;
+				b=u32(a>>32)
+				h  += (b&0xffffu);
+				tmp = ((b>>16) << 11) ^ h;
+				h	= (h << 16) ^ tmp;
+				h  += h >> 11;
+				///////////
+				h=__hash_avalanche(h)
+				return h
+		else
+			h=u32(1)
+			members=__member_list(a)
+			for i in crange(members.length):
+				id_name=members[i]
+				__is_variable(__dot(a,id_name),{
+					h2=u32(hash(__dot(a,id_name)))
+					h  += (h2&0xffffu);
+					tmp = ((h2>>16) << 11) ^ h;
+					h	= (h << 16) ^ tmp;
+					h  += h >> 11;
+				})
+			h=__hash_avalanche(h)
+			return h
+
+/////////////////////////////////////////////
+inline readOptionalMember(obj,name,dflt)
+	if __has_member(obj,name):
+		return __dot(obj,name)
+	else
+		return dflt
+
+inline mergeMembers(default_options,options)
+	ret=typeof(default_options)()
+	members=__member_list(default_options)
+	for i in crange(members.length):
+		id_name=members[i]
+		__dot(ret,id_name)=readOptionalMember(options,id_name,__dot(default_options,id_name))
+	return ret
+
+inline formatNumber(a)
+	if arguments.length>1:
+		options=arguments[1]
+	else
+		options=0
+	T=typeof(a)
+	if __is_type("float",T):
+		fraction=readOptionalMember(options,"frac",7)
+		is_sci=readOptionalMember(options,"scientific",0)
+		force_sign=readOptionalMember(options,"sign",0)
+		lg=__detail.FormatDouble(0L,0L, force_sign,is_sci,__has_member(options,"frac"),fraction, f64(a))
+		ret=char[lg]
+		__detail.FormatDouble(ret.d,lg, force_sign,is_sci,__has_member(options,"frac"),fraction, f64(a))
+		return ret
+	else if __is_type("int",T):
+		align=readOptionalMember(options,"align",0)
+		base=readOptionalMember(options,"base",10)
+		if base<2||base>36:
+			return NULL
+		else
+			s=char[64]
+			if T==u64:
+				n=__detail.FormatInt(s.d,64, 0,0,align,base, i64(a))
+			else
+				n=__detail.FormatInt(s.d,64, 0,1,align,base, i64(a))
+			s.resize(n)
+			return s
+	else
+		__error("'@1' cannot be formatted as a number, it's of type '@2'",a,T)
+
+/**
+ * \brief Return the minimum of two same-typed values. This function returns b if either a or b is NaN
+*/
+inline min(a,b)
+	if __has_member(a,"__min__"):
+		return a.__min__(b)
+	else
+		return a<b?a:b
+
+/**
+ * \brief Return the maximum of two same-typed values. This function returns b if either a or b is NaN
+*/
+inline max(a,b)
+	//If typeof(a)!=typeof(b):
+	//	#blame (b,"type mismatch in max")
+	if __has_member(a,"__max__"):
+		return a.__max__(b)
+	else
+		return a>b?a:b
+
+//vector math
+struct float2{x=float(0);y=float(0);Telement=float;ndim=2;__is_vector=1;inline __init__(float v_x,float v_y){x=v_x;y=v_y;}inline operator[](int d){if d==0:return x;else return y;}inline set_operator[](int d,float value){if d==0:x=value;else y=value;}inline as(T){return VectorType(T,2)(T(x),T(y));}__min__=__vec2_min;__max__=__vec2_max;}
+struct float3{x=float(0);y=float(0);z=float(0);Telement=float;ndim=3;__is_vector=1;inline __init__(float v_x,float v_y,float v_z){x=v_x;y=v_y;z=v_z;}inline operator[](int d){if d==0:return x;else if d==1:return y;else return z;}inline set_operator[](int d,float value){if d==0:x=value;else if d==1:y=value;else z=value;}inline as(T){return VectorType(T,3)(T(x),T(y),T(z));}__min__=__vec3_min;__max__=__vec3_max;}
+struct float4{x=float(0);y=float(0);z=float(0);w=float(0);Telement=float;ndim=4;__is_vector=1;inline __init__(float v_x,float v_y,float v_z,float v_w){x=v_x;y=v_y;z=v_z;w=v_w;}inline operator[](int d){if d==0:return x;else if d==1:return y;else if d==2:return z;else return w;}inline set_operator[](int d,float value){if d==0:x=value;else if d==1:y=value;else if d==2:z=value;else w=value;}inline as(T){return VectorType(T,4)(T(x),T(y),T(z),T(w));}__min__=__vec4_min;__max__=__vec4_max;}
+struct double2{x=double(0);y=double(0);Telement=double;ndim=2;__is_vector=1;inline __init__(double v_x,double v_y){x=v_x;y=v_y;}inline operator[](int d){if d==0:return x;else return y;}inline set_operator[](int d,double value){if d==0:x=value;else y=value;}inline as(T){return VectorType(T,2)(T(x),T(y));}__min__=__vec2_min;__max__=__vec2_max;}
+struct double3{x=double(0);y=double(0);z=double(0);Telement=double;ndim=3;__is_vector=1;inline __init__(double v_x,double v_y,double v_z){x=v_x;y=v_y;z=v_z;}inline operator[](int d){if d==0:return x;else if d==1:return y;else return z;}inline set_operator[](int d,double value){if d==0:x=value;else if d==1:y=value;else z=value;}inline as(T){return VectorType(T,3)(T(x),T(y),T(z));}__min__=__vec3_min;__max__=__vec3_max;}
+struct double4{x=double(0);y=double(0);z=double(0);w=double(0);Telement=double;ndim=4;__is_vector=1;inline __init__(double v_x,double v_y,double v_z,double v_w){x=v_x;y=v_y;z=v_z;w=v_w;}inline operator[](int d){if d==0:return x;else if d==1:return y;else if d==2:return z;else return w;}inline set_operator[](int d,double value){if d==0:x=value;else if d==1:y=value;else if d==2:z=value;else w=value;}inline as(T){return VectorType(T,4)(T(x),T(y),T(z),T(w));}__min__=__vec4_min;__max__=__vec4_max;}
+struct int2{x=int(0);y=int(0);Telement=int;ndim=2;__is_vector=1;inline __init__(int v_x,int v_y){x=v_x;y=v_y;}inline operator[](int d){if d==0:return x;else return y;}inline set_operator[](int d,int value){if d==0:x=value;else y=value;}inline as(T){return VectorType(T,2)(T(x),T(y));}__min__=__vec2_min;__max__=__vec2_max;}
+struct int3{x=int(0);y=int(0);z=int(0);Telement=int;ndim=3;__is_vector=1;inline __init__(int v_x,int v_y,int v_z){x=v_x;y=v_y;z=v_z;}inline operator[](int d){if d==0:return x;else if d==1:return y;else return z;}inline set_operator[](int d,int value){if d==0:x=value;else if d==1:y=value;else z=value;}inline as(T){return VectorType(T,3)(T(x),T(y),T(z));}__min__=__vec3_min;__max__=__vec3_max;}
+struct int4{x=int(0);y=int(0);z=int(0);w=int(0);Telement=int;ndim=4;__is_vector=1;inline __init__(int v_x,int v_y,int v_z,int v_w){x=v_x;y=v_y;z=v_z;w=v_w;}inline operator[](int d){if d==0:return x;else if d==1:return y;else if d==2:return z;else return w;}inline set_operator[](int d,int value){if d==0:x=value;else if d==1:y=value;else if d==2:z=value;else w=value;}inline as(T){return VectorType(T,4)(T(x),T(y),T(z),T(w));}__min__=__vec4_min;__max__=__vec4_max;}
+struct uint2{x=u32(0);y=u32(0);Telement=u32;ndim=2;__is_vector=1;inline __init__(u32 v_x,u32 v_y){x=v_x;y=v_y;}inline operator[](int d){if d==0:return x;else return y;}inline set_operator[](int d,u32 value){if d==0:x=value;else y=value;}inline as(T){return VectorType(T,2)(T(x),T(y));}__min__=__vec2_min;__max__=__vec2_max;}
+struct uint3{x=u32(0);y=u32(0);z=u32(0);Telement=u32;ndim=3;__is_vector=1;inline __init__(u32 v_x,u32 v_y,u32 v_z){x=v_x;y=v_y;z=v_z;}inline operator[](int d){if d==0:return x;else if d==1:return y;else return z;}inline set_operator[](int d,u32 value){if d==0:x=value;else if d==1:y=value;else z=value;}inline as(T){return VectorType(T,3)(T(x),T(y),T(z));}__min__=__vec3_min;__max__=__vec3_max;}
+struct uint4{x=u32(0);y=u32(0);z=u32(0);w=u32(0);Telement=u32;ndim=4;__is_vector=1;inline __init__(u32 v_x,u32 v_y,u32 v_z,u32 v_w){x=v_x;y=v_y;z=v_z;w=v_w;}inline operator[](int d){if d==0:return x;else if d==1:return y;else if d==2:return z;else return w;}inline set_operator[](int d,u32 value){if d==0:x=value;else if d==1:y=value;else if d==2:z=value;else w=value;}inline as(T){return VectorType(T,4)(T(x),T(y),T(z),T(w));}__min__=__vec4_min;__max__=__vec4_max;}
+struct long2{x=i64(0);y=i64(0);Telement=i64;ndim=2;__is_vector=1;inline __init__(i64 v_x,i64 v_y){x=v_x;y=v_y;}inline operator[](int d){if d==0:return x;else return y;}inline set_operator[](int d,i64 value){if d==0:x=value;else y=value;}inline as(T){return VectorType(T,2)(T(x),T(y));}__min__=__vec2_min;__max__=__vec2_max;}
+struct long3{x=i64(0);y=i64(0);z=i64(0);Telement=i64;ndim=3;__is_vector=1;inline __init__(i64 v_x,i64 v_y,i64 v_z){x=v_x;y=v_y;z=v_z;}inline operator[](int d){if d==0:return x;else if d==1:return y;else return z;}inline set_operator[](int d,i64 value){if d==0:x=value;else if d==1:y=value;else z=value;}inline as(T){return VectorType(T,3)(T(x),T(y),T(z));}__min__=__vec3_min;__max__=__vec3_max;}
+struct long4{x=i64(0);y=i64(0);z=i64(0);w=i64(0);Telement=i64;ndim=4;__is_vector=1;inline __init__(i64 v_x,i64 v_y,i64 v_z,i64 v_w){x=v_x;y=v_y;z=v_z;w=v_w;}inline operator[](int d){if d==0:return x;else if d==1:return y;else if d==2:return z;else return w;}inline set_operator[](int d,i64 value){if d==0:x=value;else if d==1:y=value;else if d==2:z=value;else w=value;}inline as(T){return VectorType(T,4)(T(x),T(y),T(z),T(w));}__min__=__vec4_min;__max__=__vec4_max;}
+struct ulong2{x=u64(0);y=u64(0);Telement=u64;ndim=2;__is_vector=1;inline __init__(u64 v_x,u64 v_y){x=v_x;y=v_y;}inline operator[](int d){if d==0:return x;else return y;}inline set_operator[](int d,u64 value){if d==0:x=value;else y=value;}inline as(T){return VectorType(T,2)(T(x),T(y));}__min__=__vec2_min;__max__=__vec2_max;}
+struct ulong3{x=u64(0);y=u64(0);z=u64(0);Telement=u64;ndim=3;__is_vector=1;inline __init__(u64 v_x,u64 v_y,u64 v_z){x=v_x;y=v_y;z=v_z;}inline operator[](int d){if d==0:return x;else if d==1:return y;else return z;}inline set_operator[](int d,u64 value){if d==0:x=value;else if d==1:y=value;else z=value;}inline as(T){return VectorType(T,3)(T(x),T(y),T(z));}__min__=__vec3_min;__max__=__vec3_max;}
+struct ulong4{x=u64(0);y=u64(0);z=u64(0);w=u64(0);Telement=u64;ndim=4;__is_vector=1;inline __init__(u64 v_x,u64 v_y,u64 v_z,u64 v_w){x=v_x;y=v_y;z=v_z;w=v_w;}inline operator[](int d){if d==0:return x;else if d==1:return y;else if d==2:return z;else return w;}inline set_operator[](int d,u64 value){if d==0:x=value;else if d==1:y=value;else if d==2:z=value;else w=value;}inline as(T){return VectorType(T,4)(T(x),T(y),T(z),T(w));}__min__=__vec4_min;__max__=__vec4_max;}
+struct ushort2{x=u16(0);y=u16(0);Telement=u16;ndim=2;__is_vector=1;inline __init__(u16 v_x,u16 v_y){x=v_x;y=v_y;}inline operator[](int d){if d==0:return x;else return y;}inline set_operator[](int d,u16 value){if d==0:x=value;else y=value;}inline as(T){return VectorType(T,2)(T(x),T(y));}__min__=__vec2_min;__max__=__vec2_max;}
+struct ushort3{x=u16(0);y=u16(0);z=u16(0);Telement=u16;ndim=3;__is_vector=1;inline __init__(u16 v_x,u16 v_y,u16 v_z){x=v_x;y=v_y;z=v_z;}inline operator[](int d){if d==0:return x;else if d==1:return y;else return z;}inline set_operator[](int d,u16 value){if d==0:x=value;else if d==1:y=value;else z=value;}inline as(T){return VectorType(T,3)(T(x),T(y),T(z));}__min__=__vec3_min;__max__=__vec3_max;}
+struct ushort4{x=u16(0);y=u16(0);z=u16(0);w=u16(0);Telement=u16;ndim=4;__is_vector=1;inline __init__(u16 v_x,u16 v_y,u16 v_z,u16 v_w){x=v_x;y=v_y;z=v_z;w=v_w;}inline operator[](int d){if d==0:return x;else if d==1:return y;else if d==2:return z;else return w;}inline set_operator[](int d,u16 value){if d==0:x=value;else if d==1:y=value;else if d==2:z=value;else w=value;}inline as(T){return VectorType(T,4)(T(x),T(y),T(z),T(w));}__min__=__vec4_min;__max__=__vec4_max;}
+struct uchar2{x=u8(0);y=u8(0);Telement=u8;ndim=2;__is_vector=1;inline __init__(u8 v_x,u8 v_y){x=v_x;y=v_y;}inline operator[](int d){if d==0:return x;else return y;}inline set_operator[](int d,u8 value){if d==0:x=value;else y=value;}inline as(T){return VectorType(T,2)(T(x),T(y));}__min__=__vec2_min;__max__=__vec2_max;}
+struct uchar3{x=u8(0);y=u8(0);z=u8(0);Telement=u8;ndim=3;__is_vector=1;inline __init__(u8 v_x,u8 v_y,u8 v_z){x=v_x;y=v_y;z=v_z;}inline operator[](int d){if d==0:return x;else if d==1:return y;else return z;}inline set_operator[](int d,u8 value){if d==0:x=value;else if d==1:y=value;else z=value;}inline as(T){return VectorType(T,3)(T(x),T(y),T(z));}__min__=__vec3_min;__max__=__vec3_max;}
+struct uchar4{x=u8(0);y=u8(0);z=u8(0);w=u8(0);Telement=u8;ndim=4;__is_vector=1;inline __init__(u8 v_x,u8 v_y,u8 v_z,u8 v_w){x=v_x;y=v_y;z=v_z;w=v_w;}inline operator[](int d){if d==0:return x;else if d==1:return y;else if d==2:return z;else return w;}inline set_operator[](int d,u8 value){if d==0:x=value;else if d==1:y=value;else if d==2:z=value;else w=value;}inline as(T){return VectorType(T,4)(T(x),T(y),T(z),T(w));}__min__=__vec4_min;__max__=__vec4_max;}
+struct short2{x=i16(0);y=i16(0);Telement=i16;ndim=2;__is_vector=1;inline __init__(i16 v_x,i16 v_y){x=v_x;y=v_y;}inline operator[](int d){if d==0:return x;else return y;}inline set_operator[](int d,i16 value){if d==0:x=value;else y=value;}inline as(T){return VectorType(T,2)(T(x),T(y));}__min__=__vec2_min;__max__=__vec2_max;}
+struct short3{x=i16(0);y=i16(0);z=i16(0);Telement=i16;ndim=3;__is_vector=1;inline __init__(i16 v_x,i16 v_y,i16 v_z){x=v_x;y=v_y;z=v_z;}inline operator[](int d){if d==0:return x;else if d==1:return y;else return z;}inline set_operator[](int d,i16 value){if d==0:x=value;else if d==1:y=value;else z=value;}inline as(T){return VectorType(T,3)(T(x),T(y),T(z));}__min__=__vec3_min;__max__=__vec3_max;}
+struct short4{x=i16(0);y=i16(0);z=i16(0);w=i16(0);Telement=i16;ndim=4;__is_vector=1;inline __init__(i16 v_x,i16 v_y,i16 v_z,i16 v_w){x=v_x;y=v_y;z=v_z;w=v_w;}inline operator[](int d){if d==0:return x;else if d==1:return y;else if d==2:return z;else return w;}inline set_operator[](int d,i16 value){if d==0:x=value;else if d==1:y=value;else if d==2:z=value;else w=value;}inline as(T){return VectorType(T,4)(T(x),T(y),T(z),T(w));}__min__=__vec4_min;__max__=__vec4_max;}
+struct char2{x=i8(0);y=i8(0);Telement=i8;ndim=2;__is_vector=1;inline __init__(i8 v_x,i8 v_y){x=v_x;y=v_y;}inline operator[](int d){if d==0:return x;else return y;}inline set_operator[](int d,i8 value){if d==0:x=value;else y=value;}inline as(T){return VectorType(T,2)(T(x),T(y));}__min__=__vec2_min;__max__=__vec2_max;}
+struct char3{x=i8(0);y=i8(0);z=i8(0);Telement=i8;ndim=3;__is_vector=1;inline __init__(i8 v_x,i8 v_y,i8 v_z){x=v_x;y=v_y;z=v_z;}inline operator[](int d){if d==0:return x;else if d==1:return y;else return z;}inline set_operator[](int d,i8 value){if d==0:x=value;else if d==1:y=value;else z=value;}inline as(T){return VectorType(T,3)(T(x),T(y),T(z));}__min__=__vec3_min;__max__=__vec3_max;}
+struct char4{x=i8(0);y=i8(0);z=i8(0);w=i8(0);Telement=i8;ndim=4;__is_vector=1;inline __init__(i8 v_x,i8 v_y,i8 v_z,i8 v_w){x=v_x;y=v_y;z=v_z;w=v_w;}inline operator[](int d){if d==0:return x;else if d==1:return y;else if d==2:return z;else return w;}inline set_operator[](int d,i8 value){if d==0:x=value;else if d==1:y=value;else if d==2:z=value;else w=value;}inline as(T){return VectorType(T,4)(T(x),T(y),T(z),T(w));}__min__=__vec4_min;__max__=__vec4_max;}
+inline __vec2_operator+(a,b){T=typeof(a);return T(a.x+b.x,a.y+b.y)}
+inline __vec2_operator-(a,b){T=typeof(a);return T(a.x-b.x,a.y-b.y)}
+inline __vec2_operator*(a,b){T=typeof(a);return T(a.x*b.x,a.y*b.y)}
+inline __vec2_operator/(a,b){T=typeof(a);return T(a.x/b.x,a.y/b.y)}
+inline __vec2_operator%(a,b){T=typeof(a);return T(a.x%b.x,a.y%b.y)}
+inline __vec2_operator&(a,b){T=typeof(a);return T(a.x&b.x,a.y&b.y)}
+inline __vec2_operator|(a,b){T=typeof(a);return T(a.x|b.x,a.y|b.y)}
+inline __vec2_operator^(a,b){T=typeof(a);return T(a.x^b.x,a.y^b.y)}
+inline __vec2_min(a,b){T=typeof(a);return T(min(a.x,b.x),min(a.y,b.y))}
+inline __vec2_max(a,b){T=typeof(a);return T(max(a.x,b.x),max(a.y,b.y))}
+inline __vec2_neg(a){T=typeof(a);return T(-a.x,-a.y)}
+inline __vec2_not(a){T=typeof(a);return T(~a.x,~a.y)}
+inline __vec2_scale0(c,a){T=typeof(a);return T(c*a.x,c*a.y)}
+inline __vec2_scale1(a,c){T=typeof(a);return T(c*a.x,c*a.y)}
+inline __vec3_operator+(a,b){T=typeof(a);return T(a.x+b.x,a.y+b.y,a.z+b.z)}
+inline __vec3_operator-(a,b){T=typeof(a);return T(a.x-b.x,a.y-b.y,a.z-b.z)}
+inline __vec3_operator*(a,b){T=typeof(a);return T(a.x*b.x,a.y*b.y,a.z*b.z)}
+inline __vec3_operator/(a,b){T=typeof(a);return T(a.x/b.x,a.y/b.y,a.z/b.z)}
+inline __vec3_operator%(a,b){T=typeof(a);return T(a.x%b.x,a.y%b.y,a.z%b.z)}
+inline __vec3_operator&(a,b){T=typeof(a);return T(a.x&b.x,a.y&b.y,a.z&b.z)}
+inline __vec3_operator|(a,b){T=typeof(a);return T(a.x|b.x,a.y|b.y,a.z|b.z)}
+inline __vec3_operator^(a,b){T=typeof(a);return T(a.x^b.x,a.y^b.y,a.z^b.z)}
+inline __vec3_min(a,b){T=typeof(a);return T(min(a.x,b.x),min(a.y,b.y),min(a.z,b.z))}
+inline __vec3_max(a,b){T=typeof(a);return T(max(a.x,b.x),max(a.y,b.y),max(a.z,b.z))}
+inline __vec3_neg(a){T=typeof(a);return T(-a.x,-a.y,-a.z)}
+inline __vec3_not(a){T=typeof(a);return T(~a.x,~a.y,~a.z)}
+inline __vec3_scale0(c,a){T=typeof(a);return T(c*a.x,c*a.y,c*a.z)}
+inline __vec3_scale1(a,c){T=typeof(a);return T(c*a.x,c*a.y,c*a.z)}
+inline __vec4_operator+(a,b){T=typeof(a);return T(a.x+b.x,a.y+b.y,a.z+b.z,a.w+b.w)}
+inline __vec4_operator-(a,b){T=typeof(a);return T(a.x-b.x,a.y-b.y,a.z-b.z,a.w-b.w)}
+inline __vec4_operator*(a,b){T=typeof(a);return T(a.x*b.x,a.y*b.y,a.z*b.z,a.w*b.w)}
+inline __vec4_operator/(a,b){T=typeof(a);return T(a.x/b.x,a.y/b.y,a.z/b.z,a.w/b.w)}
+inline __vec4_operator%(a,b){T=typeof(a);return T(a.x%b.x,a.y%b.y,a.z%b.z,a.w%b.w)}
+inline __vec4_operator&(a,b){T=typeof(a);return T(a.x&b.x,a.y&b.y,a.z&b.z,a.w&b.w)}
+inline __vec4_operator|(a,b){T=typeof(a);return T(a.x|b.x,a.y|b.y,a.z|b.z,a.w|b.w)}
+inline __vec4_operator^(a,b){T=typeof(a);return T(a.x^b.x,a.y^b.y,a.z^b.z,a.w^b.w)}
+inline __vec4_min(a,b){T=typeof(a);return T(min(a.x,b.x),min(a.y,b.y),min(a.z,b.z),min(a.w,b.w))}
+inline __vec4_max(a,b){T=typeof(a);return T(max(a.x,b.x),max(a.y,b.y),max(a.z,b.z),max(a.w,b.w))}
+inline __vec4_neg(a){T=typeof(a);return T(-a.x,-a.y,-a.z,-a.w)}
+inline __vec4_not(a){T=typeof(a);return T(~a.x,~a.y,~a.z,~a.w)}
+inline __vec4_scale0(c,a){T=typeof(a);return T(c*a.x,c*a.y,c*a.z,c*a.w)}
+inline __vec4_scale1(a,c){T=typeof(a);return T(c*a.x,c*a.y,c*a.z,c*a.w)}
+(float2+float2)=__vec2_operator+;(float2-float2)=__vec2_operator-;(float2*float2)=__vec2_operator*;(float2/float2)=__vec2_operator/;(-float2)=__vec2_neg;(float*float2)=__vec2_scale0;(float2*float)=__vec2_scale1;(float2/float)=inline(a,c){return a*(float(1)/c)};
+(float3+float3)=__vec3_operator+;(float3-float3)=__vec3_operator-;(float3*float3)=__vec3_operator*;(float3/float3)=__vec3_operator/;(-float3)=__vec3_neg;(float*float3)=__vec3_scale0;(float3*float)=__vec3_scale1;(float3/float)=inline(a,c){return a*(float(1)/c)};
+(float4+float4)=__vec4_operator+;(float4-float4)=__vec4_operator-;(float4*float4)=__vec4_operator*;(float4/float4)=__vec4_operator/;(-float4)=__vec4_neg;(float*float4)=__vec4_scale0;(float4*float)=__vec4_scale1;(float4/float)=inline(a,c){return a*(float(1)/c)};
+(double2+double2)=__vec2_operator+;(double2-double2)=__vec2_operator-;(double2*double2)=__vec2_operator*;(double2/double2)=__vec2_operator/;(-double2)=__vec2_neg;(double*double2)=__vec2_scale0;(double2*double)=__vec2_scale1;(double2/double)=inline(a,c){return a*(double(1)/c)};
+(double3+double3)=__vec3_operator+;(double3-double3)=__vec3_operator-;(double3*double3)=__vec3_operator*;(double3/double3)=__vec3_operator/;(-double3)=__vec3_neg;(double*double3)=__vec3_scale0;(double3*double)=__vec3_scale1;(double3/double)=inline(a,c){return a*(double(1)/c)};
+(double4+double4)=__vec4_operator+;(double4-double4)=__vec4_operator-;(double4*double4)=__vec4_operator*;(double4/double4)=__vec4_operator/;(-double4)=__vec4_neg;(double*double4)=__vec4_scale0;(double4*double)=__vec4_scale1;(double4/double)=inline(a,c){return a*(double(1)/c)};
+(int2+int2)=__vec2_operator+;(int2-int2)=__vec2_operator-;(int2*int2)=__vec2_operator*;(int2/int2)=__vec2_operator/;(int2%int2)=__vec2_operator%;(int2&int2)=__vec2_operator&;(int2|int2)=__vec2_operator|;(int2^int2)=__vec2_operator^;(-int2)=__vec2_neg;(int*int2)=__vec2_scale0;(int2*int)=__vec2_scale1;(~int2)=__vec2_not;
+(int3+int3)=__vec3_operator+;(int3-int3)=__vec3_operator-;(int3*int3)=__vec3_operator*;(int3/int3)=__vec3_operator/;(int3%int3)=__vec3_operator%;(int3&int3)=__vec3_operator&;(int3|int3)=__vec3_operator|;(int3^int3)=__vec3_operator^;(-int3)=__vec3_neg;(int*int3)=__vec3_scale0;(int3*int)=__vec3_scale1;(~int3)=__vec3_not;
+(int4+int4)=__vec4_operator+;(int4-int4)=__vec4_operator-;(int4*int4)=__vec4_operator*;(int4/int4)=__vec4_operator/;(int4%int4)=__vec4_operator%;(int4&int4)=__vec4_operator&;(int4|int4)=__vec4_operator|;(int4^int4)=__vec4_operator^;(-int4)=__vec4_neg;(int*int4)=__vec4_scale0;(int4*int)=__vec4_scale1;(~int4)=__vec4_not;
+(uint2+uint2)=__vec2_operator+;(uint2-uint2)=__vec2_operator-;(uint2*uint2)=__vec2_operator*;(uint2/uint2)=__vec2_operator/;(uint2%uint2)=__vec2_operator%;(uint2&uint2)=__vec2_operator&;(uint2|uint2)=__vec2_operator|;(uint2^uint2)=__vec2_operator^;(-uint2)=__vec2_neg;(u32*uint2)=__vec2_scale0;(uint2*u32)=__vec2_scale1;(~uint2)=__vec2_not;
+(uint3+uint3)=__vec3_operator+;(uint3-uint3)=__vec3_operator-;(uint3*uint3)=__vec3_operator*;(uint3/uint3)=__vec3_operator/;(uint3%uint3)=__vec3_operator%;(uint3&uint3)=__vec3_operator&;(uint3|uint3)=__vec3_operator|;(uint3^uint3)=__vec3_operator^;(-uint3)=__vec3_neg;(u32*uint3)=__vec3_scale0;(uint3*u32)=__vec3_scale1;(~uint3)=__vec3_not;
+(uint4+uint4)=__vec4_operator+;(uint4-uint4)=__vec4_operator-;(uint4*uint4)=__vec4_operator*;(uint4/uint4)=__vec4_operator/;(uint4%uint4)=__vec4_operator%;(uint4&uint4)=__vec4_operator&;(uint4|uint4)=__vec4_operator|;(uint4^uint4)=__vec4_operator^;(-uint4)=__vec4_neg;(u32*uint4)=__vec4_scale0;(uint4*u32)=__vec4_scale1;(~uint4)=__vec4_not;
+(long2+long2)=__vec2_operator+;(long2-long2)=__vec2_operator-;(long2*long2)=__vec2_operator*;(long2/long2)=__vec2_operator/;(long2%long2)=__vec2_operator%;(long2&long2)=__vec2_operator&;(long2|long2)=__vec2_operator|;(long2^long2)=__vec2_operator^;(-long2)=__vec2_neg;(i64*long2)=__vec2_scale0;(long2*i64)=__vec2_scale1;(~long2)=__vec2_not;
+(long3+long3)=__vec3_operator+;(long3-long3)=__vec3_operator-;(long3*long3)=__vec3_operator*;(long3/long3)=__vec3_operator/;(long3%long3)=__vec3_operator%;(long3&long3)=__vec3_operator&;(long3|long3)=__vec3_operator|;(long3^long3)=__vec3_operator^;(-long3)=__vec3_neg;(i64*long3)=__vec3_scale0;(long3*i64)=__vec3_scale1;(~long3)=__vec3_not;
+(long4+long4)=__vec4_operator+;(long4-long4)=__vec4_operator-;(long4*long4)=__vec4_operator*;(long4/long4)=__vec4_operator/;(long4%long4)=__vec4_operator%;(long4&long4)=__vec4_operator&;(long4|long4)=__vec4_operator|;(long4^long4)=__vec4_operator^;(-long4)=__vec4_neg;(i64*long4)=__vec4_scale0;(long4*i64)=__vec4_scale1;(~long4)=__vec4_not;
+(ulong2+ulong2)=__vec2_operator+;(ulong2-ulong2)=__vec2_operator-;(ulong2*ulong2)=__vec2_operator*;(ulong2/ulong2)=__vec2_operator/;(ulong2%ulong2)=__vec2_operator%;(ulong2&ulong2)=__vec2_operator&;(ulong2|ulong2)=__vec2_operator|;(ulong2^ulong2)=__vec2_operator^;(-ulong2)=__vec2_neg;(u64*ulong2)=__vec2_scale0;(ulong2*u64)=__vec2_scale1;(~ulong2)=__vec2_not;
+(ulong3+ulong3)=__vec3_operator+;(ulong3-ulong3)=__vec3_operator-;(ulong3*ulong3)=__vec3_operator*;(ulong3/ulong3)=__vec3_operator/;(ulong3%ulong3)=__vec3_operator%;(ulong3&ulong3)=__vec3_operator&;(ulong3|ulong3)=__vec3_operator|;(ulong3^ulong3)=__vec3_operator^;(-ulong3)=__vec3_neg;(u64*ulong3)=__vec3_scale0;(ulong3*u64)=__vec3_scale1;(~ulong3)=__vec3_not;
+(ulong4+ulong4)=__vec4_operator+;(ulong4-ulong4)=__vec4_operator-;(ulong4*ulong4)=__vec4_operator*;(ulong4/ulong4)=__vec4_operator/;(ulong4%ulong4)=__vec4_operator%;(ulong4&ulong4)=__vec4_operator&;(ulong4|ulong4)=__vec4_operator|;(ulong4^ulong4)=__vec4_operator^;(-ulong4)=__vec4_neg;(u64*ulong4)=__vec4_scale0;(ulong4*u64)=__vec4_scale1;(~ulong4)=__vec4_not;
+(ushort2+ushort2)=__vec2_operator+;(ushort2-ushort2)=__vec2_operator-;(ushort2*ushort2)=__vec2_operator*;(ushort2/ushort2)=__vec2_operator/;(ushort2%ushort2)=__vec2_operator%;(ushort2&ushort2)=__vec2_operator&;(ushort2|ushort2)=__vec2_operator|;(ushort2^ushort2)=__vec2_operator^;(-ushort2)=__vec2_neg;(u16*ushort2)=__vec2_scale0;(ushort2*u16)=__vec2_scale1;(~ushort2)=__vec2_not;
+(ushort3+ushort3)=__vec3_operator+;(ushort3-ushort3)=__vec3_operator-;(ushort3*ushort3)=__vec3_operator*;(ushort3/ushort3)=__vec3_operator/;(ushort3%ushort3)=__vec3_operator%;(ushort3&ushort3)=__vec3_operator&;(ushort3|ushort3)=__vec3_operator|;(ushort3^ushort3)=__vec3_operator^;(-ushort3)=__vec3_neg;(u16*ushort3)=__vec3_scale0;(ushort3*u16)=__vec3_scale1;(~ushort3)=__vec3_not;
+(ushort4+ushort4)=__vec4_operator+;(ushort4-ushort4)=__vec4_operator-;(ushort4*ushort4)=__vec4_operator*;(ushort4/ushort4)=__vec4_operator/;(ushort4%ushort4)=__vec4_operator%;(ushort4&ushort4)=__vec4_operator&;(ushort4|ushort4)=__vec4_operator|;(ushort4^ushort4)=__vec4_operator^;(-ushort4)=__vec4_neg;(u16*ushort4)=__vec4_scale0;(ushort4*u16)=__vec4_scale1;(~ushort4)=__vec4_not;
+(uchar2+uchar2)=__vec2_operator+;(uchar2-uchar2)=__vec2_operator-;(uchar2*uchar2)=__vec2_operator*;(uchar2/uchar2)=__vec2_operator/;(uchar2%uchar2)=__vec2_operator%;(uchar2&uchar2)=__vec2_operator&;(uchar2|uchar2)=__vec2_operator|;(uchar2^uchar2)=__vec2_operator^;(-uchar2)=__vec2_neg;(u8*uchar2)=__vec2_scale0;(uchar2*u8)=__vec2_scale1;(~uchar2)=__vec2_not;
+(uchar3+uchar3)=__vec3_operator+;(uchar3-uchar3)=__vec3_operator-;(uchar3*uchar3)=__vec3_operator*;(uchar3/uchar3)=__vec3_operator/;(uchar3%uchar3)=__vec3_operator%;(uchar3&uchar3)=__vec3_operator&;(uchar3|uchar3)=__vec3_operator|;(uchar3^uchar3)=__vec3_operator^;(-uchar3)=__vec3_neg;(u8*uchar3)=__vec3_scale0;(uchar3*u8)=__vec3_scale1;(~uchar3)=__vec3_not;
+(uchar4+uchar4)=__vec4_operator+;(uchar4-uchar4)=__vec4_operator-;(uchar4*uchar4)=__vec4_operator*;(uchar4/uchar4)=__vec4_operator/;(uchar4%uchar4)=__vec4_operator%;(uchar4&uchar4)=__vec4_operator&;(uchar4|uchar4)=__vec4_operator|;(uchar4^uchar4)=__vec4_operator^;(-uchar4)=__vec4_neg;(u8*uchar4)=__vec4_scale0;(uchar4*u8)=__vec4_scale1;(~uchar4)=__vec4_not;
+(short2+short2)=__vec2_operator+;(short2-short2)=__vec2_operator-;(short2*short2)=__vec2_operator*;(short2/short2)=__vec2_operator/;(short2%short2)=__vec2_operator%;(short2&short2)=__vec2_operator&;(short2|short2)=__vec2_operator|;(short2^short2)=__vec2_operator^;(-short2)=__vec2_neg;(i16*short2)=__vec2_scale0;(short2*i16)=__vec2_scale1;(~short2)=__vec2_not;
+(short3+short3)=__vec3_operator+;(short3-short3)=__vec3_operator-;(short3*short3)=__vec3_operator*;(short3/short3)=__vec3_operator/;(short3%short3)=__vec3_operator%;(short3&short3)=__vec3_operator&;(short3|short3)=__vec3_operator|;(short3^short3)=__vec3_operator^;(-short3)=__vec3_neg;(i16*short3)=__vec3_scale0;(short3*i16)=__vec3_scale1;(~short3)=__vec3_not;
+(short4+short4)=__vec4_operator+;(short4-short4)=__vec4_operator-;(short4*short4)=__vec4_operator*;(short4/short4)=__vec4_operator/;(short4%short4)=__vec4_operator%;(short4&short4)=__vec4_operator&;(short4|short4)=__vec4_operator|;(short4^short4)=__vec4_operator^;(-short4)=__vec4_neg;(i16*short4)=__vec4_scale0;(short4*i16)=__vec4_scale1;(~short4)=__vec4_not;
+(char2+char2)=__vec2_operator+;(char2-char2)=__vec2_operator-;(char2*char2)=__vec2_operator*;(char2/char2)=__vec2_operator/;(char2%char2)=__vec2_operator%;(char2&char2)=__vec2_operator&;(char2|char2)=__vec2_operator|;(char2^char2)=__vec2_operator^;(-char2)=__vec2_neg;(i8*char2)=__vec2_scale0;(char2*i8)=__vec2_scale1;(~char2)=__vec2_not;
+(char3+char3)=__vec3_operator+;(char3-char3)=__vec3_operator-;(char3*char3)=__vec3_operator*;(char3/char3)=__vec3_operator/;(char3%char3)=__vec3_operator%;(char3&char3)=__vec3_operator&;(char3|char3)=__vec3_operator|;(char3^char3)=__vec3_operator^;(-char3)=__vec3_neg;(i8*char3)=__vec3_scale0;(char3*i8)=__vec3_scale1;(~char3)=__vec3_not;
+(char4+char4)=__vec4_operator+;(char4-char4)=__vec4_operator-;(char4*char4)=__vec4_operator*;(char4/char4)=__vec4_operator/;(char4%char4)=__vec4_operator%;(char4&char4)=__vec4_operator&;(char4|char4)=__vec4_operator|;(char4^char4)=__vec4_operator^;(-char4)=__vec4_neg;(i8*char4)=__vec4_scale0;(char4*i8)=__vec4_scale1;(~char4)=__vec4_not;
+inline VectorType(T,dim){if T==float:{if dim==2:{return float2}else if dim==3:{return float3}else if dim==4:{return float4}else {__error("invalid vector dimension @1",dim)}}else if T==double:{if dim==2:{return double2}else if dim==3:{return double3}else if dim==4:{return double4}else {__error("invalid vector dimension @1",dim)}}else if T==int:{if dim==2:{return int2}else if dim==3:{return int3}else if dim==4:{return int4}else {__error("invalid vector dimension @1",dim)}}else if T==u32:{if dim==2:{return uint2}else if dim==3:{return uint3}else if dim==4:{return uint4}else {__error("invalid vector dimension @1",dim)}}else if T==i64:{if dim==2:{return long2}else if dim==3:{return long3}else if dim==4:{return long4}else {__error("invalid vector dimension @1",dim)}}else if T==u64:{if dim==2:{return ulong2}else if dim==3:{return ulong3}else if dim==4:{return ulong4}else {__error("invalid vector dimension @1",dim)}}else if T==u16:{if dim==2:{return ushort2}else if dim==3:{return ushort3}else if dim==4:{return ushort4}else {__error("invalid vector dimension @1",dim)}}else if T==u8:{if dim==2:{return uchar2}else if dim==3:{return uchar3}else if dim==4:{return uchar4}else {__error("invalid vector dimension @1",dim)}}else if T==i16:{if dim==2:{return short2}else if dim==3:{return short3}else if dim==4:{return short4}else {__error("invalid vector dimension @1",dim)}}else if T==i8:{if dim==2:{return char2}else if dim==3:{return char3}else if dim==4:{return char4}else {__error("invalid vector dimension @1",dim)}}else {__error("invalid vector type @1",T)}}

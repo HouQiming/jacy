@@ -179,6 +179,7 @@ g_action_handlers.clean=function(){
 	var s_dirname=g_build=="debug"?g_arch:g_arch+"_"+g_build;
 	g_work_dir=base_dir+"/pm_tmp/"+s_dirname+"/"+main_name;
 	g_bin_dir=base_dir+"/bin/"+s_dirname;
+	g_base_dir=base_dir;
 	mkdir(g_work_dir);
 	mkdir(g_bin_dir);
 	//translate the search paths
