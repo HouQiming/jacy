@@ -1145,9 +1145,9 @@ module detail
 			return JS.Return(SDL_HasClipboardText())
 		}
 		return JS_SDL
-	auto createGLJSObject(JSObject JS_GL)
-		//todo: expose the improved shader system... simple renderer first
-		return JS_GL
+	//auto createGLJSObject(JSObject JS_GL)
+	//	//coulddo: expose the improved shader system... simple renderer first
+	//	return JS_GL
 
 createSDLJSObject=detail.createSDLJSObject
-createGLJSObject=detail.createGLJSObject
+//createGLJSObject=detail.createGLJSObject

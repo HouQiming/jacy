@@ -8,7 +8,6 @@ __generate_json("js_units","gui2d/widgets.js")
 
 (function(){
 	JS=new JSContext
-	setupModuleSystem(JS)
-	JS.GetGlobal()["Duktape"]["__ui_new_editor"]=TextBox.jsNewEditorBaseline
+	setupModuleSystem(JS,1)
 	JS.debugRunFile("test/test_gui.js")
 })()

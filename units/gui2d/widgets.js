@@ -369,7 +369,7 @@ W.Edit=function(id,attrs0){
 	UI.StdAnchoring(id,attrs);
 	var ed=attrs.ed;
 	if(!ed){
-		ed=Duktape.__ui_new_editor(attrs);
+		ed=UI.CreateEditor(attrs);
 		if(attrs.text){ed.Edit([0,0,attrs.text],1);}
 		attrs.sel0=ed.CreateLocator(0,-1);attrs.sel0.undo_tracked=1;
 		attrs.sel1=ed.CreateLocator(0,-1);attrs.sel1.undo_tracked=1;

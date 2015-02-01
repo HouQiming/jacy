@@ -694,7 +694,11 @@ auto coreInit()
 			t=getExprType(pe_argi)
 			if !t:
 				//typed inline parameters *MUST* be typed before expanding
-				sccpQueueReach(pe_argi)
+				if (readPool(pe_argi)&EFLAG_MASK)==EFLAG_STRING:
+					//wait for the string type
+					sccpQueueEval(pecall)
+				else
+					sccpQueueReach(pe_argi)
 				return TSCCPValue(){'tid':g_vtid_UNINIT}
 			if !t_expected:
 				//wait for the type later
@@ -9036,6 +9040,10 @@ auto fixConstantTypes()
 					if val.tid==g_vtid_CTVAL:
 						//function value, make the struct
 						assert(readPool(val.val)==g_tid_TFunction)
+						t=getValueType(val)
+						if !t||!tisfunction(t):
+							//make sure that we don't translate anything wrong
+							return 1
 						setFFlag(val.val,FFLAG_HAS_FPTR_TAKEN)
 						got_this=0
 						if isBuiltin(pe,g_id_dot)&&!ignore_dot:
@@ -9046,7 +9054,6 @@ auto fixConstantTypes()
 							//we need a lambda context - put a smart g_id_get_lambda_context
 							//pe_this=exprcns(getid_const(CTYPE_POINTER,0LL))
 							pe_this=call(g_id_get_lambda_context,exprctval(t_parent))
-						t=getValueType(val)
 						if !t:
 							id_ccnv=getCcnv(val.val)
 							if id_ccnv==g_id_inline||id_ccnv==g_id_inline_loopbody:
@@ -9055,6 +9062,10 @@ auto fixConstantTypes()
 								errorAtExpr(ETYPE_ERROR,pe,"template/invalid function '@1' cannot be used as a run-time value".Replace(["@1",citeexpr(pe)]))
 							return 1
 						assert(!!t)
+						if Platform.BUILD=="debug":
+							if !tisfunction(t):
+								//Writeln('bad function type: ',dumpType(t),' ',dumpExpr(pe,__zero(fcolorer_callback)))
+								errorAtExpr(ETYPE_ERROR,pe,"'@1' is not a C-like function and cannot be used as a run-time function pointer".Replace(["@1",citeexpr(pe)]))
 						pecaller=readPool(pe+EXPR_OFS_CALLER)
 						//we have to keep pe in case it's a function decl, but we don't want to ass it that way
 						sccpQueueReach(insertCallAt(pecaller,pe,function(PExpression pe){

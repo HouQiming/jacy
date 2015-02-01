@@ -259,8 +259,11 @@ module duktape
 					pstr=iptr(duk_to_lstring(_ctx(),-1,&lg))
 					ret=__ptrToString(pstr,lg)
 			else if T==JSObject:
-				refid=_pop_object()
-				ret=JSObject(){"m_jsctx":this,"m_handle":refid}
+				if duk_is_null_or_undefined(_ctx(),-1):
+					ret=JSObject.NULL
+				else
+					refid=_pop_object()
+					ret=JSObject(){"m_jsctx":this,"m_handle":refid}
 				//else if T==JSFunction:
 				//	refid=_pop_function()
 				//	ret=JSFunction(){"m_jsctx":this,"m_handle":refid}

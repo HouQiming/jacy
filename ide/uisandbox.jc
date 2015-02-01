@@ -1,0 +1,12 @@
+import "text-box.jc"
+import Gui2D.*
+import Javascript.*
+import System.Console.*
+
+auto CreateSandbox()
+	JS_new=new JSContext
+	sbox=setupModuleSystem(JS_new,0)
+	//load our own zip for the units
+	sbox.UILoadZip(string.NULL)
+	JS_new.GetGlobal()["Duktape"]["__ui_new_editor"]=TextBox.jsNewEditorBaseline
+	return JS_new

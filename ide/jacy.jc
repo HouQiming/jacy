@@ -1,0 +1,18 @@
+import "text-box.jc"
+import "uisandbox.jc"
+import Gui2D.*
+import Javascript.*
+import System.Console.*
+import Uisandbox.*
+
+__generate_json("js_units","gui2d/ui.js")
+__generate_json("js_units","gui2d/widgets.js")
+
+(function(){
+	JS=new JSContext
+	sbox.setupModuleSystem(JS,1)
+	sbox.UILoadZip(string.NULL)
+	JS.GetGlobal()["Duktape"]["__ui_new_editor"]=TextBox.jsNewEditorBaseline
+	JS.GetGlobal()["Duktape"]["__ui_create_sandbox"]=CreateSandbox
+	JS.debugRunFile("res/jacy.js")
+})()

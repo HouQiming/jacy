@@ -9,6 +9,7 @@ import System.Algorithm.*
 import System.Math.*
 import System.Console.*
 
+module detail{
 struct TRenderingInfo
 	double2 bb
 	iptr seek_ret
@@ -893,7 +894,6 @@ class CEditableText
 		m_handlers.push(getInterface(a,ITextStateHandler))
 		return m_handlers.n-1
 	auto Init(JSObject obj_style)
-		//todo: validate the creation - must have ["renderer"]
 		m_js=obj_style.m_jsctx
 		m_handler_registration=m_js.New()
 		ofs=0L
@@ -915,6 +915,12 @@ class CEditableText
 		RecomputeStates(m_skiplist)
 		//m_handler_registration["style"]=obj_style
 		m_ascii_wordchars=MakeCharSet(obj_style["charset_word"].or("0-9A-Za-z_"))
+		//validation
+		hid=m_handler_registration["renderer"].or(-1)
+		if hid<0:
+			//validation failed
+			return 0
+		return 1
 	auto isWordChar(int ch)
 		if ch>=128:
 			pt=g_unicode_wordchars.Bisect(function(int c0){return c0<=ch})
@@ -1825,11 +1831,31 @@ class CEditableText
 		proto.ExportMethod(this,"Undo",JS_Undo)
 		proto.ExportMethod(this,"GetUtf8CharNeighborhood",JS_GetUtf8CharNeighborhood)
 
-jsNewEditorBaseline=function(JSContext JS){
-	obj_style=JS.Param(0).as(JSObject)
-	if !obj_style:return 0
-	ret=new CEditableText
-	ret.AddStateHandler(new CLayouter_baseline)
-	ret.Init(obj_style)
-	return JS.Return(ret)
+g_registered_state_handlers=new function(CEditableText ret)[string]
+
+inline registerStateHandler(string name,T)
+	g_registered_state_handlers[name]=function(CEditableText ret){ret.AddStateHandler(new T)}
+
+registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
+	JS_UI["CreateEditor"]=function(JSContext JS){
+		obj_style=JS.Param(0).as(JSObject)
+		if !obj_style:return 0
+		obj_handlers=obj_style["state_handlers"].as(JSObject)
+		ret=new CEditableText
+		if !obj_handlers:
+			ret.AddStateHandler(new CLayouter_baseline)
+		else
+			for i=0:obj_handlers.length()-1
+				auto f=g_registered_state_handlers[obj_handlers[i].or("")]
+				if f:f(ret)
+		if !ret.Init(obj_style):
+			return JS.ReturnError("Failed to create the editor")
+		else
+			return JS.Return(ret)
+	}
+})
+
+registerStateHandler("renderer_baseline",CLayouter_baseline)
 }
+
+registerStateHandler=TextBox.detail.registerStateHandler

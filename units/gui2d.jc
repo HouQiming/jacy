@@ -1,12 +1,14 @@
 //sharpening filter for font -- just downsample it differently... would it even work?
 /*
 todo:
+	sandboxing
+		explicitly-invoked fake message loop
+		forced render-to-VBO
+			clearcolor + VBO is enough for viewported rendering
+			no need to store the image in GPU memory
+			VBO creation can ignore any FBO inter-dependency
+		no SDL functions, emulate in software
 	SDL_SetWindowGrab
-	use the font renderer for monochrome svg icons
-		use stbtt__rasterize instead for cubic curves
-		or extend the original code (which shouldn't be that hard)
-	smart character thickness?
-		fix the emboldening for black-on-white fonts
 	could have a SDL renderer fallback for legacy windows / tinycore
 		SDL sw is deadly slow - not worth using
 		better write up one myself if we ever need it
@@ -325,8 +327,35 @@ class CTextLayout
 	TPositionedText[] chars
 	float2 dims
 
+class CSandboxWindow
+	int w,h
+
+class CUISandbox
+	m_ui_search_paths=new string[]
+	CZipFile m_ui_zip
+	auto UIReadAll(string s_fname)
+		foreach spath in m_ui_search_paths.ReverseOrder()
+			sfn_i=spath+s_fname
+			if System.IO.FileExists(sfn_i):
+				return System.IO.ReadAll(sfn_i)
+		if m_ui_zip:
+			return m_ui_zip.ReadAll(s_fname)
+		return string.NULL
+	auto UILoadZip(string szipname)
+		arr_res_zip=szipname
+		if !arr_res_zip||!arr_res_zip.n:
+			if Platform.ARCH=='android'||Platform.ARCH=='ios'||Platform.ARCH=='mac':
+				sz=0L
+				pzip=osal_mmap_res_zip(&sz)
+				if pzip:
+					arr_res_zip=new string
+					arr_res_zip.__bind(1,iptr(pzip),iptr(sz))
+			else
+				arr_res_zip=System.IO.ReadAll(System.Env.GetExecutablePath()+"res.zip")
+		m_ui_zip=ParseZip(arr_res_zip)
+
 //the DC singleton
-g_renderer=(class(){
+class CRenderer
 	//////////////
 	//current status
 	m_hwnd=NULL
@@ -343,7 +372,7 @@ g_renderer=(class(){
 	//m_screen_dpi=96
 	//m_design_dpi=96
 	m_pixels_per_unit=1.f
-	m_font_sharpening=0.f
+	m_font_sharpening=1.5f//0.f
 	m_gamma=2.2f
 	m_mipmap_level=0
 	m_text_y_snap=1
@@ -635,20 +664,16 @@ g_renderer=(class(){
 				m_caret_tech.Draw(0u,GL_QUADS,4)
 	//////////////
 	//avoid caching the resampled / original bitmaps - batched loadStaticResources
-	auto BeginPaint(__pointer hwnd)
+	auto BeginPaint(__pointer hwnd,int w,int h)
 		if m_static_textures:
 			PackStaticBitmaps()
 		m_hwnd=hwnd
-		w=0
-		h=0
-		SDL.detail.SDL_GetWindowSize(hwnd,&w,&h)
 		m_clip=float4(0.f,0.f,float(w),float(h))
 		m_clip_stack.clear()
 		m_crd16_scale=max(65536/promoteToTextureSize(max(w,h)+1),1)
 		m_drawcall_start=int(m_vbo.n)
 		m_window_w=w
 		m_window_h=h
-		return int2(w,h)
 	auto EndPaint()
 		//create a drawcall
 		if m_window_w&&m_window_h:
@@ -802,10 +827,10 @@ g_renderer=(class(){
 					m_std_fallback_fonts.push(('ArialUni'))
 				else
 					m_std_fallback_fonts.push(('Arial'))
-	auto CreateCoreFontByName(string sname)
+	auto CreateCoreFontByName(CUISandbox sbox,string sname)
 		//JS: core font caching, file font embedding
 		//and fallbacks... depend on caching - just put m_std_fallback_fonts into JS as an array
-		sdata=UIReadAll(sname)
+		sdata=sbox.UIReadAll(sname)
 		if sdata:
 			ret=CreateCoreFontFromData(sdata)
 			if ret:return ret
@@ -1283,83 +1308,113 @@ g_renderer=(class(){
 				else
 					vdata=int4((f2i_P(y0)<<16)+f2i_P(x0),(f2i_P(y1)<<16)+f2i_P(x1),(f2i_uv(v0)<<16)+f2i_uv(u0),(f2i_uv(v1)<<16)+f2i_uv(u1))
 					m_StretchDIBits_calls.push(TStretchDIBits(){vdata:vdata,hwnd:m_hwnd,bmpid:bmpid_xy,C:int4(C0,C1,C2,C3),pos:int(n0)})
-})()
+g_renderer=new CRenderer
 
 ////////////////////////////////////////////
 //the timer stuff
 SDL_SetInterval=__c_function(int,"SDL_SetInterval","sdl_timerw.h", "c_files","sdl_timerw.c")
 SDL_ClearInterval=__c_function(int,"SDL_ClearInterval","sdl_timerw.h", "c_files","sdl_timerw.c")
 //TIMER_EVENT_ID=2
+FUIExtension=function(JSObject JS_UI,CUISandbox sbox,int is_real)
+g_ui_exts=new FUIExtension[]
+inline registerUIExtension(f)
+	g_ui_exts.push(f)
 
-auto createUIObject(JSObject JS_UI)
+auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
+	if is_real:
+		g_renderer.InitFonts()
 	///////////////
-	g_renderer.InitFonts()
 	auto JS=JS_UI.GetContext()
-	js_fonts=JS.NewArray()
-	JS_UI["fallback_font_names"]=js_fonts
-	foreach sfont,I in g_renderer.m_std_fallback_fonts
-		js_fonts[I]=sfont
-	JS_UI["DrawWindow"]=function(JSContext JS){
-		hwnd=JS.Param(0).or(NULL)
-		g_renderer.DrawWindow(hwnd)
-		x=JS.Param(1).or(0.f)
-		y=JS.Param(2).or(0.f)
-		w=JS.Param(3).or(0.f)
-		h=JS.Param(4).or(0.f)
-		C=JS.Param(5).or(0)
-		if w&&h&&C:
-			g_renderer.DrawCaret(hwnd,x*g_renderer.m_pixels_per_unit,y*g_renderer.m_pixels_per_unit,w*g_renderer.m_pixels_per_unit,h*g_renderer.m_pixels_per_unit,C)
-		return 0
-	}
-	JS_UI["ResetRenderer"]=function(JSContext JS){
-		g_renderer.SetScalingFactor(JS.Param(0).or(1.f))
-		g_renderer.m_gamma=JS.Param(1).or(2.2f)
-		return 0
-	}
-	JS_UI["BeginFrame"]=function(JSContext JS){
-		g_renderer.BeginFrame()
-		return 0
-	}
-	JS_UI["EndFrame"]=function(JSContext JS){
-		g_renderer.EndFrame()
-		JS_UI["frame_time"]=System.Time.TicksToSeconds(g_renderer.m_frame_ticks);
-		return 0
-	}
-	JS_UI["BeginPaint"]=function(JSContext JS){
-		wndsize=g_renderer.BeginPaint(JS.Param(0).or(NULL))
-		obj=JS.Param(1).as(JSObject)
-		obj["w"]=f32(wndsize.x)/g_renderer.m_pixels_per_unit
-		obj["h"]=f32(wndsize.y)/g_renderer.m_pixels_per_unit
-		return 0
-	}
+	JS_UI["fallback_font_names"]=g_renderer.m_std_fallback_fonts
+	//js_fonts=JS.NewArray()
+	//foreach sfont,I in g_renderer.m_std_fallback_fonts
+	//	js_fonts[I]=sfont
+	JS_UI["is_real"]=is_real
+	if is_real:
+		//"privileged" functions
+		JS_UI["DrawWindow"]=function(JSContext JS){
+			hwnd=JS.Param(0).or(NULL)
+			g_renderer.DrawWindow(hwnd)
+			x=JS.Param(1).or(0.f)
+			y=JS.Param(2).or(0.f)
+			w=JS.Param(3).or(0.f)
+			h=JS.Param(4).or(0.f)
+			C=JS.Param(5).or(0)
+			if w&&h&&C:
+				g_renderer.DrawCaret(hwnd,x*g_renderer.m_pixels_per_unit,y*g_renderer.m_pixels_per_unit,w*g_renderer.m_pixels_per_unit,h*g_renderer.m_pixels_per_unit,C)
+			return 0
+		}
+		JS_UI["ResetRenderer"]=function(JSContext JS){
+			g_renderer.SetScalingFactor(JS.Param(0).or(1.f))
+			g_renderer.m_gamma=JS.Param(1).or(2.2f)
+			return 0
+		}
+		JS_UI["BeginFrame"]=function(JSContext JS){
+			g_renderer.BeginFrame()
+			return 0
+		}
+		JS_UI["EndFrame"]=function(JSContext JS){
+			g_renderer.EndFrame()
+			JS_UI["frame_time"]=System.Time.TicksToSeconds(g_renderer.m_frame_ticks);
+			return 0
+		}
+		JS_UI["BeginPaint"]=function(JSContext JS){
+			auto hwnd=JS.Param(0).or(NULL)
+			w=0
+			h=0
+			SDL.detail.SDL_GetWindowSize(hwnd,&w,&h)
+			if !w||!h:return 0
+			g_renderer.BeginPaint(hwnd,w,h)
+			obj=JS.Param(1).as(JSObject)
+			if obj:
+				obj["w"]=f32(w)/g_renderer.m_pixels_per_unit
+				obj["h"]=f32(h)/g_renderer.m_pixels_per_unit
+			return 0
+		}
+	else
+		//virtualized BeginPaint
+		JS_UI["BeginPaint"]=function(JSContext JS){
+			auto hwnd=JS.Param(0).as(CSandboxWindow)
+			if !hwnd:return 0
+			w=hwnd.w
+			h=hwnd.h
+			g_renderer.BeginPaint(__pointer(iptr(hwnd)),w,h)
+			obj=JS.Param(1).as(JSObject)
+			if obj:
+				obj["w"]=f32(w)/g_renderer.m_pixels_per_unit
+				obj["h"]=f32(h)/g_renderer.m_pixels_per_unit
+			return 0
+		}
 	JS_UI["EndPaint"]=function(JSContext JS){
 		g_renderer.EndPaint()
 		return 0
 	}
 	//////////////////
-	JS_UI["DrawBitmap"]=function(JSContext JS){
-		bmpid=JS.Param(0).or(0)
-		w=JS.Param(3).as(float)
-		h=JS.Param(4).as(float)
-		if !w:w=float(g_renderer.m_static_original_sizes[bmpid].x)
-		if !h:h=float(g_renderer.m_static_original_sizes[bmpid].y)
-		g_renderer.DrawBitmap(bmpid,
-			JS.Param(1).as(float)*g_renderer.m_pixels_per_unit,JS.Param(2).as(float)*g_renderer.m_pixels_per_unit,
-			w*g_renderer.m_pixels_per_unit,h*g_renderer.m_pixels_per_unit,
-			int(JS.Param(5).or(u32(-1))))
-		return 0
-	}
-	JS_UI["GetBitmapSize"]=function(JSContext JS){
-		bmpid=JS.Param(0).or(0)
-		obj=JS.Param(1).as(JSObject)
-		if obj:
-			obj["w_bmp"]=double(g_renderer.m_static_original_sizes[bmpid].x)
-			obj["h_bmp"]=double(g_renderer.m_static_original_sizes[bmpid].y)
-		return 0
-	}
+	//todo: dynamic bmp drawing - create an object, store cached dynid in there, wipe at BeginFrame
+	if is_real:
+		JS_UI["DrawBitmap"]=function(JSContext JS){
+			bmpid=JS.Param(0).or(0)
+			w=JS.Param(3).as(float)
+			h=JS.Param(4).as(float)
+			if !w:w=float(g_renderer.m_static_original_sizes[bmpid].x)
+			if !h:h=float(g_renderer.m_static_original_sizes[bmpid].y)
+			g_renderer.DrawBitmap(bmpid,
+				JS.Param(1).as(float)*g_renderer.m_pixels_per_unit,JS.Param(2).as(float)*g_renderer.m_pixels_per_unit,
+				w*g_renderer.m_pixels_per_unit,h*g_renderer.m_pixels_per_unit,
+				int(JS.Param(5).or(u32(-1))))
+			return 0
+		}
+		JS_UI["GetBitmapSize"]=function(JSContext JS){
+			bmpid=JS.Param(0).or(0)
+			obj=JS.Param(1).as(JSObject)
+			if obj:
+				obj["w_bmp"]=double(g_renderer.m_static_original_sizes[bmpid].x)
+				obj["h_bmp"]=double(g_renderer.m_static_original_sizes[bmpid].y)
+			return 0
+		}
 	//////////////////
 	JS_UI["CreateCoreFontByName"]=function(JSContext JS){
-		return JS.Return(g_renderer.CreateCoreFontByName(JS.Param(0).as(string)))
+		return JS.Return(g_renderer.CreateCoreFontByName(sbox,JS.Param(0).as(string)))
 	}
 	JS_UI["CreateCoreFontChain"]=function(JSContext JS){
 		arr=JS.Param(0).as(JSObject)
@@ -1441,62 +1496,70 @@ auto createUIObject(JSObject JS_UI)
 		return 0
 	}
 	//////////////////
-	JS_UI["LoadPackedTexture"]=function(JSContext JS){
-		//todo: create a jsobject of the file names, set mipmap name in debug mode
-		//resource loading... inner loadResourceFile
-		return 0
-	}
-	JS_UI["LoadStaticImages"]=function(JSContext JS){
-		obj=JS.Param(0).as(JSObject)
-		if obj:
-			//g_ui_search_paths and the zip
-			foreach sdir in g_ui_search_paths.ReverseOrder()
-				foreach fnimage in System.IO.EnumFiles(sdir+"*",System.IO.ENUM_FILE|System.IO.ENUM_RECURSIVE)
-					if fnimage.ToLower().EndsWith(".png")
-						fn_nmlz=fnimage.Replace(["\\","/"]).ToLower()
-						if obj.has(fn_nmlz):continue
-						sdata=System.IO.ReadAll(fnimage)
-						if sdata:
-							bmp=g_renderer.LoadImage(sdata)
-							obj[fn_nmlz]=g_renderer.LoadStaticBitmap(bmp)
-			if g_ui_zip:
-				foreach fnimage in g_ui_zip.AllFileNames()
-					if fnimage.ToLower().EndsWith(".png")
-						fn_nmlz=fnimage.Replace(["\\","/"]).ToLower()
-						if obj.has(fn_nmlz):continue
-						sdata=g_ui_zip.ReadAll(fnimage)
-						if sdata:
-							bmp=g_renderer.LoadImage(sdata)
-							obj[fn_nmlz]=g_renderer.LoadStaticBitmap(bmp)
-		return 0
-	}
+	if is_real:
+		JS_UI["LoadPackedTexture"]=function(JSContext JS){
+			//todo: create a jsobject of the file names, set mipmap name in debug mode
+			//resource loading... inner loadResourceFile
+			return 0
+		}
+		JS_UI["LoadStaticImages"]=function(JSContext JS){
+			obj=JS.Param(0).as(JSObject)
+			if obj:
+				//g_ui_search_paths and the zip
+				foreach sdir in sbox.m_ui_search_paths.ReverseOrder()
+					foreach fnimage in System.IO.EnumFiles(sdir+"*",System.IO.ENUM_FILE|System.IO.ENUM_RECURSIVE)
+						if fnimage.ToLower().EndsWith(".png")
+							fn_nmlz=fnimage.Replace(["\\","/"]).ToLower()
+							if obj.has(fn_nmlz):continue
+							sdata=System.IO.ReadAll(fnimage)
+							if sdata:
+								bmp=g_renderer.LoadImage(sdata)
+								obj[fn_nmlz]=g_renderer.LoadStaticBitmap(bmp)
+				if sbox.m_ui_zip:
+					foreach fnimage in sbox.m_ui_zip.AllFileNames()
+						if fnimage.ToLower().EndsWith(".png")
+							fn_nmlz=fnimage.Replace(["\\","/"]).ToLower()
+							if obj.has(fn_nmlz):continue
+							sdata=sbox.m_ui_zip.ReadAll(fnimage)
+							if sdata:
+								bmp=g_renderer.LoadImage(sdata)
+								obj[fn_nmlz]=g_renderer.LoadStaticBitmap(bmp)
+			return 0
+		}
 	///////////////////////////////////
 	//misc GL
-	JS_UI["Clear"]=function(JSContext JS){
-		C_clear=JS.Param(0).or(u32(-1))
-		c0=f32(C_clear&0xffu)/255.f
-		c1=f32((C_clear>>8)&0xffu)/255.f
-		c2=f32((C_clear>>16)&0xffu)/255.f
-		g_renderer.TestSRGB()
-		if g_renderer.m_gamma!=1.f&&g_renderer.m_srgb_supported:
-			c0=pow(c0,g_renderer.m_gamma)
-			c1=pow(c1,g_renderer.m_gamma)
-			c2=pow(c2,g_renderer.m_gamma)
-		glClearColor(c0,c1,c2,f32(C_clear>>24)/255.f)
-		glClearDepthf(1.f)
-		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT)
-		return 0
-	}
+	if is_real:
+		JS_UI["Clear"]=function(JSContext JS){
+			C_clear=JS.Param(0).or(u32(-1))
+			c0=f32(C_clear&0xffu)/255.f
+			c1=f32((C_clear>>8)&0xffu)/255.f
+			c2=f32((C_clear>>16)&0xffu)/255.f
+			g_renderer.TestSRGB()
+			if g_renderer.m_gamma!=1.f&&g_renderer.m_srgb_supported:
+				c0=pow(c0,g_renderer.m_gamma)
+				c1=pow(c1,g_renderer.m_gamma)
+				c2=pow(c2,g_renderer.m_gamma)
+			glClearColor(c0,c1,c2,f32(C_clear>>24)/255.f)
+			glClearDepthf(1.f)
+			glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT)
+			return 0
+		}
+		JS_UI["SetFontSharpening"]=function(JSContext JS){
+			g_renderer.m_font_sharpening=JS.Param(0).or(0.f)
+			g_renderer.m_glyph_cache_invalidated=1
+			return 0
+		}
+	else
+		JS_UI["Clear"]=function(JSContext JS){
+			C_clear=JS.Param(0).or(u32(-1))
+			g_renderer.DrawBitmap(0, 0.f,0.f,float(g_renderer.m_window_w),float(g_renderer.m_window_h), C_clear)
+			return 0
+		}
 	JS_UI["GetSRGBStatus"]=function(JSContext JS){
 		ret=JS.New()
 		ret["gamma"]=g_renderer.m_gamma
 		ret["srgb_supported"]=g_renderer.m_srgb_supported
 		return JS.Return(ret)
-	}
-	JS_UI["SetFontSharpening"]=function(JSContext JS){
-		g_renderer.m_font_sharpening=JS.Param(0).or(0.f)
-		g_renderer.m_glyph_cache_invalidated=1
-		return 0
 	}
 	///////////////////////////////////
 	JS_UI["GetCharacterHeight"]=function(JSContext JS){
@@ -1511,34 +1574,37 @@ auto createUIObject(JSObject JS_UI)
 	}
 	///////////////////////////////////
 	//timer
-	timer_user_data=new JSObject[int]
-	sdl_badapi_hack_callback_to_timer_id=new int[iptr]
-	JS_UI["setInterval"]=function(JSContext JS){
-		fn=JS.Param(0).as(JSObject)
-		if !fn:return 0
-		interval=JS.Param(1).as(int)
-		if !(interval>0):return 0
-		timer_id=SDL_SetInterval(interval,__pointer(fn));
-		timer_user_data[timer_id]=fn
-		sdl_badapi_hack_callback_to_timer_id[iptr(fn)]=timer_id
-		return JS.Return(timer_id)
-	}
-	JS_UI["clearInterval"]=function(JSContext JS){
-		timer_id=JS.Param(0).as(int)
-		fn=timer_user_data[timer_id]
-		if !fn:return 0
-		sdl_badapi_hack_callback_to_timer_id[iptr(fn)]=0
-		SDL_ClearInterval(timer_id,__pointer(fn));
-		timer_user_data[timer_id]=JSObject.NULL
-		return JS.Return(1)
-	}
-	JS_UI["getTimerFunction"]=function(JSContext JS){
-		timer_id=JS.Param(0).as(__pointer)
-		if !timer_id:return 0
-		fn=timer_user_data[sdl_badapi_hack_callback_to_timer_id[iptr(timer_id)]]
-		if !fn:return 0
-		return JS.Return(fn)
-	}
+	if is_real:
+		timer_user_data=new JSObject[int]
+		sdl_badapi_hack_callback_to_timer_id=new int[iptr]
+		JS_UI["setInterval"]=function(JSContext JS){
+			fn=JS.Param(0).as(JSObject)
+			if !fn:return 0
+			interval=JS.Param(1).as(int)
+			if !(interval>0):return 0
+			timer_id=SDL_SetInterval(interval,__pointer(fn));
+			timer_user_data[timer_id]=fn
+			sdl_badapi_hack_callback_to_timer_id[iptr(fn)]=timer_id
+			return JS.Return(timer_id)
+		}
+		JS_UI["clearInterval"]=function(JSContext JS){
+			timer_id=JS.Param(0).as(int)
+			fn=timer_user_data[timer_id]
+			if !fn:return 0
+			sdl_badapi_hack_callback_to_timer_id[iptr(fn)]=0
+			SDL_ClearInterval(timer_id,__pointer(fn));
+			timer_user_data[timer_id]=JSObject.NULL
+			return JS.Return(1)
+		}
+		JS_UI["getTimerFunction"]=function(JSContext JS){
+			timer_id=JS.Param(0).as(__pointer)
+			if !timer_id:return 0
+			fn=timer_user_data[sdl_badapi_hack_callback_to_timer_id[iptr(timer_id)]]
+			if !fn:return 0
+			return JS.Return(fn)
+		}
+	foreach f in g_ui_exts
+		f(JS_UI,sbox,is_real)
 	return JS_UI
 
 auto inflate(string sin)
@@ -1606,54 +1672,38 @@ auto ParseZip(string dat)
 		ofs=pos0+46L+szcrap
 	return ret
 
-g_ui_search_paths=new string[]
-CZipFile g_ui_zip
-
-auto UIReadAll(string s_fname)
-	foreach spath in g_ui_search_paths.ReverseOrder()
-		sfn_i=spath+s_fname
-		if System.IO.FileExists(sfn_i):
-			return System.IO.ReadAll(sfn_i)
-	if g_ui_zip:
-		return g_ui_zip.ReadAll(s_fname)
-	return string.NULL
-
-auto setupModuleSystem(JSContext JS)
+auto setupModuleSystem(JSContext JS,int is_real)
 	__generate_json("js_files","res_zip.js")
+	sbox=new CUISandbox
 	global=JS.GetGlobal()
 	global["Duktape"]["__ui_native_hack"]=function(JSContext JS){
 		mod_obj=JS.Param(0).as(JSObject)
 		if !mod_obj:return 0
 		s_native_name=JS.Param(1).or("UI")
 		if s_native_name=="UI":
-			createUIObject(mod_obj)
-		else if s_native_name=="SDL":
-			createSDLJSObject(mod_obj,0)
-		else if s_native_name=="GL":
-			createGLJSObject(mod_obj)
+			createUIObject(mod_obj,sbox,is_real)
+		else if is_real: 
+			if s_native_name=="SDL":
+				createSDLJSObject(mod_obj,0)
+			//else if s_native_name=="GL":
+			//	createGLJSObject(mod_obj)
 		return 0
 	}
 	global["Duktape"]["__ui_load_zip"]=function(JSContext JS){
-		if Platform.ARCH=='android'||Platform.ARCH=='ios'||Platform.ARCH=='mac':
-			sz=0L
-			pzip=osal_mmap_res_zip(&sz)
-			if pzip:
-				arr_res_zip=new string
-				arr_res_zip.__bind(1,iptr(pzip),iptr(sz))
-		else
-			arr_res_zip=System.IO.ReadAll(System.Env.GetExecutablePath()+"res.zip")
-		g_ui_zip=ParseZip(arr_res_zip)
+		s_path=JS.Param(0).or("")
+		sbox.UILoadZip(s_path)
 		return 0
 	}
 	global["Duktape"]["__ui_add_path"]=function(JSContext JS){
 		s_path=JS.Param(0).or("")
-		g_ui_search_paths.push(s_path+"/")
+		sbox.m_ui_search_paths.push(s_path+"/")
 		return 0
 	}
+	//todo: sandbox search paths
 	global["Duktape"]["modSearch"]=function(JSContext JS){
 		s_modname=JS.Param(0).or("")
 		s_fname=(s_modname+".js").ToLower()
-		sret=UIReadAll(s_fname)
+		sret=sbox.UIReadAll(s_fname)
 		if !sret:
 			return JS.ReturnError("cannot find module '@1'".Replace(["@1",s_modname]))
 		else
@@ -1673,7 +1723,9 @@ auto setupModuleSystem(JSContext JS)
 		duktape.duk_pop(JS._ctx())
 		return JS.Return(lg)
 	}
-}
+	return sbox
 
-createUIObject=Gui2D.detail.createUIObject
+}//module
+
 setupModuleSystem=Gui2D.detail.setupModuleSystem
+registerUIExtension=Gui2D.detail.registerUIExtension
