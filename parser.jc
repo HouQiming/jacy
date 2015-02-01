@@ -926,7 +926,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 			else
 				pe_container=expr(LEVEL_MAX)
 		return (vars,pe_container)
-	auto parseMetaList(iptr epos0,PExpression pe_body0)
+	auto parseMetaList(int epos0,PExpression pe_body0)
 		(vars,pe_container)=parseForeach()
 		if !vars:
 			return expriptr(0)

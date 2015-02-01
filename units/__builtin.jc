@@ -790,10 +790,11 @@ class Array(T)
 					n2=arguments[2]
 					return slice(a,a+sizeof(T)*n2-1).ConvertToAsBinary(T)
 			else
-				if uptr(a+sizeof(T))>uptr(n):
-					__reportRangeCheckError(a+sizeof(T),n)
-				else if a<0L:
-					__reportRangeCheckError(a,n)
+				if Platform.BUILD=="debug":
+					if uptr(a+sizeof(T))>uptr(n):
+						__reportRangeCheckError(a+sizeof(T),n)
+					else if a<0L:
+						__reportRangeCheckError(a,n)
 				return __memory(T,d+a)
 	else
 		__init__=__builtin_ctor
