@@ -1,4 +1,4 @@
-import "text-box.spap"
+import "text-box.jc"
 import Gui2D.*
 import Javascript.*
 import System.Console.*

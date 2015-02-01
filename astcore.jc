@@ -1,7 +1,7 @@
 //coulddo: whether s7rc is necessary
-import "system.spap"
-import "ctobj.spap"
-import "util.spap"
+//import "system.jc"
+import "ctobj.jc"
+import "util.jc"
 import System.Algorithm.*
 import System.Console.*
 import System.Math.*

@@ -1,6 +1,6 @@
-import "System.spap"
-import "ctobj.spap"
-import "util.spap"
+//import "System.jc"
+import "ctobj.jc"
+import "util.jc"
 import System.Algorithm.*
 import System.Console.*
 import Util.*
@@ -690,7 +690,7 @@ auto scanForSystemUnit(int id_namespace)
 			s.push(char(ch+0x20))
 		else
 			s.push(ch0)
-	fn=g_system_unit_path+s+".spap"
+	fn=g_system_unit_path+s+".jc"
 	if System.IO.FileExists(fn):
 		return getid(fn)
 	return 0

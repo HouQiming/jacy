@@ -1,5 +1,5 @@
-import "system.spap"
-import "util.spap"
+//import "system.jc"
+import "util.jc"
 import System.Algorithm.*
 import System.Console.*
 import Util.*

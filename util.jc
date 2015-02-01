@@ -1,4 +1,4 @@
-import "System.spap"
+//import "System.jc"
 import System.Algorithm.*
 import System.Console.*
 DEBUG_ANSI_COLOR_IN_OUTPUT=0

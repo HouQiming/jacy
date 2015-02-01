@@ -1,6 +1,6 @@
-import "System.spap"
-import "parser.spap"
-import "astcore.spap"
+//import "System.jc"
+import "parser.jc"
+import "astcore.jc"
 import System.Algorithm.*
 import System.Console.*
 import Util.*
@@ -302,8 +302,8 @@ auto main()
 			id_run_args[I]=getid(s)
 		g_json_pool[getid("run_args")]=id_run_args
 	//parse the files
-	addSourceFile(getid(g_system_unit_path+"__builtin.spap"))
-	addSourceFile(getid(g_system_unit_path+"platform.spap"))
+	addSourceFile(getid(g_system_unit_path+"__builtin.jc"))
+	addSourceFile(getid(g_system_unit_path+"platform.jc"))
 	foreach s in files
 		addSourceFile(getid(s))
 	succ=parseAll()
