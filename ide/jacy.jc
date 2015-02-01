@@ -12,7 +12,5 @@ __generate_json("js_units","gui2d/widgets.js")
 	JS=new JSContext
 	sbox.setupModuleSystem(JS,1)
 	sbox.UILoadZip(string.NULL)
-	JS.GetGlobal()["Duktape"]["__ui_new_editor"]=TextBox.jsNewEditorBaseline
-	JS.GetGlobal()["Duktape"]["__ui_create_sandbox"]=CreateSandbox
 	JS.debugRunFile("res/jacy.js")
 })()

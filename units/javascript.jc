@@ -371,9 +371,25 @@ module duktape
 			else
 				sfile="<eval>"
 			duk_push_lstring(_ctx(),sfile,sfile.n)
-			duk_eval_raw(_ctx(),s,s.n,DUK_COMPILE_EVAL|DUK_COMPILE_SAFE|DUK_COMPILE_NOSOURCE)
-			//todo: check the return status to see whether it's an error
-			ret=_pop_typed(T,1)
+			err=duk_eval_raw(_ctx(),s,s.n,DUK_COMPILE_EVAL|DUK_COMPILE_SAFE|DUK_COMPILE_NOSOURCE)
+			if T!=JSObject&&err!=0:
+				ret=__zero(T)
+			else
+				ret=_pop_typed(T,1)
+			__explicit_rc(this,-1)
+			return ret
+		auto evalVoid(string s)
+			__explicit_rc(this,1)
+			if arguments.length>2:
+				sfile=arguments[2]
+			else
+				sfile="<eval>"
+			duk_push_lstring(_ctx(),sfile,sfile.n)
+			err=duk_eval_raw(_ctx(),s,s.n,DUK_COMPILE_EVAL|DUK_COMPILE_SAFE|DUK_COMPILE_NOSOURCE)
+			if err!=0:
+				ret=_pop_typed(JSObject,1)
+			else
+				ret=JSObject.NULL
 			__explicit_rc(this,-1)
 			return ret
 		auto debugEval(string scode,string fnamen)

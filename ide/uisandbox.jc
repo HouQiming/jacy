@@ -3,10 +3,27 @@ import Gui2D.*
 import Javascript.*
 import System.Console.*
 
-auto CreateSandbox()
-	JS_new=new JSContext
-	sbox=setupModuleSystem(JS_new,0)
-	//load our own zip for the units
-	sbox.UILoadZip(string.NULL)
-	JS_new.GetGlobal()["Duktape"]["__ui_new_editor"]=TextBox.jsNewEditorBaseline
-	return JS_new
+class CSandbox
+	JSContext JS
+	js_eval=function(JSContext JS_original){
+		s_code=JS_original.Param(0).as(string)
+		if !s_code:return 0
+		err=JS.evalVoid(JSObject,s_code)
+		if err:
+			return JS.ReturnError(err["stack"].or(""))
+		else
+			return 0
+	}
+	__JS_prototype=function(JSObject proto){
+		proto.ExportMethod(this,"eval",js_eval)
+	}
+
+registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
+	JS_UI["CreateSandbox"]=function(JSContext JS){
+		JS_new=new JSContext
+		sbox=setupModuleSystem(JS_new,0)
+		//load our own zip for the units
+		sbox.UILoadZip(string.NULL)
+		return JS.Return(new CSandbox(){JS:JS_new})
+	}
+})
