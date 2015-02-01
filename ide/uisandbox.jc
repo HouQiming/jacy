@@ -7,8 +7,9 @@ class CSandbox
 	JSContext JS
 	js_eval=function(JSContext JS_original){
 		s_code=JS_original.Param(0).as(string)
+		s_file=JS_original.Param(1).or("<eval>")
 		if !s_code:return 0
-		err=JS.evalVoid(JSObject,s_code)
+		err=JS.evalVoid(JSObject,s_code,s_file)
 		if err:
 			return JS.ReturnError(err["stack"].or(""))
 		else
