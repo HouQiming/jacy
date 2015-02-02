@@ -8,7 +8,7 @@ UI.DestroyWindow=function(attrs){
 	if(attrs.is_main_window){
 		UI.SDL_PostQuitEvent();
 	}
-	UI.SDL_DestroyWindow(attrs.hwnd)
+	UI.SDL_DestroyWindow(attrs.__hwnd)
 };
 
 UI.SetCaret=function(attrs,x,y,w,h,C,dt){
@@ -36,19 +36,20 @@ W.Window=function(id,attrs){
 		UI.LoadPackedTexture=null;
 		UI.LoadStaticImages=null;
 	}
-	if(!attrs.hwnd){
+	if(!attrs.__hwnd){
 		//no default event handler for the window
-		attrs.hwnd=UI.SDL_CreateWindow(attrs.title||"untitled",attrs.x||UI.SDL_WINDOWPOS_CENTERED,attrs.y||UI.SDL_WINDOWPOS_CENTERED,attrs.w*UI.pixels_per_unit,attrs.h*UI.pixels_per_unit, attrs.flags);
+		attrs.__hwnd=UI.SDL_CreateWindow(attrs.title||"untitled",attrs.x||UI.SDL_WINDOWPOS_CENTERED,attrs.y||UI.SDL_WINDOWPOS_CENTERED,attrs.w*UI.pixels_per_unit,attrs.h*UI.pixels_per_unit, attrs.flags);
 	}
 	//defer the innards painting to the first OnPaint - need the GL context
-	attrs.bgcolor=(attrs.bgcolor)
 	UI.context_paint_queue.push(attrs);
 	UI.HackAllCallbacks(attrs);
-	if(UI.context_window_painting){UI.EndPaint();}
-	UI.BeginPaint(attrs.hwnd,attrs);
-	UI.context_window_painting=1;
+	UI.BeginPaint(attrs.__hwnd,attrs);//EndPaint in UI.End()
 	attrs.x=0;
 	attrs.y=0;
+	if(!UI.is_real){
+		UI.sandbox_main_window=attrs.__hwnd;
+		UI.Clear(attrs.bgcolor||0xffffffff);
+	}
 	return attrs;
 }
 
@@ -76,6 +77,7 @@ W.Text=function(id,attrs){
 W.RoundRect=function(id,attrs){
 	UI.StdAnchoring(id,attrs);
 	UI.RoundRect(attrs)
+	return attrs;
 }
 
 /*

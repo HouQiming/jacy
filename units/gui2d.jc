@@ -8,6 +8,8 @@ todo:
 			no need to store the image in GPU memory
 			VBO creation can ignore any FBO inter-dependency
 		no SDL functions, emulate in software
+		--
+		need per-sandbox scaling and sandbox rendering
 	SDL_SetWindowGrab
 	could have a SDL renderer fallback for legacy windows / tinycore
 		SDL sw is deadly slow - not worth using
@@ -179,8 +181,8 @@ struct TDrawCall
 	pv=0
 	nv=0
 	crd16_scale=0
-	window_w=0
-	window_h=0
+	window_w=0.f
+	window_h=0.f
 
 //slow, we're not expecting to run it every frame
 auto resampleBitmap(TBitmap bmp0, float gamma, int mipmap_level)
@@ -353,6 +355,11 @@ class CUISandbox
 			else
 				arr_res_zip=System.IO.ReadAll(System.Env.GetExecutablePath()+"res.zip")
 		m_ui_zip=ParseZip(arr_res_zip)
+	auto UIRunJS(JSContext JS,string fn)
+		err=JS.evalVoid(UIReadAll(fn),fn)
+		if Platform.BUILD=="debug":
+			if err:
+				Writeln(err["stack"].or(""))
 
 //the DC singleton
 class CRenderer
@@ -388,8 +395,8 @@ class CRenderer
 	m_vbo=new int[]
 	m_drawcall_start=0
 	m_crd16_scale=1
-	m_window_w=1
-	m_window_h=1
+	m_window_w=1.f
+	m_window_h=1.f
 	m_uv16_scale=1
 	m_drawcalls=new TDrawCall[]
 	//////////////
@@ -584,7 +591,7 @@ class CRenderer
 					m_tex_is_srgb=0
 					m_texid=glCreateTexture(GL_RGBA8,m_texture_width,m_texture_height, GL_LINEAR,GL_CLAMP_TO_EDGE,GL_CLAMP_TO_EDGE,NULL)
 				if Platform.BUILD=="debug"&&!m_texid:
-					__basic_api.spapReportError("failed to create a @1x@2 UI texture - too many, too large, or too irregularly shaped images\0".Replace(["@1",string(m_texture_width),"@2",string(m_texture_height)]))
+					__basic_api.spapReportError("failed to create a @1x@2 UI texture - too many, too large, or too irregularly-shaped images\0".Replace(["@1",string(m_texture_width),"@2",string(m_texture_height)]))
 				glBindTexture(GL_TEXTURE_2D,m_texid)
 				glGetError()
 				glTexSubImage2D(GL_TEXTURE_2D,0,0,0,m_static_packed_bmp.w,m_static_packed_bmp.h,texsubimage_format(),GL_UNSIGNED_BYTE,__pointer(m_static_packed_bmp.rgba.d))
@@ -660,17 +667,17 @@ class CRenderer
 				m_caret_tech.SetFragmentShader("void main(){gl_FragColor=C;}")
 				m_caret_tech.SetVertexPointer("P", 2,GL_FLOAT,0, 2*sizeof(int),mini_vbo.d)
 				m_caret_tech.SetVertexPointer("C_vert", 4,GL_UNSIGNED_BYTE,1, sizeof(int),mini_vbo.d+8*sizeof(float))
-				m_caret_tech.SetUniform("scale",float2(2.f/f32(dc.window_w),2.f/f32(dc.window_h)))
+				m_caret_tech.SetUniform("scale",float2(2.f/dc.window_w,2.f/dc.window_h))
 				m_caret_tech.Draw(0u,GL_QUADS,4)
 	//////////////
 	//avoid caching the resampled / original bitmaps - batched loadStaticResources
-	auto BeginPaint(__pointer hwnd,int w,int h)
+	auto BeginPaint(__pointer hwnd,float w,float h)
 		if m_static_textures:
 			PackStaticBitmaps()
 		m_hwnd=hwnd
-		m_clip=float4(0.f,0.f,float(w),float(h))
+		m_clip=float4(0.f,0.f,w,h)
 		m_clip_stack.clear()
-		m_crd16_scale=max(65536/promoteToTextureSize(max(w,h)+1),1)
+		m_crd16_scale=max(65536/promoteToTextureSize(int(ceil(max(w,h)))+1),1)
 		m_drawcall_start=int(m_vbo.n)
 		m_window_w=w
 		m_window_h=h
@@ -1330,6 +1337,10 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 	//foreach sfont,I in g_renderer.m_std_fallback_fonts
 	//	js_fonts[I]=sfont
 	JS_UI["is_real"]=is_real
+	obj_platform=JS.New()
+	s_arch=Platform.ARCH;obj_platform["ARCH"]=s_arch
+	s_build=Platform.BUILD;obj_platform["BUILD"]=s_build
+	JS_UI["Platform"]=obj_platform
 	if is_real:
 		//"privileged" functions
 		JS_UI["DrawWindow"]=function(JSContext JS){
@@ -1364,7 +1375,7 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			h=0
 			SDL.detail.SDL_GetWindowSize(hwnd,&w,&h)
 			if !w||!h:return 0
-			g_renderer.BeginPaint(hwnd,w,h)
+			g_renderer.BeginPaint(hwnd,f32(w),f32(h))
 			obj=JS.Param(1).as(JSObject)
 			if obj:
 				obj["w"]=f32(w)/g_renderer.m_pixels_per_unit
@@ -1372,17 +1383,23 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			return 0
 		}
 	else
-		//virtualized BeginPaint
+		//virtualized SDL_CreateWindow and BeginPaint
+		JS_UI["SDL_CreateWindow"]=function(JSContext JS){
+			w=JS.Param(3).or(1024)
+			h=JS.Param(4).or(768)
+			return JS.Return(new CSandboxWindow(){w:w,h:h})
+		}
 		JS_UI["BeginPaint"]=function(JSContext JS){
 			auto hwnd=JS.Param(0).as(CSandboxWindow)
 			if !hwnd:return 0
-			w=hwnd.w
-			h=hwnd.h
+			//we need to match the ultimate viewport size, thus the ceil
+			w=ceil(f32(hwnd.w)*g_renderer.m_pixels_per_unit)
+			h=ceil(f32(hwnd.h)*g_renderer.m_pixels_per_unit)
 			g_renderer.BeginPaint(__pointer(iptr(hwnd)),w,h)
 			obj=JS.Param(1).as(JSObject)
 			if obj:
-				obj["w"]=f32(w)/g_renderer.m_pixels_per_unit
-				obj["h"]=f32(h)/g_renderer.m_pixels_per_unit
+				obj["w"]=f32(hwnd.w)
+				obj["h"]=f32(hwnd.h)
 			return 0
 		}
 	JS_UI["EndPaint"]=function(JSContext JS){
@@ -1552,7 +1569,7 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 	else
 		JS_UI["Clear"]=function(JSContext JS){
 			C_clear=JS.Param(0).or(u32(-1))
-			g_renderer.DrawBitmap(0, 0.f,0.f,float(g_renderer.m_window_w),float(g_renderer.m_window_h), C_clear)
+			g_renderer.DrawBitmap(0, 0.f,0.f,g_renderer.m_window_w,g_renderer.m_window_h, int(C_clear))
 			return 0
 		}
 	JS_UI["GetSRGBStatus"]=function(JSContext JS){
@@ -1729,3 +1746,5 @@ auto setupModuleSystem(JSContext JS,int is_real)
 
 setupModuleSystem=Gui2D.detail.setupModuleSystem
 registerUIExtension=Gui2D.detail.registerUIExtension
+CUISandbox=Gui2D.detail.CUISandbox
+CSandboxWindow=Gui2D.detail.CSandboxWindow

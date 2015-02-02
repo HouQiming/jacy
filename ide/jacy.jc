@@ -10,7 +10,7 @@ __generate_json("js_units","gui2d/widgets.js")
 
 (function(){
 	JS=new JSContext
-	sbox.setupModuleSystem(JS,1)
+	sbox=setupModuleSystem(JS,1)
 	sbox.UILoadZip(string.NULL)
-	JS.debugRunFile("res/jacy.js")
+	sbox.UIRunJS(JS,"res/jacy.js")
 })()

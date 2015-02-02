@@ -1021,7 +1021,7 @@ UI.DiscardCaches=function(){
 UI.Begin=function(attrs){
 	attrs.__parent=UI.context_parent;
 	UI.context_parent=attrs;
-	if(attrs.hwnd){
+	if(attrs.__hwnd){
 		attrs.__window_parent=UI.context_window;
 		UI.context_window=attrs;
 	}
@@ -1032,9 +1032,10 @@ UI.End=function(){
 	var attrs=UI.context_parent;
 	UI.context_parent=attrs.__parent;
 	attrs.__parent=null;
-	if(attrs.hwnd){
+	if(attrs.__hwnd){
 		UI.context_window=attrs.__window_parent;
 		attrs.__window_parent=null;
+		UI.EndPaint();
 	}
 }
 
@@ -1329,50 +1330,68 @@ UI.IsModifier=function(event,name){
 	return UI.IsKey(event,name)==undefined;
 };
 
+if(!UI.is_real){
+	UI.BeginFrame=function(){};
+	UI.EndFrame=function(){};
+	UI.pixels_per_unit=1;//the sandbox shouldn't see or change that
+}
+
+UI.DrawFrame=function(){
+	//the main painting loop
+	UI.need_to_refresh=0;
+	UI.BeginFrame();
+	UI.context_paint_queue=[];
+	UI.context_hotkeys=[];
+	UI.context_regions=[];
+	UI.context_gl_calls=[];
+	UI.context_parent=UI;
+	UI.context_tentative_focus=null;
+	UI.Application("top",{});
+	if(!UI.nd_focus&&UI.context_tentative_focus){
+		UI.SetFocus(UI.context_tentative_focus);
+		UI.Refresh();
+	}
+	UI.EndFrame();
+}
+
+UI.JSDrawWindow=function(obj){
+	UI.GL_Begin(obj.__hwnd)
+	UI.Clear(obj.bgcolor||0xffffffff)
+	if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
+		UI.DrawWindow(obj.__hwnd,obj.caret_x,obj.caret_y,obj.caret_w,obj.caret_h,obj.caret_C);
+	}else{
+		UI.DrawWindow(obj.__hwnd);
+	}
+	var calls=UI.context_gl_calls;
+	for(var i=0;i<calls.length;i++){
+		calls[i]();
+	}
+	UI.GL_End(obj.__hwnd)
+}
+
+UI.AddGLCall=function(fcall){
+	UI.HackCallback(fcall);
+	UI.context_gl_calls.push(fcall)
+}
+
 UI.Run=function(){
 	var event=null;
 	for(;;){
 		if(UI.need_to_refresh){
-			//the main painting loop
-			UI.need_to_refresh=0;
-			UI.BeginFrame();
-			UI.context_paint_queue=[];
-			UI.context_hotkeys=[];
-			UI.context_regions=[];
-			UI.context_parent=UI;
-			UI.context_window_painting=0;
-			UI.context_tentative_focus=null;
-			UI.Application("top",{});
-			if(UI.context_window_painting){UI.EndPaint();}
-			if(!UI.nd_focus&&UI.context_tentative_focus){
-				UI.SetFocus(UI.context_tentative_focus);
-				UI.Refresh();
-			}
-			UI.EndFrame();
+			UI.DrawFrame();
 			for(var i=0;i<UI.context_paint_queue.length;i++){
 				var obj=UI.context_paint_queue[i];
-				UI.GL_Begin(obj.hwnd)
-				UI.Clear(obj.bgcolor||0xffffffff)
-				if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
-					UI.DrawWindow(obj.hwnd,obj.caret_x,obj.caret_y,obj.caret_w,obj.caret_h,obj.caret_C);
-				}else{
-					UI.DrawWindow(obj.hwnd);
-				}
-				UI.GL_End(obj.hwnd)
+				UI.JSDrawWindow(obj)
 				if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
 					if(!obj.has_caret_callback){
 						obj.has_caret_callback=1;
 						UI.setTimeout((function(obj){var fn_ret=function(){
-							UI.GL_Begin(obj.hwnd)
-							UI.Clear(obj.bgcolor||0xffffffff)
+							UI.JSDrawWindow(obj)
 							if(obj.caret_state>0){
-								UI.DrawWindow(obj.hwnd,obj.caret_x,obj.caret_y,obj.caret_w,obj.caret_h,obj.caret_C);
 								obj.caret_state--;
 							}else{
-								UI.DrawWindow(obj.hwnd)
 								obj.caret_state=1;
 							}
-							UI.GL_End(obj.hwnd)
 							if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
 								obj.has_caret_callback=1;
 								UI.setTimeout(fn_ret,obj.caret_dt);
@@ -1383,9 +1402,6 @@ UI.Run=function(){
 					}
 				}
 			}
-			//print(1.0/UI.frame_time,"fps");
-			//print('frame=',UI.frame_time);
-			//print(JSON.stringify(UI.GetSRGBStatus()))
 		}
 		if(UI.need_to_refresh){
 			event=UI.SDL_PollEvent();
@@ -1412,10 +1428,7 @@ UI.Run=function(){
 				case UI.SDL_WINDOWEVENT_EXPOSED:
 					var obj=event.windowID;
 					if(obj){
-						UI.GL_Begin(obj.hwnd)
-						UI.Clear(obj.bgcolor||0xffffffff)
-						UI.DrawWindow(obj.hwnd)
-						UI.GL_End(obj.hwnd)
+						UI.JSDrawWindow(obj)
 					}
 					break;
 				}
