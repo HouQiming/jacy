@@ -379,7 +379,7 @@ class CRenderer
 	//m_screen_dpi=96
 	//m_design_dpi=96
 	m_pixels_per_unit=1.f
-	m_font_sharpening=1.5f//0.f
+	m_font_sharpening=0.f
 	m_gamma=2.2f
 	m_mipmap_level=0
 	m_text_y_snap=1

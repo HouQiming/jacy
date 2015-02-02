@@ -1448,7 +1448,7 @@ auto coreInit()
 		is_type_only=isExpr(pecode,EFLAG_STRING)
 		assert(is_type_only||isBuiltin(pecode,g_id_block))
 		is_type_only|=(pobjfn==getStdObject(0,STDTYPE_VARIANT))
-		is_type_only|=(tisstruct(pobjfn)&&isCtorEmpty(pobjfn))
+		is_type_only|=(tisstruct(pobjfn)&&isCtorEmpty(pobjfn,1))
 		//Writeln(pobjfn,' ',getStdObject(0,STDTYPE_VARIANT))
 		//could use a dfs
 		n_funcargs=(nargs-2)>>1
@@ -6347,7 +6347,11 @@ auto evalCodeDependingFunctions()
 	g_has_untranslated_cdf=(cdf_set.n>0)
 	return ret
 
-auto isCtorEmpty(PCTObject t_tar)
+auto isCtorEmpty(PCTObject t_tar,int do_caching)
+	fflag0=getFFlag(t_tar)
+	if do_caching:
+		if fflag0&FFLAG_IS_EMPTY_CTOR_TESTED:
+			return !!(fflag0&FFLAG_IS_EMPTY_CTOR)
 	assert(tisclass(t_tar))
 	pvret_t_tar=readPool(t_tar+FUNCTION_OFS_PVAR_RETURN)
 	is_empty=1
@@ -6363,6 +6367,11 @@ auto isCtorEmpty(PCTObject t_tar)
 				if DEBUG_DUMP_FLATTEN:
 					if is_empty:
 						Writeln(dumpObject(t_tar)+' not empty: '+dumpExpr(pe,fcolor_abbrv_blocks))
+				if do_caching:
+					pobjfn=getExprFunction(pe)
+					if pobjfn&&tisstruct(pobjfn)&&isCtorEmpty(pobjfn,1):
+						//it's fine to recurse into other empty ctors
+						return 1
 				is_empty=0
 				return 0
 			auto pe_var=readPool(pe+EXPR_OFS_ARGS+0)
@@ -6384,6 +6393,8 @@ auto isCtorEmpty(PCTObject t_tar)
 		return is_empty
 	}
 	dfsExpr(readPool(t_tar+FUNCTION_OFS_CODE),f_test_emptiness)
+	if do_caching:
+		setFFlag(t_tar,FFLAG_IS_EMPTY_CTOR_TESTED|(is_empty?FFLAG_IS_EMPTY_CTOR:0))
 	return is_empty
 	
 g_strflatten_monitored_variables=new PCTObject[][PExpression]
@@ -6745,7 +6756,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 							pe_decl_t_tar=readPool(t_tar+FUNCTION_OFS_PEDECL)
 							if !testUserFlag(pe_decl_t_tar,USER_FLAG_EMPTY_NEW_TESTED):
 								//test for empty new
-								if isCtorEmpty(t_tar):
+								if isCtorEmpty(t_tar,0):
 									setUserFlag(pe_decl_t_tar,USER_FLAG_IS_EMPTY_NEW)
 									if DEBUG_DUMP_FLATTEN:
 										Writeln('ctor detected as empty: '+dumpObject(t_tar))
@@ -9638,7 +9649,7 @@ auto translateLambdas()
 				writePool(pe_new+EXPR_OFS_VALUE,readPool(pe+EXPR_OFS_VALUE))
 				writePool(pe_new+EXPR_OFS_VALUE+1,readPool(pe+EXPR_OFS_VALUE+1))
 				//Writeln('SHIT! ',dumpExpr(pe_new,__zero(fcolorer_callback)),' ',pobjfn?string(tisstruct(pobjfn))+" "+string(tisstruct(pobjfn)&&isCtorEmpty(pobjfn)):"")
-				if pobjfn&&tisstruct(pobjfn)&&isCtorEmpty(pobjfn):
+				if pobjfn&&tisstruct(pobjfn)&&isCtorEmpty(pobjfn,1):
 					//remove empty ctors
 					//Writeln('ctor removed ',dumpExpr(pe_new,__zero(fcolorer_callback)))
 					setnop_jobs.push(pe_new)

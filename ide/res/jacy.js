@@ -2,6 +2,8 @@ var UI=require("gui2d/ui");
 var W=require("gui2d/widgets");
 
 function parent(){return UI.context_parent;}
+
+UI.SetFontSharpening(1.5)
 var g_sandbox=UI.CreateSandbox();
 g_sandbox.eval("var UI=require('gui2d/ui');var W=require('gui2d/widgets');")
 //todo
@@ -13,6 +15,13 @@ var g_initial_code="\
 						title:'Jacy test code',w:1280,h:720,bgcolor:0xffffffff,\n\
 						designated_screen_size:1440,flags:UI.SDL_WINDOW_MAXIMIZED|UI.SDL_WINDOW_RESIZABLE,\n\
 						is_main_window:1}));\n\
+			W.Text('',{\n\
+				anchor:UI.context_parent,anchor_align:'left',anchor_valign:'up',\n\
+				w:UI.context_parent.w-32,\n\
+				x:16,y:16,\n\
+				font:UI.Font('msyh',128,-100),text:'标题很细',\n\
+				color:0xff000000,\n\
+				});\n\
 		UI.End();\n\
 	UI.End();\n\
 ";
@@ -36,6 +45,7 @@ UI.Application=function(id,attrs){
 			});
 			var ed_box=W.Edit("textbox",{
 				font:UI.Font("res/fonts/inconsolata.ttf",32),color:0xff000000,
+				tab_width:4,
 				text:g_initial_code,//todo
 				anchor:ed_rect,anchor_align:"center",anchor_valign:"center",
 				x:0,y:0,w:ed_rect.w-8,h:ed_rect.h-8,

@@ -1357,7 +1357,7 @@ UI.DrawFrame=function(){
 UI.JSDrawWindow=function(obj){
 	UI.GL_Begin(obj.__hwnd)
 	UI.Clear(obj.bgcolor||0xffffffff)
-	if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
+	if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0&&obj.caret_state>0){
 		UI.DrawWindow(obj.__hwnd,obj.caret_x,obj.caret_y,obj.caret_w,obj.caret_h,obj.caret_C);
 	}else{
 		UI.DrawWindow(obj.__hwnd);
@@ -1381,17 +1381,18 @@ UI.Run=function(){
 			UI.DrawFrame();
 			for(var i=0;i<UI.context_paint_queue.length;i++){
 				var obj=UI.context_paint_queue[i];
+				obj.caret_state=1;
 				UI.JSDrawWindow(obj)
 				if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
 					if(!obj.has_caret_callback){
 						obj.has_caret_callback=1;
 						UI.setTimeout((function(obj){var fn_ret=function(){
-							UI.JSDrawWindow(obj)
 							if(obj.caret_state>0){
 								obj.caret_state--;
 							}else{
 								obj.caret_state=1;
 							}
+							UI.JSDrawWindow(obj)
 							if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
 								obj.has_caret_callback=1;
 								UI.setTimeout(fn_ret,obj.caret_dt);
