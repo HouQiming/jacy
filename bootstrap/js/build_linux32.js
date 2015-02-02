@@ -1,7 +1,12 @@
+var g_need_ssh_for_linux=(g_current_arch=="linux32"||g_current_arch=="linux64");
+
 g_action_handlers.make=function(){
 	var ssh_addr=GetServerSSH('linux');
 	var ssh_port=GetPortSSH('linux');
-	if(!FileExists(g_work_dir+"/buildtmp_ready")){
+	if(g_need_ssh_for_linux&&g_json.verbose){
+		print("building for Linux on a @1 machine, doing ssh".replace("@1",g_current_arch));
+	}
+	if(g_need_ssh_for_linux&&!FileExists(g_work_dir+"/buildtmp_ready")){
 		var sbuildtmp=SHA1(g_work_dir,8);
 		CreateFile(g_work_dir+"/buildtmp_ready",sbuildtmp);
 		mkdir(g_work_dir+"/upload/");
@@ -78,45 +83,65 @@ g_action_handlers.make=function(){
 		smakefile_array.push("\n"+smain+".o: "+scfile+"\n\t$(CC) $(CFLAGS0) $(CFLAGS1) -c $< -o $@\n")
 	}
 	CreateIfDifferent(g_work_dir+"/upload/Makefile",smakefile_array.join(""))
-	if(g_json.verbose){print("=== rsyncing the project directory")}
-	rsync(g_work_dir+'/upload',ssh_addr+':_buildtmp/'+sbuildtmp,ssh_port)
-	var sshell_array=[];
-	sshell_array.push('cd ~/_buildtmp/'+sbuildtmp+';')
-	sshell_array.push('make;')
-	if(FileExists(g_work_dir+"/upload/ic_launcher.png")){
-		sshell_array.push('mkdir -p ~/.icons/hicolor/48x48/apps;cp ic_launcher.png ~/.icons/hicolor/48x48/apps/'+s_linux_output+".png;")
-	}
-	sshell_array.push("exit")
-	if(g_json.verbose){print("=== making on remote machine")}
-	envssh('linux',sshell_array.join(""))
+	//////////////////////////
 	var s_qualified_linux_output;
 	if(!g_json.output_file){
 		s_qualified_linux_output=g_bin_dir+"/"+s_linux_output;
 	}else{
 		s_qualified_linux_output=g_json.output_file
 	}
-	shell(["rm",s_qualified_linux_output]);
-	shell(["scp","-P"+ssh_port,ssh_addr+':_buildtmp/'+sbuildtmp+'/'+s_linux_output,s_qualified_linux_output])
-	if(!FileExists(s_qualified_linux_output)){
-		throw new Error("make failed to produce an output on the remote side");
+	if(g_need_ssh_for_linux){
+		if(g_json.verbose){print("=== rsyncing the project directory")}
+		rsync(g_work_dir+'/upload',ssh_addr+':_buildtmp/'+sbuildtmp,ssh_port)
+		var sshell_array=[];
+		sshell_array.push('cd ~/_buildtmp/'+sbuildtmp+';')
+		sshell_array.push('make;')
+		if(FileExists(g_work_dir+"/upload/ic_launcher.png")){
+			sshell_array.push('mkdir -p ~/.icons/hicolor/48x48/apps;cp ic_launcher.png ~/.icons/hicolor/48x48/apps/'+s_linux_output+".png;")
+		}
+		sshell_array.push("exit")
+		if(g_json.verbose){print("=== making on remote machine")}
+		envssh('linux',sshell_array.join(""))
+		shell(["rm",s_qualified_linux_output]);
+		shell(["scp","-P"+ssh_port,ssh_addr+':_buildtmp/'+sbuildtmp+'/'+s_linux_output,s_qualified_linux_output])
+		if(!FileExists(s_qualified_linux_output)){
+			throw new Error("make failed to produce an output on the remote side");
+		}
+	}else{
+		var ret=shell(["make","-C",g_work_dir+"/upload"]);
+		if(ret!=0){
+			throw new Error("make returned an error code of @1".replace("@1",ret.toString()));
+		}
+		UpdateTo(s_qualified_linux_output,g_work_dir+"/upload/"+s_linux_output)
 	}
 	return 1;
 };
 
 g_action_handlers.run=function(sdir_target){
-	var sbuildtmp=ReadFile(g_work_dir+"/buildtmp_ready")
-	if(!sbuildtmp){
-		throw new Error("error> the project hasn't been built yet")
-	}
-	var s_linux_output;
-	if(!g_json.output_file){
-		s_linux_output=g_main_name;
+	if(g_need_ssh_for_linux){
+		print("running Linux program on a @1 machine, doing ssh".replace("@1",g_current_arch));
+		var sbuildtmp=ReadFile(g_work_dir+"/buildtmp_ready")
+		if(!sbuildtmp){
+			throw new Error("error> the project hasn't been built yet")
+		}
+		var s_linux_output;
+		if(!g_json.output_file){
+			s_linux_output=g_main_name;
+		}else{
+			s_linux_output=RemovePath(g_json.output_file[0]);
+		}
+		var sshell_array=[];
+		sshell_array.push('~/_buildtmp/'+sbuildtmp+'/'+s_linux_output+' ')
+		sshell_array.push((g_json.run_args||[]).join(" "))
+		sshell_array.push(';exit')
+		envssh('linux',sshell_array.join(""))
 	}else{
-		s_linux_output=RemovePath(g_json.output_file[0]);
+		var s_final_output;
+		if(!g_json.output_file){
+			s_final_output=g_bin_dir+"/"+g_main_name;
+		}else{
+			s_final_output=g_json.output_file[0];
+		}
+		shell([s_final_output].concat(g_json.run_args||[]));
 	}
-	var sshell_array=[];
-	sshell_array.push('~/_buildtmp/'+sbuildtmp+'/'+s_linux_output+' ')
-	sshell_array.push((g_json.run_args||[]).join(" "))
-	sshell_array.push(';exit')
-	envssh('linux',sshell_array.join(""))
 };

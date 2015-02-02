@@ -133,7 +133,7 @@ g_action_handlers.clean=function(){
 
 (function(){
 	var fn_config=g_root+"/js/config.json";
-	g_config=eval("(function(){return "+ReadFile(fn_config)+"})()");
+	g_config=eval("(function(){"+ReadFile(fn_config)+"})()");
 	//handle utilities
 	if(g_action_handlers[g_action]){
 		//it's a utility, g_json_file is actually a hack arch

@@ -210,7 +210,8 @@ auto fstore_eval_core_ex(PExpression pecall,PCTObject pobj_var,TSCCPValue val_ne
 	if val_old.tid==val_final.tid&&val_old.val==val_final.val&&!force_changed:
 		//it didn't change
 		return TSCCPValue(){tid:g_vtid_UNINIT}
-	if g_readable_c_code&&pobj_var:
+	//g_readable_c_code
+	if pobj_var:
 		//if it's a function, try to set the function's name
 		vid=readPool(pobj_var+VAR_OFS_ID)
 		if val_final.tid==g_vtid_CTVAL:
@@ -1181,11 +1182,11 @@ auto coreInit()
 			//clone, hack out ldparam
 			pobjfn_insted=cloneFunction(pobjfn)
 			ctUnique(template_desc)=pobjfn_insted
-			if g_readable_c_code:
-				sname=new(getIdString(readPool(pobjfn+FUNCTION_OFS_NAME)))
-				sname.push('<')
-			else
-				writePool(pobjfn_insted+FUNCTION_OFS_NAME,readPool(pobjfn+FUNCTION_OFS_NAME))
+			//if g_readable_c_code:
+			sname=new(getIdString(readPool(pobjfn+FUNCTION_OFS_NAME)))
+			sname.push('<')
+			//else
+			//	writePool(pobjfn_insted+FUNCTION_OFS_NAME,readPool(pobjfn+FUNCTION_OFS_NAME))
 			writePool(pobjfn_insted+FUNCTION_OFS_ONEVAL,g_cbobj_function_used_oneval)
 			writePool(pobjfn_insted+FUNCTION_OFS_ONCGEN,g_cbobj_generated_function_oncgen)
 			pedecl_insted=readPool(pobjfn_insted+FUNCTION_OFS_PEDECL)
@@ -1224,9 +1225,9 @@ auto coreInit()
 					n2++
 				//Writeln(i,' ',dumpExpr(readPool(pobjfn_insted+FUNCTION_OFS_PEDECL),fcolor_abbrv_blocks))
 			//Writeln(dumpExpr(readPool(pobjfn_insted+FUNCTION_OFS_PEDECL),fcolor_abbrv_blocks))
-			if g_readable_c_code:
-				sname.push('>')
-				writePool(pobjfn_insted+FUNCTION_OFS_NAME,getid(sname))
+			//if g_readable_c_code:
+			sname.push('>')
+			writePool(pobjfn_insted+FUNCTION_OFS_NAME,getid(sname))
 			//copy the code and reset # args
 			writePool(pedecl_insted+EXPR_OFS_ARGS+1+n2*2,readPool(pedecl_insted+EXPR_OFS_ARGS+1+n_funcargs*2))
 			writePool(pedecl_insted,EFLAG_FCALL+n2*2+2)
@@ -1447,6 +1448,7 @@ auto coreInit()
 		is_type_only=isExpr(pecode,EFLAG_STRING)
 		assert(is_type_only||isBuiltin(pecode,g_id_block))
 		is_type_only|=(pobjfn==getStdObject(0,STDTYPE_VARIANT))
+		is_type_only|=(tisstruct(pobjfn)&&isCtorEmpty(pobjfn))
 		//Writeln(pobjfn,' ',getStdObject(0,STDTYPE_VARIANT))
 		//could use a dfs
 		n_funcargs=(nargs-2)>>1
@@ -3412,20 +3414,20 @@ auto coreInit()
 			if DEBUG_DUMP_DERIV:
 				Writeln('>>> after dup')
 				Writeln(FormatAsText(dumpExpr(readPool(pobjfn_dup+FUNCTION_OFS_PEDECL),fcolor_reach_eval)))
-			if g_readable_c_code:
-				id_name0=readPool(pobjfn+FUNCTION_OFS_NAME)
-				if id_name0:
-					id_name_deriv=catid(getid("deriv_"),id_name0)
-				else
-					id_name_deriv=getid("deriv_by_")
-					for i=1:n_args-1
-						peargname=readPool(pecall+EXPR_OFS_ARGS+i)
-						flags=readPool(peargname)
-						if (flags&EFLAG_MASK)!=EFLAG_STRING:
-							continue
-						vid=(flags&~EFLAG_MASK)
-						id_name_deriv=catid(catid(id_name_deriv,vid),getid("_"))
-				writePool(pobjfn_dup+FUNCTION_OFS_NAME,id_name_deriv)
+			//if g_readable_c_code:
+			id_name0=readPool(pobjfn+FUNCTION_OFS_NAME)
+			if id_name0:
+				id_name_deriv=catid(getid("deriv_"),id_name0)
+			else
+				id_name_deriv=getid("deriv_by_")
+				for i=1:n_args-1
+					peargname=readPool(pecall+EXPR_OFS_ARGS+i)
+					flags=readPool(peargname)
+					if (flags&EFLAG_MASK)!=EFLAG_STRING:
+						continue
+					vid=(flags&~EFLAG_MASK)
+					id_name_deriv=catid(catid(id_name_deriv,vid),getid("_"))
+			writePool(pobjfn_dup+FUNCTION_OFS_NAME,id_name_deriv)
 			////we need another iteration to make sure the innards gets evaled
 			//return TSCCPValue(){'tid':g_vtid_UNINIT}
 			//gotta eval the dupped body before flattening
@@ -9062,10 +9064,9 @@ auto fixConstantTypes()
 								errorAtExpr(ETYPE_ERROR,pe,"template/invalid function '@1' cannot be used as a run-time value".Replace(["@1",citeexpr(pe)]))
 							return 1
 						assert(!!t)
-						if Platform.BUILD=="debug":
-							if !tisfunction(t):
-								//Writeln('bad function type: ',dumpType(t),' ',dumpExpr(pe,__zero(fcolorer_callback)))
-								errorAtExpr(ETYPE_ERROR,pe,"'@1' is not a C-like function and cannot be used as a run-time function pointer".Replace(["@1",citeexpr(pe)]))
+						if !tisfunction(t):
+							//Writeln('bad function type: ',dumpType(t),' ',dumpExpr(pe,__zero(fcolorer_callback)))
+							errorAtExpr(ETYPE_ERROR,pe,"'@1' is not a C-like function and cannot be used as a run-time function pointer".Replace(["@1",citeexpr(pe)]))
 						pecaller=readPool(pe+EXPR_OFS_CALLER)
 						//we have to keep pe in case it's a function decl, but we don't want to ass it that way
 						sccpQueueReach(insertCallAt(pecaller,pe,function(PExpression pe){
@@ -9255,7 +9256,7 @@ auto translateLambdas()
 				tid_var=valx.tid
 				assert(tid_var==g_vtid_CTVAL)
 				pf_called=valx.val
-				if !isFunction(pf_called):return 1
+				if !isFunction(pf_called)||getCcnv(pf_called)!=g_id_function:return 1
 				if (getFFlag(pf_called)&FFLAG_BUILTIN)||getCcnv(pf_called)!=g_id_function:return 1
 				pfowner=getOwningFunction(readPool(readPool(pf_called+FUNCTION_OFS_PEDECL)+EXPR_OFS_CALLER))
 				//coulddo: accelerate the 0 case
@@ -9269,6 +9270,14 @@ auto translateLambdas()
 						break
 				//here we generate a "get lambda": # parent layers, a name / sth
 				if their_level<0:
+					//Writeln(dumpExpr(pe,__zero(fcolorer_callback)))
+					//Writeln("in '@3', one cannot access '@1' from non-parent function '@2'".Replace([
+					//	"@1",citeexpr(pe),
+					//	"@2",dumpObject(pfowner),
+					//	"@3",dumpObject(pobj_local_owner)]))
+					if tid_var==g_vtid_CTVAL:
+						//it's OK to call returned constant functions... as long as it's not lambdaed, we assume so
+						return 1
 					errorAtExpr(ETYPE_ERROR,pe,"in '@3', one cannot access '@1' from non-parent function '@2'".Replace([
 						"@1",citeexpr(pe),
 						"@2",dumpObject(pfowner),
@@ -11312,9 +11321,12 @@ g_s7_TF_rtti_dtor_used=0
 auto genAllCode()
 	//don't generate variant ctor - it's useless... but we need its lambda ctx
 	//setFFlag(getStdObject(0,STDTYPE_VARIANT),FFLAG_CGEN_QUEUED)
+	g_in_code_gen=1
 	genCode(g_pe_top,0)
 	//it's a function queue
 	for(i=0;i<g_gencode_queue.n;i++)
+		//Writeln('gencode: ')
+		//Writeln(dumpCode(g_gencode_queue[i],__zero(fcolorer_callback)))
 		genCode(g_gencode_queue[i],LEVEL_FUNCTION_HACK)
 	/////////
 	s_headers=new string

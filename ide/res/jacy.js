@@ -10,7 +10,7 @@ var g_initial_code="\
 	attrs=UI.Keep(id,attrs);\n\
 	UI.Begin(attrs);\n\
 		var wnd=UI.Begin(W.Window('app',{\n\
-						title:'Jacy test code',w:1280,h:720,bgcolor:0xff008000,\n\
+						title:'Jacy test code',w:1280,h:720,bgcolor:0xffffffff,\n\
 						designated_screen_size:1440,flags:UI.SDL_WINDOW_MAXIMIZED|UI.SDL_WINDOW_RESIZABLE,\n\
 						is_main_window:1}));\n\
 		UI.End();\n\
@@ -41,6 +41,7 @@ UI.Application=function(id,attrs){
 				x:0,y:0,w:ed_rect.w-8,h:ed_rect.h-8,
 			});
 			//this part is effectively a GLwidget
+			//todo: clipping
 			UI.AddGLCall(function(){g_sandbox.DrawWindow(16,16);})
 		UI.End();
 		///////////////////

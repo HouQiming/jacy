@@ -604,8 +604,10 @@ auto cloneFunctionEx(PCTObject pobjfn,PCTObject[PCTObject] var_map,int flags)
 auto cloneExpr(PExpression pe)
 	return cloneExprEx(pe,new PCTObject[PCTObject], g_names_resolved?CLONE_WIPE_TO_UNREACHED:0)
 
+g_in_code_gen=0
 auto setnop(PExpression pe)
 	//this one is safer in that pe args remain enumerable
+	assert(!g_in_code_gen)
 	insertCallAt(pe,0,function(PExpression pe){return exprvar(g_symbols[g_id_nop].user_slot)})
 	writePool(pe,EFLAG_FCALL)
 

@@ -137,7 +137,8 @@ auto writeico(auto f,int[] img0,int w,int h)
 		scmd=new string
 		for i=0:n-1
 			s_args_i=shell_args[i].as(string)
-			if !i:s_args_i=s_args_i.Replace(["/","\\"])
+			if Platform.IS_WINDOWS:
+				if !i:s_args_i=s_args_i.Replace(["/","\\"])
 			if s_args_i.IndexOf(' ')>=0:
 				s_args_i="\""+genString(s_args_i)+"\""
 			if i:scmd.push(' ')

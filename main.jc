@@ -197,6 +197,9 @@ auto main()
 				ids=new int[]
 				g_json_pool[id_name]=ids
 				ids.push(id_value)
+		else if s.StartsWith("-"):
+			Writeln('warning: unrecognized option @1'.Replace(["@1",s]))
+			continue
 		else
 			files.push(s)
 	if s_mode=="debug":

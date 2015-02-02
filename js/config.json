@@ -1,12 +1,21 @@
-{
+if(g_current_arch=="linux32"||g_current_arch=="linux64"){
+	return {
+		"DEFAULT_SEARCH_PATHS":[g_root+"/wrapper"],
+		"SDL_PATH":"/usr/include/SDL2/",
+		"MKL_PATH":"/opt/intel/composerxe/mkl",
+		"BULLET_PATH":"/usr/include/bullet/",
+	}
+}
+//default: windows
+return {
 	"DEFAULT_SEARCH_PATHS":["C:/tp/kara/wrapper"],
 	"SDL_PATH":"C:/tp/kara/osslib",
 	"MKL_PATH":"C:/Program Files (x86)/Intel/Composer XE/mkl",
 	"BULLET_PATH":"C:/tp/osslib/bullet-2.82-r2704",
-	"SSH_SERVER_LINUX":"hqm@192.168.85.109",
+	//"SSH_SERVER_LINUX":"hqm@192.168.85.109",
 	//"SSH_SERVER_LINUX":"qiming@127.0.0.1",
 	//"SSH_PORT_LINUX":7777,
 	//"SSH_SERVER_LINUX":"qiming@128.59.22.42",
 	//"SSH_SERVER_LINUX":"hqm@192.168.0.102",
-	//"SSH_SERVER_LINUX":"hqm@192.168.0.101",
+	"SSH_SERVER_LINUX":"hqm@192.168.0.101",
 }
