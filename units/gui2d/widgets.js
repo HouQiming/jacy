@@ -80,6 +80,34 @@ W.RoundRect=function(id,attrs){
 	return attrs;
 }
 
+UI.DrawIcon=function(attrs){
+	//bmp or ttf
+	//todo: height-sized?
+	var bmpid;
+	var icon_font,icon_char;
+	var size={};
+	if(attrs.icon_file){
+		bmpid=UI.rc[attrs.icon_file];
+		UI.GetBitmapSize(bmpid,size);
+	}else{
+		icon_font=attrs.icon_font;
+		icon_char=attrs.icon_char.charCodeAt(0);
+		size.w=UI.GetCharacterAdvance(icon_font,icon_char);
+		size.h=UI.GetCharacterHeight(icon_font);
+	}
+	var w=attrs.w||size.w;
+	var h=attrs.h||size.h;
+	var x=attrs.x+(w-size.w)*0.5;
+	var y=attrs.y+(h-size.h)*0.5;
+	if(attrs.icon_file){
+		UI.DrawBitmap(0,x,y,size.w,size.h,attrs.color);
+	}else{
+		//todo: character border...
+		UI.DrawChar(icon_font,x,y,icon_char)
+	}
+	return attrs;
+}
+
 /*
 *auto-sizing* - "layout current object"
 Text(,,TR({}))
@@ -96,13 +124,55 @@ W.Hotkey=function(id,attrs){
 	return attrs;
 }
 
-W.Region=function(id,attrs){
+W.Region=function(id,attrs,proto){
 	//attrs is needed to track OnClick and stuff, *even if we don't store any var*
-	attrs=UI.Keep(id,attrs);
+	attrs=UI.Keep(id,attrs,proto);
 	UI.StdAnchoring(id,attrs);
 	UI.context_regions.push(attrs);
-	return attrs
+	attrs.region___hwnd=UI.context_window.__hwnd;
+	return attrs;
 }
+
+////////////////////////////////////////
+//utility
+W.Group=function(id,attrs0){
+	var attrs=UI.Keep(id,attrs0);
+	UI.StdAnchoring(id,attrs);
+	/////////
+	var items=attrs.items||[];
+	var item_template=attrs.item_template||{};
+	var item_object=attrs.item_object;
+	var selection=attrs.selection;
+	//layouting: just set layout_direction and layout_spacing
+	UI.Begin(attrs);
+	for(var i=0;i<items.length;i++){
+		var items_i=items[i];
+		var obj_temp=Object.create(item_template);
+		for(var key in items_i){
+			obj_temp[key]=items_i[key];
+		}
+		if(selection){
+			obj_temp.selected=selection[items_i.id];
+		}
+		item_object(items_i.id,obj_temp).__kept=1;
+	}
+	UI.End(attrs);
+	//delete the non-kept
+	for(var key in attrs){
+		//check for leading $
+		if(key.charCodeAt(0)==0x24){
+			var child=attrs[key];
+			if(child.__kept){
+				child.__kept=0;
+			}else{
+				delete attrs[key];
+			}
+		}
+	}
+	return attrs;
+}
+
+//todo: clipping/scrolling/zooming host with phone awareness
 
 ////////////////////////////////////////
 //widgets

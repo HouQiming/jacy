@@ -183,6 +183,7 @@ struct TDrawCall
 	crd16_scale=0
 	window_w=0.f
 	window_h=0.f
+	JSObject js_callback
 
 //slow, we're not expecting to run it every frame
 auto resampleBitmap(TBitmap bmp0, float gamma, int mipmap_level)
@@ -641,6 +642,9 @@ class CRenderer
 		//debugDumpVBO()
 		foreach dc in m_drawcalls
 			if dc.hwnd==hwnd_onlydraw||!hwnd_onlydraw:
+				if dc.js_callback:
+					dc.js_callback.Call(JSObject)
+					continue
 				pslice=m_vbo[dc.pv:]
 				m_tech.SetVertexPointer("P", 2,GL_UNSIGNED_SHORT,0, VERTEX_SIZE*sizeof(int),pslice.d)
 				m_tech.SetVertexPointer("uv_vert", 2,GL_UNSIGNED_SHORT,0, VERTEX_SIZE*sizeof(int),pslice.d+1*sizeof(int))
@@ -696,6 +700,18 @@ class CRenderer
 		m_hwnd=NULL
 		m_clip=float4()
 		m_clip_stack.clear()
+	auto InsertJSDrawCall(JSObject js_callback)
+		if int(m_vbo.n)!=m_drawcall_start:
+			//push drawcall but don't touch anything else
+			m_drawcalls.push(TDrawCall(){
+				hwnd:m_hwnd,
+				pv:m_drawcall_start,
+				nv:(int(m_vbo.n)-m_drawcall_start)/VERTEX_SIZE,
+				crd16_scale:m_crd16_scale,
+				window_w:m_window_w,
+				window_h:m_window_h})
+			m_drawcall_start=int(m_vbo.n)
+		m_drawcalls.push(TDrawCall(){hwnd:m_hwnd,js_callback:js_callback})
 	inline PushCliprect(float x,float y,float w,float h)
 		m_clip_stack.push(m_clip)
 		m_clip=float4(x,y,x+w,y+h)
@@ -1382,6 +1398,12 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 				obj["h"]=f32(h)/g_renderer.m_pixels_per_unit
 			return 0
 		}
+		JS_UI["InsertJSDrawCall"]=function(JSContext JS){
+			auto js_callback=JS.Param(0).as(JSObject)
+			if !js_callback:return 0
+			g_renderer.InsertJSDrawCall(js_callback)
+			return 0
+		}
 	else
 		//virtualized SDL_CreateWindow and BeginPaint
 		JS_UI["SDL_CreateWindow"]=function(JSContext JS){
@@ -1496,6 +1518,16 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			g_renderer.DrawChar(fnt,x0+li.pos.x,y0+li.pos.y,int(C),li.ch)
 		return 0
 	}
+	JS_UI["DrawChar"]=function(JSContext JS){
+		fnt=JS.Param(0).as(TFont)
+		if !fnt.pfnt:return 0
+		x0=JS.Param(1).or(0.f)*g_renderer.m_pixels_per_unit
+		y0=JS.Param(2).or(0.f)*g_renderer.m_pixels_per_unit
+		C=JS.Param(3).or(u32(-1))
+		ch=JS.Param(4).or(32)
+		g_renderer.DrawChar(fnt,x0,y0,int(C),ch)
+		return 0
+	}
 	JS_UI["RoundRect"]=function(JSContext JS){
 		obj=JS.Param(0).as(JSObject)
 		radius=obj["round"].or(0.f)*g_renderer.m_pixels_per_unit
@@ -1506,10 +1538,10 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 		bmpid=g_renderer.CacheRR(eff_radius,0.f,0)
 		x=obj["x"].or(0.f)*g_renderer.m_pixels_per_unit
 		y=obj["y"].or(0.f)*g_renderer.m_pixels_per_unit
-		g_renderer.Draw3x3(x+border_width*0.5f,y+border_width*0.5f,w-border_width,h-border_width,eff_radius, bmpid,obj,"color",0)
+		g_renderer.Draw3x3(x,y,w,h,eff_radius, bmpid,obj,"color",0)
 		if border_width>0.f:
 			bmpid=g_renderer.CacheRR(eff_radius,border_width,1)
-			g_renderer.Draw3x3(x,y,w,h,eff_radius, bmpid,obj,"border_color",1)
+			g_renderer.Draw3x3(x-border_width*0.5f,y-border_width*0.5f,w+border_width,h+border_width,eff_radius, bmpid,obj,"border_color",1)
 		return 0
 	}
 	//////////////////
@@ -1696,14 +1728,9 @@ auto setupModuleSystem(JSContext JS,int is_real)
 	global["Duktape"]["__ui_native_hack"]=function(JSContext JS){
 		mod_obj=JS.Param(0).as(JSObject)
 		if !mod_obj:return 0
-		s_native_name=JS.Param(1).or("UI")
-		if s_native_name=="UI":
-			createUIObject(mod_obj,sbox,is_real)
-		else if is_real: 
-			if s_native_name=="SDL":
-				createSDLJSObject(mod_obj,0)
-			//else if s_native_name=="GL":
-			//	createGLJSObject(mod_obj)
+		createUIObject(mod_obj,sbox,is_real)
+		if is_real: 
+			createSDLJSObject(mod_obj,0)
 		return 0
 	}
 	global["Duktape"]["__ui_load_zip"]=function(JSContext JS){

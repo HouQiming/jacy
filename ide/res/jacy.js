@@ -1,5 +1,6 @@
 var UI=require("gui2d/ui");
 var W=require("gui2d/widgets");
+require("res/lib/boxdoc");
 
 function parent(){return UI.context_parent;}
 
@@ -9,22 +10,24 @@ g_sandbox.eval("var UI=require('gui2d/ui');var W=require('gui2d/widgets');")
 //todo
 g_sandbox.m_relative_scaling=0.5;
 var g_initial_code="\
-	attrs=UI.Keep(id,attrs);\n\
-	UI.Begin(attrs);\n\
-		var wnd=UI.Begin(W.Window('app',{\n\
-						title:'Jacy test code',w:1280,h:720,bgcolor:0xffffffff,\n\
-						designated_screen_size:1440,flags:UI.SDL_WINDOW_MAXIMIZED|UI.SDL_WINDOW_RESIZABLE,\n\
-						is_main_window:1}));\n\
-			W.Text('',{\n\
-				anchor:UI.context_parent,anchor_align:'left',anchor_valign:'up',\n\
-				w:UI.context_parent.w-32,\n\
-				x:16,y:16,\n\
-				font:UI.Font('msyh',128,-100),text:'标题很细',\n\
-				color:0xff000000,\n\
-				});\n\
-		UI.End();\n\
+attrs=UI.Keep(id,attrs);\n\
+UI.Begin(attrs);\n\
+	var wnd=UI.Begin(W.Window('app',{\n\
+					title:'Jacy test code',w:1280,h:720,bgcolor:0xffffffff,\n\
+					designated_screen_size:1440,flags:UI.SDL_WINDOW_MAXIMIZED|UI.SDL_WINDOW_RESIZABLE,\n\
+					is_main_window:1}));\n\
+		W.Text('',{\n\
+			anchor:UI.context_parent,anchor_align:'left',anchor_valign:'up',\n\
+			w:UI.context_parent.w-32,\n\
+			x:16,y:16,\n\
+			font:UI.Font('msyh',128,-100),text:'标题很细',\n\
+			color:0xff000000,\n\
+			});\n\
 	UI.End();\n\
+UI.End();\n\
 ";
+var item_0={id:"$0",x:10,y:10,w:400,h:300,w_min:50,h_min:50,OnChange:function(attrs){item_0.x=attrs.x;item_0.y=attrs.y;item_0.w=attrs.w;item_0.h=attrs.h}};
+var item_1={id:"$1",x:20,y:20,w:200,h:200,w_min:50,h_min:50,OnChange:function(attrs){item_1.x=attrs.x;item_1.y=attrs.y;item_1.w=attrs.w;item_1.h=attrs.h}};
 //todo
 
 UI.Application=function(id,attrs){
@@ -52,7 +55,8 @@ UI.Application=function(id,attrs){
 			});
 			//this part is effectively a GLwidget
 			//todo: clipping
-			UI.AddGLCall(function(){g_sandbox.DrawWindow(16,16);})
+			UI.GLWidget(function(){g_sandbox.DrawWindow(16,16);})
+			W.Group("controls",{'item_object':W.BoxDocumentItem,'items':[item_0,item_1]})
 		UI.End();
 		///////////////////
 		//this calls BeginPaint which is not reentrant... consider it as a separate window

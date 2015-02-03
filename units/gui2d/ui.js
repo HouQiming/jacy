@@ -2,8 +2,9 @@
 //native interaction
 var UI=exports;
 
-Duktape.__ui_native_hack(UI,"UI");
-Duktape.__ui_native_hack(UI,"SDL");
+Duktape.__ui_native_hack(UI);
+
+UI.IS_MOBILE=(UI.Platform.ARCH=="android"||UI.Platform.ARCH=="ios");
 
 UI.SDL_ICONV_ERROR=-1
 UI.SDL_ICONV_E2BIG=-2
@@ -1235,9 +1236,9 @@ UI.StdAnchoring=function(id,attrs){
 		}
 	}else{
 		//the default handling
-		obj_anchor=UI.context_parent;
-		attrs.x+=obj_anchor.x;
-		attrs.y+=obj_anchor.y;
+		//obj_anchor=UI.context_parent;
+		//attrs.x+=obj_anchor.x;
+		//attrs.y+=obj_anchor.y;
 		return;
 	}
 	//todo: other-align placement
@@ -1270,6 +1271,16 @@ UI.StdAnchoring=function(id,attrs){
 }
 
 ////////////////////////////////////////
+UI.DeleteTemps=function(attrs){
+	for(var key in attrs){
+		//check for leading $
+		if(key.charCodeAt(0)==0x24){
+			delete attrs[key];
+		}
+	}
+}
+
+////////////////////////////////////////
 UI.need_to_refresh=1;
 UI.inside_IME=0;
 UI.nd_mouse_down=[];
@@ -1277,11 +1288,14 @@ UI.Refresh=function(){UI.need_to_refresh=1;}
 
 UI.CaptureMouse=function(attrs){
 	UI.nd_captured=attrs;
-	//todo: UI.SDL_SetWindowGrab(hwnd,1)
+	UI.SDL_SetWindowGrab(attrs.region___hwnd,1);
 }
 
 UI.ReleaseMouse=function(attrs){
-	if(UI.nd_captured&&UI.nd_captured==attrs){UI.nd_captured=null;}
+	if(UI.nd_captured&&UI.nd_captured==attrs){
+		UI.nd_captured=null;
+		UI.SDL_SetWindowGrab(attrs.region___hwnd,0);
+	}
 }
 
 UI.SetFocus=function(attrs){
@@ -1343,7 +1357,6 @@ UI.DrawFrame=function(){
 	UI.context_paint_queue=[];
 	UI.context_hotkeys=[];
 	UI.context_regions=[];
-	UI.context_gl_calls=[];
 	UI.context_parent=UI;
 	UI.context_tentative_focus=null;
 	UI.Application("top",{});
@@ -1362,16 +1375,12 @@ UI.JSDrawWindow=function(obj){
 	}else{
 		UI.DrawWindow(obj.__hwnd);
 	}
-	var calls=UI.context_gl_calls;
-	for(var i=0;i<calls.length;i++){
-		calls[i]();
-	}
 	UI.GL_End(obj.__hwnd)
 }
 
-UI.AddGLCall=function(fcall){
+UI.GLWidget=function(fcall){
 	UI.HackCallback(fcall);
-	UI.context_gl_calls.push(fcall)
+	UI.InsertJSDrawCall(fcall)
 }
 
 UI.Run=function(){
@@ -1485,14 +1494,7 @@ UI.Run=function(){
 						}
 					}
 				}else{
-					var obj_captured=UI.nd_captured;
-					for(var i=lg-1;i>=0;i--){
-						var attrs=regions[i];
-						if(obj_captured==attrs){
-							nd_mouse_receiver=attrs;
-							break;
-						}
-					}
+					nd_mouse_receiver=UI.nd_captured;
 				}
 				if(!nd_mouse_receiver){
 					if(event.type==UI.SDL_MOUSEMOTION){

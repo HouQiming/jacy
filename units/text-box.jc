@@ -1,5 +1,6 @@
 /*
 todo:
+	non-word-char shouldn't lead a line
 	syntax highlighter
 */
 import Gui2D.*
