@@ -1,0 +1,409 @@
+import Gui2D.detail.*
+import TextBox.*
+
+//todo: bracket machine parser... what's the "raw" format?
+/*
+bigchars
+bracket pairs
+enumerated activation states
+	all possible controlling bracket activation masks
+		activating brackets cannot nest - otherwise the state would be unbounded
+	and corresponding full activation masks
+*/
+REAL_TYPE_MOV=0;
+REAL_TYPE_XOR=1;
+REAL_TYPE_ADD=2;
+
+struct TBracketType
+	int type
+	int tok0,tok1
+
+struct TColorRule
+	string color_name
+	int bid
+	int extend_0,extend_1
+		
+class CLanguageDescription
+	int[] m_enabled_from_inside
+	int[] m_all_key_states
+	i16[] m_bigchar_dfa
+	int m_total_state_size
+	int m_context_size
+	/////////
+	TBracketType[] m_bracket_types
+	TColorRule[] m_coloring_rules
+
+class CLayouter_programmer
+	MODE_BB=0
+	MODE_SEEK=1
+	MODE_RENDER=2
+	/////////
+	m_wrap_width=0.f
+	m_tab_width=4
+	m_font=TFont()
+	//////////////
+	JSObject m_style
+	CLanguageDescription m_lang
+	int[] m_cached_colors
+	//todo: easy color change...
+	/////////////////
+	//this thing isn't line-only
+	name=function(){return "renderer"}
+	stateSize=function(){return 2}
+	//do context there
+	/////////////////
+	!?
+	AddString=function(i64[] a,i64[] line_breaks,string s,iptr ofs){
+		bb=_RenderText(MODE_BB,a,line_breaks,s,ofs, 0.,0.,0.f).bb
+		a[0]=__double_as_longlong(bb.x)
+		a[1]=__double_as_longlong(bb.y)
+	}
+	Add=function(i64[] a,i64[] b){
+		bb=TextBox.detail.combineEditorOffset(double2(__longlong_as_double(a[0]),__longlong_as_double(a[1])),double2(__longlong_as_double(b[0]),__longlong_as_double(b[1])))
+		a[0]=__double_as_longlong(bb.x)
+		a[1]=__double_as_longlong(bb.y)
+	}
+	/////////////////
+	//compare known-positive doubles as ints
+	Compare=function(i64[] a,i64[] b){
+		ret=__C_compare(a[1],b[1])
+		if ret==0:ret=__C_compare(a[0],b[0])
+		return ret
+	}
+	SeekInBlock=function(i64[] a,i64[] line_breaks,string s,i64[] b){
+		return iptr(_RenderText(MODE_SEEK,a,line_breaks,s,s.n, __longlong_as_double(b[0]),__longlong_as_double(b[1]),0.f).seek_ret)
+	}
+	/////////////////
+	double3 m_caret_overlay
+	JSObject m_overlay_obj
+	double m_caret_offset
+	SetTextStyle=function(JSObject obj){
+		m_font=obj["font"].as(TFont)
+		m_font.h/=g_renderer.m_pixels_per_unit
+		m_color=int(obj["color"].or(u32(m_color)))
+		m_bgcolor_selection=int(obj["bgcolor_selection"].or(u32(m_bgcolor_selection)))
+		m_tab_width=obj["tab_width"].or(8)
+		m_wrap_width=obj["wrap_width"].or(0.f)
+		m_hyphenator=obj["hyphenator"].or(g_default_hyphenator)
+	}
+	SetCaretOverlay=function(double2 xy,JSObject obj){
+		m_overlay_obj=obj
+		w_overlay=0.
+		if obj:
+			s=obj["text"].as(string)
+			if s:
+				w_overlay=GetStringWidth(m_font,s)
+		m_caret_overlay=double3(xy.x,xy.y,w_overlay)
+		m_caret_offset=0.
+		return w_overlay
+	}
+	GetCaretOffset=function(){
+		//Writeln(m_caret_overlay,' ',m_caret_offset)
+		//if m_overlay_obj:
+		//	Writeln(m_overlay_obj["text"].as(string))
+		return m_caret_offset
+	}
+	_RenderText=function(int mode,i64[] a,i64[] line_breaks,string s,iptr ofs, double dx,double dy,float scaling){
+		if mode==MODE_RENDER:
+			//Writeln('before fnt_scaled ',m_font.h,' ',scaling)
+			fnt_scaled=m_font
+			fnt_scaled.h*=scaling
+			//smart emboldening for SRGB
+			if g_renderer.m_srgb_supported:
+				fnt_scaled.embolden+=int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*3000.f/fnt_scaled.h)
+			//Writeln('after fnt_scaled ',m_font.h)
+			scalingd=double(scaling)
+		w_tab=double(m_tab_width)*double(g_renderer.GetCharacterAdvance(m_font,int(' ')))
+		hc=g_renderer.GetCharacterHeight(m_font)
+		x=__longlong_as_double(a[0])
+		y=__longlong_as_double(a[1])
+		if mode==MODE_RENDER:
+			if epsEqual(y,m_caret_overlay.y)&&x>m_caret_overlay.x:
+				x+=m_caret_overlay.z
+		//Writeln('>>> ',dx,' ',dy)
+		is_wrapping=(m_wrap_width>0.f)
+		w_space=double(g_renderer.GetCharacterAdvance(m_font,int(' ')))
+		w_hyphen=double(g_renderer.GetCharacterAdvance(m_font,int('-')))
+		for i=0:line_breaks.n-2
+			got_newline=0
+			//justified wrapping
+			space_padding=0.
+			has_hyphen=0
+			if is_wrapping&&i<line_breaks.n-1:
+				nspaces=0
+				n_trailing_space=0
+				w_total=0.
+				if line_breaks[i+1]<0LL:
+					//we have a hyphen
+					has_hyphen=1
+					w_total+=w_hyphen
+				for ch,I in Utf8Chars(s[iptr(line_breaks[i]&0x7fffffffffffffffLL):iptr((line_breaks[i+1]&0x7fffffffffffffffLL)-1)])
+					if ch=='\r'||ch=='\n':
+						//nothing
+						if ch=='\n':
+							got_newline=1
+						continue
+					else if ch==' '||ch=='\t':
+						nspaces++
+						n_trailing_space++
+						w_total+=w_space
+					else
+						n_trailing_space=0
+						w_total+=double(g_renderer.GetCharacterAdvance(m_font,ch))
+				nspaces-=n_trailing_space
+				remaining_space=double(m_wrap_width)-(w_total-w_space*double(n_trailing_space))
+				//with paragraph consistency, got_newline should hold for i==line_breaks.n-2 unless we're at eof
+				if nspaces>0&&remaining_space>0.f&&!got_newline&&i<line_breaks.n-2:
+					space_padding=remaining_space/float(nspaces)
+				//Writeln(space_padding,' ',nspaces,' ',space_padding)
+			got_newline=0
+			///////////////
+			for ch,I in Utf8Chars(s[iptr(line_breaks[i]&0x7fffffffffffffffLL):iptr(min(line_breaks[i+1]&0x7fffffffffffffffLL,ofs))-1])
+				if mode==MODE_SEEK:
+					if y>epsUp(dy)||dy>=epsDown(y)&&dy<epsDown(y+hc)&&x>=dx:
+						return TRenderingInfo(){bb:double2(x,y),seek_ret:iptr(line_breaks[i]+I)}
+					//mm.push(TMouseMap(){pos:double2(x,y),ccnt:line_breaks[i]+I})
+				if mode==MODE_RENDER:
+					if epsEqual(x,m_caret_overlay.x)&&epsEqual(y,m_caret_overlay.y):
+						if m_overlay_obj["type"].as(string)=="IME":
+							s_overlay=m_overlay_obj["text"].as(string)
+							if s_overlay:
+								cmap=new iptr[]
+								foreach chj,J in Utf8Chars(s_overlay)
+									cmap.push(J)
+								cmap.push(s_overlay.n)
+								overlay_sel0=m_overlay_obj["start"].as(iptr)
+								overlay_sel1=overlay_sel0+m_overlay_obj["length"].as(iptr)
+								overlay_sel0=min(overlay_sel0,cmap.n-1)
+								overlay_sel1=min(overlay_sel1,cmap.n-1)
+								if uptr(overlay_sel0)<uptr(cmap.n)&&uptr(overlay_sel1)<uptr(cmap.n):
+									x_sel0=GetStringWidth(m_font,s_overlay[:cmap[overlay_sel0]-1])
+									x_sel1=GetStringWidth(m_font,s_overlay[:cmap[overlay_sel1]-1])
+									m_caret_offset=x_sel1
+									if x_sel0>x_sel1:
+										(x_sel0,x_sel1)=(x_sel1,x_sel0)
+									//selection - pre-draw the highlight
+									if x_sel0<x_sel1:
+										g_renderer.DrawBitmap(0, float((x+x_sel0)*scalingd+dx),float(y*scalingd+dy),float((x_sel1-x_sel0)*scalingd),hc, m_bgcolor_selection)
+								else
+									assert(0)
+								xo=x
+								foreach chj,J in Utf8Chars(s_overlay)
+									dx_j=double(g_renderer.GetCharacterAdvance(m_font,chj))
+									g_renderer.DrawChar(fnt_scaled, float(xo*scalingd+dx),float(y*scalingd+dy),m_color, chj)
+									xo+=dx_j
+							else
+								assert(0)
+							//draw the underline
+							y_underline=float(y*scalingd+dy)+fnt_scaled.h*(fnt_scaled.pfnt.y_baseline_per_height+0.02f)
+							g_renderer.DrawBitmap(0, float(x*scalingd+dx),y_underline,float(m_caret_overlay.z*scalingd),max(fnt_scaled.h*0.05f,1.f), m_color)
+						else
+							assert(0)
+						x+=m_caret_overlay.z
+				if ch=='\r'||ch=='\n':
+					//nothing
+					if ch=='\n':
+						got_newline=1
+						if !is_wrapping:
+							x=0.
+							y+=hc
+					continue
+				else if ch==' ':
+					x+=w_space+space_padding
+				else if ch=='\t':
+					if is_wrapping:
+						x+=w_space+space_padding
+					else
+						x=(floor(x/w_tab)+1.0)*w_tab
+				else
+					dx_i=double(g_renderer.GetCharacterAdvance(m_font,ch))
+					if mode==MODE_RENDER:
+						//pt.push(TCharJob(){pos:double2(x,y),ch:ch,color:m_color})
+						//Writeln(x,' ',y,' ',m_font.h,' ',fnt_scaled.h,' ',scalingd,' ',ch,' ',m_color)
+						g_renderer.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),m_color, ch)
+					x+=dx_i
+			if (line_breaks[i+1]&0x7fffffffffffffffLL)>ofs:break
+			if is_wrapping:
+				if mode==MODE_RENDER&&has_hyphen:
+					g_renderer.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),m_color, int('-'))
+				if got_newline||i<line_breaks.n-2:
+					x=0.
+					y+=hc
+		return TRenderingInfo(){bb:double2(x,y),seek_ret:s.n}
+	}
+	RenderText=function(i64[] a,i64[] pp,string s, double dx,double dy,float scaling){
+		_RenderText(MODE_RENDER,a,pp,s,s.n,dx,dy,scaling)
+	}
+	GetCharacterHeightAt=function(i64[] a,i64[] pp,string s,iptr ofs){
+		return g_renderer.GetCharacterHeight(m_font)
+	}
+	GetDefaultFont=function(){
+		return m_font
+	}
+	//////////////////////////////
+	__JS_prototype=function(JSObject proto){
+		proto.ExportProperty(this,"m_color")
+	}
+
+class CColorer_programmer
+	CLanguageDescription m_lang
+	!? //synhigh should be separated into another handler... and communicate using handler names
+	name=function(){return "colorer"}
+	stateSize=function(){return m_lang.m_total_state_size}
+	AddString=function(i64[] a,i64[] pp,string s,iptr ofs){
+		!? //todo: previous block context - how large?
+	}
+	Add=function(i64[] a,i64[] b){
+		!?
+	}
+	//For coloring states, we need a colorer
+	function(i64[] a,string s):u8[] ComputeCharColorID
+	//For seeking states, we need comparison and in-block seeking
+	function(i64[] a,i64[] b):int Compare
+	function(i64[] a,i64[] pp,string s,i64[] b):iptr SeekInBlock
+	////////////////////
+	//for JS operations
+	__JS_prototype=function(JSObject proto){}
+
+registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
+	JS_UI["CreateLanguageDefinition"]=function(JSContext JS){
+		//create from a LanguageDefinition object
+		obj=JS.Param(0).as(JSObject)
+		if !obj:return 0
+		ret=new CLanguageDescription
+		//bigchar part
+		m_big_chars=obj["m_big_chars"].as(JSObject)
+		if !m_big_chars:return 0
+		native_bigchars=new string[]
+		char_used=new int[256]
+		context_size=0L
+		for i=0:m_big_chars.length()-1
+			s_bigchar_i=m_big_chars[i].or("")
+			if !s_bigchar_i.n:return JS.ReturnError("big chars cannot be empty")
+			native_bigchars.push(s_bigchar_i)
+			foreach ch in s_bigchar_i
+				char_used[int(u8(ch))]=1
+			context_size=max(context_size,s_bigchar_i.n)
+		ret.m_context_size=int(context_size)
+		////////////////////////////
+		//we need bigchars to be a prefix code, but no checking yet
+		//it's just AhoCorasick... but the builtin implementation is not for this
+		//here we can affored precomputation, but runtime cost should be minimized: no funny business with next
+		//and we can do it 8-bit - don't need awareness to handle UTF8
+		assert(native_bigchars.n<128)
+		n_char_types=0
+		for i=0:255
+			if char_used[i]:
+				n_char_types++
+				char_used[i]=n_char_types
+		fc_lists=new int[][n_char_types]
+		for i=0:fc_lists.n-1
+			fc_lists[i]=new int[]
+		foreach spattern,I in native_bigchars
+			ch0=int(u8(spattern[0]))
+			fc_lists[chappeared[ch0]].push(int(I)|(1<<16))
+		//multi-state DFA -> single-state DFA
+		state_map=new int[int[]]
+		ops_map=new int[u16[]]
+		state_addrs=[0]
+		Q=[new int[]]
+		dfa=new u16[n_char_types]
+		dfa_ops=new u16[]
+		reached=new i8[native_bigchars.n]
+		for(i=0L;i<Q.n;i++)
+			cur_states=Q[i]
+			my_addr=i*n_char_types
+			tran=new int[][n_char_types]
+			for j=0:tran.n-1
+				tran[j]=new(fc_lists[j])
+			//fc_lists
+			foreach stpacked in cur_states
+				pid=(stpacked&0xffff)
+				pos=(stpacked>>16)
+				s_pid=all_patterns[pid]
+				ch_utf8=Utf8CodeAt(s_pid,pos)
+				ch_std=chappeared[ch_utf8]
+				pos+=Utf8Length(ch_utf8)
+				if !s_pid[pos]:
+					//add action
+					tran[ch_std].push(~pid)
+				else
+					tran[ch_std].push(pid+(pos<<16))
+			//Write(cur_states,' ')
+			for j=0:tran.n-1
+				new_states=tran[j]
+				new_states.Sort()
+				new_states.Unique()
+				actions=u16[].NULL
+				if new_states.n&&new_states[0]<0:
+					//actions - higher pid should take higher priority and get sorted first
+					new_stid=new_states[0]
+					reached[~new_states[0]]=1
+				else
+					new_stid=state_map[new_states]
+					if !new_stid:
+						if new_states.n:
+							new_stid=int(Q.n)
+							Q.push(new_states)
+							dfa.resize(dfa.n+n_char_types)
+							assert(dfa.n==n_char_types*Q.n)
+							state_map[new_states]=new_stid
+				dfa[my_addr+j]=u16(new_stid)
+		ret.m_bigchar_dfa=dfa
+		for i=0:reached.n-1
+			if !reached[i]:
+				Writeln("warning: big char '@1' can never get triggered".Replace(["@1",native_bigchars[i]]))
+		/////////////
+		//the list of brackets
+		m_bracket_types=obj["m_bracket_types"].as(JSObject)
+		if !m_bracket_types:return 0
+		n_key_brackets=0
+		n_nested=0
+		ret.m_bracket_types=new TBracketType[]
+		for i=0:m_bracket_types.length()-1
+			obj_i=m_bracket_types[i].as(JSObject)
+			if !obj_i:return 0
+			type=obj_i["type"].or(REAL_TYPE_MOV)
+			is_key=obj_i["is_key"].or(0)
+			if is_key:
+				assert(n_key_brackets==i)
+				n_key_brackets=i+1
+			if type==REAL_TYPE_ADD:
+				n_nested++
+			ret.m_bracket_types.push(TBracketType(){
+				type:type,
+				tok0:obj_i["tok0"].or(0),
+				tok1:obj_i["tok1"].or(0)})
+		assert(n_key_brackets<=12)
+		/////////////
+		//the state masking rules
+		ret.m_enabled_from_inside=new int[1<<n_key_brackets]
+		ret.m_all_key_states=new int[]
+		m_entry_states=obj["m_entry_states"].as(JSObject)
+		if !m_entry_states:return 0
+		for i=0:m_entry_states.length()-1
+			obj_i=m_entry_states[i].as(JSObject)
+			if !obj_i:return 0
+			inside_mask=obj_i["inside"].or(0)
+			ret.m_enabled_from_inside[inside_mask]=obj_i["enabled"].or(0)
+			ret.m_all_key_states.push(inside_mask)
+		/////////////
+		//the coloring rules
+		ret.m_coloring_rules=new TColorRule[]
+		for i=0:m_coloring_rules.length()-1
+			obj_i=m_coloring_rules[i].as(JSObject)
+			if !obj_i:return 0
+			ret.m_coloring_rules.push(TColorRule(){
+				color_name:obj_i["color_name"].or(""),
+				bid:obj_i["bid"].or(0),
+				extend_0:obj_i["extend_0"].or(0),
+				extend_1:obj_i["extend_1"].or(0)-native_bigchars[ret.m_bracket_types[i].tok1].n})
+		/////////
+		//1 bitmask + 1 counter for each nested
+		ret.m_total_state_size=1+n_nested
+		return JS.Return(ret)
+	}
+})
+
+registerStateHandler("renderer_programmer",CLayouter_programmer)
+registerStateHandler("colorer_programmer",CColorer_programmer)

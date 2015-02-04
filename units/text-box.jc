@@ -22,12 +22,13 @@ class ITextStateHandler
 	function():string name
 	function():int stateSize
 	function():int isLineOnly
+	function():int contextSize
 	//The "add" function must be associative
 	//The result should be written to "a"
 	//if AddBlock returns anything... it's considered as a per-block cache
 	//todo: request context, eof block detection
 	function(CEditableText caller,i64[] a,string s):i64[] PreprocessBlock
-	function(i64[] a,i64[] pp,string s,iptr ofs) AddString
+	function(i64[] a,i64[] pp,string s_context,string s,iptr ofs) AddString
 	function(i64[] a,i64[] b) Add
 	//For coloring states, we need a colorer
 	function(i64[] a,string s):u8[] ComputeCharColorID
@@ -189,7 +190,7 @@ class CLayouter_baseline
 			line_breaks.push(i64(s.n))
 		return line_breaks
 	}
-	AddString=function(i64[] a,i64[] line_breaks,string s,iptr ofs){
+	AddString=function(i64[] a,i64[] line_breaks,string s_context,string s,iptr ofs){
 		bb=_RenderText(MODE_BB,a,line_breaks,s,ofs, 0.,0.,0.f).bb
 		a[0]=__double_as_longlong(bb.x)
 		a[1]=__double_as_longlong(bb.y)
@@ -882,6 +883,7 @@ class CEditableText
 	m_state_ofs=new iptr[]
 	//m_hid_renderer=-1L
 	m_is_line_only=0
+	m_context_size=0
 	m_block_size=1024
 	m_js=JSContext.NULL
 	m_handler_registration=JSObject.NULL
@@ -907,6 +909,10 @@ class CEditableText
 			//	m_hid_renderer=I
 			m_state_ofs.push(ofs)
 			ofs+=hstate.stateSize()
+			///////////
+			if hstate.contextSize:
+				context_size=hstate.contextSize()
+				if m_context_size<context_size:m_context_size=context_size
 			///////////
 			m_handler_registration[hstate.name()]=I
 			if hstate.SetTextStyle:
@@ -942,7 +948,13 @@ class CEditableText
 				block_state=i64[].NULL
 				if hstate.PreprocessBlock:
 					block_state=hstate.PreprocessBlock(this,a_slice,s)
-				hstate.AddString(a_slice,block_state,s,s.n)
+				if hstate.contextSize:
+					context_size=hstate.contextSize()
+					s_context=
+					!?
+				else
+					s_context=string.NULL
+				hstate.AddString(a_slice,block_state,s_context,s,s.n)
 				a_slice.discard()
 				a[n+I]=i64(a.n)
 				if block_state:
@@ -981,6 +993,7 @@ class CEditableText
 				n0=m_state_ofs.back()
 				ofspp=nd.a[n0+handler.id]
 				ofspp2=(handler.id==m_handlers.n-1?i64(nd.a.n):nd.a[n0+handler.id+1])
+				!? //m_context_size
 				handler.AddString(acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s,iptr(ccnt0-ccnt_base))
 				return acc
 			assert(!!nd.pchild)
@@ -1087,7 +1100,7 @@ class CEditableText
 						nds_pc=TSLList()
 						foreach s in bops[p0].ss
 							nd_new=new CSLNode(){s:s,ccnt:s.n}
-							RecomputeStates(nd_new)
+							RecomputeStates(nd_new) !? //base ccnt for context... need a dedicated pass
 							if !nds_pc.phead:
 								nds_pc.phead=nd_new
 							else
@@ -1116,6 +1129,7 @@ class CEditableText
 		nds_ret.ptail.pchild=nds_child.phead;
 		if nds_child.ptail:nds_child.ptail.pnext=CSLNode.NULL
 		RecomputeStates(nds_ret.ptail)
+		!? //m_context_size
 		return nds_ret
 	auto SortLocators()
 		n2=0L
