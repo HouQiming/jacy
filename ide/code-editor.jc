@@ -14,9 +14,15 @@ REAL_TYPE_MOV=0;
 REAL_TYPE_XOR=1;
 REAL_TYPE_ADD=2;
 
-struct TBracketType
-	int type
-	int tok0,tok1
+//struct TBracketType
+//	int type
+//	int tok0,tok1
+//0+=0 for non-inc
+struct TTokenRole
+	i32 m_and
+	i32 m_xor
+	i8 m_inc
+	i8 m_delta
 
 struct TColorRule
 	string color_name
@@ -26,11 +32,15 @@ struct TColorRule
 class CLanguageDescription
 	int[] m_enabled_from_inside
 	int[] m_all_key_states
+	u8[] m_char_map
 	i16[] m_bigchar_dfa
 	int m_total_state_size
 	int m_context_size
+	int m_n_nested
+	int m_n_char_types
 	/////////
-	TBracketType[] m_bracket_types
+	//TBracketType[] m_bracket_types
+	TTokenRole[] m_token_roles
 	TColorRule[] m_coloring_rules
 
 class CLayouter_programmer
@@ -53,7 +63,7 @@ class CLayouter_programmer
 	//do context there
 	/////////////////
 	!?
-	AddString=function(i64[] a,i64[] line_breaks,string s,iptr ofs){
+	AddString=function(i64[] a,i64[] line_breaks,string s_context,string s,iptr ofs){
 		bb=_RenderText(MODE_BB,a,line_breaks,s,ofs, 0.,0.,0.f).bb
 		a[0]=__double_as_longlong(bb.x)
 		a[1]=__double_as_longlong(bb.y)
@@ -247,17 +257,59 @@ class CLayouter_programmer
 
 class CColorer_programmer
 	CLanguageDescription m_lang
-	!? //synhigh should be separated into another handler... and communicate using handler names
 	name=function(){return "colorer"}
 	stateSize=function(){return m_lang.m_total_state_size}
-	AddString=function(i64[] a,i64[] pp,string s,iptr ofs){
-		!? //todo: previous block context - how large?
+	contextSize=function(){return m_lang.m_context_size}
+	//latex \: use word-based highlighting
+	!? //"extend" implementation: it's also a part of the context? especially the shrinking ones...
+	//extend left-side, shrink right-side
+	AddString=function(i64[] a,i64[] pp,string s_context,string s,iptr ofs){
+		//here it's just the states
+		ld=m_lang
+		//do the dfa and get all tokens
+		sz_context=ld.m_context_size
+		ns_per_key=1+ld.m_n_nested
+		n_char_types=m_n_char_types
+		char_map=m_char_map
+		dfa=m_bigchar_dfa
+		container={'forEach':inline(fbody){
+			for i=0:sz_context-1
+				fbody(s_context[s_context.n-sz_context+i],0)
+			foreach ch in s_context
+				fbody(ch,1)
+		}}
+		tokens=new u8[]
+		st=0
+		foreach ch,is_enabled in container
+			chi=int(char_map[int(u8(ch))])
+			st=int(dfa[st*n_char_types+chi])
+			if st<0:
+				if is_enabled:tokens.push(~u8(st))
+				st=0
+		foreach ks,I in ld.m_all_key_states
+			pa=ns_per_key*I
+			mask=ks
+			foreach tok in tokens
+				!? //token role... and xor inc
+				//nesting brackets cannot depend on the same token...
+				m_token_roles
+				int(tok)
+				//token_roles
+				!? //enabling state change... need re-lookup
+				!? //token enabled-ness...
+				//make a dfa for this
+				//and starting state isn't 0
+			!?
+		!? //todo: maintain color rule activation masks up to a max-extend
+		//then we can "correct" those masks at events
+		//state-specific keywords
 	}
 	Add=function(i64[] a,i64[] b){
 		!?
 	}
 	//For coloring states, we need a colorer
 	function(i64[] a,string s):u8[] ComputeCharColorID
+	//todo: color type id
 	//For seeking states, we need comparison and in-block seeking
 	function(i64[] a,i64[] b):int Compare
 	function(i64[] a,i64[] pp,string s,i64[] b):iptr SeekInBlock
@@ -275,14 +327,14 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 		m_big_chars=obj["m_big_chars"].as(JSObject)
 		if !m_big_chars:return 0
 		native_bigchars=new string[]
-		char_used=new int[256]
+		char_map=new u8[256]
 		context_size=0L
 		for i=0:m_big_chars.length()-1
 			s_bigchar_i=m_big_chars[i].or("")
 			if !s_bigchar_i.n:return JS.ReturnError("big chars cannot be empty")
 			native_bigchars.push(s_bigchar_i)
 			foreach ch in s_bigchar_i
-				char_used[int(u8(ch))]=1
+				char_map[int(u8(ch))]=1
 			context_size=max(context_size,s_bigchar_i.n)
 		ret.m_context_size=int(context_size)
 		////////////////////////////
@@ -291,17 +343,18 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 		//here we can affored precomputation, but runtime cost should be minimized: no funny business with next
 		//and we can do it 8-bit - don't need awareness to handle UTF8
 		assert(native_bigchars.n<128)
-		n_char_types=0
+		n_char_types=1
 		for i=0:255
-			if char_used[i]:
+			if char_map[i]:
+				char_map[i]=n_char_types
 				n_char_types++
-				char_used[i]=n_char_types
+		assert(n_char_types<=256)
 		fc_lists=new int[][n_char_types]
 		for i=0:fc_lists.n-1
 			fc_lists[i]=new int[]
 		foreach spattern,I in native_bigchars
 			ch0=int(u8(spattern[0]))
-			fc_lists[chappeared[ch0]].push(int(I)|(1<<16))
+			fc_lists[int(char_map[ch0])].push(int(I)|(1<<16))
 		//multi-state DFA -> single-state DFA
 		state_map=new int[int[]]
 		ops_map=new int[u16[]]
@@ -321,9 +374,8 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 				pid=(stpacked&0xffff)
 				pos=(stpacked>>16)
 				s_pid=all_patterns[pid]
-				ch_utf8=Utf8CodeAt(s_pid,pos)
-				ch_std=chappeared[ch_utf8]
-				pos+=Utf8Length(ch_utf8)
+				ch_std=int(char_map[int(u8(s_pid[pos]))])
+				pos++
 				if !s_pid[pos]:
 					//add action
 					tran[ch_std].push(~pid)
@@ -349,6 +401,8 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 							assert(dfa.n==n_char_types*Q.n)
 							state_map[new_states]=new_stid
 				dfa[my_addr+j]=u16(new_stid)
+		ret.m_char_map=char_map
+		ret.m_n_char_types=n_char_types
 		ret.m_bigchar_dfa=dfa
 		for i=0:reached.n-1
 			if !reached[i]:
@@ -357,6 +411,8 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 		//the list of brackets
 		m_bracket_types=obj["m_bracket_types"].as(JSObject)
 		if !m_bracket_types:return 0
+		token_roles=new TTokenRole[native_bigchars.n]
+		ret.m_token_roles=token_roles
 		n_key_brackets=0
 		n_nested=0
 		ret.m_bracket_types=new TBracketType[]
@@ -368,12 +424,24 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 			if is_key:
 				assert(n_key_brackets==i)
 				n_key_brackets=i+1
-			if type==REAL_TYPE_ADD:
+			tok0=obj_i["tok0"].or(0)
+			tok1=obj_i["tok1"].or(0)
+			mask_i=1<<i
+			if type==REAL_TYPE_MOV:
+				token_roles[tok0].m_and|=mask_i
+				token_roles[tok1].m_and|=mask_i
+				token_roles[tok1].m_xor|=mask_i
+			else if type==REAL_TYPE_XOR:
+				token_roles[tok0].m_xor|=mask_i
+				token_roles[tok1].m_xor|=mask_i
+			else if type==REAL_TYPE_ADD:
 				n_nested++
-			ret.m_bracket_types.push(TBracketType(){
-				type:type,
-				tok0:obj_i["tok0"].or(0),
-				tok1:obj_i["tok1"].or(0)})
+				token_roles[tok0].m_inc=int(n_nested)
+				token_roles[tok0].m_delta=1
+				token_roles[tok1].m_inc=int(n_nested)
+				token_roles[tok1].m_delta=-1
+			else
+				assert(0)
 		assert(n_key_brackets<=12)
 		/////////////
 		//the state masking rules
@@ -400,7 +468,8 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 				extend_1:obj_i["extend_1"].or(0)-native_bigchars[ret.m_bracket_types[i].tok1].n})
 		/////////
 		//1 bitmask + 1 counter for each nested
-		ret.m_total_state_size=1+n_nested
+		ret.m_total_state_size=(1+n_nested)*m_all_key_states.n
+		ret.m_n_nested=n_nested
 		return JS.Return(ret)
 	}
 })
