@@ -919,7 +919,7 @@ class CEditableText
 				hstate.SetTextStyle(obj_style)
 		//m_handler_registration["m_is_line_only"]=m_is_line_only
 		m_state_ofs.push(ofs)
-		RecomputeStates(m_skiplist)
+		RecomputeStatesLeaf(new char[m_context_size],m_skiplist)
 		//m_handler_registration["style"]=obj_style
 		m_ascii_wordchars=MakeCharSet(obj_style["charset_word"].or("0-9A-Za-z_"))
 		//validation
@@ -936,35 +936,74 @@ class CEditableText
 		for i in crange(4)
 			if i==slot:return int(m_ascii_wordchars[i]>>(ch&31))&1
 		return 0
-	auto RecomputeStates(CSLNode nd)
+	auto RecomputeStatesDfs(CSLNode nd,i64 ccnt_base,i64[] ccnt_range,iptr p_range)
+		if nd.s:
+			if m_context_size:
+				context_size=m_context_size
+				s_context=GetText(max(ccnt_base-i64(context_size),0LL),i64(context_size))
+				if s_context.n<context_size:
+					s_context=(new char[context_size-s_context.n])+s_context
+			else
+				s_context=string.NULL
+			RecomputeStatesLeaf(s_context,nd)
+			return
+		ccnt=ccnt_base
+		p=p_range
+		for(pc=nd.pchild;pc;pc=pc.pnext)
+			while p<ccnt_range.n:
+				range0=ccnt_range[p]
+				range1=range0+ccnt_range[p+1]
+				if ccnt<range1&&range0<ccnt+pc.ccnt:
+					//there is overlap, recurse
+					RecomputeStatesDfs(pc,ccnt,ccnt_range,p)
+					break
+				else if range1<=ccnt:
+					p+=2
+				else
+					break
+			//if we recomputed, !pc.a can't possibly hold
+			if !pc.a:
+				RecomputeStatesDfs(pc,ccnt,ccnt_range,p)
+			ccnt+=pc.ccnt
+		RecomputeStatesInner(nd)
+	auto RecomputeStatesInner(CSLNode nd)
+		n=m_state_ofs.back()
+		ccnt=0LL
+		a=new i64[n]
+		for(pc=nd.pchild;pc;pc=pc.pnext)
+			foreach hstate,I in m_handlers
+				hstate.Add(a[m_state_ofs[I]:m_state_ofs[I+1]-1],pc.a[m_state_ofs[I]:m_state_ofs[I+1]-1])
+			ccnt+=pc.ccnt
+		nd.a=a
+		nd.ccnt=ccnt
+	auto RecomputeCcntInner(CSLNode nd)
+		n=m_state_ofs.back()
+		ccnt=0LL
+		for(pc=nd.pchild;pc;pc=pc.pnext)
+			ccnt+=pc.ccnt
+		nd.ccnt=ccnt
+		nd.a=i64[].NULL
+	auto RecomputeStatesLeaf(string s_context0,CSLNode nd)
 		n=m_state_ofs.back()
 		ccnt=0LL
 		s=nd.s
-		if s:
-			a=new i64[n+m_handlers.n]
-			ccnt=i64(s.n)
-			foreach hstate,I in m_handlers
-				a_slice=a[m_state_ofs[I]:m_state_ofs[I+1]-1]
-				block_state=i64[].NULL
-				if hstate.PreprocessBlock:
-					block_state=hstate.PreprocessBlock(this,a_slice,s)
-				if hstate.contextSize:
-					context_size=hstate.contextSize()
-					s_context=
-					!?
-				else
-					s_context=string.NULL
-				hstate.AddString(a_slice,block_state,s_context,s,s.n)
-				a_slice.discard()
-				a[n+I]=i64(a.n)
-				if block_state:
-					a.push(block_state)
-		else
-			a=new i64[n]
-			for(pc=nd.pchild;pc;pc=pc.pnext)
-				foreach hstate,I in m_handlers
-					hstate.Add(a[m_state_ofs[I]:m_state_ofs[I+1]-1],pc.a[m_state_ofs[I]:m_state_ofs[I+1]-1])
-				ccnt+=pc.ccnt
+		a=new i64[n+m_handlers.n]
+		ccnt=i64(s.n)
+		foreach hstate,I in m_handlers
+			a_slice=a[m_state_ofs[I]:m_state_ofs[I+1]-1]
+			block_state=i64[].NULL
+			if hstate.PreprocessBlock:
+				block_state=hstate.PreprocessBlock(this,a_slice,s)
+			if hstate.contextSize:
+				context_size=hstate.contextSize()
+				s_context=s_context0[s_context0.n-context_size:]
+			else
+				s_context=string.NULL
+			hstate.AddString(a_slice,block_state,s_context,s,s.n)
+			a_slice.discard()
+			a[n+I]=i64(a.n)
+			if block_state:
+				a.push(block_state)
 		nd.a=a
 		nd.ccnt=ccnt
 	auto BlockFromCcnt(i64 ccnt0)
@@ -993,8 +1032,14 @@ class CEditableText
 				n0=m_state_ofs.back()
 				ofspp=nd.a[n0+handler.id]
 				ofspp2=(handler.id==m_handlers.n-1?i64(nd.a.n):nd.a[n0+handler.id+1])
-				!? //m_context_size
-				handler.AddString(acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s,iptr(ccnt0-ccnt_base))
+				if handler.contextSize:
+					context_size=handler.contextSize()
+					s_context=GetText(max(ccnt_base-i64(context_size),0LL),i64(context_size))
+					if s_context.n<context_size:
+						s_context=(new char[context_size-s_context.n])+s_context
+				else
+					s_context=string.NULL
+				handler.AddString(acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],s_context,nd.s,iptr(ccnt0-ccnt_base))
 				return acc
 			assert(!!nd.pchild)
 			nd=nd.pchild
@@ -1027,7 +1072,7 @@ class CEditableText
 				//finish off the dangling chain
 				nds_child.ptail.pnext=CSLNode.NULL
 				nds_ret.ptail.pchild=nds_child.phead
-				RecomputeStates(nds_ret.ptail)
+				RecomputeCcntInner(nds_ret.ptail)
 				//actually promote pc
 				nd_new=new CSLNode
 				nds_ret.ptail.pnext=nd_new
@@ -1055,7 +1100,7 @@ class CEditableText
 			//add the rest
 			(nds_ret,nds_child)=skipListPromote(nds_ret,nds_child,nds_toadd,CSLNode.NULL)
 			nds_ret.ptail.pchild=nds_child.phead;nds_child.ptail.pnext=CSLNode.NULL
-			RecomputeStates(nds_ret.ptail)
+			RecomputeCcntInner(nds_ret.ptail)
 			//recurse one level up
 			nds_toadd=nds_ret
 	auto BlockEdit(CSLNode nd,i64 ccnt_base0,TBlockOp[] bops)
@@ -1100,7 +1145,6 @@ class CEditableText
 						nds_pc=TSLList()
 						foreach s in bops[p0].ss
 							nd_new=new CSLNode(){s:s,ccnt:s.n}
-							RecomputeStates(nd_new) !? //base ccnt for context... need a dedicated pass
 							if !nds_pc.phead:
 								nds_pc.phead=nd_new
 							else
@@ -1128,8 +1172,7 @@ class CEditableText
 		//coulddo: removing nd itself
 		nds_ret.ptail.pchild=nds_child.phead;
 		if nds_child.ptail:nds_child.ptail.pnext=CSLNode.NULL
-		RecomputeStates(nds_ret.ptail)
-		!? //m_context_size
+		RecomputeCcntInner(nds_ret.ptail)
 		return nds_ret
 	auto SortLocators()
 		n2=0L
@@ -1287,7 +1330,6 @@ class CEditableText
 			foreach bop in bops
 				foreach s in bop.ss
 					nd_new=new CSLNode(){s:s,ccnt:s.n}
-					RecomputeStates(nd_new)
 					if !nds_pc.phead:
 						nds_pc.phead=nd_new
 					else
@@ -1297,7 +1339,32 @@ class CEditableText
 		assert(!m_skiplist.pnext)
 		if !m_skiplist.ccnt:
 			m_skiplist=new CSLNode(){s:new string}
-			RecomputeStates(m_skiplist)
+			RecomputeStatesLeaf(new char[m_context_size],m_skiplist)
+		else
+			delta=0LL
+			ccnt0_current=-1LL
+			sz_current=0LL
+			restate_ranges=new i64[]
+			foreach bop in bops
+				ccnt_inserted=0LL
+				if bop.ss:
+					foreach s in bop.ss
+						ccnt_inserted+=i64(s.n)
+				ccnt=bop.ccnt+delta
+				sz_influenced=ccnt_inserted+i64(m_context_size)
+				delta+=ccnt_inserted-bop.sz
+				if ccnt<=ccnt0_current+sz_current:
+					sz_current=ccnt+sz_influenced-ccnt0_current
+				else
+					if ccnt0_current>=0LL:
+						restate_ranges.push(ccnt0_current)
+						restate_ranges.push(sz_current)
+					ccnt0_current=ccnt
+					sz_current=sz_influenced
+			if ccnt0_current>=0LL:
+				restate_ranges.push(ccnt0_current)
+				restate_ranges.push(sz_current)
+			RecomputeStatesDfs(m_skiplist,0LL,restate_ranges,0L)
 		//debugDumpSL()
 	auto _GetText(string buf,iptr ofs, CSLNode nd,i64 ccnt0,i64 ccnt1)
 		if nd.s:
