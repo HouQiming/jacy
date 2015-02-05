@@ -1,18 +1,11 @@
 import Gui2D.detail.*
 import TextBox.*
 
-//todo: bracket machine parser... what's the "raw" format?
+!? //indentation detection
 /*
-bigchars
-bracket pairs
-enumerated activation states
-	all possible controlling bracket activation masks
-		activating brackets cannot nest - otherwise the state would be unbounded
-	and corresponding full activation masks
-node value
-	mov needs an additional bit
-	and / xor
-brackets sharing the inc slot?!
+or-ing tokens
+	<
+	<script
 */
 REAL_TYPE_MOV=0;
 REAL_TYPE_XOR=1;
@@ -26,24 +19,27 @@ struct TBracketType
 struct TBDFATransition
 	i32 m_and
 	i32 m_xor
-	i8 m_delta
-	i8 m_next_state
+	i16 m_delta
+	u16 m_next_state
 
 struct TColorRule
 	string color_name
-	int bid
-	int extend_0,extend_1
+	//int bid
+	//int extend_0,extend_1
+	int bmask
+	int extend_before
 		
 class CLanguageDescription
 	//int[] m_enabled_from_inside
-	//int[] m_all_key_states
+	int[] m_all_key_states
+	int[] m_id_from_key_state
 	u8[] m_char_map
 	i16[] m_bigchar_dfa
 	int m_total_state_size
 	int m_context_size
-	int m_n_nested
 	int m_n_char_types
 	int m_n_key_states
+	int m_n_tokens
 	//the initial state is always 0
 	/////////
 	//TBracketType[] m_bracket_types
@@ -70,6 +66,7 @@ class CLayouter_programmer
 	//do context there
 	/////////////////
 	!?
+	//todo: do keywords here - and spellcheck and ...
 	AddString=function(i64[] a,i64[] line_breaks,string s_context,string s,iptr ofs){
 		bb=_RenderText(MODE_BB,a,line_breaks,s,ofs, 0.,0.,0.f).bb
 		a[0]=__double_as_longlong(bb.x)
@@ -268,58 +265,114 @@ class CColorer_programmer
 	stateSize=function(){return m_lang.m_total_state_size}
 	contextSize=function(){return m_lang.m_context_size}
 	//state format: ~and_mask|xor_mask, global bracket delta
+	inline EnumTokens(string s_context,string s)
+		//do the dfa and get all tokens
+		return {'forEach':inline(fbody_outer){
+			ld=m_lang
+			sz_context=ld.m_context_size
+			n_char_types=ld.m_n_char_types
+			char_map=ld.m_char_map
+			dfa=ld.m_bigchar_dfa
+			tokens=new u8[]
+			container={'forEach':inline(fbody){
+				for i=0:sz_context-1
+					fbody(s_context[s_context.n-sz_context+i],~i)
+				foreach ch,I in s
+					fbody(ch,int(I))
+			}}
+			st=0
+			foreach ch,I in GetComboString(s_context,s)
+				chi=int(char_map[int(u8(ch))])
+				st=int(dfa[st*n_char_types+chi])
+				if st<0:
+					if I>=0:
+						fbody_outer(~st,I)
+					st=0
+		}}
 	AddString=function(i64[] a,i64[] pp,string s_context,string s,iptr ofs){
 		//here it's just the states
 		ld=m_lang
 		//do the dfa and get all tokens
-		sz_context=ld.m_context_size
-		ns_per_key=2+ld.m_n_nested
-		n_char_types=m_n_char_types
-		char_map=m_char_map
-		dfa=m_bigchar_dfa
-		container={'forEach':inline(fbody){
-			for i=0:sz_context-1
-				fbody(s_context[s_context.n-sz_context+i],0)
-			foreach ch in s_context
-				fbody(ch,1)
-		}}
 		tokens=new u8[]
-		st=0
-		foreach ch,is_enabled in container
-			chi=int(char_map[int(u8(ch))])
-			st=int(dfa[st*n_char_types+chi])
-			if st<0:
-				if is_enabled:tokens.push(~u8(st))
-				st=0
+		foreach tok,I in EnumTokens(s_context,s)
+			tokens.push(u8(tok))
+		bdfa=ld.m_bracket_dfa
 		for sti=0:ld.m_n_key_states-1
-			pa=ns_per_key*sto
-			and_mask=~a[pa+0]
-			xor_mask=a[pa+1]
+			pa=2*sti
+			and_mask=~int(a[pa+0]>>32)
+			xor_mask=int(a[pa+0])
+			inc_value=0
+			st=sti*ld.m_n_tokens
 			foreach tok in tokens
-				!? //token role... and xor inc
-				//nesting brackets cannot depend on the same token...
-				m_token_roles
-				int(tok)
-				//token_roles
-				!? //enabling state change... need re-lookup
-				!? //token enabled-ness...
-				//make a dfa for this
-				//and starting state isn't 0
-			!?
-		!? //todo: maintain color rule activation masks up to a max-extend
-		//then we can "correct" those masks at events
-		//state-specific keywords
+				tran=bdfa[st+int(tok)]
+				and_mask&=tran.m_and
+				xor_mask&=tran.m_and
+				xor_mask^=tran.m_xor
+				st=int(tran.m_next_state)
+				inc_value+=int(tran.m_delta)
+			a[pa+0]=((i64(~and_mask)<<32)|i64(u32(xor_mask)))
+			a[pa+1]+=i64(inc_value)
 	}
 	Add=function(i64[] a,i64[] b){
-		!?
+		m_all_key_states=ld.m_all_key_states
+		m_id_from_key_state=ld.m_id_from_key_state
+		key_mask=(1<<ld.m_n_key_states)-1
+		for sti=0:ld.m_n_key_states-1
+			pa=2*sti
+			and_maska=~int(a[pa+0]>>32)
+			xor_maska=int(a[pa+0])
+			//we need a state lookup to cover the happened key transitions
+			pb=2*m_id_from_key_state[((m_all_key_states[sti]&and_maska)^xor_maska)&key_mask]
+			and_maskb=~int(b[pb+0]>>32)
+			xor_maskb=int(b[pb+0])
+			and_mask=(and_maska&and_maskb)
+			xor_mask=((xor_maska&and_maskb)^xor_maskb)
+			a[pa+0]=((i64(~and_mask)<<32)|i64(u32(xor_mask)))
+			a[pa+1]+=b[pb+1]
 	}
 	//For coloring states, we need a colorer
 	//latex \: use word-based highlighting
-	!? //"extend" implementation: it's also a part of the context? especially the shrinking ones...
-	//extend left-side, shrink right-side
-	//here a is the state "before", 
-	!? //context
-	function(i64[] a,string s):u8[] ComputeCharColorID
+	ComputeCharColorID=function(i64[] a,string s_context,string s){
+		ld=m_lang
+		crules=ld.m_coloring_rules
+		//////////////
+		ret=new u8[s.n]
+		key_mask=(1<<ld.m_n_key_states)-1
+		and_maska=~int(a[pa+0]>>32)
+		xor_maska=int(a[pa+0])
+		bst=m_id_from_key_state[xor_maska&key_mask]*ld.m_n_tokens
+		mask=xor_maska
+		mask0=0
+		struct TColoringEvent
+			int ofs
+			i8 rule_id
+			i8 direction
+		coloring_events=new TColoringEvent[]
+		foreach tok,I in EnumTokens(s_context,s)
+			//ignore nest-only brackets
+			tran=bdfa[bst+tok]
+			bst=int(tran.m_next_state)
+			mask&=tran.m_and
+			mask^=tran.m_xor
+			if mask!=mask0:
+				//test color rules sequentially - they are only tested at color *changes*
+				for i=crules.n-1:-1:0
+					mask_i=crules[i].bmask
+					if (mask^mask0)&mask_i:
+						evt=TColoringEvent(){rule_id:i}
+						if mask&mask_i:
+							//we're entering, backtrack
+							evt.ofs=I-crules[i].extend_before
+							evt.direction=1
+						else
+							evt.ofs=I
+							evt.direction=-1
+						coloring_events.push(evt)
+				mask0=mask
+		coloring_events.Sortby(inline(evt){return evt.ofs})
+		foreach evt in coloring_events
+			!?
+	}
 	//todo: color type id
 	//For seeking states, we need comparison and in-block seeking
 	function(i64[] a,i64[] b):int Compare
@@ -423,7 +476,7 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 		m_bracket_types=obj["m_bracket_types"].as(JSObject)
 		if !m_bracket_types:return 0
 		n_key_brackets=0
-		ret.m_bracket_types=new TBracketType[]
+		brackets=new TBracketType[]
 		for i=0:m_bracket_types.length()-1
 			obj_i=m_bracket_types[i].as(JSObject)
 			if !obj_i:return 0
@@ -434,7 +487,7 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 				n_key_brackets=i+1
 			tok0=obj_i["tok0"].or(0)
 			tok1=obj_i["tok1"].or(0)
-			ret.m_bracket_types.push(TBracketType(){type:type,tok0:tok0,tok1:tok1})
+			brackets.push(TBracketType(){type:type,tok0:tok0,tok1:tok1})
 		assert(n_key_brackets<=12)
 		/////////////
 		//the state masking rules
@@ -450,13 +503,13 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 			m_enabled_from_inside[inside_mask]=obj_i["enabled"].or(0)
 			m_id_from_key_state[inside_mask]=i+1
 			m_all_key_states.push(inside_mask)
+		ret.m_all_key_states=m_all_key_states
 		/////////////
 		//the bracket DFA
 		n_key_states=m_all_key_states.n
 		n_tokens=native_bigchars.n
 		bdfa=new TBDFATransition[n_key_states*n_tokens]
-		brackets=ret.m_bracket_types
-		n_nested=0
+		assert(bdfa.n<32768)
 		for sti=0:n_key_states-1
 			st=sti*n_tokens
 			key_state=m_all_key_states[sti]
@@ -476,21 +529,20 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 					bdfa[st+tok0].m_xor|=mask_i
 					bdfa[st+tok1].m_xor|=mask_i
 				else if type==REAL_TYPE_ADD:
-					n_nested++
 					assert(!bdfa[st+tok0].m_delta)
 					assert(!bdfa[st+tok1].m_delta)
-					bdfa[st+tok0].m_inc=int(n_nested)
 					bdfa[st+tok0].m_delta=1
-					bdfa[st+tok1].m_inc=int(n_nested)
 					bdfa[st+tok1].m_delta=-1
 				else
 					assert(0)
 			for i=0:n_tokens-1
 				bdfa[st+i].m_and=~bdfa[st+i].m_and
 				key_state_i=((key_state&bdfa[st+i].m_and)|bdfa[st+i].m_xor)
-				bdfa[st+i].m_next_state=m_id_from_key_state[key_state_i]-1
-				assert(bdfa[st+i].m_next_state>=0)
+				bdfa[st+i].m_next_state=u16((m_id_from_key_state[key_state_i]-1)*n_tokens)
+				assert(m_id_from_key_state[key_state_i]>=1)
+		ret.m_id_from_key_state=m_id_from_key_state
 		ret.m_n_key_states=n_key_states
+		ret.m_n_tokens=n_tokens
 		ret.m_bracket_dfa=bdfa
 		/////////////
 		//the coloring rules
@@ -500,13 +552,11 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 			if !obj_i:return 0
 			ret.m_coloring_rules.push(TColorRule(){
 				color_name:obj_i["color_name"].or(""),
-				bid:obj_i["bid"].or(0),
-				extend_0:obj_i["extend_0"].or(0),
-				extend_1:obj_i["extend_1"].or(0)-native_bigchars[ret.m_bracket_types[i].tok1].n})
+				bmask:1<<obj_i["bid"].or(0),
+				extend_0:native_bigchars[brackets[0].tok1]})
 		/////////
 		//1 bitmask + 1 counter for each nested
-		ret.m_total_state_size=(2+n_nested)*m_all_key_states.n
-		ret.m_n_nested=n_nested
+		ret.m_total_state_size=2*m_all_key_states.n
 		return JS.Return(ret)
 	}
 })

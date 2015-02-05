@@ -31,7 +31,7 @@ class ITextStateHandler
 	function(i64[] a,i64[] pp,string s_context,string s,iptr ofs) AddString
 	function(i64[] a,i64[] b) Add
 	//For coloring states, we need a colorer
-	function(i64[] a,string s):u8[] ComputeCharColorID
+	function(i64[] a,string s_context,string s):u8[] ComputeCharColorID
 	//For rendering states, we need a layouter
 	function(JSObject obj) SetTextStyle
 	function(i64[] a,i64[] pp,string s, double dx,double dy,float scaling) RenderText
