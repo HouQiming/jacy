@@ -424,6 +424,7 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 			if is_key:
 				assert(n_key_brackets==i)
 				n_key_brackets=i+1
+			!? //enabled-ness mapping
 			tok0=obj_i["tok0"].or(0)
 			tok1=obj_i["tok1"].or(0)
 			mask_i=1<<i
