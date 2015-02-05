@@ -9,20 +9,25 @@ enumerated activation states
 	all possible controlling bracket activation masks
 		activating brackets cannot nest - otherwise the state would be unbounded
 	and corresponding full activation masks
+node value
+	mov needs an additional bit
+	and / xor
+brackets sharing the inc slot?!
 */
 REAL_TYPE_MOV=0;
 REAL_TYPE_XOR=1;
 REAL_TYPE_ADD=2;
 
-//struct TBracketType
-//	int type
-//	int tok0,tok1
+struct TBracketType
+	int type
+	int tok0,tok1
+
 //0+=0 for non-inc
-struct TTokenRole
+struct TBDFATransition
 	i32 m_and
 	i32 m_xor
-	i8 m_inc
 	i8 m_delta
+	i8 m_next_state
 
 struct TColorRule
 	string color_name
@@ -30,17 +35,19 @@ struct TColorRule
 	int extend_0,extend_1
 		
 class CLanguageDescription
-	int[] m_enabled_from_inside
-	int[] m_all_key_states
+	//int[] m_enabled_from_inside
+	//int[] m_all_key_states
 	u8[] m_char_map
 	i16[] m_bigchar_dfa
 	int m_total_state_size
 	int m_context_size
 	int m_n_nested
 	int m_n_char_types
+	int m_n_key_states
+	//the initial state is always 0
 	/////////
 	//TBracketType[] m_bracket_types
-	TTokenRole[] m_token_roles
+	TBDFATransition[] m_bracket_dfa
 	TColorRule[] m_coloring_rules
 
 class CLayouter_programmer
@@ -260,15 +267,13 @@ class CColorer_programmer
 	name=function(){return "colorer"}
 	stateSize=function(){return m_lang.m_total_state_size}
 	contextSize=function(){return m_lang.m_context_size}
-	//latex \: use word-based highlighting
-	!? //"extend" implementation: it's also a part of the context? especially the shrinking ones...
-	//extend left-side, shrink right-side
+	//state format: ~and_mask|xor_mask, global bracket delta
 	AddString=function(i64[] a,i64[] pp,string s_context,string s,iptr ofs){
 		//here it's just the states
 		ld=m_lang
 		//do the dfa and get all tokens
 		sz_context=ld.m_context_size
-		ns_per_key=1+ld.m_n_nested
+		ns_per_key=2+ld.m_n_nested
 		n_char_types=m_n_char_types
 		char_map=m_char_map
 		dfa=m_bigchar_dfa
@@ -286,9 +291,10 @@ class CColorer_programmer
 			if st<0:
 				if is_enabled:tokens.push(~u8(st))
 				st=0
-		foreach ks,I in ld.m_all_key_states
-			pa=ns_per_key*I
-			mask=ks
+		for sti=0:ld.m_n_key_states-1
+			pa=ns_per_key*sto
+			and_mask=~a[pa+0]
+			xor_mask=a[pa+1]
 			foreach tok in tokens
 				!? //token role... and xor inc
 				//nesting brackets cannot depend on the same token...
@@ -308,6 +314,11 @@ class CColorer_programmer
 		!?
 	}
 	//For coloring states, we need a colorer
+	//latex \: use word-based highlighting
+	!? //"extend" implementation: it's also a part of the context? especially the shrinking ones...
+	//extend left-side, shrink right-side
+	//here a is the state "before", 
+	!? //context
 	function(i64[] a,string s):u8[] ComputeCharColorID
 	//todo: color type id
 	//For seeking states, we need comparison and in-block seeking
@@ -411,10 +422,7 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 		//the list of brackets
 		m_bracket_types=obj["m_bracket_types"].as(JSObject)
 		if !m_bracket_types:return 0
-		token_roles=new TTokenRole[native_bigchars.n]
-		ret.m_token_roles=token_roles
 		n_key_brackets=0
-		n_nested=0
 		ret.m_bracket_types=new TBracketType[]
 		for i=0:m_bracket_types.length()-1
 			obj_i=m_bracket_types[i].as(JSObject)
@@ -424,38 +432,66 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 			if is_key:
 				assert(n_key_brackets==i)
 				n_key_brackets=i+1
-			!? //enabled-ness mapping
 			tok0=obj_i["tok0"].or(0)
 			tok1=obj_i["tok1"].or(0)
-			mask_i=1<<i
-			if type==REAL_TYPE_MOV:
-				token_roles[tok0].m_and|=mask_i
-				token_roles[tok1].m_and|=mask_i
-				token_roles[tok1].m_xor|=mask_i
-			else if type==REAL_TYPE_XOR:
-				token_roles[tok0].m_xor|=mask_i
-				token_roles[tok1].m_xor|=mask_i
-			else if type==REAL_TYPE_ADD:
-				n_nested++
-				token_roles[tok0].m_inc=int(n_nested)
-				token_roles[tok0].m_delta=1
-				token_roles[tok1].m_inc=int(n_nested)
-				token_roles[tok1].m_delta=-1
-			else
-				assert(0)
+			ret.m_bracket_types.push(TBracketType(){type:type,tok0:tok0,tok1:tok1})
 		assert(n_key_brackets<=12)
 		/////////////
 		//the state masking rules
-		ret.m_enabled_from_inside=new int[1<<n_key_brackets]
-		ret.m_all_key_states=new int[]
+		m_enabled_from_inside=new int[1<<n_key_brackets]
+		m_id_from_key_state=new int[1<<n_key_brackets]
+		m_all_key_states=new int[]
 		m_entry_states=obj["m_entry_states"].as(JSObject)
 		if !m_entry_states:return 0
 		for i=0:m_entry_states.length()-1
 			obj_i=m_entry_states[i].as(JSObject)
 			if !obj_i:return 0
 			inside_mask=obj_i["inside"].or(0)
-			ret.m_enabled_from_inside[inside_mask]=obj_i["enabled"].or(0)
-			ret.m_all_key_states.push(inside_mask)
+			m_enabled_from_inside[inside_mask]=obj_i["enabled"].or(0)
+			m_id_from_key_state[inside_mask]=i+1
+			m_all_key_states.push(inside_mask)
+		/////////////
+		//the bracket DFA
+		n_key_states=m_all_key_states.n
+		n_tokens=native_bigchars.n
+		bdfa=new TBDFATransition[n_key_states*n_tokens]
+		brackets=ret.m_bracket_types
+		n_nested=0
+		for sti=0:n_key_states-1
+			st=sti*n_tokens
+			key_state=m_all_key_states[sti]
+			enabled_mask=m_enabled_from_inside[key_state]
+			for i=0:brackets.n-1
+				if !(enabled_mask&(1<<i)):continue
+				type=brackets[i].type
+				tok0=brackets[i].tok0
+				tok1=brackets[i].tok1
+				mask_i=1<<i
+				if type==REAL_TYPE_MOV:
+					//m_and will be noted later
+					bdfa[st+tok0].m_and|=mask_i
+					bdfa[st+tok1].m_and|=mask_i
+					bdfa[st+tok1].m_xor|=mask_i
+				else if type==REAL_TYPE_XOR:
+					bdfa[st+tok0].m_xor|=mask_i
+					bdfa[st+tok1].m_xor|=mask_i
+				else if type==REAL_TYPE_ADD:
+					n_nested++
+					assert(!bdfa[st+tok0].m_delta)
+					assert(!bdfa[st+tok1].m_delta)
+					bdfa[st+tok0].m_inc=int(n_nested)
+					bdfa[st+tok0].m_delta=1
+					bdfa[st+tok1].m_inc=int(n_nested)
+					bdfa[st+tok1].m_delta=-1
+				else
+					assert(0)
+			for i=0:n_tokens-1
+				bdfa[st+i].m_and=~bdfa[st+i].m_and
+				key_state_i=((key_state&bdfa[st+i].m_and)|bdfa[st+i].m_xor)
+				bdfa[st+i].m_next_state=m_id_from_key_state[key_state_i]-1
+				assert(bdfa[st+i].m_next_state>=0)
+		ret.m_n_key_states=n_key_states
+		ret.m_bracket_dfa=bdfa
 		/////////////
 		//the coloring rules
 		ret.m_coloring_rules=new TColorRule[]
@@ -469,7 +505,7 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 				extend_1:obj_i["extend_1"].or(0)-native_bigchars[ret.m_bracket_types[i].tok1].n})
 		/////////
 		//1 bitmask + 1 counter for each nested
-		ret.m_total_state_size=(1+n_nested)*m_all_key_states.n
+		ret.m_total_state_size=(2+n_nested)*m_all_key_states.n
 		ret.m_n_nested=n_nested
 		return JS.Return(ret)
 	}
