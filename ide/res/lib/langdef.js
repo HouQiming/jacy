@@ -45,7 +45,6 @@ LanguageDefinition.prototype={
 		if(!(bid<this.m_bracket_types.length&&bid>=0)){
 			throw new Error("bad delimiter id");
 		}
-		!?
 		this.m_coloring_rules.push({bid:bid,color_name:color_name});
 	},
 	/////////////////
