@@ -4,7 +4,6 @@ generates:
 	SDL -> JS wrapper
 	vector types
 */
-import "system.spap"
 import System.IO.*
 import System.Console.*
 
@@ -27,19 +26,19 @@ u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0), u8(0),u8(0),u8(0),u8(0),u8(0),u
 u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0), u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0),u8(0)
 ];
 
-string FormatCCode(string feed)
+auto FormatCCode(string feed)
 	sret=new string
 	indent=0
 	nbra=0
 	in_str=0
 	in_slash=0
-	void nextline()
-		sret.add('\n')
+	auto nextline()
+		sret.push('\n')
 		for j=0:indent-1
-			sret.add('  ')
+			sret.push('  ')
 	foreach ch,I in feed
 		if in_str:
-			sret.add((char)ch)
+			sret.push(char(ch))
 			if !in_slash:
 				if ch=='\\':
 					in_slash=1
@@ -57,24 +56,24 @@ string FormatCCode(string feed)
 			if ch=='}':
 				if sret.n&&sret.back()==' ':sret.pop()
 				if sret.n&&sret.back()==' ':sret.pop()
-			sret.add((char)ch)
+			sret.push(char(ch))
 			if ch=='{':
 				indent++
 				nextline()
-			elif ch=='}':
+			else if ch=='}':
 				indent--
 				if I<feed.n-2&&feed[I+1]==';':
 					//nothing
 				else
 					nextline()
-			elif ch==';'&&!nbra:
+			else if ch==';'&&!nbra:
 				nextline()
 	return sret
 
 g_code=new string
 g_typedef_code=new string
-void once(string ver)
-	words=[s foreach s in ReadAllText(@"c:\tp\kara\units\glload"+ver+".i").Tokenize('"\r\n:') if s!="__PARSE_GLLOADER"]
+auto once(string ver)
+	words=[s foreach s in ReadAllText("c:\\tp\\kara\\units\\glload"+ver+".i").Tokenize('"\r\n:') if s!="__PARSE_GLLOADER"]
 	pts=[I foreach s,I in words if s.n>1&&s.back()==',']
 	//scan for dups
 	all_names=new string[][string]
@@ -84,7 +83,7 @@ void once(string ver)
 		loadable_names=new string[]
 		for(i=pt+2;i<words.n;i+=2)
 			name0=words[i]
-			loadable_names.add(name0)
+			loadable_names.push(name0)
 			if words[i+1]!=",":break
 		all_names[name]=loadable_names
 	fhack_trail=function(string trail){
@@ -97,8 +96,8 @@ void once(string ver)
 					if trail=="NV":continue
 					all_names[sname]=new string[]
 				loadable_names=all_names[name]
-				all_names[sname].add(loadable_names)
-				all_names[name]=NULL
+				all_names[sname].push(loadable_names)
+				all_names[name]=string[].NULL
 	}
 	fhack_trail("OES")
 	fhack_trail("ARB")
@@ -108,7 +107,7 @@ void once(string ver)
 	//dups removed by now
 	sout=g_code
 	if !g_typedef_code.n:
-		g_typedef_code.add('#ifndef _WIN32\n#define __stdcall\n#endif\n')
+		g_typedef_code.push('#ifndef _WIN32\n#define __stdcall\n#endif\n')
 	foreach pt in pts
 		name=words[pt]
 		name.pop()
@@ -118,10 +117,10 @@ void once(string ver)
 		if name.EndsWith("SGI")||name.EndsWith("SGIS")||name.EndsWith("SGIX")||name.EndsWith("SUN")||name.EndsWith("SUNX")||name.EndsWith("IBM")||name.EndsWith("HP")||name.EndsWith("INTEL"):continue
 		loadable_names=all_names[name]
 		if !loadable_names:continue
-		sout.add(FormatAsText("__",name,"=NULL;\n"))
+		sout.push(FormatAsText("__",name,"=NULL;\n"))
 		pname=t.IndexOf("()stdcall")
 		s_c_typename="s7_CT_PFN"+name.ToUpper()
-		g_typedef_code.add(FormatAsText("typedef ",t.Replace("()stdcall","(__stdcall*"+s_c_typename+")"),";"))
+		g_typedef_code.push(FormatAsText("typedef ",t.Replace(["()stdcall","(__stdcall*"+s_c_typename+")"]),";"))
 		tret=t[:pname-1]
 		if tret.IndexOf("*")>=0:
 			//Writeln(tret,' ',name)
@@ -132,7 +131,7 @@ void once(string ver)
 		s_sanitized_prototype=FormatAsText(spap_name,'=function(')
 		foreach sparam0 in t[pname+9:].Tokenize("(),")
 			if s_sanitized_prototype.back()!='(':
-				s_sanitized_prototype.add(',')
+				s_sanitized_prototype.push(',')
 			sparam=sparam0
 			while sparam.n&&sparam[0]==' ':
 				sparam=sparam[1:]
@@ -140,87 +139,90 @@ void once(string ver)
 				sparam=sparam[:sparam.n-2]
 			pnamex=max(sparam.IndexOf(' '),sparam.LastIndexOf('*'))+1
 			if sparam.IndexOf('*')>=0:
-				s_sanitized_prototype.add('__pointer ')
+				s_sanitized_prototype.push('__pointer ')
 			else
-				s_sanitized_prototype.add(sparam[:pnamex-1])
-			s_sanitized_prototype.add(sparam[pnamex:])
-		s_sanitized_prototype.add(')')
-		sout.add(FormatAsText(s_sanitized_prototype,'{\n'));
+				s_sanitized_prototype.push(sparam[:pnamex-1])
+			s_sanitized_prototype.push(sparam[pnamex:])
+		s_sanitized_prototype.push(')')
+		sout.push(FormatAsText(s_sanitized_prototype,'{\n'));
 		did=new int[string]
 		first=1
 		foreach name0 in loadable_names
 			if did[name0]:continue
 			did[name0]=1
-			sout.add("\t")
+			sout.push("\t")
 			if !first:
-				sout.add("if !ret:")
+				sout.push("if !ret:")
 			else
 				first=0
-			sout.add(FormatAsText("ret=__pointer(SDL_GL_GetProcAddress('",name0,"'));\n"))
+			sout.push(FormatAsText("ret=__pointer(SDL_GL_GetProcAddress('",name0,"'));\n"))
 		if tret=='GLvoid':
 			tret='void'
-		sout.add(FormatAsText("\tif Platform.BUILD=='debug'&&!ret:System.Console.Writeln('failed to load ",name,"');\n"))
+		sout.push(FormatAsText("\tif Platform.BUILD=='debug'&&!ret:System.Console.Writeln('failed to load ",name,"');\n"))
 		if tret=='void':
-			sout.add(FormatAsText("\tif !ret:return\n"))
+			sout.push(FormatAsText("\tif !ret:return\n"))
 		else
-			sout.add(FormatAsText("\tif !ret:return ",tret,"(NULL)\n"))
-		sout.add(FormatAsText("\t__",name,"=ret;\n"))
-		sout.add(FormatAsText("\t",s_sanitized_prototype,"{\n"))
+			sout.push(FormatAsText("\tif !ret:return ",tret,"(NULL)\n"))
+		sout.push(FormatAsText("\t__",name,"=ret;\n"))
+		sout.push(FormatAsText("\t",s_sanitized_prototype,"{\n"))
 		if tret=='void':
-			sout.add(FormatAsText("\t\t__C(int"))
+			sout.push(FormatAsText("\t\t__C(int"))
 		else
-			sout.add(FormatAsText("\t\treal_ret=__C(",tret))
-		sout.add(FormatAsText(',"((',s_c_typename,')@1)('))
+			sout.push(FormatAsText("\t\treal_ret=__C(",tret))
+		sout.push(FormatAsText(',"((',s_c_typename,')@1)('))
 		param_id=2
 		foreach sparam0 in t[pname+9:].Tokenize("(),")
-			if sout.back()!='(':sout.add(',')
-			sout.add('@')
-			sout.add(string.ToBase(param_id,1,36))
+			if sout.back()!='(':sout.push(',')
+			sout.push('@')
+			sout.push(formatNumber(param_id,{align:1,base:36}))
 			param_id++
 			assert(param_id<32)
-		sout.add(FormatAsText(')",__',name))
+		sout.push(FormatAsText(')",__',name))
 		param_id=2
 		foreach sparam0 in t[pname+9:].Tokenize("(),")
-			sout.add(',')
+			sout.push(',')
 			sparam=sparam0
 			//is_pointer=(sparam.IndexOf('*')>=0)
 			while sparam.n&&sparam[0]==' ':
 				sparam=sparam[1:]
 			while sparam.n&&sparam.back()==' ':
 				sparam=sparam[:sparam.n-2]
-			sout.add(sparam[max(sparam.IndexOf(' '),sparam.LastIndexOf('*'))+1:])
+			sout.push(sparam[max(sparam.IndexOf(' '),sparam.LastIndexOf('*'))+1:])
 			//if is_pointer&&sparam.IndexOf("GLvoid")<0:
-			//	sout.add('.__C_autocast()')
+			//	sout.push('.__C_autocast()')
 			param_id++
-		sout.add(FormatAsText(")\n"))
+		sout.push(FormatAsText(")\n"))
 		if name!="glGetError"&&name!="glGetString":
-			sout.add(FormatAsText("\t\tif Platform.BUILD=='debug':{err=_glGetError();__g_error_buf=err;__g_has_error_buf=1;if err:System.Console.Writeln('",name," returned error: ',mygluGetErrorString(err))}\n"))
+			sout.push(FormatAsText("\t\tif Platform.BUILD=='debug':{err=_glGetError();__g_error_buf=err;__g_has_error_buf=1;if err:System.Console.Writeln('",name," returned error: ',mygluGetErrorString(err))}\n"))
 		if tret=='void':
-			sout.add(FormatAsText("\t}\n"))
-			sout.add(FormatAsText("\t",spap_name,'('))
+			sout.push(FormatAsText("\t}\n"))
+			sout.push(FormatAsText("\t",spap_name,'('))
 		else
-			sout.add(FormatAsText("\t\treturn real_ret\n\t}\n"))
-			sout.add(FormatAsText("\treturn ",spap_name,'('))
+			sout.push(FormatAsText("\t\treturn real_ret\n\t}\n"))
+			sout.push(FormatAsText("\treturn ",spap_name,'('))
 		foreach sparam0 in t[pname+9:].Tokenize("(),")
-			if sout.back()!='(':sout.add(',')
+			if sout.back()!='(':sout.push(',')
 			sparam=sparam0
 			//is_pointer=(sparam.IndexOf('*')>=0)
 			while sparam.n&&sparam[0]==' ':
 				sparam=sparam[1:]
 			while sparam.n&&sparam.back()==' ':
 				sparam=sparam[:sparam.n-2]
-			sout.add(sparam[max(sparam.IndexOf(' '),sparam.LastIndexOf('*'))+1:])
+			sout.push(sparam[max(sparam.IndexOf(' '),sparam.LastIndexOf('*'))+1:])
 			//if is_pointer&&sparam.IndexOf("GLvoid")<0:
-			//	sout.add('.__C_autocast()')
+			//	sout.push('.__C_autocast()')
 			param_id++
-		sout.add(FormatAsText(")\n"))
-		sout.add(FormatAsText("}\n\n"))
+		sout.push(FormatAsText(")\n"))
+		sout.push(FormatAsText("}\n\n"))
 
-void doSDL()
+auto doSDL()
 	//generate C for better ptr handling
 	s_c_code=new string
 	//the object should have been pushed
-	s_c_code.add('static void s7_CB_SDLEvent_to_duktape(duk_context *ctx,SDL_Event* pe){'+
+	s_c_code.push(
+		'char* SDL_GetInputEventText(SDL_Event* pevent);'+
+		'void SDL_FreeInputEventText(SDL_Event* pevent);'+
+		'static void s7_CB_SDLEvent_to_duktape(duk_context *ctx,SDL_Event* pe){'+
 		'Uint32 t=pe->type;'+
 		'duk_push_uint(ctx,t);'+
 		'duk_put_prop_string(ctx,-2,"type");'+
@@ -258,15 +260,15 @@ void doSDL()
 				foreach s_type_values in words[2:]
 					if s_type_values.StartsWith("::"):
 						if s_typecheck.back()!='(':
-							s_typecheck.add("||")
-						s_typecheck.add("t==")
-						s_typecheck.add(s_type_values[2:])
+							s_typecheck.push("||")
+						s_typecheck.push("t==")
+						s_typecheck.push(s_type_values[2:])
 						if s_typecheck.back()==',':s_typecheck.pop()
 				if s_typecheck.n==3:
 					no_bracket=1
 					break
-				s_c_code.add(s_typecheck)
-				s_c_code.add("){")
+				s_c_code.push(s_typecheck)
+				s_c_code.push("){")
 				continue
 			if s_var=="timestamp"||s_var.StartsWith("padding"):continue
 			if s_var.IndexOf('*')>=0||s_var.IndexOf('[')>=0:
@@ -281,37 +283,40 @@ void doSDL()
 					s_var=s_var[1:]
 					s_type="void*"
 			if s_var=="windowID":
-				s_c_code.add(FormatAsText('duk_push_pointer(ctx,SDL_GetWindowFromID(pe->',s_union_member,'.',s_var,'));'))
+				s_c_code.push(FormatAsText('duk_push_pointer(ctx,SDL_GetWindowFromID(pe->',s_union_member,'.',s_var,'));'))
 			else
-				s_c_code.add('duk_push_')
+				pushed=0
+				s_c_code.push('duk_push_')
 				if s_type.StartsWith("Uint"):
-					s_c_code.add('uint');
+					s_c_code.push('uint');
 				else if s_type.StartsWith("Sint")||s_type.EndsWith("ID"):
-					s_c_code.add('int');
+					s_c_code.push('int');
 				else if s_type=="float":
-					s_c_code.add('number')
+					s_c_code.push('number')
 				else if s_type=="char*":
-					s_c_code.add('string')
+					s_c_code.push('string')
+					s_c_code.push(FormatAsText('(ctx,SDL_GetInputEventText(pe));SDL_FreeInputEventText(pe);'))
+					pushed=1
 				else if s_type=="void*":
-					s_c_code.add('pointer')
+					s_c_code.push('pointer')
 				else if s_type=="SDL_Keysym":
-					s_c_code.add(FormatAsText('int(ctx,pe->',s_union_member,'.',s_var,'.sym);'))
-					s_c_code.add(FormatAsText('duk_put_prop_string(ctx,-2,"',s_var,'");'))
-					s_c_code.add(FormatAsText('duk_push_int(ctx,pe->',s_union_member,'.',s_var,'.mod);'))
-					s_c_code.add(FormatAsText('duk_put_prop_string(ctx,-2,"keymod");'))
+					s_c_code.push(FormatAsText('int(ctx,pe->',s_union_member,'.',s_var,'.sym);'))
+					s_c_code.push(FormatAsText('duk_put_prop_string(ctx,-2,"',s_var,'");'))
+					s_c_code.push(FormatAsText('duk_push_int(ctx,pe->',s_union_member,'.',s_var,'.mod);'))
+					s_c_code.push(FormatAsText('duk_put_prop_string(ctx,-2,"keymod");'))
 					continue
 				else
 					Writeln(s_type)
-				s_c_code.add(FormatAsText('(ctx,pe->',s_union_member,'.',s_var,');'))
-			s_c_code.add(FormatAsText('duk_put_prop_string(ctx,-2,"',s_var,'");'))
+				if !pushed:s_c_code.push(FormatAsText('(ctx,pe->',s_union_member,'.',s_var,');'))
+			s_c_code.push(FormatAsText('duk_put_prop_string(ctx,-2,"',s_var,'");'))
 			if s_union_member=="drop"&&s_var=="file":
-				s_c_code.add(FormatAsText('SDL_free(pe->',s_union_member,'.',s_var,');'))
-		if !no_bracket:s_c_code.add("}else ")
-	s_c_code.add("{}}")
+				s_c_code.push(FormatAsText('SDL_free(pe->',s_union_member,'.',s_var,');'))
+		if !no_bracket:s_c_code.push("}else ")
+	s_c_code.push("{}}")
 	////////////////////
 	//consts
-	s_c_code.add('static void s7_CB_SDL_const_to_duktape(duk_context *ctx){')
-	s_text_consts=System.IO.ReadAllText("sdl_consts.txt")
+	s_c_code.push('static void s7_CB_SDL_const_to_duktape(duk_context *ctx){')
+	s_text_consts=System.IO.ReadAllText("test/sdl_consts.txt")
 	lines=[sline foreach sline in s_text_consts.Tokenize("\r\n")]
 	foreach sline in lines
 		pequ=sline.IndexOf('=')
@@ -321,15 +326,15 @@ void doSDL()
 		svalue=sline[pequ+1:]
 		if svalue=="NULL":continue
 		if svalue[0]=='"':
-			s_c_code.add(FormatAsText('duk_push_string(ctx,',svalue,');'))
+			s_c_code.push(FormatAsText('duk_push_string(ctx,',svalue,');'))
 		else
-			s_c_code.add(FormatAsText('duk_push_int(ctx,',svalue,');'))
-		s_c_code.add(FormatAsText('duk_put_prop_string(ctx,-2,"',sname,'");'))
-	s_c_code.add('}')
+			s_c_code.push(FormatAsText('duk_push_int(ctx,',svalue,');'))
+		s_c_code.push(FormatAsText('duk_put_prop_string(ctx,-2,"',sname,'");'))
+	s_c_code.push('}')
 	//CreateFile(@"c:\tp\kara\pure\test\sdl2duk.c").Write(FormatCCode(s_c_code))
-	CreateFile(@"c:\tp\kara\pure\test\sdl2duk.c").Write(s_c_code)
+	CreateFile("c:\\tp\\pure\\test\\sdl2duk.c").Write(s_c_code)
 
-void doVectors()
+auto doVectors()
 	s_vec_code=new string
 	s_op_code=new string
 	s_vec_type_code=new string
@@ -337,95 +342,95 @@ void doVectors()
 	for dim=2:4
 		for i=0:7
 			op="+-*/%&|^"[i]
-			s_op_code.add(FormatAsText("inline __vec",dim,"_operator",op,'(a,b){T=typeof(a);return T('))
+			s_op_code.push(FormatAsText("inline __vec",dim,"_operator",op,'(a,b){T=typeof(a);return T('))
 			for j=0:dim-1
-				if j:s_op_code.add(',')
-				s_op_code.add(FormatAsText("a.","xyzw"[j],op,"b.","xyzw"[j]))
-			s_op_code.add(")}\n")
-		s_op_code.add(FormatAsText("inline __vec",dim,'_min(a,b){T=typeof(a);return T('))
+				if j:s_op_code.push(',')
+				s_op_code.push(FormatAsText("a.","xyzw"[j],op,"b.","xyzw"[j]))
+			s_op_code.push(")}\n")
+		s_op_code.push(FormatAsText("inline __vec",dim,'_min(a,b){T=typeof(a);return T('))
 		for j=0:dim-1
-			if j:s_op_code.add(',')
-			s_op_code.add(FormatAsText("min(a.","xyzw"[j],",b.","xyzw"[j],")"))
-		s_op_code.add(")}\n")
-		s_op_code.add(FormatAsText("inline __vec",dim,'_max(a,b){T=typeof(a);return T('))
+			if j:s_op_code.push(',')
+			s_op_code.push(FormatAsText("min(a.","xyzw"[j],",b.","xyzw"[j],")"))
+		s_op_code.push(")}\n")
+		s_op_code.push(FormatAsText("inline __vec",dim,'_max(a,b){T=typeof(a);return T('))
 		for j=0:dim-1
-			if j:s_op_code.add(',')
-			s_op_code.add(FormatAsText("max(a.","xyzw"[j],",b.","xyzw"[j],")"))
-		s_op_code.add(")}\n")
-		s_op_code.add(FormatAsText("inline __vec",dim,'_neg(a){T=typeof(a);return T('))
+			if j:s_op_code.push(',')
+			s_op_code.push(FormatAsText("max(a.","xyzw"[j],",b.","xyzw"[j],")"))
+		s_op_code.push(")}\n")
+		s_op_code.push(FormatAsText("inline __vec",dim,'_neg(a){T=typeof(a);return T('))
 		for j=0:dim-1
-			if j:s_op_code.add(',')
-			s_op_code.add(FormatAsText("-a.","xyzw"[j]))
-		s_op_code.add(")}\n")
-		s_op_code.add(FormatAsText("inline __vec",dim,'_not(a){T=typeof(a);return T('))
+			if j:s_op_code.push(',')
+			s_op_code.push(FormatAsText("-a.","xyzw"[j]))
+		s_op_code.push(")}\n")
+		s_op_code.push(FormatAsText("inline __vec",dim,'_not(a){T=typeof(a);return T('))
 		for j=0:dim-1
-			if j:s_op_code.add(',')
-			s_op_code.add(FormatAsText("~a.","xyzw"[j]))
-		s_op_code.add(")}\n")
-		s_op_code.add(FormatAsText("inline __vec",dim,'_scale0(c,a){T=typeof(a);return T('))
+			if j:s_op_code.push(',')
+			s_op_code.push(FormatAsText("~a.","xyzw"[j]))
+		s_op_code.push(")}\n")
+		s_op_code.push(FormatAsText("inline __vec",dim,'_scale0(c,a){T=typeof(a);return T('))
 		for j=0:dim-1
-			if j:s_op_code.add(',')
-			s_op_code.add(FormatAsText("c*a.","xyzw"[j]))
-		s_op_code.add(")}\n")
-		s_op_code.add(FormatAsText("inline __vec",dim,'_scale1(a,c){T=typeof(a);return T('))
+			if j:s_op_code.push(',')
+			s_op_code.push(FormatAsText("c*a.","xyzw"[j]))
+		s_op_code.push(")}\n")
+		s_op_code.push(FormatAsText("inline __vec",dim,'_scale1(a,c){T=typeof(a);return T('))
 		for j=0:dim-1
-			if j:s_op_code.add(',')
-			s_op_code.add(FormatAsText("c*a.","xyzw"[j]))
-		s_op_code.add(")}\n")
-	void genvec(string tname,string tnamev,int isf,int iss)
-		s_vec_type_code.add(FormatAsText("if T==",tname,":{"))
+			if j:s_op_code.push(',')
+			s_op_code.push(FormatAsText("c*a.","xyzw"[j]))
+		s_op_code.push(")}\n")
+	auto genvec(string tname,string tnamev,int isf,int iss)
+		s_vec_type_code.push(FormatAsText("if T==",tname,":{"))
 		for dim=2:4
 			buf=tnamev+string(dim)
-			s_vec_code.add(FormatAsText("struct ",buf,"{"))
+			s_vec_code.push(FormatAsText("struct ",buf,"{"))
 			for i=0:dim-1
-				s_vec_code.add("xyzw"[i])
-				s_vec_code.add(FormatAsText('=',tname,'(0);'))
-			s_vec_code.add(FormatAsText("Telement=",tname,";"))
-			s_vec_code.add(FormatAsText("ndim=",dim,";"))
-			s_vec_code.add(FormatAsText("__is_vector=1;"))
-			s_vec_code.add(FormatAsText("inline __init__("))
+				s_vec_code.push("xyzw"[i])
+				s_vec_code.push(FormatAsText('=',tname,'(0);'))
+			s_vec_code.push(FormatAsText("Telement=",tname,";"))
+			s_vec_code.push(FormatAsText("ndim=",dim,";"))
+			s_vec_code.push(FormatAsText("__is_vector=1;"))
+			s_vec_code.push(FormatAsText("inline __init__("))
 			for i=0:dim-1
-				if i:s_vec_code.add(',')
-				s_vec_code.add(tname)
-				s_vec_code.add(' v_')
-				s_vec_code.add("xyzw"[i])
-			s_vec_code.add(FormatAsText("){"))
+				if i:s_vec_code.push(',')
+				s_vec_code.push(tname)
+				s_vec_code.push(' v_')
+				s_vec_code.push("xyzw"[i])
+			s_vec_code.push(FormatAsText("){"))
 			for i=0:dim-1
-				s_vec_code.add("xyzw"[i])
-				s_vec_code.add('=v_')
-				s_vec_code.add("xyzw"[i])
-				s_vec_code.add(';')
-			s_vec_code.add("}")
-			s_vec_code.add(FormatAsText("inline operator[](int d){"))
+				s_vec_code.push("xyzw"[i])
+				s_vec_code.push('=v_')
+				s_vec_code.push("xyzw"[i])
+				s_vec_code.push(';')
+			s_vec_code.push("}")
+			s_vec_code.push(FormatAsText("inline operator[](int d){"))
 			for i=0:dim-1
 				if i:
-					s_vec_code.add('else ')
+					s_vec_code.push('else ')
 				if i==dim-1:
-					s_vec_code.add('return ')
+					s_vec_code.push('return ')
 				else
-					s_vec_code.add(FormatAsText('if d==',i,':return '))
-				s_vec_code.add("xyzw"[i])
-				s_vec_code.add(';')
-			s_vec_code.add("}")
-			s_vec_code.add(FormatAsText("inline set_operator[](int d,",tname," value){"))
+					s_vec_code.push(FormatAsText('if d==',i,':return '))
+				s_vec_code.push("xyzw"[i])
+				s_vec_code.push(';')
+			s_vec_code.push("}")
+			s_vec_code.push(FormatAsText("inline set_operator[](int d,",tname," value){"))
 			for i=0:dim-1
 				if i:
-					s_vec_code.add('else ')
+					s_vec_code.push('else ')
 				if i==dim-1:
 					//nothing
 				else
-					s_vec_code.add(FormatAsText('if d==',i,':'))
-				s_vec_code.add("xyzw"[i])
-				s_vec_code.add('=value;')
-			s_vec_code.add("}")
-			s_vec_code.add(FormatAsText("inline as(T){return VectorType(T,",dim,")("))
+					s_vec_code.push(FormatAsText('if d==',i,':'))
+				s_vec_code.push("xyzw"[i])
+				s_vec_code.push('=value;')
+			s_vec_code.push("}")
+			s_vec_code.push(FormatAsText("inline as(T){return VectorType(T,",dim,")("))
 			for i=0:dim-1
-				if i:s_vec_code.add(',')
-				s_vec_code.add("T(")
-				s_vec_code.add("xyzw"[i])
-				s_vec_code.add(")")
-			s_vec_code.add(");}")
-			s_vec_code.add(FormatAsText("min=__vec",dim,"_min;max=__vec",dim,"_max;}\n"))
+				if i:s_vec_code.push(',')
+				s_vec_code.push("T(")
+				s_vec_code.push("xyzw"[i])
+				s_vec_code.push(")")
+			s_vec_code.push(");}")
+			s_vec_code.push(FormatAsText("min=__vec",dim,"_min;max=__vec",dim,"_max;}\n"))
 			//todo
 			//sztv=szt*dim
 			//if (sztv&15)==0:
@@ -436,16 +441,16 @@ void doVectors()
 				for i=0:7
 					if i>3&&isf:break
 					op="+-*/%&|^"[i]
-					s_op_code.add(FormatAsText("(",buf,op,buf,")=__vec",dim,"_operator",op,";"))
-				s_op_code.add(FormatAsText("(-",buf,")=__vec",dim,"_neg;"))
-				s_op_code.add(FormatAsText("(",tname,"*",buf,")=__vec",dim,"_scale0;"))
-				s_op_code.add(FormatAsText("(",buf,"*",tname,")=__vec",dim,"_scale1;"))
-				if !isf:s_op_code.add(FormatAsText("(~",buf,")=__vec",dim,"_not;"))
-				if isf:s_op_code.add(FormatAsText("(",buf,"/",tname,")=inline(a,c){return a*(",tname,"(1)/c)};"))
-			s_op_code.add('\n')
-			s_vec_type_code.add(FormatAsText("if dim==",dim,":{return ",buf,"}else "))
-		s_vec_type_code.add('{__error("invalid vector dimension @1",dim)}')
-		s_vec_type_code.add('}else ')
+					s_op_code.push(FormatAsText("(",buf,op,buf,")=__vec",dim,"_operator",op,";"))
+				s_op_code.push(FormatAsText("(-",buf,")=__vec",dim,"_neg;"))
+				s_op_code.push(FormatAsText("(",tname,"*",buf,")=__vec",dim,"_scale0;"))
+				s_op_code.push(FormatAsText("(",buf,"*",tname,")=__vec",dim,"_scale1;"))
+				if !isf:s_op_code.push(FormatAsText("(~",buf,")=__vec",dim,"_not;"))
+				if isf:s_op_code.push(FormatAsText("(",buf,"/",tname,")=inline(a,c){return a*(",tname,"(1)/c)};"))
+			s_op_code.push('\n')
+			s_vec_type_code.push(FormatAsText("if dim==",dim,":{return ",buf,"}else "))
+		s_vec_type_code.push('{__error("invalid vector dimension @1",dim)}')
+		s_vec_type_code.push('}else ')
 	genvec("float","float",1,0)
 	genvec("double","double",1,0)
 	genvec("int","int",0,0)
@@ -456,15 +461,15 @@ void doVectors()
 	genvec("u8","uchar",0,1)
 	genvec("i16","short",0,1)
 	genvec("i8","char",0,1)
-	s_vec_type_code.add('{__error("invalid vector type @1",T)}')
-	CreateFile(@"c:\tp\kara\pure\test\vecmath.txt").Write(s_vec_code+s_op_code+"inline VectorType(T,dim){"+s_vec_type_code+"}\n")
+	s_vec_type_code.push('{__error("invalid vector type @1",T)}')
+	CreateFile("c:\\tp\\pure\\test\\vecmath.txt").Write(s_vec_code+s_op_code+"inline VectorType(T,dim){"+s_vec_type_code+"}\n")
 	//todo: generic dot - has_member
 	//__is_vector
 	//write-emitcodef("inline sqr(a){return dot(a,a)}")
 	//write-emitcodef("inline length(a){return sqrt(sqr(a))}")
 	//write-emitcodef("inline normalize(a){return a*rsqrt(sqr(a))}")
 
-void main()
+auto main()
 	once("0")
 	once("")
 	//////////////
@@ -493,7 +498,7 @@ void main()
 		"GLclampx","int",
 		"GLfixed","int",
 		"GLvoidptr","__pointer",
-	]).Replace("GLvoid","void")
+	]).Replace(["GLvoid","void"])
 	//todo: CreateFile(@"c:\tp\kara\pure\units\g-l.spap").Write(s_code0+'__C(int,"@global:'+g_typedef_code+'");\n\n'+g_code)
 	/////////////
 	doSDL()

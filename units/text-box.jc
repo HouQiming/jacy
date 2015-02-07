@@ -12,11 +12,23 @@ import System.Console.*
 
 module detail{
 struct TRenderingInfo
-	double2 bb
+	//double2 bb
+	long2 bb
 	iptr seek_ret
 
+auto double2fixed(double a)
+	return i64(a*64.0)
+
+auto float2fixed(float a)
+	return i64(a*64.0f)
+
+auto fixed2double(i64 a)
+	return double(a)*(1.0/64.0)
+
+auto fixed2float(i64 a)
+	return float(a)*(1.0f/64.0f)
+
 ///////////////////////////////
-//double should be as-ed
 class ITextStateHandler
 	iptr id
 	function():string name
@@ -34,11 +46,11 @@ class ITextStateHandler
 	function(i64[] a,string s_context,string s):u8[] ComputeCharColorID
 	//For rendering states, we need a layouter
 	function(JSObject obj) SetTextStyle
-	function(i64[] a,i64[] pp,string s, double dx,double dy,float scaling) RenderText
-	function(i64[] a,i64[] pp,string s,iptr ofs):float GetCharacterHeightAt
+	function(i64[] a,i64[] pp,string s, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling) RenderText
+	function(i64[] a,i64[] pp,string s,iptr ofs):i64 GetCharacterHeightAt
 	function():TFont GetDefaultFont
-	function(double2 xy,JSObject obj):double SetCaretOverlay
-	function():double GetCaretOffset
+	function(i64 x,i64 y,JSObject obj):i64 SetCaretOverlay
+	function():i64 GetCaretOffset
 	//For seeking states, we need comparison and in-block seeking
 	function(i64[] a,i64[] b):int Compare
 	function(i64[] a,i64[] pp,string s,i64[] b):iptr SeekInBlock
@@ -46,7 +58,7 @@ class ITextStateHandler
 	//for JS operations
 	function(JSObject proto) __JS_prototype
 
-auto combineEditorOffset(double2 bb0,double2 bb1)
+auto combineEditorOffset(long2 bb0,long2 bb1)
 	bb=bb0
 	if bb1.y:
 		bb.x=bb1.x
@@ -142,24 +154,37 @@ auto MakeCharSet(string e)
 			ok[i]=~ok[i]
 	return uint4(ok[0],ok[1],ok[2],ok[3])
 
-inline epsEqual(a,b)
-	return abs(__double_as_longlong(double(a))-__double_as_longlong(double(b)))<(1LL<<32)
-
-inline epsUp(a)
-	ret=__double_as_longlong(double(a))
-	if ret<<1:ret+=(1LL<<32)^(ret>>63)
-	return __longlong_as_double(ret)
-
-inline epsDown(a)
-	ret=__double_as_longlong(double(a))
-	if ret<<1:ret-=(1LL<<32)^(ret>>63)
-	return __longlong_as_double(ret)
+//inline epsEqual(a,b)
+//	return abs(__double_as_longlong(double(a))-__double_as_longlong(double(b)))<(1LL<<32)
+//
+//inline epsUp(a)
+//	ret=__double_as_longlong(double(a))
+//	if ret<<1:ret+=(1LL<<32)^(ret>>63)
+//	return __longlong_as_double(ret)
+//
+//inline epsDown(a)
+//	ret=__double_as_longlong(double(a))
+//	if ret<<1:ret-=(1LL<<32)^(ret>>63)
+//	return __longlong_as_double(ret)
 
 auto GetStringWidth(TFont m_font,string s)
 	w_overlay=0.
 	foreach ch,I in Utf8Chars(s)
 		w_overlay+=g_renderer.GetCharacterAdvance(m_font,ch)
 	return w_overlay
+
+inline isCJK(int ch)
+	return ch>=0x2E80&&ch<0xA640||ch>=0xAC00&&ch<0xD7FF||ch>=0xF900&&ch<0xFAFF||ch>=0xFE30&&ch<0xFE4F||ch>=0x20000
+
+g_ascii_wordchars=MakeCharSet("0-9A-Za-z_")
+auto isWordChar(int ch)
+	if ch>=128:
+		pt=g_unicode_wordchars.Bisect(function(int c0){return c0<=ch})
+		return int(g_unicode_wordchars.Bisect(function(int c0){return c0<ch})&1)
+	slot=(ch>>5)
+	for i in crange(4)
+		if i==slot:return int(g_ascii_wordchars[i]>>(ch&31))&1
+	return 0
 
 class CLayouter_baseline
 	MODE_BB=0
@@ -180,7 +205,7 @@ class CLayouter_baseline
 	PreprocessBlock=function(CEditableText caller,i64[] a,string s){
 		line_breaks=new i64[]
 		if m_wrap_width>0.f:
-			line_breaksi=DPLayoutText(m_font,s,m_wrap_width, caller.isWordChar,m_hyphenator)
+			line_breaksi=DPLayoutText(m_font,s,m_wrap_width, m_hyphenator)
 			line_breaks=new i64[line_breaksi.n]
 			for i=0:line_breaks.n-1
 				line_breaks[i]=i64(line_breaksi[i]&0x7fffffff)|(i64(line_breaksi[i]&0x80000000)<<32)
@@ -191,29 +216,28 @@ class CLayouter_baseline
 		return line_breaks
 	}
 	AddString=function(i64[] a,i64[] line_breaks,string s_context,string s,iptr ofs){
-		bb=_RenderText(MODE_BB,a,line_breaks,s,ofs, 0.,0.,0.f).bb
-		a[0]=__double_as_longlong(bb.x)
-		a[1]=__double_as_longlong(bb.y)
+		bb=_RenderText(MODE_BB,a,line_breaks,s,ofs, 0LL,0LL,0.f,0.f,0.f).bb
+		a[0]=bb.x
+		a[1]=bb.y
 	}
 	Add=function(i64[] a,i64[] b){
-		bb=combineEditorOffset(double2(__longlong_as_double(a[0]),__longlong_as_double(a[1])),double2(__longlong_as_double(b[0]),__longlong_as_double(b[1])))
-		a[0]=__double_as_longlong(bb.x)
-		a[1]=__double_as_longlong(bb.y)
+		bb=combineEditorOffset(long2(a[0],a[1]),long2(b[0],b[1]))
+		a[0]=bb.x
+		a[1]=bb.y
 	}
 	/////////////////
-	//compare known-positive doubles as ints
 	Compare=function(i64[] a,i64[] b){
 		ret=__C_compare(a[1],b[1])
 		if ret==0:ret=__C_compare(a[0],b[0])
 		return ret
 	}
 	SeekInBlock=function(i64[] a,i64[] line_breaks,string s,i64[] b){
-		return iptr(_RenderText(MODE_SEEK,a,line_breaks,s,s.n, __longlong_as_double(b[0]),__longlong_as_double(b[1]),0.f).seek_ret)
+		return iptr(_RenderText(MODE_SEEK,a,line_breaks,s,s.n, b[0],b[1],0.f,0.f,0.f).seek_ret)
 	}
 	/////////////////
-	double3 m_caret_overlay
+	long3 m_caret_overlay
 	JSObject m_overlay_obj
-	double m_caret_offset
+	i64 m_caret_offset
 	SetTextStyle=function(JSObject obj){
 		m_font=obj["font"].as(TFont)
 		m_font.h/=g_renderer.m_pixels_per_unit
@@ -223,15 +247,16 @@ class CLayouter_baseline
 		m_wrap_width=obj["wrap_width"].or(0.f)
 		m_hyphenator=obj["hyphenator"].or(g_default_hyphenator)
 	}
-	SetCaretOverlay=function(double2 xy,JSObject obj){
+	SetCaretOverlay=function(i64 x,i64 y,JSObject obj){
 		m_overlay_obj=obj
-		w_overlay=0.
+		w_overlayd=0.
 		if obj:
 			s=obj["text"].as(string)
 			if s:
-				w_overlay=GetStringWidth(m_font,s)
-		m_caret_overlay=double3(xy.x,xy.y,w_overlay)
-		m_caret_offset=0.
+				w_overlayd=GetStringWidth(m_font,s)
+		w_overlay=double2fixed(w_overlayd)
+		m_caret_overlay=long3(x,y,w_overlay)
+		m_caret_offset=0LL
 		return w_overlay
 	}
 	GetCaretOffset=function(){
@@ -240,7 +265,13 @@ class CLayouter_baseline
 		//	Writeln(m_overlay_obj["text"].as(string))
 		return m_caret_offset
 	}
-	_RenderText=function(int mode,i64[] a,i64[] line_breaks,string s,iptr ofs, double dx,double dy,float scaling){
+	charWidth=inline(ch){
+		return float2fixed(g_renderer.GetCharacterAdvance(m_font,int(ch)))
+	}
+	charHeight=inline(){
+		return float2fixed(g_renderer.GetCharacterHeight(m_font))
+	}
+	_RenderText=function(int mode,i64[] a,i64[] line_breaks,string s,iptr ofs, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling){
 		if mode==MODE_RENDER:
 			//Writeln('before fnt_scaled ',m_font.h,' ',scaling)
 			fnt_scaled=m_font
@@ -249,27 +280,31 @@ class CLayouter_baseline
 			if g_renderer.m_srgb_supported:
 				fnt_scaled.embolden+=int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*3000.f/fnt_scaled.h)
 			//Writeln('after fnt_scaled ',m_font.h)
-			scalingd=double(scaling)
-		w_tab=double(m_tab_width)*double(g_renderer.GetCharacterAdvance(m_font,int(' ')))
-		hc=g_renderer.GetCharacterHeight(m_font)
-		x=__longlong_as_double(a[0])
-		y=__longlong_as_double(a[1])
+			//scalingd=double(scaling)
+		w_tab=i64(m_tab_width)*charWidth(' ')
+		hc=charHeight()
+		x=a[0]
+		y=a[1]
 		if mode==MODE_RENDER:
-			if epsEqual(y,m_caret_overlay.y)&&x>m_caret_overlay.x:
+			//if epsEqual(y,m_caret_overlay.y)&&x>m_caret_overlay.x:
+			if y==m_caret_overlay.y&&x>m_caret_overlay.x:
 				x+=m_caret_overlay.z
-		//Writeln('>>> ',dx,' ',dy)
 		is_wrapping=(m_wrap_width>0.f)
-		w_space=double(g_renderer.GetCharacterAdvance(m_font,int(' ')))
-		w_hyphen=double(g_renderer.GetCharacterAdvance(m_font,int('-')))
+		w_space=charWidth(' ')
+		w_hyphen=charWidth('-')
 		for i=0:line_breaks.n-2
 			got_newline=0
 			//justified wrapping
-			space_padding=0.
+			space_padding=0LL
+			space_padding_rem=0
+			need_to_pad_non_space=0
 			has_hyphen=0
+			i_padding=0
 			if is_wrapping&&i<line_breaks.n-1:
 				nspaces=0
 				n_trailing_space=0
-				w_total=0.
+				n_paddable_non_space=0
+				w_total=0LL
 				if line_breaks[i+1]<0LL:
 					//we have a hyphen
 					has_hyphen=1
@@ -285,25 +320,38 @@ class CLayouter_baseline
 						n_trailing_space++
 						w_total+=w_space
 					else
+						if isCJK(ch)||!isWordChar(ch):
+							n_paddable_non_space++
 						n_trailing_space=0
-						w_total+=double(g_renderer.GetCharacterAdvance(m_font,ch))
+						w_total+=charWidth(ch)
 				nspaces-=n_trailing_space
-				remaining_space=double(m_wrap_width)-(w_total-w_space*double(n_trailing_space))
+				if !nspaces:
+					//count CJK or non-word chars
+					need_to_pad_non_space=1
+					nspaces=n_paddable_non_space
+				remaining_space=float2fixed(m_wrap_width)-(w_total-w_space*n_trailing_space)
 				//with paragraph consistency, got_newline should hold for i==line_breaks.n-2 unless we're at eof
-				if nspaces>0&&remaining_space>0.f&&!got_newline&&i<line_breaks.n-2:
-					space_padding=remaining_space/float(nspaces)
+				if nspaces>0&&remaining_space>0LL&&!got_newline&&i<line_breaks.n-2:
+					space_padding=remaining_space/nspaces
+					space_padding_rem=int(remaining_space-space_padding*nspaces)
 				//Writeln(space_padding,' ',nspaces,' ',space_padding)
 			got_newline=0
 			///////////////
+			inline projectX(i64 x)
+				return fixed2float(x-scroll_x)*scaling+screen_x
+			inline projectY(i64 x)
+				return fixed2float(y-scroll_y)*scaling+screen_y
 			for ch,I in Utf8Chars(s[iptr(line_breaks[i]&0x7fffffffffffffffLL):iptr(min(line_breaks[i+1]&0x7fffffffffffffffLL,ofs))-1])
 				if mode==MODE_SEEK:
-					if y>epsUp(dy)||dy>=epsDown(y)&&dy<epsDown(y+hc)&&x>=dx:
-						return TRenderingInfo(){bb:double2(x,y),seek_ret:iptr(line_breaks[i]+I)}
-					//mm.push(TMouseMap(){pos:double2(x,y),ccnt:line_breaks[i]+I})
+					//if y>epsUp(dy)||dy>=epsDown(y)&&dy<epsDown(y+hc)&&x>=dx:
+					if y>scroll_y||scroll_y>=y&&scroll_y<y+hc&&x>=scroll_x:
+						return TRenderingInfo(){bb:long2(x,y),seek_ret:iptr(line_breaks[i]+I)}
 				if mode==MODE_RENDER:
-					if epsEqual(x,m_caret_overlay.x)&&epsEqual(y,m_caret_overlay.y):
+					//if epsEqual(x,m_caret_overlay.x)&&epsEqual(y,m_caret_overlay.y):
+					if x==m_caret_overlay.x&&y==m_caret_overlay.y:
 						if m_overlay_obj["type"].as(string)=="IME":
 							s_overlay=m_overlay_obj["text"].as(string)
+							yf=projectY(y)
 							if s_overlay:
 								cmap=new iptr[]
 								foreach chj,J in Utf8Chars(s_overlay)
@@ -316,24 +364,24 @@ class CLayouter_baseline
 								if uptr(overlay_sel0)<uptr(cmap.n)&&uptr(overlay_sel1)<uptr(cmap.n):
 									x_sel0=GetStringWidth(m_font,s_overlay[:cmap[overlay_sel0]-1])
 									x_sel1=GetStringWidth(m_font,s_overlay[:cmap[overlay_sel1]-1])
-									m_caret_offset=x_sel1
+									m_caret_offset=double2fixed(x_sel1)
 									if x_sel0>x_sel1:
 										(x_sel0,x_sel1)=(x_sel1,x_sel0)
 									//selection - pre-draw the highlight
 									if x_sel0<x_sel1:
-										g_renderer.DrawBitmap(0, float((x+x_sel0)*scalingd+dx),float(y*scalingd+dy),float((x_sel1-x_sel0)*scalingd),hc, m_bgcolor_selection)
+										g_renderer.DrawBitmap(0, float((fixed2float(x-scroll_x)+x_sel0)*scaling+screen_x),yf,float((x_sel1-x_sel0)*scaling),fixed2float(hc), m_bgcolor_selection)
 								else
 									assert(0)
 								xo=x
 								foreach chj,J in Utf8Chars(s_overlay)
-									dx_j=double(g_renderer.GetCharacterAdvance(m_font,chj))
-									g_renderer.DrawChar(fnt_scaled, float(xo*scalingd+dx),float(y*scalingd+dy),m_color, chj)
+									dx_j=charWidth(chj)
+									g_renderer.DrawChar(fnt_scaled, projectX(xo),yf,m_color, chj)
 									xo+=dx_j
 							else
 								assert(0)
 							//draw the underline
-							y_underline=float(y*scalingd+dy)+fnt_scaled.h*(fnt_scaled.pfnt.y_baseline_per_height+0.02f)
-							g_renderer.DrawBitmap(0, float(x*scalingd+dx),y_underline,float(m_caret_overlay.z*scalingd),max(fnt_scaled.h*0.05f,1.f), m_color)
+							y_underline=yf+fnt_scaled.h*(fnt_scaled.pfnt.y_baseline_per_height+0.02f)
+							g_renderer.DrawBitmap(0, projectX(x),y_underline,fixed2float(m_caret_overlay.z)*scaling,max(fnt_scaled.h*0.05f,1.f), m_color)
 						else
 							assert(0)
 						x+=m_caret_overlay.z
@@ -342,37 +390,41 @@ class CLayouter_baseline
 					if ch=='\n':
 						got_newline=1
 						if !is_wrapping:
-							x=0.
+							x=0LL
 							y+=hc
 					continue
 				else if ch==' ':
 					x+=w_space+space_padding
+					if i_padding<space_padding_rem:
+						i_padding++
+						x++
 				else if ch=='\t':
 					if is_wrapping:
 						x+=w_space+space_padding
+						if i_padding<space_padding_rem:
+							i_padding++
+							x++
 					else
-						x=(floor(x/w_tab)+1.0)*w_tab
+						x=(x/w_tab+1LL)*w_tab
 				else
-					dx_i=double(g_renderer.GetCharacterAdvance(m_font,ch))
+					dx_i=charWidth(ch)
 					if mode==MODE_RENDER:
-						//pt.push(TCharJob(){pos:double2(x,y),ch:ch,color:m_color})
-						//Writeln(x,' ',y,' ',m_font.h,' ',fnt_scaled.h,' ',scalingd,' ',ch,' ',m_color)
-						g_renderer.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),m_color, ch)
+						g_renderer.DrawChar(fnt_scaled, projectX(x),projectY(y),m_color, ch)
 					x+=dx_i
 			if (line_breaks[i+1]&0x7fffffffffffffffLL)>ofs:break
 			if is_wrapping:
 				if mode==MODE_RENDER&&has_hyphen:
-					g_renderer.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),m_color, int('-'))
+					g_renderer.DrawChar(fnt_scaled, projectX(x),projectY(y),m_color, int('-'))
 				if got_newline||i<line_breaks.n-2:
-					x=0.
+					x=0LL
 					y+=hc
-		return TRenderingInfo(){bb:double2(x,y),seek_ret:s.n}
+		return TRenderingInfo(){bb:long2(x,y),seek_ret:s.n}
 	}
-	RenderText=function(i64[] a,i64[] pp,string s, double dx,double dy,float scaling){
-		_RenderText(MODE_RENDER,a,pp,s,s.n,dx,dy,scaling)
+	RenderText=function(i64[] a,i64[] pp,string s, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling){
+		_RenderText(MODE_RENDER,a,pp,s,s.n,scroll_x,scroll_y,screen_x,screen_y,scaling)
 	}
 	GetCharacterHeightAt=function(i64[] a,i64[] pp,string s,iptr ofs){
-		return g_renderer.GetCharacterHeight(m_font)
+		return charHeight()
 	}
 	GetDefaultFont=function(){
 		return m_font
@@ -627,11 +679,12 @@ auto parseTexHyphenFile(JSContext JS,string sdata)
 	ret.ops=dfa_ops
 	return ret
 
-auto DPLayoutParagraph(TFont fnt,string s,float w_line, function(int ch):int isWordChar,CHyphenator hyp)
+auto DPLayoutParagraph(TFont fnt,string s,float w_line, CHyphenator hyp)
 	//ignore tabs
 	FLAG_WORD=0x80000000
 	FLAG_SPACE=0x40000000
-	FLAG_NC=0x3fffffff
+	FLAG_CJK=0x20000000
+	FLAG_NC=0x1fffffff
 	MAX_HYPHENATABLE_WORD=256
 	LEADING_SPACE_BADNESS=1e18f
 	inline spaceBadness(w){return w*w*w}
@@ -642,6 +695,7 @@ auto DPLayoutParagraph(TFont fnt,string s,float w_line, function(int ch):int isW
 	w_hyphen=g_renderer.GetCharacterAdvance(fnt,int('-'))
 	w_space=g_renderer.GetCharacterAdvance(fnt,int(' '))
 	HYPHEN_BADNESS=spaceBadness(w_hyphen*0.5f)
+	LEADING_NON_WORD_BADNESS=spaceBadness(w_space*20.f)
 	auto addWord(iptr a,iptr b)
 		if b-a<=MAX_HYPHENATABLE_WORD:
 			hpoints=hyp.HyphenateWord(s[a:b-1])
@@ -665,8 +719,6 @@ auto DPLayoutParagraph(TFont fnt,string s,float w_line, function(int ch):int isW
 		if I_last<b-a:
 			atoms.push(TDPAtom(){nc_flags:int(b-a-I_last)+FLAG_WORD,lg:w_current})
 	p_last_word=0L
-	inline isCJK(int ch)
-		return ch>=0x2E80&&ch<0xA640||ch>=0xAC00&&ch<0xD7FF||ch>=0xF900&&ch<0xFAFF||ch>=0xFE30&&ch<0xFE4F||ch>=0x20000
 	foreach ch,I in Utf8Chars(s)
 		if !isWordChar(ch)||isCJK(ch):
 			if p_last_word<I:
@@ -679,6 +731,8 @@ auto DPLayoutParagraph(TFont fnt,string s,float w_line, function(int ch):int isW
 				lg=0.f
 			else if ch==' '||ch=='\t':
 				nc_flags|=FLAG_SPACE
+			else if isCJK(ch):
+				nc_flags|=FLAG_CJK
 			atoms.push(TDPAtom(){nc_flags:nc_flags,lg:lg})
 	if p_last_word<s.n:
 		addWord(p_last_word,s.n)
@@ -693,6 +747,8 @@ auto DPLayoutParagraph(TFont fnt,string s,float w_line, function(int ch):int isW
 		best_i=1e18f
 		w0=0.f
 		base_badness=0.f
+		if i<n&&!(atoms[i].nc_flags&FLAG_WORD):
+			base_badness=LEADING_NON_WORD_BADNESS
 		if i<n&&(atoms[i].nc_flags&atoms[i-1].nc_flags&FLAG_WORD):
 			//need a hyphen
 			w0=w_hyphen
@@ -752,11 +808,11 @@ auto DPLayoutParagraph(TFont fnt,string s,float w_line, function(int ch):int isW
 		lbreaks_fwd[lbreaks.n-1-i]=atoms[lbreaks[i]].nc_flags
 	return lbreaks_fwd
 
-auto DPLayoutText(TFont fnt,string s,float w_line, function(int ch):int isWordChar,CHyphenator hyp)
+auto DPLayoutText(TFont fnt,string s,float w_line, CHyphenator hyp)
 	//\n handling
 	lbreaks_ret=new int[]
 	foreach sline,I in s.TokenizeEx("\n",s.TOKENIZE_ALLOW_EMPTY|s.TOKENIZE_INCLUDE_SEPARATOR)
-		lbreaks_paragraph=DPLayoutParagraph(fnt,sline,w_line, isWordChar,hyp)
+		lbreaks_paragraph=DPLayoutParagraph(fnt,sline,w_line, hyp)
 		lbreaks_paragraph.pop()
 		foreach d in lbreaks_paragraph
 			lbreaks_ret.push(d+int(I))
@@ -890,9 +946,9 @@ class CEditableText
 	//////////
 	m_caret_locator=CLocator.NULL
 	m_IME_overlay=JSObject.NULL
-	m_caret_offset=0.
+	m_caret_offset=0LL
 	//////////
-	m_ascii_wordchars=uint4()
+	//m_ascii_wordchars=uint4()
 	inline AddStateHandler(a)
 		m_handlers.push(getInterface(a,ITextStateHandler))
 		return m_handlers.n-1
@@ -921,21 +977,13 @@ class CEditableText
 		m_state_ofs.push(ofs)
 		RecomputeStatesLeaf(new char[m_context_size],m_skiplist)
 		//m_handler_registration["style"]=obj_style
-		m_ascii_wordchars=MakeCharSet(obj_style["charset_word"].or("0-9A-Za-z_"))
+		//m_ascii_wordchars=MakeCharSet(obj_style["charset_word"].or("0-9A-Za-z_"))
 		//validation
 		hid=m_handler_registration["renderer"].or(-1)
 		if hid<0:
 			//validation failed
 			return 0
 		return 1
-	auto isWordChar(int ch)
-		if ch>=128:
-			pt=g_unicode_wordchars.Bisect(function(int c0){return c0<=ch})
-			return int(g_unicode_wordchars.Bisect(function(int c0){return c0<ch})&1)
-		slot=(ch>>5)
-		for i in crange(4)
-			if i==slot:return int(m_ascii_wordchars[i]>>(ch&31))&1
-		return 0
 	auto RecomputeStatesDfs(CSLNode nd,i64 ccnt_base,i64[] ccnt_range,iptr p_range)
 		if nd.s:
 			if m_context_size:
@@ -1466,41 +1514,46 @@ class CEditableText
 	auto Bisect(int hid,i64[] b)
 		acc=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
 		return _Bisect(acc,m_handlers[hid],0LL,m_skiplist,b)
-	auto SeekXY(double x,double y)
+	auto SeekXY(i64 x,i64 y)
 		hid=m_handler_registration["renderer"].as(int)
 		//ccnt0=Bisect(hid,[__double_as_longlong(x),__double_as_longlong(y)])
 		//xy=XYFromCcnt(ccnt0)
 		//return Bisect(hid,[__double_as_longlong(x),__double_as_longlong(xy.y)])
-		ccnt0=Bisect(hid,[__double_as_longlong(x),__double_as_longlong(max(y,0.0))])
+		ccnt0=Bisect(hid,[x,y])
 		xy=XYFromCcnt(ccnt0)
 		if xy.y>y&&ccnt0>0LL&&GetText(ccnt0-1,1LL)=="\n":
 			ccnt0--
 		return ccnt0
-	auto Render(double x,double y,double w,double h, float scr_x,float scr_y,float scale)
+	auto Render(i64 x,i64 y,i64 w,i64 h, float scr_x,float scr_y,float scale)
 		//x,y,w,h refer to the world space window
-		g_renderer.PushCliprect(scr_x,scr_y,float(w)*scale,float(h)*scale)
+		wf=fixed2float(w)
+		hf=fixed2float(h)
+		g_renderer.PushCliprect(scr_x,scr_y,wf*scale,hf*scale)
 		hid=m_handler_registration["renderer"].as(int)
 		handler=m_handlers[hid]
 		wnd_ccnt0=SeekXY(x,y)
 		wnd_ccnt1=SeekXY(x+w,y+h)
 		rendering_started=0
-		scaled=double(scale)
-		dx=double(scr_x)-x*scaled
-		dy=double(scr_y)-y*scaled
+		//scaled=double(scale)
+		//dx=double(scr_x)-x*scaled
+		//dy=double(scr_y)-y*scaled
 		//////////////////////////////
 		//prepare the achint
-		caret_overlay=double3(-1.,-1.,0.)
-		inline testOverlay(double2 xy)
-			if epsEqual(xy.y,caret_overlay.y)&&xy.x>=caret_overlay.x:
-				return xy+double2(caret_overlay.z,0.)
+		caret_overlay=long3(-1LL,-1LL,0LL)
+		inline projectDocumentPosition(i64 ccnt)
+			auto xy=XYFromCcnt(ccnt)
+			auto ret
+			if xy.y==caret_overlay.y&&xy.x>=caret_overlay.x:
+				ret=xy+long2(caret_overlay.z,0LL)
 			else
-				return xy
+				ret=xy
+			return float2(fixed2float(ret.x-x)*scale+scr_x,fixed2float(ret.y-y)*scale+scr_y)
 		if m_IME_overlay:
 			m_IME_overlay["type"]="IME"
 			xy_overlay=XYFromCcnt(m_caret_locator.ccnt)
-			caret_overlay=double3(xy_overlay.x,xy_overlay.y,handler.SetCaretOverlay(xy_overlay,m_IME_overlay))
+			caret_overlay=long3(xy_overlay.x,xy_overlay.y,handler.SetCaretOverlay(xy_overlay.x,xy_overlay.y,m_IME_overlay))
 		else
-			handler.SetCaretOverlay(double2(-1.,-1.),JSObject.NULL)
+			handler.SetCaretOverlay(-1LL,-1LL,JSObject.NULL)
 		//pre-draw the highlights
 		//coulddo: text color inversion for high contrast highlight
 		n2=0L
@@ -1514,21 +1567,21 @@ class CEditableText
 				if !hl.invertible:continue
 				(ccnt0,ccnt1)=(ccnt1,ccnt0)
 			if ccnt1<=wnd_ccnt0||ccnt0>=wnd_ccnt1:continue
-			xy0=(testOverlay(XYFromCcnt(ccnt0))*scaled+double2(dx,dy)).as(float)
-			xy1=(testOverlay(XYFromCcnt(ccnt1))*scaled+double2(dx,dy)).as(float)
+			xy0=projectDocumentPosition(ccnt0)
+			xy1=projectDocumentPosition(ccnt1)
 			//Writeln(xy0,' ',xy1,' ',ccnt0,' ',ccnt1)
 			//Writeln(__double_as_longlong(xy0.y)-__double_as_longlong(xy1.y))
 			//Writeln(abs(__double_as_longlong(xy0.y)-__double_as_longlong(xy1.y)))
 			//Writeln('epsEqual')
-			if epsEqual(xy0.y,xy1.y):
-				hc=GetCharacterHeightAt(ccnt1)*scale
+			if xy0.y==xy1.y:
+				hc=fixed2float(GetCharacterHeightAt(ccnt1))*scale
 				g_renderer.DrawBitmap(0, xy0.x,xy0.y,xy1.x-xy0.x,hc, hl.color)
 			else
 				//draw 3 rects, we have a cliprect, don't worry
-				hc=GetCharacterHeightAt(ccnt0)*scale
-				g_renderer.DrawBitmap(0, xy0.x,xy0.y,max(scr_x+float(w)*scale-xy0.x,0.f),hc, hl.color)
-				g_renderer.DrawBitmap(0, scr_x,xy0.y+hc,float(w)*scale,max(xy1.y-(xy0.y+hc),0.f), hl.color)
-				hc=GetCharacterHeightAt(ccnt1)*scale
+				hc=fixed2float(GetCharacterHeightAt(ccnt0))*scale
+				g_renderer.DrawBitmap(0, xy0.x,xy0.y,max(scr_x+wf*scale-xy0.x,0.f),hc, hl.color)
+				g_renderer.DrawBitmap(0, scr_x,xy0.y+hc,wf*scale,max(xy1.y-(xy0.y+hc),0.f), hl.color)
+				hc=fixed2float(GetCharacterHeightAt(ccnt1))*scale
 				g_renderer.DrawBitmap(0, scr_x,xy1.y,max(xy1.x-scr_x,0.f),hc, hl.color)
 		m_highlights.resize(n2)
 		//////////////////////////////
@@ -1540,7 +1593,7 @@ class CEditableText
 				n0=m_state_ofs.back()
 				ofspp=nd.a[n0+hid]
 				ofspp2=(hid==m_handlers.n-1?i64(nd.a.n):nd.a[n0+hid+1])
-				handler.RenderText(acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s, dx,dy,scale)
+				handler.RenderText(acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s, x,y,scr_x,scr_y,scale)
 				handler.Add(acc,nd.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
 			else
 				ccnt_base=0LL
@@ -1568,7 +1621,7 @@ class CEditableText
 	auto XYFromCcnt(i64 ccnt)
 		hid=m_handler_registration["renderer"].as(int)
 		a=GetStateAt(hid,ccnt)
-		return double2(__longlong_as_double(a[0]),__longlong_as_double(a[1]))
+		return long2(a[0],a[1])
 	//todo: style changing
 	/////////////////
 	inline enumCharsForward(i64 ccnt0)
@@ -1626,7 +1679,7 @@ class CEditableText
 		js_ops=JS.Param(0).as(JSObject)
 		if !js_ops:return 0
 		is_raw=JS.Param(1).or(0)
-		n=iptr(js_ops["length"].as(double))
+		n=js_ops["length"].as(iptr)
 		if !(n>0)||(n%3):
 			return JS.ReturnError("bad operation array length @1".Replace(["@1",string(n)]))
 		//one array with even-odd packing
@@ -1634,7 +1687,7 @@ class CEditableText
 		range1=GetTextSize()
 		ops=new TEditop[]
 		for i=0:3:n-3
-			op=TEditop(){ccnt:i64(js_ops[i].as(double)),sz:i64(js_ops[i+1].as(double)),s:js_ops[i+2].as(string)}
+			op=TEditop(){ccnt:js_ops[i].as(i64),sz:js_ops[i+1].as(i64),s:js_ops[i+2].as(string)}
 			if u64(op.ccnt)<u64(range0)||u64(op.ccnt+op.sz)>u64(range1)||u64(op.ccnt+op.sz)<u64(op.ccnt):
 				return JS.ReturnError("invalid operation #@1".Replace(["@1",string(i)]))
 			range0=op.ccnt+op.sz
@@ -1675,10 +1728,10 @@ class CEditableText
 		ed=this
 		params=JS.Param(0).as(JSObject)
 		if !params:return 0
-		param_x=params["x"].or(0.)
-		param_y=params["y"].or(0.)
-		param_w=params["w"].or(0.)
-		param_h=params["h"].or(0.)
+		param_x=double2fixed(params["x"].or(0.))
+		param_y=double2fixed(params["y"].or(0.))
+		param_w=double2fixed(params["w"].or(0.))
+		param_h=double2fixed(params["h"].or(0.))
 		param_scr_x=params["scr_x"].or(0.f)
 		param_scr_y=params["scr_y"].or(0.f)
 		param_scale=params["scale"].or(1.f)
@@ -1717,8 +1770,8 @@ class CEditableText
 			return 0
 		xy=XYFromCcnt(ccnt)
 		ret=JS.New()
-		ret["x"]=xy[0]
-		ret["y"]=xy[1]
+		ret["x"]=fixed2double(xy[0])
+		ret["y"]=fixed2double(xy[1])
 		return JS.Return(ret)
 	}
 	//only need to support "l" and "d"
@@ -1732,7 +1785,7 @@ class CEditableText
 			if stypes[i]=='l':
 				l=i64(d)
 			else if stypes[i]=='d':
-				l=__double_as_longlong(d)
+				l=double2fixed(d)
 			else
 				return i64[].NULL
 			ret[i]=l
@@ -1748,7 +1801,7 @@ class CEditableText
 			if stypes[i]=='l':
 				d=double(l)
 			else if stypes[i]=='d':
-				d=__longlong_as_double(l)
+				d=fixed2double(l)
 			else
 				return JSObject.NULL
 			ret[i]=d
@@ -1778,15 +1831,15 @@ class CEditableText
 			return JS.Return(ret)
 	}
 	JS_SeekXY=function(JSContext JS){
-		x=JS.Param(0).as(double)
-		y=JS.Param(1).as(double)
+		x=double2fixed(JS.Param(0).as(double))
+		y=double2fixed(JS.Param(1).as(double))
 		return JS.Return(SeekXY(x,y))
 	}
 	JS_GetCharacterHeightAt=function(JSContext JS){
 		ccnt=JS.Param(0).or(0LL)
 		range1=GetTextSize()
 		if u64(ccnt)>u64(range1):return 0
-		return JS.Return(GetCharacterHeightAt(ccnt))
+		return JS.Return(fixed2double(GetCharacterHeightAt(ccnt)))
 	}
 	JS_GetDefaultFont=function(JSContext JS){
 		hid=m_handler_registration["renderer"].as(int)
@@ -1827,9 +1880,9 @@ class CEditableText
 		if stype=="space":
 			fcheck=function(int c0,int c1){return c1!=' '&&c1!='\t'}
 		else if stype=="word_boundary":
-			fcheck=function(int c0,int c1){return this.isWordChar(c0)!=this.isWordChar(c1)}
+			fcheck=function(int c0,int c1){return isWordChar(c0)!=isWordChar(c1)}
 		else if stype=="ctrl_lr_stop":
-			fcheck=function(int c0,int c1){return !this.isWordChar(c0)&&this.isWordChar(c1)}
+			fcheck=function(int c0,int c1){return !isWordChar(c0)&&isWordChar(c1)}
 		else
 			return 0
 		//boundary types: word, space, ctrl-lr

@@ -921,6 +921,17 @@ inline __reduce_Sum(container,fmap,got_if)
 	__internal_run_metalist(container,fmap,fcallback)
 	return ret
 
+inline __reduce_First(container,fmap,got_if)
+	T=__uninit()
+	ret=__zero(T)
+	fcallback=__inline_loop_body(val_i){
+		T=typeof(val_i)
+		ret=val_i
+		break
+	}
+	__internal_run_metalist(container,fmap,fcallback)
+	return ret
+
 //////////////////////////////////////////////
 class Map(T0,T1)
 	struct KVPair
