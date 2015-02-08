@@ -1,6 +1,7 @@
 var UI=require("gui2d/ui");
 var W=require("gui2d/widgets");
 require("res/lib/boxdoc");
+var Language=require("res/lib/langdef");
 
 function parent(){return UI.context_parent;}
 
@@ -28,6 +29,13 @@ UI.End();\n\
 ";
 var item_0={id:"$0",x:10,y:10,w:400,h:300,w_min:50,h_min:50,OnChange:function(attrs){item_0.x=attrs.x;item_0.y=attrs.y;item_0.w=attrs.w;item_0.h=attrs.h}};
 var item_1={id:"$1",x:20,y:20,w:200,h:200,w_min:50,h_min:50,OnChange:function(attrs){item_1.x=attrs.x;item_1.y=attrs.y;item_1.w=attrs.w;item_1.h=attrs.h}};
+var g_language_C=Language.Define(function(lang){
+	var bid_comment=lang.ColoredDelimiter("key","/*","*/","comment");
+	var bid_string=lang.ColoredDelimiter("key",'"','"',"string");
+	var bid_string2=lang.ColoredDelimiter("key","'","'","string");
+	!?
+},function(lang){
+})
 //todo
 
 UI.Application=function(id,attrs){
@@ -51,6 +59,8 @@ UI.Application=function(id,attrs){
 				tab_width:4,
 				text:g_initial_code,//todo
 				anchor:ed_rect,anchor_align:"center",anchor_valign:"center",
+				state_handlers:["renderer_programmer","colorer_programmer"],
+				language:g_language_C,
 				x:0,y:0,w:ed_rect.w-8,h:ed_rect.h-8,
 			});
 			//this part is effectively a GLwidget

@@ -10,12 +10,6 @@ import System.Algorithm.*
 import System.Math.*
 import System.Console.*
 
-module detail{
-struct TRenderingInfo
-	//double2 bb
-	long2 bb
-	iptr seek_ret
-
 auto double2fixed(double a)
 	return i64(a*64.0)
 
@@ -27,6 +21,21 @@ auto fixed2double(i64 a)
 
 auto fixed2float(i64 a)
 	return float(a)*(1.0f/64.0f)
+
+auto GetStringWidth(TFont m_font,string s)
+	w_overlay=0.
+	foreach ch,I in Utf8Chars(s)
+		w_overlay+=g_renderer.GetCharacterAdvance(m_font,ch)
+	return w_overlay
+
+inline isCJK(int ch)
+	return ch>=0x2E80&&ch<0xA640||ch>=0xAC00&&ch<0xD7FF||ch>=0xF900&&ch<0xFAFF||ch>=0xFE30&&ch<0xFE4F||ch>=0x20000
+
+module detail{
+struct TRenderingInfo
+	//double2 bb
+	long2 bb
+	iptr seek_ret
 
 ///////////////////////////////
 class ITextStateHandler
@@ -46,7 +55,7 @@ class ITextStateHandler
 	function(i64[] a,string s_context,string s):u8[] ComputeCharColorID
 	//For rendering states, we need a layouter
 	function(JSObject obj) SetTextStyle
-	function(i64[] a,i64[] pp,string s, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling) RenderText
+	function(i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling) RenderText
 	function(i64[] a,i64[] pp,string s,iptr ofs):i64 GetCharacterHeightAt
 	function():TFont GetDefaultFont
 	function(i64 x,i64 y,JSObject obj):i64 SetCaretOverlay
@@ -166,15 +175,6 @@ auto MakeCharSet(string e)
 //	ret=__double_as_longlong(double(a))
 //	if ret<<1:ret-=(1LL<<32)^(ret>>63)
 //	return __longlong_as_double(ret)
-
-auto GetStringWidth(TFont m_font,string s)
-	w_overlay=0.
-	foreach ch,I in Utf8Chars(s)
-		w_overlay+=g_renderer.GetCharacterAdvance(m_font,ch)
-	return w_overlay
-
-inline isCJK(int ch)
-	return ch>=0x2E80&&ch<0xA640||ch>=0xAC00&&ch<0xD7FF||ch>=0xF900&&ch<0xFAFF||ch>=0xFE30&&ch<0xFE4F||ch>=0x20000
 
 g_ascii_wordchars=MakeCharSet("0-9A-Za-z_")
 auto isWordChar(int ch)
@@ -420,7 +420,7 @@ class CLayouter_baseline
 					y+=hc
 		return TRenderingInfo(){bb:long2(x,y),seek_ret:s.n}
 	}
-	RenderText=function(i64[] a,i64[] pp,string s, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling){
+	RenderText=function(i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling){
 		_RenderText(MODE_RENDER,a,pp,s,s.n,scroll_x,scroll_y,screen_x,screen_y,scaling)
 	}
 	GetCharacterHeightAt=function(i64[] a,i64[] pp,string s,iptr ofs){
@@ -946,7 +946,7 @@ class CEditableText
 	//////////
 	m_caret_locator=CLocator.NULL
 	m_IME_overlay=JSObject.NULL
-	m_caret_offset=0LL
+	m_caret_offset=0.
 	//////////
 	//m_ascii_wordchars=uint4()
 	inline AddStateHandler(a)
@@ -1529,6 +1529,9 @@ class CEditableText
 		wf=fixed2float(w)
 		hf=fixed2float(h)
 		g_renderer.PushCliprect(scr_x,scr_y,wf*scale,hf*scale)
+		hid_colorer=m_handler_registration["colorer"].or(-1)
+		if hid_colorer>=0:
+			handler_colorer=m_handlers[hid_colorer]
 		hid=m_handler_registration["renderer"].as(int)
 		handler=m_handlers[hid]
 		wnd_ccnt0=SeekXY(x,y)
@@ -1587,27 +1590,42 @@ class CEditableText
 		//////////////////////////////
 		//really draw the blocks
 		acc=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
-		auto dfsRender(CSLNode nd,i64 ccnt0,i64 ccnt1)
+		if hid_colorer>=0:
+			acc_colorer=new i64[m_state_ofs[hid_colorer+1]-m_state_ofs[hid_colorer]]
+		auto dfsRender(CSLNode nd,i64 ccnt_base0)
+			ccnt_base=ccnt_base0
 			if nd.s:
 				rendering_started=1
 				n0=m_state_ofs.back()
 				ofspp=nd.a[n0+hid]
 				ofspp2=(hid==m_handlers.n-1?i64(nd.a.n):nd.a[n0+hid+1])
-				handler.RenderText(acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s, x,y,scr_x,scr_y,scale)
+				if hid_colorer>=0:
+					if handler_colorer.contextSize:
+						context_size=handler_colorer.contextSize()
+						s_context=GetText(max(ccnt_base-i64(context_size),0LL),i64(context_size))
+						if s_context.n<context_size:
+							s_context=(new char[context_size-s_context.n])+s_context
+					else
+						s_context=string.NULL
+					color_ids=handler_colorer.ComputeCharColorID(acc_colorer,s_context,nd.s)
+				else
+					color_ids=u8[].NULL
+				handler.RenderText(acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s, color_ids, x,y,scr_x,scr_y,scale)
 				handler.Add(acc,nd.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
 			else
-				ccnt_base=0LL
 				for(pc=nd.pchild;pc;pc=pc.pnext)
-					p0=max(ccnt0-ccnt_base,0LL)
-					p1=min(ccnt1-ccnt_base,pc.ccnt)
+					p0=max(wnd_ccnt0-ccnt_base,0LL)
+					p1=min(wnd_ccnt1-ccnt_base,pc.ccnt)
 					if p1>p0:
-						dfsRender(pc,p0,p1)
+						dfsRender(pc,ccnt_base)
 					else if !rendering_started:
 						handler.Add(acc,pc.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
+						if hid_colorer>=0:
+							handler_colorer.Add(acc_colorer,pc.a[m_state_ofs[hid_colorer]:m_state_ofs[hid_colorer+1]-1])
 					ccnt_base+=pc.ccnt
-		dfsRender(m_skiplist,wnd_ccnt0,wnd_ccnt1)
+		dfsRender(m_skiplist,0LL)
 		g_renderer.PopCliprect()
-		m_caret_offset=handler.GetCaretOffset()
+		m_caret_offset=fixed2double(handler.GetCaretOffset())
 	/////////////////////////////////////////////////
 	//just record classes and ccnts - restoring ccnt for discarded locators is OK
 	auto CreateLocator(i64 ccnt,int side)
@@ -1994,3 +2012,5 @@ registerStateHandler("renderer_baseline",CLayouter_baseline)
 }
 
 registerStateHandler=TextBox.detail.registerStateHandler
+isWordChar=TextBox.detail.isWordChar
+Utf8Chars=TextBox.detail.Utf8Chars

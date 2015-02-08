@@ -1,10 +1,10 @@
-function LanguageDefinition(){
+var LanguageDefinition=function(){
 	this.m_existing_tokens={};
 	this.m_big_chars=[];
 	this.m_bracket_types=[];
 	this.m_entry_states=[];
 	this.m_coloring_rules=[];
-}
+};
 var REAL_TYPE_MOV=0;
 var REAL_TYPE_XOR=1;
 var REAL_TYPE_ADD=2;
@@ -47,8 +47,14 @@ LanguageDefinition.prototype={
 		}
 		this.m_coloring_rules.push({bid:bid,color_name:color_name});
 	},
+	ColoredDelimiter:function(type,stok0,stok1,color_name){
+		var bid=this.DefineDelimiter(type,stok0,stok1)
+		this.AddColorRule(bid,color_name);
+		return bid;
+	},
 	/////////////////
 	isInside:function(bid){
+		if(!this.m_bracket_types[bid].is_key){throw "isInside only works on key brackets";}
 		return m_inside_mask&(1<<bid);
 	},
 	Enable:function(bid){
@@ -112,3 +118,11 @@ LanguageDefinition.prototype={
 		}
 	},
 };
+
+exports.Define=function(frules,fenabler){
+	var ret=new LanguageDefinition();
+	frules(ret);
+	ret.Finalize(fenabler)
+	return ret;
+};
+

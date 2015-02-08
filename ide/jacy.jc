@@ -1,4 +1,5 @@
 import "text-box.jc"
+import "code-editor.jc"
 import "uisandbox.jc"
 import Gui2D.*
 import Javascript.*

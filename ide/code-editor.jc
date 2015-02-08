@@ -1,4 +1,6 @@
+import System.Console.*
 import Gui2D.detail.*
+import Javascript.*
 import TextBox.*
 
 //coulddo: indentation detection
@@ -47,236 +49,265 @@ class CLanguageDescription
 	TColorRule[] m_coloring_rules
 
 class CLayouter_programmer
-	MODE_BB=0
-	MODE_SEEK=1
-	MODE_RENDER=2
+	FLAG_HAS_TAB=1
+	FLAG_HAS_ENTER=2
 	/////////
-	m_wrap_width=0.f
+	m_wrap_width_in_fp=0LL
+	m_tab_width_in_fp=0LL
 	m_tab_width=4
+	m_wrap_width=0.f
 	m_font=TFont()
+	m_bgcolor_selection=0xff800000
+	m_color_overlay=0xff000000
 	//////////////
 	JSObject m_style
 	CLanguageDescription m_lang
 	int[] m_cached_colors
 	//todo: easy color change...
 	/////////////////
+	charWidth=inline(ch){
+		return float2fixed(g_renderer.GetCharacterAdvance(m_font,int(ch)))
+	}
+	charHeight=inline(){
+		return float2fixed(g_renderer.GetCharacterHeight(m_font))
+	}
+	/////////////////
 	//this thing isn't line-only
 	name=function(){return "renderer"}
-	stateSize=function(){return 2}
-	//do context there
+	stateSize=function(){return 4}
 	/////////////////
-	//when the wrap width changes, we need to recompute node-level dx dy, but in-node dx dy is just fine
-	//and the key point is: editing is no longer a line-level update
-	//it's similar to the tab problem
-	//pre-tab width, has-tabbed-ness, post-tab width
-	//as long as it's seekable, it's OK
-	//dual tab + enter: integer multiply
-	//pre-tab width, has-tabbed-ness, tab-enter width, has-enter-ness, post-enter width
-	//make wrapping mandatory - default to 2048 chars or something
-	//measure a length as the double in-line length plus i64 lines? which is only needed in the post-enter part
-	//double -> fixed point
-	//2048 chars * 64 fixed point * 32 pixel fount... still fits in 64-bit, supports up to 2^42 lines
-	/////////////////
-	//pre-tab width, has-tabbed-ness, tab-enter width, has-enter-ness, post-enter line count, post-enter width
-	!?
-	AddString=function(i64[] a,i64[] line_breaks,string s_context,string s,iptr ofs){
-		bb=_RenderText(MODE_BB,a,line_breaks,s,ofs, 0.,0.,0.f).bb
-		a[0]=__double_as_longlong(bb.x)
-		a[1]=__double_as_longlong(bb.y)
+	//final format: pre-tab width, has-tabbed-ness, tab-enter width, has-enter-ness, post-enter width
+	//do not use a render-central design
+	AddString=function(i64[] a,i64[] unused,string s_context,string s,iptr ofs){
+		w_pre_tab=0LL
+		w_tab_enter=0LL
+		w_post_enter=0LL
+		flags=0
+		foreach ch in Utf8Chars(s)
+			if ch=='\t':
+				if !(flags&FLAG_HAS_ENTER):
+					if !(flags&FLAG_HAS_TAB):
+						flags|=FLAG_HAS_TAB
+					else
+						w_tab_enter=(w_tab_enter/m_tab_width_in_fp+1LL)*m_tab_width_in_fp
+				else
+					w_post_enter=(w_post_enter/m_tab_width_in_fp+1LL)*m_tab_width_in_fp
+			else if ch=='\n':
+				if !(flags&FLAG_HAS_ENTER):
+					flags|=FLAG_HAS_ENTER
+				else
+					w_post_enter=(w_post_enter/m_wrap_width_in_fp+1LL)*m_wrap_width_in_fp
+			else if ch!='\r':
+				dx=charWidth(ch)
+				if !(flags&FLAG_HAS_TAB):
+					w_pre_tab+=dx
+				else if !(flags&FLAG_HAS_ENTER):
+					w_tab_enter+=dx
+				else
+					w_post_enter+=dx
+		a[0]=w_pre_tab
+		a[1]=w_tab_enter
+		a[2]=w_post_enter
+		a[3]=i64(flags)
 	}
 	Add=function(i64[] a,i64[] b){
-		bb=TextBox.detail.combineEditorOffset(double2(__longlong_as_double(a[0]),__longlong_as_double(a[1])),double2(__longlong_as_double(b[0]),__longlong_as_double(b[1])))
-		a[0]=__double_as_longlong(bb.x)
-		a[1]=__double_as_longlong(bb.y)
+		a_w_pre_tab=a[0]
+		a_w_tab_enter=a[1]
+		a_w_post_enter=a[2]
+		a_flags=int(a[3])
+		b_w_pre_tab=b[0]
+		b_w_tab_enter=b[1]
+		b_w_post_enter=b[2]
+		b_flags=int(b[3])
+		if a_flags&FLAG_HAS_ENTER:
+			//a_w_post_enter
+			a_w_post_enter+=b_w_pre_tab
+			if b_flags&FLAG_HAS_TAB:
+				a_w_post_enter=(a_w_post_enter/m_tab_width_in_fp+1LL)*m_tab_width_in_fp
+			a_w_post_enter+=b_w_tab_enter
+			if b_flags&FLAG_HAS_ENTER:
+				a_w_post_enter=(a_w_post_enter/m_wrap_width_in_fp+1LL)*m_wrap_width_in_fp
+			a_w_post_enter+=b_w_post_enter
+		else if a_flags&FLAG_HAS_TAB:
+			a_w_tab_enter+=b_w_pre_tab
+			if b_flags&FLAG_HAS_TAB:
+				a_w_tab_enter=(a_w_tab_enter/m_tab_width_in_fp+1LL)*m_tab_width_in_fp
+			a_w_post_enter+=b_w_tab_enter
+			if b_flags&FLAG_HAS_ENTER:
+				a_flags|=FLAG_HAS_ENTER
+				a_w_post_enter=b_w_post_enter
+		else
+			a_w_pre_tab+=b_w_pre_tab
+			a_flags=b_flags
+			a_w_tab_enter=b_w_tab_enter
+			a_w_post_enter=b_w_post_enter
+		a[0]=a_w_pre_tab
+		a[1]=a_w_tab_enter
+		a[2]=a_w_post_enter
+		a[3]=i64(a_flags)
+	}
+	GetFlatX=inline(i64[] a){
+		w_pre_tab=a[0]
+		w_tab_enter=a[1]
+		w_post_enter=a[2]
+		flags=int(a[3])
+		x=w_pre_tab
+		if flags&FLAG_HAS_TAB:
+			x=(x/m_tab_width_in_fp+1LL)*m_tab_width_in_fp
+		x+=w_tab_enter
+		if flags&FLAG_HAS_ENTER:
+			x=(x/m_wrap_width_in_fp+1LL)*m_wrap_width_in_fp
+		x+=w_post_enter
+		return x
+	}
+	XYToX=inline(i64 x,i64 y){
+		hc=charHeight()
+		return x+(y/hc)*m_wrap_width_in_fp
 	}
 	/////////////////
 	//compare known-positive doubles as ints
 	Compare=function(i64[] a,i64[] b){
-		ret=__C_compare(a[1],b[1])
-		if ret==0:ret=__C_compare(a[0],b[0])
-		return ret
+		return __C_compare(GetFlatX(a),XYToX(b[0],b[1]))
 	}
-	SeekInBlock=function(i64[] a,i64[] line_breaks,string s,i64[] b){
-		return iptr(_RenderText(MODE_SEEK,a,line_breaks,s,s.n, __longlong_as_double(b[0]),__longlong_as_double(b[1]),0.f).seek_ret)
+	SeekInBlock=function(i64[] a,i64[] unused,string s,i64[] b){
+		x_goal=XYToX(b[0],b[1])
+		x=GetFlatX(a)
+		foreach ch,I in Utf8Chars(s)
+			if x>=x_goal:return I
+			if ch=='\t':
+				x=(x/m_tab_width_in_fp+1LL)*m_tab_width_in_fp
+			else if ch=='\n':
+				x=(x/m_wrap_width_in_fp+1LL)*m_wrap_width_in_fp
+			else if ch!='\r':
+				dx=charWidth(ch)
+				x+=dx
+		return s.n
 	}
 	/////////////////
-	double3 m_caret_overlay
+	long2 m_caret_overlay
 	JSObject m_overlay_obj
-	double m_caret_offset
+	i64 m_caret_offset
 	SetTextStyle=function(JSObject obj){
+		m_lang=obj["language"].as(CLanguageDescription)
 		m_font=obj["font"].as(TFont)
 		m_font.h/=g_renderer.m_pixels_per_unit
-		m_color=int(obj["color"].or(u32(m_color)))
-		m_bgcolor_selection=int(obj["bgcolor_selection"].or(u32(m_bgcolor_selection)))
 		m_tab_width=obj["tab_width"].or(8)
 		m_wrap_width=obj["wrap_width"].or(0.f)
-		m_hyphenator=obj["hyphenator"].or(g_default_hyphenator)
+		m_tab_width_in_fp=i64(m_tab_width)*charWidth(int(' '))
+		m_wrap_width_in_fp=(float2fixed(m_wrap_width)/m_tab_width_in_fp)*m_tab_width_in_fp
+		////////////
+		m_cached_colors=new int[m_lang.m_coloring_rules.n+1]
+		m_cached_colors[0]=obj["color"].or(0xff000000)
+		foreach crule,I in m_lang.m_coloring_rules
+			m_cached_colors[I+1]=obj[crule.color_name].or(0xff000000)
+		m_bgcolor_selection=int(obj["bgcolor_selection"].or(u32(m_bgcolor_selection)))
+		m_color_overlay=int(obj["color_overlay"].or(u32(m_color_overlay)))
 	}
-	SetCaretOverlay=function(double2 xy,JSObject obj){
+	SetCaretOverlay=function(i64 x,i64 y,JSObject obj){
 		m_overlay_obj=obj
-		w_overlay=0.
+		w_overlayd=0.
 		if obj:
 			s=obj["text"].as(string)
 			if s:
-				w_overlay=GetStringWidth(m_font,s)
-		m_caret_overlay=double3(xy.x,xy.y,w_overlay)
-		m_caret_offset=0.
+				w_overlayd=GetStringWidth(m_font,s)
+		w_overlay=double2fixed(w_overlayd)
+		m_caret_overlay=long2(XYToX(x,y),w_overlay)
+		m_caret_offset=0LL
 		return w_overlay
 	}
 	GetCaretOffset=function(){
-		//Writeln(m_caret_overlay,' ',m_caret_offset)
-		//if m_overlay_obj:
-		//	Writeln(m_overlay_obj["text"].as(string))
 		return m_caret_offset
 	}
-	//todo: do keywords here - and spellcheck and ...
-	_RenderText=function(int mode,i64[] a,i64[] line_breaks,string s,iptr ofs, double dx,double dy,float scaling){
-		if mode==MODE_RENDER:
-			//Writeln('before fnt_scaled ',m_font.h,' ',scaling)
-			fnt_scaled=m_font
-			fnt_scaled.h*=scaling
-			//smart emboldening for SRGB
-			if g_renderer.m_srgb_supported:
-				fnt_scaled.embolden+=int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*3000.f/fnt_scaled.h)
-			//Writeln('after fnt_scaled ',m_font.h)
-			scalingd=double(scaling)
-		w_tab=double(m_tab_width)*double(g_renderer.GetCharacterAdvance(m_font,int(' ')))
-		hc=g_renderer.GetCharacterHeight(m_font)
-		x=__longlong_as_double(a[0])
-		y=__longlong_as_double(a[1])
-		if mode==MODE_RENDER:
-			if epsEqual(y,m_caret_overlay.y)&&x>m_caret_overlay.x:
-				x+=m_caret_overlay.z
-		//Writeln('>>> ',dx,' ',dy)
-		is_wrapping=(m_wrap_width>0.f)
-		w_space=double(g_renderer.GetCharacterAdvance(m_font,int(' ')))
-		w_hyphen=double(g_renderer.GetCharacterAdvance(m_font,int('-')))
-		for i=0:line_breaks.n-2
-			got_newline=0
-			//justified wrapping
-			space_padding=0.
-			has_hyphen=0
-			if is_wrapping&&i<line_breaks.n-1:
-				nspaces=0
-				n_trailing_space=0
-				w_total=0.
-				if line_breaks[i+1]<0LL:
-					//we have a hyphen
-					has_hyphen=1
-					w_total+=w_hyphen
-				for ch,I in Utf8Chars(s[iptr(line_breaks[i]&0x7fffffffffffffffLL):iptr((line_breaks[i+1]&0x7fffffffffffffffLL)-1)])
-					if ch=='\r'||ch=='\n':
-						//nothing
-						if ch=='\n':
-							got_newline=1
-						continue
-					else if ch==' '||ch=='\t':
-						nspaces++
-						n_trailing_space++
-						w_total+=w_space
-					else
-						n_trailing_space=0
-						w_total+=double(g_renderer.GetCharacterAdvance(m_font,ch))
-				nspaces-=n_trailing_space
-				remaining_space=double(m_wrap_width)-(w_total-w_space*double(n_trailing_space))
-				//with paragraph consistency, got_newline should hold for i==line_breaks.n-2 unless we're at eof
-				if nspaces>0&&remaining_space>0.f&&!got_newline&&i<line_breaks.n-2:
-					space_padding=remaining_space/float(nspaces)
-				//Writeln(space_padding,' ',nspaces,' ',space_padding)
-			got_newline=0
-			///////////////
-			for ch,I in Utf8Chars(s[iptr(line_breaks[i]&0x7fffffffffffffffLL):iptr(min(line_breaks[i+1]&0x7fffffffffffffffLL,ofs))-1])
-				if mode==MODE_SEEK:
-					if y>epsUp(dy)||dy>=epsDown(y)&&dy<epsDown(y+hc)&&x>=dx:
-						return TRenderingInfo(){bb:double2(x,y),seek_ret:iptr(line_breaks[i]+I)}
-					//mm.push(TMouseMap(){pos:double2(x,y),ccnt:line_breaks[i]+I})
-				if mode==MODE_RENDER:
-					if epsEqual(x,m_caret_overlay.x)&&epsEqual(y,m_caret_overlay.y):
-						if m_overlay_obj["type"].as(string)=="IME":
-							s_overlay=m_overlay_obj["text"].as(string)
-							if s_overlay:
-								cmap=new iptr[]
-								foreach chj,J in Utf8Chars(s_overlay)
-									cmap.push(J)
-								cmap.push(s_overlay.n)
-								overlay_sel0=m_overlay_obj["start"].as(iptr)
-								overlay_sel1=overlay_sel0+m_overlay_obj["length"].as(iptr)
-								overlay_sel0=min(overlay_sel0,cmap.n-1)
-								overlay_sel1=min(overlay_sel1,cmap.n-1)
-								if uptr(overlay_sel0)<uptr(cmap.n)&&uptr(overlay_sel1)<uptr(cmap.n):
-									x_sel0=GetStringWidth(m_font,s_overlay[:cmap[overlay_sel0]-1])
-									x_sel1=GetStringWidth(m_font,s_overlay[:cmap[overlay_sel1]-1])
-									m_caret_offset=x_sel1
-									if x_sel0>x_sel1:
-										(x_sel0,x_sel1)=(x_sel1,x_sel0)
-									//selection - pre-draw the highlight
-									if x_sel0<x_sel1:
-										g_renderer.DrawBitmap(0, float((x+x_sel0)*scalingd+dx),float(y*scalingd+dy),float((x_sel1-x_sel0)*scalingd),hc, m_bgcolor_selection)
-								else
-									assert(0)
-								xo=x
-								foreach chj,J in Utf8Chars(s_overlay)
-									dx_j=double(g_renderer.GetCharacterAdvance(m_font,chj))
-									g_renderer.DrawChar(fnt_scaled, float(xo*scalingd+dx),float(y*scalingd+dy),m_color, chj)
-									xo+=dx_j
-							else
-								assert(0)
-							//draw the underline
-							y_underline=float(y*scalingd+dy)+fnt_scaled.h*(fnt_scaled.pfnt.y_baseline_per_height+0.02f)
-							g_renderer.DrawBitmap(0, float(x*scalingd+dx),y_underline,float(m_caret_overlay.z*scalingd),max(fnt_scaled.h*0.05f,1.f), m_color)
+	RenderText=function(i64[] a,i64[] unused,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling){
+		fnt_scaled=m_font
+		fnt_scaled.h*=scaling
+		//smart emboldening for SRGB
+		//coulddo: per-color emboldening
+		if g_renderer.m_srgb_supported:
+			color_default=m_cached_colors[0]
+			fnt_scaled.embolden+=int((1.f-float(19589*(color_default&0xff)+38470*((color_default>>8)&0xff)+7477*((color_default>>16)&0xff))/float(0xff0000))*3000.f/fnt_scaled.h)
+		hc=charHeight()
+		x=GetFlatX(a)
+		if x>m_caret_overlay.x:
+			x+=m_caret_overlay.y
+		tab_width=m_tab_width_in_fp
+		wrap_width=m_wrap_width_in_fp
+		inline projectXY(i64 x0)
+			auto y=x0/wrap_width
+			auto x=x0-y*wrap_width
+			y*=hc
+			return float2(fixed2float(x-scroll_x)*scaling+screen_x,fixed2float(y-scroll_y)*scaling+screen_y)
+		for ch,I in Utf8Chars(s)
+			if x==m_caret_overlay.x:
+				s_overlay=m_overlay_obj["text"].as(string)
+				prj_x=projectXY(x)
+				if s_overlay:
+					overlay_sel0=m_overlay_obj["start"].or(0L)
+					overlay_sel1=overlay_sel0+m_overlay_obj["length"].or(0L)
+					if m_overlay_obj["type"].as(string)=="IME":
+						cmap=new iptr[]
+						foreach chj,J in Utf8Chars(s_overlay)
+							cmap.push(J)
+						cmap.push(s_overlay.n)
+						overlay_sel0=min(overlay_sel0,cmap.n-1)
+						overlay_sel1=min(overlay_sel1,cmap.n-1)
+						if uptr(overlay_sel0)<uptr(cmap.n)&&uptr(overlay_sel1)<uptr(cmap.n):
+							x_sel0=GetStringWidth(m_font,s_overlay[:cmap[overlay_sel0]-1])
+							x_sel1=GetStringWidth(m_font,s_overlay[:cmap[overlay_sel1]-1])
+							m_caret_offset=double2fixed(x_sel1)
+							if x_sel0>x_sel1:
+								(x_sel0,x_sel1)=(x_sel1,x_sel0)
+							//selection - pre-draw the highlight
+							if x_sel0<x_sel1:
+								g_renderer.DrawBitmap(0, prj_x.x+x_sel0,prj_x.y,float((x_sel1-x_sel0)*scaling),fixed2float(hc), m_bgcolor_selection)
 						else
-							assert(0)
-						x+=m_caret_overlay.z
-				if ch=='\r'||ch=='\n':
-					//nothing
-					if ch=='\n':
-						got_newline=1
-						if !is_wrapping:
-							x=0.
-							y+=hc
-					continue
-				else if ch==' ':
-					x+=w_space+space_padding
-				else if ch=='\t':
-					if is_wrapping:
-						x+=w_space+space_padding
-					else
-						x=(floor(x/w_tab)+1.0)*w_tab
+							x_sel0=0.
+							x_sel1=0.
+					xo=x
+					foreach chj,J in Utf8Chars(s_overlay)
+						dx_j=charWidth(chj)
+						prj_xo=projectXY(xo)
+						g_renderer.DrawChar(fnt_scaled, prj_xo.x,prj_xo.y,m_color_overlay, chj)
+						xo+=dx_j
 				else
-					dx_i=double(g_renderer.GetCharacterAdvance(m_font,ch))
-					if mode==MODE_RENDER:
-						//pt.push(TCharJob(){pos:double2(x,y),ch:ch,color:m_color})
-						//Writeln(x,' ',y,' ',m_font.h,' ',fnt_scaled.h,' ',scalingd,' ',ch,' ',m_color)
-						g_renderer.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),m_color, ch)
-					x+=dx_i
-			if (line_breaks[i+1]&0x7fffffffffffffffLL)>ofs:break
-			if is_wrapping:
-				if mode==MODE_RENDER&&has_hyphen:
-					g_renderer.DrawChar(fnt_scaled, float(x*scalingd+dx),float(y*scalingd+dy),m_color, int('-'))
-				if got_newline||i<line_breaks.n-2:
-					x=0.
-					y+=hc
-		return TRenderingInfo(){bb:double2(x,y),seek_ret:s.n}
-	}
-	RenderText=function(i64[] a,i64[] pp,string s, double dx,double dy,float scaling){
-		_RenderText(MODE_RENDER,a,pp,s,s.n,dx,dy,scaling)
+					assert(0)
+				if m_overlay_obj["type"].as(string)=="IME":
+					//draw the underline
+					y_underline=prj_x.y+fnt_scaled.h*(fnt_scaled.pfnt.y_baseline_per_height+0.02f)
+					g_renderer.DrawBitmap(0, prj_x.x,y_underline,fixed2float(m_caret_overlay.y)*scaling,max(fnt_scaled.h*0.05f,1.f), m_color_overlay)
+				x+=m_caret_overlay.y
+			if ch=='\n':
+				x=(x/wrap_width+1LL)*wrap_width
+			else if ch=='\r':
+				//nothing
+				continue
+			else if ch==' ':
+				x+=charWidth(ch)
+			else if ch=='\t':
+				x=(x/tab_width+1LL)*tab_width
+			else
+				dx_i=charWidth(ch)
+				prj_x=projectXY(x)
+				g_renderer.DrawChar(fnt_scaled, prj_x.x,prj_x.y,m_cached_colors[color_ids?int(color_ids[I]):0], ch)
+				x+=dx_i
 	}
 	GetCharacterHeightAt=function(i64[] a,i64[] pp,string s,iptr ofs){
-		return g_renderer.GetCharacterHeight(m_font)
+		return charHeight()
 	}
 	GetDefaultFont=function(){
 		return m_font
 	}
 	//////////////////////////////
-	__JS_prototype=function(JSObject proto){
-		proto.ExportProperty(this,"m_color")
-	}
+	__JS_prototype=function(JSObject proto){}
 
 class CColorer_programmer
 	CLanguageDescription m_lang
 	name=function(){return "colorer"}
 	stateSize=function(){return m_lang.m_total_state_size}
 	contextSize=function(){return m_lang.m_context_size}
+	SetTextStyle=function(JSObject obj){
+		m_lang=obj["language"].as(CLanguageDescription)
+	}
 	//state format: ~and_mask|xor_mask, global bracket delta
 	inline EnumTokens(string s_context,string s)
 		//do the dfa and get all tokens
@@ -294,7 +325,7 @@ class CColorer_programmer
 					fbody(ch,int(I))
 			}}
 			st=0
-			foreach ch,I in GetComboString(s_context,s)
+			foreach ch,I in container
 				chi=int(char_map[int(u8(ch))])
 				st=int(dfa[st*n_char_types+chi])
 				if st<0:
@@ -327,6 +358,7 @@ class CColorer_programmer
 			a[pa+1]+=i64(inc_value)
 	}
 	Add=function(i64[] a,i64[] b){
+		ld=m_lang
 		m_all_key_states=ld.m_all_key_states
 		m_id_from_key_state=ld.m_id_from_key_state
 		key_mask=(1<<ld.m_n_key_states)-1
@@ -348,11 +380,12 @@ class CColorer_programmer
 	ComputeCharColorID=function(i64[] a,string s_context,string s){
 		ld=m_lang
 		crules=ld.m_coloring_rules
+		bdfa=ld.m_bracket_dfa
 		//////////////
 		key_mask=(1<<ld.m_n_key_states)-1
-		and_maska=~int(a[pa+0]>>32)
-		xor_maska=int(a[pa+0])
-		bst=m_id_from_key_state[xor_maska&key_mask]*ld.m_n_tokens
+		and_maska=~int(a[0]>>32)
+		xor_maska=int(a[0])
+		bst=ld.m_id_from_key_state[xor_maska&key_mask]*ld.m_n_tokens
 		mask=xor_maska
 		mask0=0
 		struct TColoringEvent
@@ -471,10 +504,10 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 			foreach stpacked in cur_states
 				pid=(stpacked&0xffff)
 				pos=(stpacked>>16)
-				s_pid=all_patterns[pid]
+				s_pid=native_bigchars[pid]
 				ch_std=int(char_map[int(u8(s_pid[pos]))])
 				pos++
-				if !s_pid[pos]:
+				if pos>=s_pid.n:
 					//add action
 					tran[ch_std].push(~pid)
 				else
@@ -580,6 +613,7 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 		ret.m_bracket_dfa=bdfa
 		/////////////
 		//the coloring rules
+		m_coloring_rules=obj["m_coloring_rules"].as(JSObject)
 		ret.m_coloring_rules=new TColorRule[]
 		for i=0:m_coloring_rules.length()-1
 			obj_i=m_coloring_rules[i].as(JSObject)
