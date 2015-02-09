@@ -84,10 +84,65 @@ var UpdateWorkingCode=function(){
 	var code_box=UI.top.app.code_box;
 	var ed=code_box.ed;
 	var ccnt_sel=code_box.sel1.ccnt;
-	var range_0=code_box.FindOuterBracket(ccnt_sel,-1);
-	var range_1=code_box.FindOuterBracket(ccnt_sel,1);
-	print(ed.GetText(range_0,range_1-range_0))
-	//todo: reset global environment?
+	var range_0=code_box.FindBracket(0,ccnt_sel,-1);
+	var range_1=code_box.FindBracket(0,ccnt_sel,1);
+	var working_range=code_box.working_range;
+	if(!working_range){
+		working_range={};
+		code_box.working_range=working_range;
+	}
+	if(working_range.point0&&range_0==working_range.point0.ccnt&&range_1==working_range.point1.ccnt){
+		return;
+	}
+	if(!(range_0>=18&&ed.GetText(range_0-18,18)=='function(id,attrs)')){
+		//if it's not a valid control, leave it alone
+		return;
+	}
+	if(!working_range.point0){
+		working_range.point0=ed.CreateLocator(range_0,-1); working_range.point0.undo_tracked=1;
+		working_range.point1=ed.CreateLocator(range_1,1); working_range.point1.undo_tracked=1;
+	}
+	working_range.point0.ccnt=range_0;
+	working_range.point1.ccnt=range_1;
+	code_box.need_to_rerun=1;
+};
+
+var ParseCodeError=function(err){
+	//todo
+	print(err.stack)
+}
+
+//todo: maintain global environment separately
+var RerunUserCode=function(){
+	var code_box=UI.top.app.code_box;
+	var working_range=code_box.working_range;
+	if(!working_range||!working_range.point0){return 0;}
+	var range_0=working_range.point0.ccnt;
+	var range_1=working_range.point1.ccnt;
+	code_box.has_errors=0;
+	var ed=code_box.ed;
+	var s_code=ed.GetText(range_0,range_1-range_0);
+	try{
+		//todo: /*widget*/ hacks - for the current, search for bracket and parse
+		g_sandbox.eval(ed.GetText());
+		g_sandbox.eval("UI.Application=function(id,attrs){"+s_code+"};");
+	}catch(err){
+		ParseCodeError(err)
+		code_box.has_errors=1;
+	}
+	return 1;
+};
+
+var DrawUserFrame=function(){
+	var code_box=UI.top.app.code_box;
+	if(!code_box.has_errors){
+		try{
+			g_sandbox.eval("UI.DrawFrame();");
+		}catch(err){
+			ParseCodeError(err)
+			code_box.has_errors=1;
+		}
+	}
 };
 
 UI.Application=function(id,attrs){
@@ -106,7 +161,7 @@ UI.Application=function(id,attrs){
 				anchor:parent(),anchor_align:"right",anchor_valign:"center",
 				x:16,y:0,w:wnd.w*0.3,h:wnd.h-32,
 			});
-			var ed_box=W.Edit("code_box",{
+			var code_box=W.Edit("code_box",{
 				font:UI.Font("res/fonts/inconsolata.ttf",32),color:0xff000000,
 				tab_width:4,
 				text:g_initial_code,//todo
@@ -120,21 +175,28 @@ UI.Application=function(id,attrs){
 				OnSelectionChange:function(){
 					UpdateWorkingCode();
 				},
+				OnChange:function(){
+					code_box.need_to_rerun=1;
+				},
 				///////////////
 				x:0,y:0,w:ed_rect.w-8,h:ed_rect.h-8,
 			});
 			//this part is effectively a GLwidget
 			//todo: clipping
 			UI.GLWidget(function(){g_sandbox.DrawWindow(16,16);})
-			//todo: /*widget*/ hacks - for the current, search for bracket and parse
 			//for general evaling, just replace
 			//global styles
 			W.Group("controls",{'item_object':W.BoxDocumentItem,'items':[item_0,item_1]})
 		UI.End();
 		///////////////////
 		//this calls BeginPaint which is not reentrant... consider it as a separate window
-		var s_code=ed_box.ed.GetText();
+		//var s_code=ed_box.ed.GetText();
 		//g_sandbox.eval("UI.Application=function(id,attrs){"+s_code+"};UI.DrawFrame();");
+		if(code_box.need_to_rerun){
+			code_box.need_to_rerun=0;
+			RerunUserCode();
+		}
+		DrawUserFrame();
 	UI.End();
 };
 UI.Run()

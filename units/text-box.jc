@@ -1280,6 +1280,10 @@ class CEditableText
 				if ops[pops].s:delta+=ops[pops].s.n
 				delta+=ccnt0-ccnt1
 				pops++
+		while ploc<m_locators.n
+			loc=m_locators[ploc]
+			loc.ccnt+=delta
+			ploc++
 		//////////
 		bops=new TBlockOp[]
 		bop_current=TBlockOp()
