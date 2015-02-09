@@ -11,14 +11,22 @@ var REAL_TYPE_XOR=1;
 var REAL_TYPE_ADD=2;
 LanguageDefinition.prototype={
 	DefineToken:function(stoken){
+		if(typeof stoken!="string"){
+			//it's a set
+			var ret=[];
+			for(var i=0;i<stoken.length;i++){
+				ret[i]=this.DefineToken(stoken[i])[0];
+			}
+			return ret;
+		}
 		var n=this.m_existing_tokens[stoken];
-		if(n!=undefined){return n;}
+		if(n!=undefined){return [n];}
 		n=(this.m_big_chars.length);
 		this.m_big_chars.push(stoken)
 		if(n>=128){throw new Error("too many bigchars, 127 should have been enough")}
 		if(Duktape.__byte_length(stoken)>64){throw new Error("bigchar too long, 64 should have been enough")}
 		this.m_existing_tokens[stoken]=n
-		return n;
+		return [n];
 	},
 	DefineDelimiter:function(type,stok0,stok1){
 		var real_type;
@@ -27,7 +35,7 @@ LanguageDefinition.prototype={
 		if(type=="nested"){
 			real_type=REAL_TYPE_ADD;
 		}else{
-			if(tok0==tok1){
+			if(tok0.length==1&&tok1.length==1&&tok0[0]==tok1[0]){
 				real_type=REAL_TYPE_XOR;
 			}else{
 				real_type=REAL_TYPE_MOV;
@@ -37,7 +45,7 @@ LanguageDefinition.prototype={
 			}
 		}
 		var bid=this.m_bracket_types.length;
-		this.m_bracket_types.push({type:real_type,is_key:(type=="key"),bid:bid,tok0:tok0,tok1:tok1});
+		this.m_bracket_types.push({type:real_type,is_key:(type=="key")|0,bid:bid,tok0:tok0,tok1:tok1});
 		return bid;
 	},
 	AddColorRule:function(bid,color_name){
@@ -68,7 +76,7 @@ LanguageDefinition.prototype={
 	Finalize:function(fenabler){
 		var bras=this.m_bracket_types;
 		bras.sort(function(a,b){
-			return (a.is_key-b.is_key||a.type-b.type);
+			return (b.is_key-a.is_key||a.type-b.type);
 		})
 		var n_keys=bras.length;
 		for(var i=0;i<bras.length;i++){

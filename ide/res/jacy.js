@@ -35,6 +35,7 @@ var g_language_C=Language.Define(function(lang){
 	var bid_comment2=lang.ColoredDelimiter("key","//","\n","color_comment");
 	var bid_string=lang.ColoredDelimiter("key",'"','"',"color_string");
 	var bid_string2=lang.ColoredDelimiter("key","'","'","color_string");
+	var bid_bracket=lang.DefineDelimiter("nested",['(','[','{'],['}',']',')']);
 	lang.DefineToken("\\\\")
 	lang.DefineToken("\\'")
 	lang.DefineToken('\\"')

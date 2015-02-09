@@ -3,7 +3,8 @@ import Gui2D.detail.*
 import Javascript.*
 import TextBox.*
 
-//coulddo: indentation detection
+//todo: bracket seeking, word colorer, indentation handler, line / column handler
+
 /*
 or-ing tokens
 	<
@@ -16,7 +17,7 @@ DEFAULT_WRAP_WIDTH_IN_CHARS=2048LL
 
 struct TBracketType
 	int type
-	int tok0,tok1
+	int[] tok0,tok1
 
 //0+=0 for non-inc
 struct TBDFATransition
@@ -42,6 +43,7 @@ class CLanguageDescription
 	int m_context_size
 	int m_n_char_types
 	int m_n_key_states
+	u8[] m_token_lengths
 	int m_n_tokens
 	//the initial state is always 0
 	/////////
@@ -331,6 +333,7 @@ class CColorer_programmer
 			auto n_char_types=ld.m_n_char_types
 			auto char_map=ld.m_char_map
 			auto dfa=ld.m_bigchar_dfa
+			auto token_lengths=ld.m_token_lengths
 			container={'forEach':inline(fbody){
 				for i=0:sz_context-1
 					fbody(s_context[s_context.n-sz_context+i],~i)
@@ -342,7 +345,7 @@ class CColorer_programmer
 				if st<0:
 					if I>=0:
 						//Writeln('token: ',~st,' at ',I)
-						fbody_outer(~st,I)
+						fbody_outer(~st,I,token_lengths[~st])
 					st=0
 				chi=int(char_map[int(u8(ch))])
 				st=int(i16(dfa[st*n_char_types+chi]))
@@ -407,7 +410,7 @@ class CColorer_programmer
 			i8 rule_id
 			i8 direction
 		coloring_events=new TColoringEvent[]
-		foreach tok,I in EnumTokens(s_context,s)
+		foreach tok,I,lg_token in EnumTokens(s_context,s)
 			//ignore nest-only brackets
 			tran=bdfa[bst+tok]
 			//Writeln(I,' ',bst/ld.m_n_tokens,' ',tok,' ',tran,' ',mask)
@@ -422,7 +425,7 @@ class CColorer_programmer
 						evt=TColoringEvent(){rule_id:i8(i)}
 						if mask&mask_i:
 							//we're entering, backtrack
-							evt.ofs=I-crules[i].extend_before
+							evt.ofs=I-iptr(lg_token)
 							evt.direction=i8(1)
 						else
 							evt.ofs=I
@@ -469,18 +472,20 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 	JS_UI["CreateLanguageDefinition"]=function(JSContext JS){
 		//create from a LanguageDefinition object
 		obj=JS.Param(0).as(JSObject)
-		if !obj:return 0
+		if !obj:return JS.ReturnError("undefined language definition object")
 		ret=new CLanguageDescription
 		//bigchar part
 		m_big_chars=obj["m_big_chars"].as(JSObject)
-		if !m_big_chars:return 0
+		if !m_big_chars:return JS.ReturnError("undefined token list")
 		native_bigchars=new string[]
+		token_lengths=new u8[]
 		char_map=new u8[256]
 		context_size=0L
 		for i=0:m_big_chars.length()-1
 			s_bigchar_i=m_big_chars[i].or("")
-			if !s_bigchar_i.n:return JS.ReturnError("big chars cannot be empty")
+			if !s_bigchar_i.n:return JS.ReturnError("tokens cannot be empty")
 			native_bigchars.push(s_bigchar_i)
+			token_lengths.push(int(s_bigchar_i.n))
 			foreach ch in s_bigchar_i
 				char_map[int(u8(ch))]=1
 			context_size=max(context_size,s_bigchar_i.n)
@@ -562,19 +567,26 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 		/////////////
 		//the list of brackets
 		m_bracket_types=obj["m_bracket_types"].as(JSObject)
-		if !m_bracket_types:return 0
+		if !m_bracket_types:return JS.ReturnError("undefined bracket types")
 		n_key_brackets=0
 		brackets=new TBracketType[]
+		auto parseTokenSet(JSObject obj,string s_name)
+			auto obj_set=obj[s_name].as(JSObject)
+			auto n=obj_set.length()
+			auto ret_set=new int[n]
+			for j=0:n-1
+				ret_set[j]=obj_set[j].or(0)
+			return ret_set
 		for i=0:m_bracket_types.length()-1
 			obj_i=m_bracket_types[i].as(JSObject)
-			if !obj_i:return 0
+			if !obj_i:return JS.ReturnError("undefined bracket type")
 			type=obj_i["type"].or(REAL_TYPE_MOV)
 			is_key=obj_i["is_key"].or(0)
 			if is_key:
 				assert(n_key_brackets==i)
 				n_key_brackets=i+1
-			tok0=obj_i["tok0"].or(0)
-			tok1=obj_i["tok1"].or(0)
+			tok0=parseTokenSet(obj_i,"tok0")
+			tok1=parseTokenSet(obj_i,"tok1")
 			brackets.push(TBracketType(){type:type,tok0:tok0,tok1:tok1})
 		assert(n_key_brackets<=12)
 		/////////////
@@ -583,10 +595,10 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 		m_id_from_key_state=new int[1<<n_key_brackets]
 		m_all_key_states=new int[]
 		m_entry_states=obj["m_entry_states"].as(JSObject)
-		if !m_entry_states:return 0
+		if !m_entry_states:return JS.ReturnError("undefined entry states")
 		for i=0:m_entry_states.length()-1
 			obj_i=m_entry_states[i].as(JSObject)
-			if !obj_i:return 0
+			if !obj_i:return JS.ReturnError("undefined entry state")
 			inside_mask=obj_i["inside"].or(0)
 			m_enabled_from_inside[inside_mask]=obj_i["enabled"].or(0)
 			m_id_from_key_state[inside_mask]=i+1
@@ -612,17 +624,23 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 				mask_i=1<<i
 				if type==REAL_TYPE_MOV:
 					//m_and will be noted later
-					bdfa[st+tok0].m_and|=mask_i
-					bdfa[st+tok0].m_xor|=mask_i
-					bdfa[st+tok1].m_and|=mask_i
+					foreach tok in tok0
+						bdfa[st+tok].m_and|=mask_i
+						bdfa[st+tok].m_xor|=mask_i
+					foreach tok in tok1
+						bdfa[st+tok].m_and|=mask_i
 				else if type==REAL_TYPE_XOR:
-					bdfa[st+tok0].m_xor|=mask_i
-					bdfa[st+tok1].m_xor|=mask_i
+					foreach tok in tok0
+						bdfa[st+tok].m_xor|=mask_i
+					foreach tok in tok1
+						bdfa[st+tok].m_xor|=mask_i
 				else if type==REAL_TYPE_ADD:
-					assert(!bdfa[st+tok0].m_delta)
-					assert(!bdfa[st+tok1].m_delta)
-					bdfa[st+tok0].m_delta=i16(1)
-					bdfa[st+tok1].m_delta=i16(-1)
+					foreach tok in tok0
+						assert(!bdfa[st+tok].m_delta)
+						bdfa[st+tok].m_delta+=i16(1)
+					foreach tok in tok1
+						assert(!bdfa[st+tok].m_delta)
+						bdfa[st+tok].m_delta+=i16(-1)
 				else
 					assert(0)
 			for i=0:n_tokens-1
@@ -632,6 +650,7 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 				assert(m_id_from_key_state[key_state_i]>=0)
 		ret.m_id_from_key_state=m_id_from_key_state
 		ret.m_n_key_states=n_key_states
+		ret.m_token_lengths=token_lengths
 		ret.m_n_tokens=n_tokens
 		ret.m_bracket_dfa=bdfa
 		/////////////
@@ -640,12 +659,11 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 		ret.m_coloring_rules=new TColorRule[]
 		for i=0:m_coloring_rules.length()-1
 			obj_i=m_coloring_rules[i].as(JSObject)
-			if !obj_i:return 0
+			if !obj_i:return JS.ReturnError("undefined coloring rules")
 			bid=obj_i["bid"].or(0)
 			ret.m_coloring_rules.push(TColorRule(){
 				color_name:obj_i["color_name"].or(""),
-				bmask:1<<bid,
-				extend_before:int(native_bigchars[brackets[bid].tok0].n)})
+				bmask:1<<bid})
 		/////////
 		//1 bitmask + 1 counter for each nested
 		ret.m_total_state_size=2*m_all_key_states.n
