@@ -1,9 +1,11 @@
+import System.Math.*
+import System.Algorithm.*
 import System.Console.*
 import Gui2D.detail.*
 import Javascript.*
 import TextBox.*
 
-//todo: bracket seeking, word colorer, indentation handler, line / column handler
+//todo: bracket seeking, indentation handler, line / column handler
 
 /*
 or-ing tokens
@@ -353,26 +355,34 @@ class CColorer_programmer
 	AddString=function(i64[] a,i64[] pp,string s_context,string s,iptr ofs){
 		//here it's just the states
 		ld=m_lang
+		key_mask=(1<<ld.m_n_key_states)-1
 		//do the dfa and get all tokens
 		tokens=new u8[]
 		foreach tok,I in EnumTokens(s_context,s)
+			if I>=ofs:break
 			tokens.push(u8(tok))
 		bdfa=ld.m_bracket_dfa
 		for sti=0:ld.m_n_key_states-1
-			pa=2*sti
+			pa=3*sti
 			and_mask=~int(a[pa+0]>>32)
 			xor_mask=int(a[pa+0])
 			inc_value=0
-			st=sti*ld.m_n_tokens
-			foreach tok in tokens
+			min_value=0
+			st=ld.m_id_from_key_state[((ld.m_all_key_states[sti]&and_mask)^xor_mask)&key_mask]*ld.m_n_tokens
+			foreach tok,I in tokens
 				tran=bdfa[st+int(tok)]
 				and_mask&=tran.m_and
 				xor_mask&=tran.m_and
 				xor_mask^=tran.m_xor
 				st=int(tran.m_next_state)
 				inc_value+=int(tran.m_delta)
+				//if !sti:Write(inc_value)
+				if min_value>inc_value:
+					min_value=inc_value
+			//if !sti:Writeln(' ',inc_value,' ',ofs)
 			a[pa+0]=((i64(~and_mask)<<32)|i64(u32(xor_mask)))
 			a[pa+1]+=i64(inc_value)
+			a[pa+2]=min(a[pa+2],i64(min_value))
 	}
 	Add=function(i64[] a,i64[] b){
 		ld=m_lang
@@ -380,16 +390,17 @@ class CColorer_programmer
 		m_id_from_key_state=ld.m_id_from_key_state
 		key_mask=(1<<ld.m_n_key_states)-1
 		for sti=0:ld.m_n_key_states-1
-			pa=2*sti
+			pa=3*sti
 			and_maska=~int(a[pa+0]>>32)
 			xor_maska=int(a[pa+0])
 			//we need a state lookup to cover the happened key transitions
-			pb=2*m_id_from_key_state[((m_all_key_states[sti]&and_maska)^xor_maska)&key_mask]
+			pb=3*m_id_from_key_state[((m_all_key_states[sti]&and_maska)^xor_maska)&key_mask]
 			and_maskb=~int(b[pb+0]>>32)
 			xor_maskb=int(b[pb+0])
 			and_mask=(and_maska&and_maskb)
 			xor_mask=((xor_maska&and_maskb)^xor_maskb)
 			a[pa+0]=((i64(~and_mask)<<32)|i64(u32(xor_mask)))
+			a[pa+2]=min(a[pa+2],a[pa+1]+b[pb+2])
 			a[pa+1]+=b[pb+1]
 	}
 	//For coloring states, we need a colorer
@@ -454,16 +465,47 @@ class CColorer_programmer
 		//Writeln(ret)
 		return ret
 	}
-	//For seeking states, we need comparison and in-block seeking
-	//it's a "nearest" seek, we just need a "contains the shit" test and an inc/dec thingy
-	/*
-	Compare=function(i64[] a,i64[] b){
-		//int
+	/////////////////////////////
+	//bracket seeking
+	SEEK_MODE_BRACKET=0LL
+	SEEK_MODE_STATE=1LL
+	hasValidResult=function(i64[] a,i64[] da, i64[] b){
+		if b[0]==SEEK_MODE_BRACKET:
+			return a[1]+da[2]<=b[1]
+		else
+			assert(0)
+			return 0
 	}
-	SeekInBlock=function(i64[] a,i64[] pp,string s,i64[] b){
-		//iptr
+	QueryPerCharValidity=function(i64[] a,i64[] pp,string s_context,string s, i64[] b){
+		if b[0]==SEEK_MODE_BRACKET:
+			ld=m_lang
+			key_mask=(1<<ld.m_n_key_states)-1
+			bdfa=ld.m_bracket_dfa
+			cur_delta=(a[1]-b[1])
+			and_mask=~int(a[0]>>32)
+			xor_mask=int(a[0])
+			st=ld.m_id_from_key_state[((ld.m_all_key_states[0]&and_mask)^xor_mask)&key_mask]*ld.m_n_tokens
+			ret=new i8[s.n+1]
+			ofs_last=0L
+			is_valid=i8(cur_delta<=0LL)
+			foreach tok,I in EnumTokens(s_context,s)
+				for i=ofs_last:I-1
+					ret[i]=is_valid
+				ofs_last=I
+				tran=bdfa[st+int(tok)]
+				and_mask&=tran.m_and
+				xor_mask&=tran.m_and
+				xor_mask^=tran.m_xor
+				st=int(tran.m_next_state)
+				cur_delta+=i64(tran.m_delta)
+				is_valid=i8(cur_delta<=0LL)
+			for i=ofs_last:ret.n-1
+				ret[i]=is_valid
+			return ret
+		else
+			assert(0)
+			return i8[].NULL
 	}
-	*/
 	////////////////////
 	//for JS operations
 	__JS_prototype=function(JSObject proto){}
@@ -665,8 +707,8 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 				color_name:obj_i["color_name"].or(""),
 				bmask:1<<bid})
 		/////////
-		//1 bitmask + 1 counter for each nested
-		ret.m_total_state_size=2*m_all_key_states.n
+		//1 bitmask + 1 counter for each nested + 1 min
+		ret.m_total_state_size=3*m_all_key_states.n
 		return JS.Return(ret)
 	}
 })

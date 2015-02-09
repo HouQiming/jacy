@@ -72,7 +72,7 @@ W.Text=function(id,attrs){
 	UI.StdAnchoring(id,attrs);
 	UI.DrawTextControl(attrs,attrs.x,attrs.y,attrs.color||0xffffffff)
 	return attrs
-}
+};
 
 W.RoundRect=function(id,attrs){
 	UI.StdAnchoring(id,attrs);
@@ -193,7 +193,12 @@ W.Button=function(id,attrs0){
 		attrs.w_bmp=attrs.w_icon;
 		attrs.h_bmp=attrs.h_icon;
 	}else{
-		UI.GetBitmapSize(bmpid,attrs);
+		if(bmpid){
+			UI.GetBitmapSize(bmpid,attrs);
+		}else{
+			attrs.w_bmp=0;
+			attrs.h_bmp=0;
+		}
 	}
 	UI.LayoutText(attrs);
 	var padding=(attrs.padding||4);
@@ -204,7 +209,7 @@ W.Button=function(id,attrs0){
 	//rendering
 	UI.RoundRect(attrs);
 	var x=attrs.x+padding;
-	if(bmpid)UI.DrawBitmap(bmpid,x,attrs.y+(attrs.h-attrs.h_bmp)*0.5,attrs.w_bmp,attrs.h_bmp,attrs.icon_color||0xffffffff);
+	if(bmpid){UI.DrawBitmap(bmpid,x,attrs.y+(attrs.h-attrs.h_bmp)*0.5,attrs.w_bmp,attrs.h_bmp,attrs.icon_color||0xffffffff);}
 	x+=attrs.w_bmp;
 	UI.DrawTextControl(attrs,x,attrs.y+(attrs.h-attrs.h_text)*0.5,attrs.text_color||0xffffffff)
 	return W.Region(id,attrs);
@@ -288,6 +293,7 @@ var Edit_prototype={
 		this.sel0.ccnt=ccnt0+lg;
 		this.sel1.ccnt=ccnt0+lg;
 		this.AutoScroll("show");
+		if(this.OnChange){this.OnChange(this);}
 		UI.Refresh()
 	},
 	OnKeyDown:function(event){
@@ -302,6 +308,8 @@ var Edit_prototype={
 		var sel0=this.sel0;
 		var sel1=this.sel1;
 		var this_outer=this;
+		var sel0_ccnt=sel0.ccnt;
+		var sel1_ccnt=sel1.ccnt;
 		var epilog=function(){
 			if(!is_shift){sel0.ccnt=sel1.ccnt;}
 			this_outer.AutoScroll("show");
@@ -359,7 +367,9 @@ var Edit_prototype={
 			}
 			if(ccnt0<ccnt1){
 				ed.Edit([ccnt0,ccnt1-ccnt0,null])
+				if(this.OnChange){this.OnChange(this);}
 				UI.Refresh();
+				return;
 			}
 		}else if(IsKey(event,["CTRL","HOME"])||IsKey(event,["CTRL","SHIFT","HOME"])){
 			sel1.ccnt=0;
@@ -411,7 +421,9 @@ var Edit_prototype={
 			if(ccnt0<ccnt1){
 				UI.SDL_SetClipboardText(ed.GetText(ccnt0,ccnt1-ccnt0))
 				ed.Edit([ccnt0,ccnt1-ccnt0,null])
+				if(this.OnChange){this.OnChange(this);}
 				UI.Refresh();
+				return;
 			}
 		}else if(IsKey(event,["CTRL","V"])||IsKey(event,["SHIFT","INSERT"])){
 			var stext=UI.SDL_GetClipboardText()
@@ -433,6 +445,9 @@ var Edit_prototype={
 			}
 			UI.Refresh();
 		}else{
+		}
+		if(sel0_ccnt!=sel0.ccnt||sel1_ccnt!=sel1.ccnt){
+			if(this.OnSelectionChange){this.OnSelectionChange(this);}
 		}
 	},
 };
@@ -467,4 +482,6 @@ W.Edit=function(id,attrs0){
 			attrs.caret_color,attrs.caret_flicker);
 	}
 	return attrs;
-}
+};
+
+exports.Edit_prototype=Edit_prototype;

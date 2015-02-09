@@ -1,4 +1,5 @@
 var UI=require("gui2d/ui");
+var W=require("gui2d/widgets");
 var LanguageDefinition=function(){
 	this.m_existing_tokens={};
 	this.m_big_chars=[];
@@ -73,6 +74,21 @@ LanguageDefinition.prototype={
 		this.m_enabling_mask&=~(1<<bid);
 	},
 	/////////////////
+	SetExclusive:function(bids){
+		for(var i=0;i<bids.length;i++){
+			this.Enable(bids[i]);
+		}
+		for(var i=0;i<bids.length;i++){
+			if(this.isInside(bids[i])){
+				for(var j=0;j<bids.length;j++){
+					this.Disable(bids[j]);
+				}
+				this.Enable(bids[i]);
+				break;
+			}
+		}
+	},
+	/////////////////
 	Finalize:function(fenabler){
 		var bras=this.m_bracket_types;
 		bras.sort(function(a,b){
@@ -135,3 +151,24 @@ exports.Define=function(frules,fenabler){
 	return UI.CreateLanguageDefinition(ret);
 };
 
+///////////////////////////////////
+var Edit_prototype=W.Edit_prototype;
+Edit_prototype.GetBracketLevel=function(ccnt){
+	var ed=this.ed;
+	return ed.GetStateAt(ed.m_handler_registration["colorer"],ccnt,"lll")[1];
+};
+Edit_prototype.FindBracket=function(n_brackets,ccnt,direction){
+	var ed=this.ed;
+	var ret=ed.FindNearest(ed.m_handler_registration["colorer"],[0,n_brackets],"ll",ccnt,direction);
+	if(ret==-1){
+		if(direction<0){
+			return 0;
+		}else{
+			return ed.GetTextSize();
+		}
+	}
+	return ret;
+};
+Edit_prototype.FindOuterBracket=function(ccnt,direction){
+	return this.FindBracket(this.GetBracketLevel(ccnt)-1,ccnt,direction);
+};

@@ -61,9 +61,13 @@ class ITextStateHandler
 	function(i64 x,i64 y,JSObject obj):i64 SetCaretOverlay
 	function():i64 GetCaretOffset
 	function(i64[] a):long2 GetXYFromState
-	//For seeking states, we need comparison and in-block seeking
+	//For bisecting states, we need comparison and in-block linear seeking
 	function(i64[] a,i64[] b):int Compare
 	function(i64[] a,i64[] pp,string s,i64[] b):iptr SeekInBlock
+	//For search-nearest states, we need or-queries and full-block boolean mapping
+	//apply to pre-char locations
+	function(i64[] a,i64[] da, i64[] b):int hasValidResult
+	function(i64[] a,i64[] pp,string s_context,string s, i64[] b):i8[] QueryPerCharValidity
 	////////////////////
 	//for JS operations
 	function(JSObject proto) __JS_prototype
@@ -1067,6 +1071,20 @@ class CEditableText
 				return (nd,ccnt0-ccnt_base)
 			assert(!!nd.pchild)
 			nd=nd.pchild
+	auto GetContextBefore(ITextStateHandler handler,i64 ccnt_base)
+		if handler.contextSize:
+			context_size=handler.contextSize()
+			s_context=GetText(max(ccnt_base-i64(context_size),0LL),i64(context_size))
+			if s_context.n<context_size:
+				s_context=(new char[context_size-s_context.n])+s_context
+		else
+			s_context=string.NULL
+		return s_context
+	auto GetPrecomputedStates(ITextStateHandler handler,CSLNode nd)
+		n0=m_state_ofs.back()
+		ofspp=nd.a[n0+handler.id]
+		ofspp2=(handler.id==m_handlers.n-1?i64(nd.a.n):nd.a[n0+handler.id+1])
+		return nd.a[iptr(ofspp):iptr(ofspp2)-1]
 	auto GetStateAt(int hid,i64 ccnt0)
 		acc=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
 		handler=m_handlers[hid]
@@ -1079,17 +1097,7 @@ class CEditableText
 				handler.Add(acc,nd.a)
 				nd=nd.pnext
 			if nd.s:
-				n0=m_state_ofs.back()
-				ofspp=nd.a[n0+handler.id]
-				ofspp2=(handler.id==m_handlers.n-1?i64(nd.a.n):nd.a[n0+handler.id+1])
-				if handler.contextSize:
-					context_size=handler.contextSize()
-					s_context=GetText(max(ccnt_base-i64(context_size),0LL),i64(context_size))
-					if s_context.n<context_size:
-						s_context=(new char[context_size-s_context.n])+s_context
-				else
-					s_context=string.NULL
-				handler.AddString(acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],s_context,nd.s,iptr(ccnt0-ccnt_base))
+				handler.AddString(acc,GetPrecomputedStates(handler,nd),GetContextBefore(handler,ccnt_base),nd.s,iptr(ccnt0-ccnt_base))
 				return acc
 			assert(!!nd.pchild)
 			nd=nd.pchild
@@ -1526,6 +1534,72 @@ class CEditableText
 		if xy.y>y&&ccnt0>0LL&&GetText(ccnt0-1,1LL)=="\n":
 			ccnt0--
 		return ccnt0
+	//////////////////////
+	auto FindNearest(int hid,i64[] b,i64 ccnt0,int direction)
+		handler=m_handlers[hid]
+		ccnt=ccnt0
+		//////////////////////////
+		//same-block pass
+		(nd,ofs)=BlockFromCcnt(ccnt)
+		ccnt_base=ccnt-i64(ofs)
+		acc_block=GetStateAt(hid,ccnt_base)
+		cv_block=handler.QueryPerCharValidity(acc_block,GetPrecomputedStates(handler,nd),GetContextBefore(handler,ccnt_base),nd.s,b)
+		if direction<0:
+			for i=iptr(ccnt-ccnt_base):-1:0
+				if cv_block[i]:
+					return ccnt_base+i64(i)
+			ccnt=ccnt_base
+		else
+			for i=iptr(ccnt-ccnt_base):cv_block.n-1
+				if cv_block[i]:
+					return ccnt_base+i64(i)
+			ccnt=ccnt_base+nd.ccnt
+		//not in the current block
+		//dfs pass
+		auto dfsNearest(CSLNode nd,i64[] acc0,i64 ccnt_base0)
+			ccnt_base=ccnt_base0
+			if nd.s:
+				cv_block=handler.QueryPerCharValidity(acc0,GetPrecomputedStates(handler,nd),GetContextBefore(handler,ccnt_base),nd.s,b)
+				if direction<0:
+					for i=cv_block.n-1:-1:0
+						if cv_block[i]:
+							return ccnt_base+i64(i)
+				else
+					for i=0:cv_block.n-1
+						if cv_block[i]:
+							return ccnt_base+i64(i)
+			else
+				acc=new(acc0)
+				if direction<0:
+					all_accs=new i64[][]
+					all_ccnts=new i64[]
+					all_pcs=new CSLNode[]
+				for(pc=nd.pchild;pc;pc=pc.pnext)
+					da=pc.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1]
+					if direction<0:
+						if ccnt_base>=ccnt:
+							break
+						if handler.hasValidResult(acc,da,b):
+							all_accs.push(acc)
+							all_ccnts.push(ccnt_base)
+							all_pcs.push(pc)
+					else
+						if ccnt<ccnt_base+pc.ccnt:
+							if handler.hasValidResult(acc,da,b):
+								ret=dfsNearest(pc,acc,ccnt_base)
+								if ret!=-1LL:
+									return ret
+					handler.Add(acc,da)
+					ccnt_base+=pc.ccnt
+				if direction<0:
+					for i=all_pcs.n-1:-1:0
+						ret=dfsNearest(all_pcs[i],all_accs[i],all_ccnts[i])
+						if ret!=-1LL:
+							return ret
+			return -1LL
+		acc=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
+		return dfsNearest(m_skiplist,acc,0LL)
+	//////////////////////
 	auto Render(i64 x,i64 y,i64 w,i64 h, float scr_x,float scr_y,float scale)
 		//x,y,w,h refer to the world space window
 		wf=fixed2float(w)
@@ -1818,13 +1892,14 @@ class CEditableText
 	DecodeStateArray=function(JSContext JS,i64[] a,string stypes){
 		if !stypes||!a:return JSObject.NULL
 		n=a.n
-		if n!=stypes.n:return JSObject.NULL
+		//if n!=stypes.n:return JSObject.NULL
 		ret=JS.NewArray()
 		for i=0:n-1
 			l=a[i]
-			if stypes[i]=='l':
+			ch_type=stypes[min(i,stypes.n-1)]
+			if ch_type=='l':
 				d=double(l)
-			else if stypes[i]=='d':
+			else if ch_type=='d':
 				d=fixed2double(l)
 			else
 				return JSObject.NULL
@@ -1841,6 +1916,19 @@ class CEditableText
 		b=EncodeStateArray(JS,js_array,stypes)
 		if !b:return JS.ReturnError("invalid type description '@1'".Replace(["@1",stypes]))
 		return JS.Return(Bisect(hid,b))
+	}
+	JS_FindNearest=function(JSContext JS){
+		hid=JS.Param(0).as(int)
+		if uptr(hid)>=uptr(m_handlers.n):return JS.ReturnError("invalid handler id")
+		js_array=JS.Param(1).as(JSObject)
+		stypes=JS.Param(2).as(string)
+		if !js_array||!stypes:return JS.ReturnError("array or format string not specified")
+		if js_array.length()!=stypes.n:return JS.ReturnError("invalid state array length @1, should be @2".Replace(["@1",string(js_array.length()),"@2",string(stypes.n)]))
+		b=EncodeStateArray(JS,js_array,stypes)
+		if !b:return JS.ReturnError("invalid type description '@1'".Replace(["@1",stypes]))
+		ccnt0=JS.Param(3).as(i64)
+		direction=JS.Param(4).as(int)
+		return JS.Return(FindNearest(hid,b,ccnt0,direction))
 	}
 	JS_GetStateAt=function(JSContext JS){
 		hid=JS.Param(0).as(int)
@@ -1984,6 +2072,7 @@ class CEditableText
 		proto.ExportMethod(this,"XYFromCcnt",JS_XYFromCcnt)
 		proto.ExportMethod(this,"SeekXY",JS_SeekXY)
 		proto.ExportMethod(this,"Bisect",JS_Bisect)
+		proto.ExportMethod(this,"FindNearest",JS_FindNearest)
 		proto.ExportMethod(this,"GetStateAt",JS_GetStateAt)
 		proto.ExportMethod(this,"GetCharacterHeightAt",JS_GetCharacterHeightAt)
 		proto.ExportMethod(this,"GetDefaultFont",JS_GetDefaultFont)
