@@ -52,6 +52,7 @@ module duktape
 	duk_to_primitive=__c_function(int,"duk_to_primitive","duktape.h")
 	duk_error=__c_function(int,"duk_error","duktape.h")
 	duk_push_error_object=__c_function(int,"duk_push_error_object","duktape.h")
+	duk_push_error_object_raw=__c_function(int,"duk_push_error_object_raw","duktape.h")
 	duk_is_error=__c_function(int,"duk_is_error","duktape.h")
 	///////
 	DUK_COMPILE_EVAL=(1 << 0)
@@ -356,7 +357,8 @@ module duktape
 		inline ReturnError(string serr)
 			s=new(serr)
 			s.push(char(0))
-			duk_push_error_object(_ctx(),1,"%s",s)
+			//duk_push_error_object(_ctx(),1,"%s",s)
+			duk_push_error_object_raw(_ctx(),1,__FILE__,__LINE__,"%s",s)
 			return -1
 		auto debugError(string serr)
 			s=new(serr)

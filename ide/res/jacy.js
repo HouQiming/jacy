@@ -11,6 +11,7 @@ g_sandbox.eval("var UI=require('gui2d/ui');var W=require('gui2d/widgets');")
 //todo
 g_sandbox.m_relative_scaling=0.5;
 var g_initial_code="\
+/* Test comment string */\n\
 attrs=UI.Keep(id,attrs);\n\
 UI.Begin(attrs);\n\
 	var wnd=UI.Begin(W.Window('app',{\n\
@@ -30,12 +31,30 @@ UI.End();\n\
 var item_0={id:"$0",x:10,y:10,w:400,h:300,w_min:50,h_min:50,OnChange:function(attrs){item_0.x=attrs.x;item_0.y=attrs.y;item_0.w=attrs.w;item_0.h=attrs.h}};
 var item_1={id:"$1",x:20,y:20,w:200,h:200,w_min:50,h_min:50,OnChange:function(attrs){item_1.x=attrs.x;item_1.y=attrs.y;item_1.w=attrs.w;item_1.h=attrs.h}};
 var g_language_C=Language.Define(function(lang){
-	var bid_comment=lang.ColoredDelimiter("key","/*","*/","comment");
-	var bid_string=lang.ColoredDelimiter("key",'"','"',"string");
-	var bid_string2=lang.ColoredDelimiter("key","'","'","string");
-	!?
-},function(lang){
-})
+	var bid_comment=lang.ColoredDelimiter("key","/*","*/","color_comment");
+	var bid_comment2=lang.ColoredDelimiter("key","//","\n","color_comment");
+	var bid_string=lang.ColoredDelimiter("key",'"','"',"color_string");
+	var bid_string2=lang.ColoredDelimiter("key","'","'","color_string");
+	lang.DefineToken("\\\\")
+	lang.DefineToken("\\'")
+	lang.DefineToken('\\"')
+	lang.DefineToken('\\\n')
+	var global_bids=[bid_comment,bid_comment2,bid_string,bid_string2];
+	return (function(lang){
+		for(var i=0;i<global_bids.length;i++){
+			lang.Enable(global_bids[i]);
+		}
+		for(var i=0;i<global_bids.length;i++){
+			if(lang.isInside(global_bids[i])){
+				for(var j=0;j<global_bids.length;j++){
+					lang.Disable(global_bids[j]);
+				}
+				lang.Enable(global_bids[i]);
+				break;
+			}
+		}
+	});
+});
 //todo
 
 UI.Application=function(id,attrs){
@@ -59,8 +78,12 @@ UI.Application=function(id,attrs){
 				tab_width:4,
 				text:g_initial_code,//todo
 				anchor:ed_rect,anchor_align:"center",anchor_valign:"center",
+				///////////////
 				state_handlers:["renderer_programmer","colorer_programmer"],
 				language:g_language_C,
+				color_string:0xff0055aa,
+				color_comment:0xff008000,
+				///////////////
 				x:0,y:0,w:ed_rect.w-8,h:ed_rect.h-8,
 			});
 			//this part is effectively a GLwidget

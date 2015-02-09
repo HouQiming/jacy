@@ -1010,6 +1010,14 @@ auto parseC0(int id_fn_current,TToken[] toks)
 					return pe
 				else
 					return fillepos(call(g_id_new,pe),epos0,readPool(pe+2))
+			else if id0==g_id_FILE||id0==g_id_LINE:
+				epos0=toks[ptr-1].epos0
+				(id_fn0,ln0,col0)=getLineInfo(epos0)
+				if id0==g_id_FILE:
+					pe=exprstr(id_fn0)
+				else
+					pe=expriptr(ln0+1)
+				return fillepos(pe,epos0,toks[ptr-1].epos1)
 			ret=fillepos(exprvar(id0),toks[ptr-1].epos0,toks[ptr-1].epos1)
 			return ret
 		else if lex=='(':

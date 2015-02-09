@@ -1219,6 +1219,8 @@ g_id_operator_add_generic_int=getid("__untyped_operator+")
 //debug
 g_id_callstack=getid("__callstack")
 g_id_set_callstack=getid("__set_callstack")
+g_id_FILE=getid("__FILE__")
+g_id_LINE=getid("__LINE__")
 
 g_tuple_ids=new int[]
 auto getTupleId(int n)

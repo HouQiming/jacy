@@ -232,7 +232,8 @@ var Edit_prototype={
 		var ed=this.ed;
 		var ed_caret=ed.XYFromCcnt(ccnt1);
 		var y_original=this.scroll_y;
-		var ytot=ed.GetStateAt(this.GetHandlerID("renderer"),ed.GetTextSize(),"dd")[1];
+		var ccnt_tot=ed.GetTextSize();
+		var ytot=ed.XYFromCcnt(ccnt_tot).y+ed.GetCharacterHeightAt(ccnt_tot);
 		var wc=UI.GetCharacterAdvance(ed.GetDefaultFont(),' ');
 		var hc=ed.GetCharacterHeightAt(ccnt1);
 		var page_height=this.h;
@@ -385,7 +386,7 @@ var Edit_prototype={
 			epilog();
 		}else if(IsKey(event,["END"])||IsKey(event,["SHIFT","END"])){
 			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
-			sel1.ccnt=ed.SeekXY(1e127,ed_caret.y);
+			sel1.ccnt=ed.SeekXY(1e17,ed_caret.y);
 			epilog();
 		}else if(IsKey(event,["PAGEUP"])||IsKey(event,["SHIFT","PAGEUP"])){
 			var ed_caret=ed.XYFromCcnt(sel1.ccnt);

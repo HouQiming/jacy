@@ -60,6 +60,7 @@ class ITextStateHandler
 	function():TFont GetDefaultFont
 	function(i64 x,i64 y,JSObject obj):i64 SetCaretOverlay
 	function():i64 GetCaretOffset
+	function(i64[] a):long2 GetXYFromState
 	//For seeking states, we need comparison and in-block seeking
 	function(i64[] a,i64[] b):int Compare
 	function(i64[] a,i64[] pp,string s,i64[] b):iptr SeekInBlock
@@ -958,6 +959,9 @@ class CEditableText
 		ofs=0L
 		foreach hstate,I in m_handlers
 			hstate.id=I
+			if hstate.SetTextStyle:
+				//we need to initialize it before calling anything else
+				hstate.SetTextStyle(obj_style)
 			if hstate.isLineOnly&&hstate.isLineOnly():
 				m_is_line_only=1
 			//if hstate.RenderText:
@@ -971,8 +975,6 @@ class CEditableText
 				if m_context_size<context_size:m_context_size=context_size
 			///////////
 			m_handler_registration[hstate.name()]=I
-			if hstate.SetTextStyle:
-				hstate.SetTextStyle(obj_style)
 		//m_handler_registration["m_is_line_only"]=m_is_line_only
 		m_state_ofs.push(ofs)
 		RecomputeStatesLeaf(new char[m_context_size],m_skiplist)
@@ -1638,8 +1640,12 @@ class CEditableText
 		return ret
 	auto XYFromCcnt(i64 ccnt)
 		hid=m_handler_registration["renderer"].as(int)
+		handler=m_handlers[hid]
 		a=GetStateAt(hid,ccnt)
-		return long2(a[0],a[1])
+		if handler.GetXYFromState:
+			return handler.GetXYFromState(a)
+		else
+			return long2(a[0],a[1])
 	//todo: style changing
 	/////////////////
 	inline enumCharsForward(i64 ccnt0)
@@ -1828,10 +1834,12 @@ class CEditableText
 	JS_Bisect=function(JSContext JS){
 		hid=JS.Param(0).as(int)
 		if uptr(hid)>=uptr(m_handlers.n):return JS.ReturnError("invalid handler id")
-		b=EncodeStateArray(JS,JS.Param(1).as(JSObject),JS.Param(2).as(string))
-		if !b:return JS.ReturnError("invalid type description")
-		n_std=m_state_ofs[hid+1]-m_state_ofs[hid]
-		if b.n!=n_std:return JS.ReturnError("invalid state array length @1, should be @2".Replace(["@1",string(b.n),"@2",string(n_std)]))
+		js_array=JS.Param(1).as(JSObject)
+		stypes=JS.Param(2).as(string)
+		if !js_array||!stypes:return JS.ReturnError("array or format string not specified")
+		if js_array.length()!=stypes.n:return JS.ReturnError("invalid state array length @1, should be @2".Replace(["@1",string(js_array.length()),"@2",string(stypes.n)]))
+		b=EncodeStateArray(JS,js_array,stypes)
+		if !b:return JS.ReturnError("invalid type description '@1'".Replace(["@1",stypes]))
 		return JS.Return(Bisect(hid,b))
 	}
 	JS_GetStateAt=function(JSContext JS){
@@ -1844,7 +1852,7 @@ class CEditableText
 		a=GetStateAt(hid,ccnt0)
 		ret=DecodeStateArray(JS,a,stypes)
 		if !ret:
-			return JS.ReturnError("invalid type description")
+			return JS.ReturnError("invalid type description '@1'".Replace(["@1",stypes]))
 		else
 			return JS.Return(ret)
 	}

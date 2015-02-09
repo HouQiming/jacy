@@ -1,3 +1,4 @@
+var UI=require("gui2d/ui");
 var LanguageDefinition=function(){
 	this.m_existing_tokens={};
 	this.m_big_chars=[];
@@ -31,7 +32,7 @@ LanguageDefinition.prototype={
 			}else{
 				real_type=REAL_TYPE_MOV;
 			}
-			if(type!="key"&&type=="normal"){
+			if(type!="key"&&type!="normal"){
 				throw new Error("invalid delimiter type '@1'".replace("@1",type));
 			}
 		}
@@ -55,13 +56,13 @@ LanguageDefinition.prototype={
 	/////////////////
 	isInside:function(bid){
 		if(!this.m_bracket_types[bid].is_key){throw "isInside only works on key brackets";}
-		return m_inside_mask&(1<<bid);
+		return this.m_inside_mask&(1<<bid);
 	},
 	Enable:function(bid){
-		m_enabling_mask|=(1<<bid);
+		this.m_enabling_mask|=(1<<bid);
 	},
 	Disable:function(bid){
-		m_enabling_mask&=~(1<<bid);
+		this.m_enabling_mask&=~(1<<bid);
 	},
 	/////////////////
 	Finalize:function(fenabler){
@@ -84,12 +85,12 @@ LanguageDefinition.prototype={
 		for(var j=0;j<bras.length;j++){
 			bidmap[bras[j].bid]=j;
 		}
-		for(var mask_i=0;mask_i<n_combos;i++){
+		for(var mask_i=0;mask_i<n_combos;mask_i++){
 			this.m_enabling_mask=0;
 			this.m_inside_mask=0;
 			for(var j=0;j<n_keys;j++){
 				if(mask_i&(1<<j)){
-					this.m_inside_mask|=(1<<bras[i].bid);
+					this.m_inside_mask|=(1<<bras[j].bid);
 				}
 			}
 			this.m_enabling_mask|=this.m_inside_mask;
@@ -121,8 +122,8 @@ LanguageDefinition.prototype={
 
 exports.Define=function(frules,fenabler){
 	var ret=new LanguageDefinition();
-	frules(ret);
-	ret.Finalize(fenabler)
-	return ret;
+	var fenabler=frules(ret);
+	ret.Finalize(fenabler);
+	return UI.CreateLanguageDefinition(ret);
 };
 
