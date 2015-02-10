@@ -1354,6 +1354,7 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 	//foreach sfont,I in g_renderer.m_std_fallback_fonts
 	//	js_fonts[I]=sfont
 	JS_UI["is_real"]=is_real
+	JS_UI["is_mobile"]=Platform.IS_MOBILE
 	obj_platform=JS.New()
 	s_arch=Platform.ARCH;obj_platform["ARCH"]=s_arch
 	s_build=Platform.BUILD;obj_platform["BUILD"]=s_build

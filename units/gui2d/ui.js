@@ -1344,6 +1344,20 @@ UI.IsModifier=function(event,name){
 	return UI.IsKey(event,name)==undefined;
 };
 
+UI.hotkey_mapping={};
+UI.IsHotkey=function(event,hotkey_name){
+	var names=UI.hotkey_mapping[hotkey_name];
+	if(!names){
+		names=hotkey_name.split(" ").map(function(a){return a.split("+")});
+		UI.hotkey_mapping[hotkey_name]=names;
+	}
+	for(var i=0;i<names.length;i++){
+		var ret=UI.IsKey(event,names[i]);
+		if(ret){return ret;}
+	}
+	return 0;
+};
+
 if(!UI.is_real){
 	UI.BeginFrame=function(){};
 	UI.EndFrame=function(){};

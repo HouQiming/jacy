@@ -1,6 +1,6 @@
 /*
 todo:
-	non-word-char shouldn't lead a line
+	(test) non-word-char shouldn't lead a line
 */
 import Gui2D.*
 import Gui2D.detail.*
@@ -993,7 +993,7 @@ class CEditableText
 		if nd.s:
 			if m_context_size:
 				context_size=m_context_size
-				s_context=GetText(max(ccnt_base-i64(context_size),0LL),i64(context_size))
+				s_context=GetText(max(ccnt_base-i64(context_size),0LL),min(i64(context_size),m_skiplist.ccnt))
 				if s_context.n<context_size:
 					s_context=(new char[context_size-s_context.n])+s_context
 			else
@@ -1073,7 +1073,7 @@ class CEditableText
 	auto GetContextBefore(ITextStateHandler handler,i64 ccnt_base)
 		if handler.contextSize:
 			context_size=handler.contextSize()
-			s_context=GetText(max(ccnt_base-i64(context_size),0LL),i64(context_size))
+			s_context=GetText(max(ccnt_base-i64(context_size),0LL),min(i64(context_size),m_skiplist.ccnt))
 			if s_context.n<context_size:
 				s_context=(new char[context_size-s_context.n])+s_context
 		else
@@ -1679,13 +1679,7 @@ class CEditableText
 				ofspp=nd.a[n0+hid]
 				ofspp2=(hid==m_handlers.n-1?i64(nd.a.n):nd.a[n0+hid+1])
 				if hid_colorer>=0:
-					if handler_colorer.contextSize:
-						context_size=handler_colorer.contextSize()
-						s_context=GetText(max(ccnt_base-i64(context_size),0LL),i64(context_size))
-						if s_context.n<context_size:
-							s_context=(new char[context_size-s_context.n])+s_context
-					else
-						s_context=string.NULL
+					s_context=GetContextBefore(handler_colorer,ccnt_base)
 					color_ids=handler_colorer.ComputeCharColorID(acc_colorer,s_context,nd.s)
 				else
 					color_ids=u8[].NULL

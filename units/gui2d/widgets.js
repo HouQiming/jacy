@@ -179,7 +179,7 @@ W.Group=function(id,attrs0){
 
 ////////////////////////////////////////
 //widgets
-var Button_prototype={
+W.Button_prototype={
 	OnMouseOver:function(){this.mouse_state="over";UI.Refresh();},
 	OnMouseOut:function(){this.mouse_state="out";UI.Refresh();},
 	OnMouseDown:function(){this.mouse_state="down";UI.Refresh();},
@@ -188,7 +188,7 @@ var Button_prototype={
 W.Button=function(id,attrs0){
 	//////////////////
 	//styling
-	var attrs=UI.Keep(id,attrs0,Button_prototype);
+	var attrs=UI.Keep(id,attrs0,W.Button_prototype);
 	UI.StdStyling(id,attrs,attrs0, "button",attrs.mouse_state||"out");
 	//size estimation
 	var bmpid=(UI.rc[attrs.icon]||0);
@@ -218,7 +218,7 @@ W.Button=function(id,attrs0){
 	return W.Region(id,attrs);
 }
 
-var Edit_prototype={
+W.Edit_prototype={
 	//////////
 	scale:1,
 	scroll_x:0,
@@ -306,7 +306,7 @@ var Edit_prototype={
 		mouse messages
 		*/
 		var ed=this.ed;
-		var IsKey=UI.IsKey;
+		var IsHotkey=UI.IsHotkey;
 		var is_shift=event.keymod&(UI.KMOD_LSHIFT|UI.KMOD_RSHIFT);
 		var sel0=this.sel0;
 		var sel1=this.sel1;
@@ -320,49 +320,49 @@ var Edit_prototype={
 		};
 		//todo: scrolling
 		if(0){
-		}else if(IsKey(event,["UP"])||IsKey(event,["SHIFT","UP"])){
+		}else if(IsHotkey(event,"UP SHIFT+UP")){
 			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
 			var bk=this.x_updown;
 			sel1.ccnt=ed.SeekXY(this.x_updown,ed_caret.y-1.0);
 			epilog();
 			this.x_updown=bk;
-		}else if(IsKey(event,["DOWN"])||IsKey(event,["SHIFT","DOWN"])){
+		}else if(IsHotkey(event,"DOWN SHIFT+DOWN")){
 			var hc=ed.GetCharacterHeightAt(sel1.ccnt);
 			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
 			var bk=this.x_updown;
 			sel1.ccnt=ed.SeekXY(this.x_updown,ed_caret.y+hc);
 			epilog();
 			this.x_updown=bk;
-		}else if(IsKey(event,["LEFT"])||IsKey(event,["SHIFT","LEFT"])){
+		}else if(IsHotkey(event,"LEFT SHIFT+LEFT")){
 			var ccnt=sel1.ccnt;
 			if(ccnt>0){
 				sel1.ccnt=ed.SnapToCharBoundary(ccnt-1,-1);
 				epilog();
 			}
-		}else if(IsKey(event,["RIGHT"])||IsKey(event,["SHIFT","RIGHT"])){
+		}else if(IsHotkey(event,"RIGHT SHIFT+RIGHT")){
 			var ccnt=sel1.ccnt;
 			if(ccnt<ed.GetTextSize()){
 				sel1.ccnt=ed.SnapToCharBoundary(ccnt+1,1);
 				epilog();
 			}
-		}else if(IsKey(event,["CTRL","LEFT"])||IsKey(event,["CTRL","SHIFT","LEFT"])){
+		}else if(IsHotkey(event,"CTRL+LEFT CTRL+SHIFT+LEFT")){
 			var ccnt=sel1.ccnt;
 			if(ccnt>0){
 				sel1.ccnt=ed.MoveToBoundary(ed.SnapToCharBoundary(ccnt-1,-1),-1,"ctrl_lr_stop")
 				epilog();
 			}
-		}else if(IsKey(event,["CTRL","RIGHT"])||IsKey(event,["CTRL","SHIFT","RIGHT"])){
+		}else if(IsHotkey(event,"CTRL+RIGHT CTRL+SHIFT+RIGHT")){
 			var ccnt=sel1.ccnt;
 			if(ccnt<ed.GetTextSize()){
 				sel1.ccnt=ed.MoveToBoundary(ed.SnapToCharBoundary(ccnt+1,1),1,"ctrl_lr_stop")
 				epilog();
 			}
-		}else if(IsKey(event,["BACKSPACE"])||IsKey(event,["DELETE"])){
+		}else if(IsHotkey(event,"BACKSPACE")||IsHotkey(event,"DELETE")){
 			var ccnt0=sel0.ccnt;
 			var ccnt1=sel1.ccnt;
 			if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
 			if(ccnt0==ccnt1){
-				if(IsKey(event,["BACKSPACE"])){
+				if(IsHotkey(event,"BACKSPACE")){
 					if(ccnt0>0){ccnt0=ed.SnapToCharBoundary(ccnt0-1,-1);}
 				}else{
 					if(ccnt1<ed.GetTextSize()){ccnt1=ed.SnapToCharBoundary(ccnt1+1,1);}
@@ -374,20 +374,20 @@ var Edit_prototype={
 				UI.Refresh();
 				return;
 			}
-		}else if(IsKey(event,["CTRL","HOME"])||IsKey(event,["CTRL","SHIFT","HOME"])){
+		}else if(IsHotkey(event,"CTRL+HOME SHIFT+CTRL+HOME")){
 			sel1.ccnt=0;
 			epilog()
-		}else if(IsKey(event,["CTRL","END"])||IsKey(event,["CTRL","SHIFT","END"])){
+		}else if(IsHotkey(event,"CTRL+END SHIFT+CTRL+END")){
 			sel1.ccnt=ed.GetTextSize();
 			epilog()
-		}else if(IsKey(event,["CTRL","A"])){
+		}else if(IsHotkey(event,"CTRL+A")){
 			sel0.ccnt=0;
 			sel1.ccnt=ed.GetTextSize();
 			UI.Refresh();
-		}else if(IsKey(event,["RETURN"])||IsKey(event,["RETURN2"])){
+		}else if(IsHotkey(event,"RETURN RETURN2")){
 			//todo: DOS mode test
 			this.OnTextInput({"text":"\n"})
-		}else if(IsKey(event,["HOME"])||IsKey(event,["SHIFT","HOME"])){
+		}else if(IsHotkey(event,"HOME SHIFT+HOME")){
 			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
 			var ccnt_lhome=ed.SeekXY(0,ed_caret.y);
 			var ccnt_ehome=ed.MoveToBoundary(ccnt_lhome,1,"space");
@@ -397,27 +397,27 @@ var Edit_prototype={
 				sel1.ccnt=ccnt_ehome;
 			}
 			epilog();
-		}else if(IsKey(event,["END"])||IsKey(event,["SHIFT","END"])){
+		}else if(IsHotkey(event,"END SHIFT+END")){
 			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
 			sel1.ccnt=ed.SeekXY(1e17,ed_caret.y);
 			epilog();
-		}else if(IsKey(event,["PAGEUP"])||IsKey(event,["SHIFT","PAGEUP"])){
+		}else if(IsHotkey(event,"PGUP SHIFT+PGUP")){
 			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
 			sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y-this.h);
 			epilog();
-		}else if(IsKey(event,["PAGEDOWN"])||IsKey(event,["SHIFT","PAGEDOWN"])){
+		}else if(IsHotkey(event,"PGDN SHIFT+PGDN")){
 			var hc=ed.GetCharacterHeightAt(sel1.ccnt);
 			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
 			sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y+this.h);
 			epilog();
-		}else if(IsKey(event,["CTRL","C"])||IsKey(event,["CTRL","INSERT"])){
+		}else if(IsHotkey(event,"CTRL+C")||IsHotkey(event,"CTRL+INSERT")){
 			var ccnt0=sel0.ccnt;
 			var ccnt1=sel1.ccnt;
 			if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
 			if(ccnt0<ccnt1){
 				UI.SDL_SetClipboardText(ed.GetText(ccnt0,ccnt1-ccnt0))
 			}
-		}else if(IsKey(event,["CTRL","X"])||IsKey(event,["SHIFT","DELETE"])){
+		}else if(IsHotkey(event,"CTRL+X")||IsHotkey(event,"SHIFT+DELETE")){
 			var ccnt0=sel0.ccnt;
 			var ccnt1=sel1.ccnt;
 			if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
@@ -428,10 +428,10 @@ var Edit_prototype={
 				UI.Refresh();
 				return;
 			}
-		}else if(IsKey(event,["CTRL","V"])||IsKey(event,["SHIFT","INSERT"])){
+		}else if(IsHotkey(event,"CTRL+V")||IsHotkey(event,"SHIFT+INSERT")){
 			var stext=UI.SDL_GetClipboardText()
 			this.OnTextInput({"text":stext})
-		}else if(IsKey(event,["CTRL","Z"])||IsKey(event,["ALT","BACKSPACE"])){
+		}else if(IsHotkey(event,"CTRL+Z")||IsHotkey(event,"ALT+BACKSPACE")){
 			var ret=ed.Undo()
 			if(ret&&ret.sz){
 				sel0.ccnt=ret.ccnt;
@@ -440,7 +440,7 @@ var Edit_prototype={
 			}
 			if(this.OnChange){this.OnChange(this);}
 			UI.Refresh();
-		}else if(IsKey(event,["CTRL","SHIFT","Z"])||IsKey(event,["CTRL","Y"])){
+		}else if(IsHotkey(event,"CTRL+SHIFT+Z")||IsHotkey(event,"CTRL+Y")){
 			var ret=ed.Undo("redo")
 			if(ret&&ret.sz){
 				sel0.ccnt=ret.ccnt;
@@ -457,7 +457,7 @@ var Edit_prototype={
 	},
 };
 W.Edit=function(id,attrs0){
-	var attrs=UI.Keep(id,attrs0,Edit_prototype);
+	var attrs=UI.Keep(id,attrs0,W.Edit_prototype);
 	UI.StdStyling(id,attrs,attrs0, "edit",attrs.focus_state||"blur");
 	UI.StdAnchoring(id,attrs);
 	var ed=attrs.ed;
@@ -488,5 +488,3 @@ W.Edit=function(id,attrs0){
 	}
 	return attrs;
 };
-
-exports.Edit_prototype=Edit_prototype;

@@ -10,7 +10,6 @@ var g_sandbox=UI.CreateSandbox();
 g_sandbox.ReadBack=function(s){return JSON.parse(g_sandbox._ReadBack("JSON.stringify("+s+")"))}
 g_sandbox.eval("var UI=require('gui2d/ui');var W=require('gui2d/widgets');require('res/lib/inmate');")
 //todo: new project, adding widgets, widget type vs Application, parameter defaulting
-//todo: performance: possibly degenerating skiplist
 //xywh: relative mode?
 g_sandbox.m_relative_scaling=0.5;
 var g_initial_code="\
@@ -144,7 +143,7 @@ var DrawUserFrame=function(){
 	var inner_widgets=[];
 	if(!code_box.has_errors){
 		try{
-			g_sandbox.eval("UI.DrawFrame();");
+			g_sandbox.eval("UI.__reported_widgets=[];UI.DrawFrame();");
 			inner_widgets=g_sandbox.ReadBack('UI.__get_widget_report()');
 		}catch(err){
 			ParseCodeError(err)
@@ -252,6 +251,7 @@ UI.Application=function(id,attrs){
 				anchor:parent(),anchor_align:"right",anchor_valign:"center",
 				x:16,y:0,w:wnd.w*0.3,h:wnd.h-32,
 			});
+			//var tick0=Duktape.__ui_get_tick();
 			var code_box=W.Edit("code_box",{
 				font:UI.Font("res/fonts/inconsolata.ttf",32),color:0xff000000,
 				tab_width:4,
@@ -272,9 +272,14 @@ UI.Application=function(id,attrs){
 				///////////////
 				x:0,y:0,w:ed_rect.w-8,h:ed_rect.h-8,
 			});
+			//print("code_box:",Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())*1000,"ms");
 			//the sandbox is effectively a GLwidget
 			//todo: clipping
-			UI.GLWidget(function(){g_sandbox.DrawWindow(16,16);})
+			UI.GLWidget(function(){
+				//var tick0=Duktape.__ui_get_tick();
+				g_sandbox.DrawWindow(16,16);
+				//print("g_sandbox.DrawWindow",Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())*1000,"ms");
+			})
 			//create the boxes
 			if(code_box.document_items){
 				W.Group("controls",{
@@ -286,11 +291,13 @@ UI.Application=function(id,attrs){
 		//this calls BeginPaint which is not reentrant... consider it as a separate window
 		//var s_code=ed_box.ed.GetText();
 		//g_sandbox.eval("UI.Application=function(id,attrs){"+s_code+"};UI.DrawFrame();");
+		//var tick0=Duktape.__ui_get_tick();
 		if(code_box.need_to_rerun){
 			code_box.need_to_rerun=0;
 			RerunUserCode();
 		}
 		DrawUserFrame();
+		//print("DrawUserFrame:",Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())*1000,"ms");
 	UI.End();
 };
 UI.Run()
