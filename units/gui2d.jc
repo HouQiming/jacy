@@ -999,6 +999,7 @@ class CRenderer
 		if !gcitem:
 			//we don't know what it looks like, don't draw
 			return
+		if !gcitem.bmp.w||!gcitem.bmp.h:return
 		y_final=y+gcitem.y_draw+delta_y
 		if m_text_y_snap:y_final=floor(y_final+0.5f)
 		_DrawBitmap(gcitem.tex_id, x+gcitem.x_draw,y_final,gcitem.w_draw,float(gcitem.bmp.h-2), C, 0)

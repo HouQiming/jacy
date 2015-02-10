@@ -9,7 +9,9 @@ UI.SetFontSharpening(1.5)
 var g_sandbox=UI.CreateSandbox();
 g_sandbox.ReadBack=function(s){return JSON.parse(g_sandbox._ReadBack("JSON.stringify("+s+")"))}
 g_sandbox.eval("var UI=require('gui2d/ui');var W=require('gui2d/widgets');require('res/lib/inmate');")
-//todo: adding widgets, performance
+//todo: new project, adding widgets, widget type vs Application, parameter defaulting
+//todo: performance: possibly degenerating skiplist
+//xywh: relative mode?
 g_sandbox.m_relative_scaling=0.5;
 var g_initial_code="\
 /* Test comment string */\n\
@@ -56,8 +58,6 @@ UI.Application=function(id,attrs){\n\
 	UI.End();\n\
 };\n\
 ";
-var item_0={id:"$0",x:10,y:10,w:400,h:300,w_min:50,h_min:50,OnChange:function(attrs){item_0.x=attrs.x;item_0.y=attrs.y;item_0.w=attrs.w;item_0.h=attrs.h}};
-var item_1={id:"$1",x:20,y:20,w:200,h:200,w_min:50,h_min:50,OnChange:function(attrs){item_1.x=attrs.x;item_1.y=attrs.y;item_1.w=attrs.w;item_1.h=attrs.h}};
 var g_language_C=Language.Define(function(lang){
 	var bid_comment=lang.ColoredDelimiter("key","/*","*/","color_comment");
 	var bid_comment2=lang.ColoredDelimiter("key","//","\n","color_comment");
@@ -184,16 +184,20 @@ var DrawUserFrame=function(){
 		}
 		var re_param_replacer=new RegExp("\\'([xywh])\\':([^,]+),","g");
 		//set OnChange
+		var fonstart=UI.HackCallback(function(obj){
+			code_box.undo_needed=0;
+		});
 		var fonchange=UI.HackCallback(function(obj){
 			//we only consider top level groups, so we ignore non-top-level anchoring
 			//create a replacement object first
 			var obj_replacement={x:obj.x/g_sandbox.m_relative_scaling,y:obj.y/g_sandbox.m_relative_scaling,w:obj.w/g_sandbox.m_relative_scaling,h:obj.h/g_sandbox.m_relative_scaling};
 			//todo: snapping support in boxdoc
 			//////////
+			var ed=code_box.ed;
+			if(code_box.undo_needed){ed.Undo();}
 			var range_0=code_box.working_range.point0.ccnt;
 			var range_1=code_box.working_range.point1.ccnt;
 			code_box.has_errors=0;
-			var ed=code_box.ed;
 			var s_code=ed.GetText(range_0,range_1-range_0);
 			var s_widget_key="/*widget"+obj.id.substr(1)+"*/(";
 			var utf8_offset=s_code.indexOf(s_widget_key)
@@ -213,11 +217,17 @@ var DrawUserFrame=function(){
 			});
 			s_code=s_code.replace(re_param_replacer,freplace_params);
 			ed.Edit([byte_offset,byte_offset_widget_end-byte_offset,s_code]);
+			code_box.undo_needed=1;
 			code_box.need_to_rerun=1;
+		});
+		var fonfinish=UI.HackCallback(function(obj){
+			code_box.undo_needed=0;
 		});
 		for(var i=0;i<items.length;i++){
 			var item_i=items[i];
+			item_i.OnDragStart=fonstart;
 			item_i.OnChange=fonchange;
+			item_i.OnDragFinish=fonfinish;
 			item_i.w_min=1;
 			item_i.h_min=1;
 			//item_i.old_values={x:item_i.x,y:item_i.y,w:item_i.w,h:item_i.h};

@@ -1584,7 +1584,8 @@ auto coreInit()
 				g_code_buffer.push(' m_')
 				g_code_buffer.push(toBase32(pobj_var))
 				g_code_buffer.push(';')
-				g_code_buffer.push('\n')
+				if !g_enable_c_line_info:
+					g_code_buffer.push('\n')
 			if !got_anything:
 				g_code_buffer.push('char dummy;')
 			g_code_buffer.push('};')
@@ -1982,8 +1983,10 @@ auto coreInit()
 		else
 			for i=0:n_args-1
 				genCode(readPool(pecall+EXPR_OFS_ARGS+i),0)
-				if g_code_buffer.n>=2&&(g_code_buffer.back()!='\n'||g_code_buffer[g_code_buffer.n-2]!=';'):
-					g_code_buffer.push(';')
+				if g_code_buffer.n>=1&&g_code_buffer.back()==';':continue
+				if g_code_buffer.n>=2&&(g_code_buffer.back()=='\n'&&g_code_buffer[g_code_buffer.n-2]==';'):continue
+				g_code_buffer.push(';')
+				if !g_enable_c_line_info:
 					g_code_buffer.push('\n')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
@@ -2141,7 +2144,8 @@ auto coreInit()
 				if readPool(pe_body)==EFLAG_STRING+g_id_case:
 					//fall through
 					g_code_buffer.push(';')
-					g_code_buffer.push('\n')
+					if !g_enable_c_line_info:
+						g_code_buffer.push('\n')
 				else
 					genCode(pe_body,0)
 					g_code_buffer.push('break;')
@@ -2398,6 +2402,7 @@ auto coreInit()
 				g_code_buffer.push(string(i-1))
 				g_code_buffer.push(';')
 				g_code_buffer.push('\n')
+				g_current_c_line_epos=0
 			g_code_buffer.push('};')
 			g_code_buffer=sbak
 			//the function-level declaration buffer
@@ -2415,6 +2420,7 @@ auto coreInit()
 				g_code_buffer.push(toBase32(t))
 				g_code_buffer.push(';')
 				g_code_buffer.push('\n')
+				g_current_c_line_epos=0
 			g_code_buffer.push('}')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
@@ -11053,6 +11059,10 @@ g_current_labels=new int[int]
 g_readable_c_code=0
 g_enable_debug_instrumentation=0
 g_current_line_info_id=0
+g_enable_c_line_info=1
+g_current_c_line_epos=0
+g_current_c_line_idfn=0
+g_current_c_line_line=0
 auto genConst(int cid)
 	cns=Util.ctNumber(cid)
 	if cns.type==const_type(CTYPE_FLOAT,32):
@@ -11110,6 +11120,27 @@ auto genCode(PExpression pe,int expr_oplevel)
 	flags=readPool(pe)
 	switch flags&EFLAG_MASK{
 	case EFLAG_FCALL:
+		if g_enable_c_line_info:
+			//generate #line
+			paepos0=readPool(pe+1)
+			if paepos0:
+				assert(readPool(paepos0)==g_tid_TAdvancedEpos)
+				if readPool(paepos0+1)<0:
+					paepos0=readPool(paepos0+2)
+			if paepos0&&g_current_c_line_epos!=paepos0:
+				(id_fn0,ln0,col0)=getLineInfo(readPool(paepos0+1))
+				if id_fn0!=g_current_c_line_idfn||ln0!=g_current_c_line_line:
+					g_code_buffer.push('\n#line ')
+					g_code_buffer.push(new string(ln0+1))
+					if id_fn0!=g_current_c_line_idfn:
+						g_code_buffer.push(' ')
+						g_code_buffer.push('"')
+						g_code_buffer.push(genString(getIdString(id_fn0)))
+						g_code_buffer.push('"')
+					g_code_buffer.push('\n')
+				g_current_c_line_epos=paepos0
+				g_current_c_line_idfn=id_fn0
+				g_current_c_line_line=ln0
 		//n_args=flags&~EFLAG_MASK
 		pobjfn=getExprFunction(pe)
 		cb_oncgen=0
@@ -11279,6 +11310,7 @@ auto cgPopScope()
 		g_code_buffer.push('};')
 		g_code_buffer.push('\n')
 	g_code_buffer.push(s_inside)
+	g_current_c_line_epos=0
 	//g_code_buffer.push('}')
 
 auto genClassName(PCTObject t)

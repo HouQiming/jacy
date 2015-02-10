@@ -438,6 +438,7 @@ var Edit_prototype={
 				sel1.ccnt=ret.ccnt+ret.sz;
 				this.AutoScroll("center_if_hidden");
 			}
+			if(this.OnChange){this.OnChange(this);}
 			UI.Refresh();
 		}else if(IsKey(event,["CTRL","SHIFT","Z"])||IsKey(event,["CTRL","Y"])){
 			var ret=ed.Undo("redo")
@@ -446,6 +447,7 @@ var Edit_prototype={
 				sel1.ccnt=ret.ccnt+ret.sz;
 				this.AutoScroll("center_if_hidden");
 			}
+			if(this.OnChange){this.OnChange(this);}
 			UI.Refresh();
 		}else{
 		}

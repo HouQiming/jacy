@@ -162,6 +162,8 @@ auto main()
 			g_bit_size=64
 		else if s.StartsWith("--readable_c_code"):
 			g_readable_c_code=1
+		else if s.StartsWith("--no_c_lines"):
+			g_enable_c_line_info=0
 		else if s.StartsWith("-v"):
 			g_enable_timing=1
 			if s.StartsWith("-vv"):

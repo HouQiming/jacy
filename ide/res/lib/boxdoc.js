@@ -37,6 +37,7 @@ var BoxDocumentItem_prototype={
 		this.drag_x_base=event.x;
 		this.drag_y_base=event.y;
 		this.drag_initiated=0;
+		if(this.OnDragStart){this.OnDragStart(this);}
 		UI.CaptureMouse(this);
 	},
 	OnMouseMove:function(event){
@@ -55,10 +56,13 @@ var BoxDocumentItem_prototype={
 	},
 	OnMouseUp:function(event){
 		UI.ReleaseMouse(this);
-		this.is_dragging=0;
-		if(this.drag_cancel_selection){
-			this.parent.selection[this.id]=0;
-			UI.Refresh();
+		if(this.is_dragging){
+			if(this.OnDragFinish){this.OnDragFinish(this);}
+			this.is_dragging=0;
+			if(this.drag_cancel_selection){
+				this.parent.selection[this.id]=0;
+				UI.Refresh();
+			}
 		}
 	},
 };
