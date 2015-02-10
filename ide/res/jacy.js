@@ -7,8 +7,9 @@ function parent(){return UI.context_parent;}
 
 UI.SetFontSharpening(1.5)
 var g_sandbox=UI.CreateSandbox();
-g_sandbox.eval("var UI=require('gui2d/ui');var W=require('gui2d/widgets');")
-//todo
+g_sandbox.ReadBack=function(s){return JSON.parse(g_sandbox._ReadBack("JSON.stringify("+s+")"))}
+g_sandbox.eval("var UI=require('gui2d/ui');var W=require('gui2d/widgets');require('res/lib/inmate');")
+//todo: adding widgets, performance
 g_sandbox.m_relative_scaling=0.5;
 var g_initial_code="\
 /* Test comment string */\n\
@@ -41,16 +42,14 @@ UI.Application=function(id,attrs){\n\
 						title:'Jacy test code',w:1280,h:720,bgcolor:0xffffffff,\n\
 						designated_screen_size:1440,flags:UI.SDL_WINDOW_MAXIMIZED|UI.SDL_WINDOW_RESIZABLE,\n\
 						is_main_window:1}));\n\
-			W.Text('',/*widget*/({\n\
-				anchor:UI.context_parent,anchor_align:'left',anchor_valign:'up',\n\
-				w:UI.context_parent.w-32,\n\
-				x:16,y:16,\n\
+			/*widget一*/(W.Text('',{\n\
+				'w':UI.context_parent.w-32,\n\
+				'x':16,'y':16,\n\
 				font:UI.Font('msyh',128,-100),text:'标题很细',\n\
 				color:0xff000000,\n\
 				}));\n\
-			W.Button('ok',/*widget*/({\n\
-				anchor:UI.context_parent,anchor_align:'right',anchor_valign:'down',\n\
-				x:16,y:16,\n\
+			/*widget二*/(W.Button('ok',{\n\
+				'x':400,'y':400,\n\
 				font:UI.Font('ArialUni',48),text:'OK',\n\
 				OnClick:function(){UI.DestroyWindow(wnd)}}));\n\
 		UI.End();\n\
@@ -104,6 +103,7 @@ var UpdateWorkingCode=function(){
 	}
 	working_range.point0.ccnt=range_0;
 	working_range.point1.ccnt=range_1;
+	code_box.document_items=[];
 	code_box.need_to_rerun=1;
 };
 
@@ -112,7 +112,7 @@ var ParseCodeError=function(err){
 	print(err.stack)
 }
 
-//todo: maintain global environment separately
+//todo: maintain global code (like styling) separately
 var RerunUserCode=function(){
 	var code_box=UI.top.app.code_box;
 	var working_range=code_box.working_range;
@@ -122,26 +122,107 @@ var RerunUserCode=function(){
 	code_box.has_errors=0;
 	var ed=code_box.ed;
 	var s_code=ed.GetText(range_0,range_1-range_0);
+	// instrument /*widget几*/
+	var re_widget=new RegExp('/\\*widget(.)\\*/\\(',"g")
+	var ftranslate_widget=function(smatch,sname){
+		return "UI.__report_widget('"+sname+"',";
+	};
+	s_code=s_code.replace(re_widget,ftranslate_widget);
 	try{
-		//todo: /*widget*/ hacks - for the current, search for bracket and parse
 		g_sandbox.eval(ed.GetText());
 		g_sandbox.eval("UI.Application=function(id,attrs){"+s_code+"};");
 	}catch(err){
 		ParseCodeError(err)
 		code_box.has_errors=1;
 	}
+	UI.Refresh()
 	return 1;
 };
 
 var DrawUserFrame=function(){
 	var code_box=UI.top.app.code_box;
+	var inner_widgets=[];
 	if(!code_box.has_errors){
 		try{
 			g_sandbox.eval("UI.DrawFrame();");
+			inner_widgets=g_sandbox.ReadBack('UI.__get_widget_report()');
 		}catch(err){
 			ParseCodeError(err)
 			code_box.has_errors=1;
 		}
+	}
+	if(!code_box.has_errors){
+		var inner_widget_map={};
+		for(var i=0;i<inner_widgets.length;i++){
+			var wi=inner_widgets[i];
+			wi.id="$"+wi.id;
+			wi.x*=g_sandbox.m_relative_scaling;
+			wi.y*=g_sandbox.m_relative_scaling;
+			wi.w*=g_sandbox.m_relative_scaling;
+			wi.h*=g_sandbox.m_relative_scaling;
+			inner_widget_map[wi.id]=wi;
+		}
+		var n2=0;
+		var items=code_box.document_items;
+		for(var i=0;i<items.length;i++){
+			if(!inner_widget_map[items[i].id]){continue;}
+			var attrs_old=items[i];
+			var attrs_new=inner_widget_map[attrs_old.id];
+			for(var s in attrs_new){
+				attrs_old[s]=attrs_new[s];
+			}
+			inner_widget_map[attrs_old.id]=undefined;
+			items[n2]=attrs_old;
+			n2++;
+		}
+		items=items.slice(0,n2);
+		for(var id in inner_widget_map){
+			var attrs=inner_widget_map[id];
+			if(attrs){
+				items.push(attrs);
+			}
+		}
+		var re_param_replacer=new RegExp("\\'([xywh])\\':([^,]+),","g");
+		//set OnChange
+		var fonchange=UI.HackCallback(function(obj){
+			//we only consider top level groups, so we ignore non-top-level anchoring
+			//create a replacement object first
+			var obj_replacement={x:obj.x/g_sandbox.m_relative_scaling,y:obj.y/g_sandbox.m_relative_scaling,w:obj.w/g_sandbox.m_relative_scaling,h:obj.h/g_sandbox.m_relative_scaling};
+			//todo: snapping support in boxdoc
+			//////////
+			var range_0=code_box.working_range.point0.ccnt;
+			var range_1=code_box.working_range.point1.ccnt;
+			code_box.has_errors=0;
+			var ed=code_box.ed;
+			var s_code=ed.GetText(range_0,range_1-range_0);
+			var s_widget_key="/*widget"+obj.id.substr(1)+"*/(";
+			var utf8_offset=s_code.indexOf(s_widget_key)
+			if(utf8_offset<0){
+				throw new Error("panic: UI->widget desync");
+			}
+			var byte_offset=ed.ConvertUTF8OffsetToBytesize(range_0,utf8_offset);
+			var lg_key=Duktape.__byte_length(s_widget_key);
+			//use JS search and convert back to ccnt...
+			var byte_offset_widget_end=code_box.FindOuterBracket(byte_offset+lg_key,1);
+			//do the replacement
+			s_code=ed.GetText(byte_offset,byte_offset_widget_end-byte_offset);
+			var freplace_params=UI.HackCallback(function(smatch,s_name){
+				if(!obj_replacement[s_name]){return smatch;}
+				var s_replacement="'"+s_name+"':"+obj_replacement[s_name].toString()+",";
+				return s_replacement;
+			});
+			s_code=s_code.replace(re_param_replacer,freplace_params);
+			ed.Edit([byte_offset,byte_offset_widget_end-byte_offset,s_code]);
+			code_box.need_to_rerun=1;
+		});
+		for(var i=0;i<items.length;i++){
+			var item_i=items[i];
+			item_i.OnChange=fonchange;
+			item_i.w_min=1;
+			item_i.h_min=1;
+			//item_i.old_values={x:item_i.x,y:item_i.y,w:item_i.w,h:item_i.h};
+		}
+		code_box.document_items=items;
 	}
 };
 
@@ -181,12 +262,15 @@ UI.Application=function(id,attrs){
 				///////////////
 				x:0,y:0,w:ed_rect.w-8,h:ed_rect.h-8,
 			});
-			//this part is effectively a GLwidget
+			//the sandbox is effectively a GLwidget
 			//todo: clipping
 			UI.GLWidget(function(){g_sandbox.DrawWindow(16,16);})
-			//for general evaling, just replace
-			//global styles
-			W.Group("controls",{'item_object':W.BoxDocumentItem,'items':[item_0,item_1]})
+			//create the boxes
+			if(code_box.document_items){
+				W.Group("controls",{
+					layout_direction:'inside',layout_align:'left',layout_valign:'up',x:16,y:16,
+					'item_object':W.BoxDocumentItem,'items':code_box.document_items})
+			}
 		UI.End();
 		///////////////////
 		//this calls BeginPaint which is not reentrant... consider it as a separate window

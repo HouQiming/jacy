@@ -103,8 +103,7 @@ var ScaleKnob_prototype={
 W.BoxDocumentItem=function(id,attrs0){
 	var attrs=UI.Keep(id,attrs0,BoxDocumentItem_prototype);
 	UI.StdStyling(id,attrs,attrs0, "box_document_item");
-	UI.StdAnchoring(id,attrs);
-	W.Region(id,attrs);
+	W.Region(id,attrs);//this does the anchoring
 	attrs.parent=UI.context_parent;
 	if(attrs.selected){
 		//draw the basic box

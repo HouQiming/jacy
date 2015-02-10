@@ -145,6 +145,7 @@ W.Group=function(id,attrs0){
 	var selection=attrs.selection;
 	//layouting: just set layout_direction and layout_spacing
 	UI.Begin(attrs);
+	//attrs.layout_auto_anchor=attrs;
 	for(var i=0;i<items.length;i++){
 		var items_i=items[i];
 		var obj_temp=Object.create(item_template);
@@ -154,8 +155,10 @@ W.Group=function(id,attrs0){
 		if(selection){
 			obj_temp.selected=selection[items_i.id];
 		}
-		item_object(items_i.id,obj_temp).__kept=1;
+		var itemobj_i=item_object(items_i.id,obj_temp);
+		itemobj_i.__kept=1;
 	}
+	//attrs.layout_auto_anchor=null;
 	UI.End(attrs);
 	//delete the non-kept
 	for(var key in attrs){

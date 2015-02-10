@@ -2036,6 +2036,15 @@ class CEditableText
 		ret[1]=ch1
 		return JS.Return(ret)
 	}
+	JS_ConvertUTF8OffsetToBytesize=function(JSContext JS){
+		ccnt0=JS.Param(0).or(0LL)
+		n_utf8=JS.Param(1).or(0L)
+		foreach ch,I in enumUtf8Forward(ccnt0)
+			if n_utf8<=0L:
+				return JS.Return(I)
+			n_utf8--
+		return 0
+	}
 	///////////////////////////
 	auto debugDumpSL()
 		levels=new string[]
@@ -2084,6 +2093,7 @@ class CEditableText
 		proto.ExportMethod(this,"MoveToBoundary",JS_MoveToBoundary)
 		proto.ExportMethod(this,"Undo",JS_Undo)
 		proto.ExportMethod(this,"GetUtf8CharNeighborhood",JS_GetUtf8CharNeighborhood)
+		proto.ExportMethod(this,"ConvertUTF8OffsetToBytesize",JS_ConvertUTF8OffsetToBytesize)
 
 g_registered_state_handlers=new function(CEditableText ret)[string]
 

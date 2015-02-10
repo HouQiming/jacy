@@ -359,7 +359,8 @@ class CColorer_programmer
 		//do the dfa and get all tokens
 		tokens=new u8[]
 		foreach tok,I in EnumTokens(s_context,s)
-			if I>=ofs:break
+			//I is the finishing position
+			if I>ofs:break
 			tokens.push(u8(tok))
 		bdfa=ld.m_bracket_dfa
 		for sti=0:ld.m_n_key_states-1

@@ -1261,7 +1261,7 @@ UI.StdAnchoring=function(id,attrs){
 	}else{
 		//bad anchor placement - consider as "absolute"
 	}
-	if(UI.context_parent.layout_direction){
+	if(UI.context_parent.layout_direction&&UI.context_parent.layout_direction!="inside"){
 		UI.context_parent.layout_auto_anchor={x:attrs.x,y:attrs.y,w:attrs.w,h:attrs.h};
 		if(anchor_placement=="left"||anchor_placement=="right"){UI.context_parent.layout_auto_anchor.h=UI.context_parent.h}else
 		if(anchor_placement=="up"||anchor_placement=="down"){UI.context_parent.layout_auto_anchor.w=UI.context_parent.w}
