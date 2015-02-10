@@ -36,7 +36,7 @@ var demo_text_animation=function(id,attrs){
 	attrs.font=attrs.font||"RobotoCondensed-Regular";//"segoeui";
 	UI.Begin(attrs);
 		var wnd=UI.Begin(W.Window("app",{title:"GUI hello world",w:1024,h:768,bgcolor:0xff000000,designated_screen_size:1440,flags:UI.SDL_WINDOW_MAXIMIZED|UI.SDL_WINDOW_RESIZABLE,is_main_window:1}))
-			W.Hotkey("",{key:["ALT","F4"],action:function(){UI.DestroyWindow(wnd)}});
+			W.Hotkey("",{key:"ALT+F4",action:function(){UI.DestroyWindow(wnd)}});
 			W.FillRect("",{x:attrs.anim_x+10,y:10, w:200,h:100,color:0xff0000ff});
 			W.FillRect("",{x:attrs.anim_x+10,y:120,w:200,h:100,color:0xff00ff00});
 			W.FillRect("",{x:attrs.anim_x+10,y:230,w:200,h:100,color:0xffff0000});
@@ -76,7 +76,7 @@ var demo_msgbox=function(id,attrs){
 	attrs=UI.Keep(id,attrs);
 	UI.Begin(attrs);
 		var wnd=UI.Begin(W.Window("app",{title:"GUI example",w:1024,h:768,bgcolor:0xffffffff,designated_screen_size:1440,flags:UI.SDL_WINDOW_RESIZABLE,is_main_window:1}))
-			W.Hotkey("",{key:["ALT","F4"],action:function(){UI.DestroyWindow(wnd)}});
+			W.Hotkey("",{key:"ALT+F4",action:function(){UI.DestroyWindow(wnd)}});
 			W.Hotkey("",{key:'ESCAPE',action:function(){UI.DestroyWindow(wnd)}});
 			W.Text("",{
 				anchor:UI.context_parent,anchor_align:"left",anchor_valign:"up",
@@ -109,7 +109,7 @@ var demo_msgboxb=function(id,attrs){
 	attrs=UI.Keep(id,attrs);
 	UI.Begin(attrs);
 		var wnd=UI.Begin(W.Window("app",{title:"GUI example",w:1024,h:768,bgcolor:0xff000000,designated_screen_size:1440,flags:UI.SDL_WINDOW_RESIZABLE,is_main_window:1}))
-			W.Hotkey("",{key:["ALT","F4"],action:function(){UI.DestroyWindow(wnd)}});
+			W.Hotkey("",{key:"ALT+F4",action:function(){UI.DestroyWindow(wnd)}});
 			W.Hotkey("",{key:'ESCAPE',action:function(){UI.DestroyWindow(wnd)}});
 			W.Text("",{
 				anchor:UI.context_parent,anchor_align:"left",anchor_valign:"up",
@@ -152,7 +152,7 @@ var demo_textbox=function(id,attrs){
 			//	//print(ed.GetTextSize())
 			//	//print(ed.GetText())
 			//}
-			W.Hotkey("",{key:["ALT","F4"],action:function(){UI.DestroyWindow(wnd)}});
+			W.Hotkey("",{key:"ALT+F4",action:function(){UI.DestroyWindow(wnd)}});
 			//ed.Render({x:0,y:0,w:1024-16,h:768-16, scr_x:8,scr_y:8,scale:1})
 			//UI.SetCaret(wnd,8,8,3,24,0x7f000000,500)
 			var textbox=W.Edit("textbox",{

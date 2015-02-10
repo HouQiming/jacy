@@ -1465,7 +1465,7 @@ UI.Run=function(){
 					var lg=hotkeys.length;
 					for(var i=lg-1;i>=0;i--){
 						var attrs=hotkeys[i];
-						if(UI.IsKey(event,attrs.key)){
+						if(UI.IsHotkey(event,attrs.key)){
 							attrs.action();
 							break;
 						}
