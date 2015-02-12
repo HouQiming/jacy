@@ -14,7 +14,7 @@ var DrawTabs=function(min_size,layout,x,y,w,h){
 		DrawTabs(min_size,layout.items[layout.active_tab],x,y,w,h);
 		return;
 	}else{
-		layout.object_type(layout);
+		layout.object_type(layout.id,layout);
 		return;
 	}
 	if(layout.ratio){
@@ -41,6 +41,8 @@ W.DockingLayout=function(id,attrs){
 	var obj=UI.Keep(id,attrs,W.DockingLayout_prototype);
 	UI.StdAnchoring(id,obj);
 	/////////
-	DrawTabs(obj.min_size||100,obj.layout,obj.x,obj.y,obj.w,obj.h)
+	UI.Begin(obj)
+		DrawTabs(obj.min_size||100,obj.layout,obj.x,obj.y,obj.w,obj.h)
+	UI.End(obj)
 	return obj;
 };

@@ -776,7 +776,7 @@ class Array(T)
 				(s,pmatched)=__detail.spapAhoCorasickNext(ac)
 				if pmatched>=0:
 					a=rules[pmatched*2]
-					ret2.push(s-a.n)
+					ret2.push(s-a.n-d)
 					ret2.push(pmatched)
 				s0=s
 				if uptr(s)-uptr(d)>=uptr(n):break

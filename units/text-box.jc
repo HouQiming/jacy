@@ -102,8 +102,8 @@ inline CharToUtf8(auto s,T)
 				ch=ch0
 			else
 				II=I
-			fbody(ch,II,II+T(1))
-	}}	
+			fbody(ch,II,I+T(1))
+	}}
 
 inline CharToUtf8Backward(auto s,T)
 	return {'forEach':inline(fbody){
@@ -183,8 +183,7 @@ auto MakeCharSet(string e)
 g_ascii_wordchars=MakeCharSet("0-9A-Za-z_")
 auto isWordChar(int ch)
 	if ch>=128:
-		pt=g_unicode_wordchars.Bisect(function(int c0){return c0<=ch})
-		return int(g_unicode_wordchars.Bisect(function(int c0){return c0<ch})&1)
+		return int(g_unicode_wordchars.Bisect(function(int c0){return c0<=ch})&1)
 	slot=(ch>>5)
 	for i in crange(4)
 		if i==slot:return int(g_ascii_wordchars[i]>>(ch&31))&1
@@ -1770,7 +1769,10 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 		else
 			for i=0:obj_handlers.length()-1
 				auto f=g_registered_state_handlers[obj_handlers[i].or("")]
-				if f:f(ret)
+				if f:
+					f(ret)
+				else
+					return JS.ReturnError("Invalid state handler @1".Replace(["@1",obj_handlers[i].or("")]))
 		if !ret.Init(obj_style):
 			return JS.ReturnError("Failed to create the editor")
 		else

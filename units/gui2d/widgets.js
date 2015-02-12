@@ -460,6 +460,9 @@ W.Edit=function(id,attrs0){
 	var attrs=UI.Keep(id,attrs0,W.Edit_prototype);
 	UI.StdStyling(id,attrs,attrs0, "edit",attrs.focus_state||"blur");
 	UI.StdAnchoring(id,attrs);
+	if(attrs.show_background){
+		UI.DrawBitmap(0,attrs.x,attrs.y,attrs.w,attrs.h,attrs.bgcolor);
+	}
 	var ed=attrs.ed;
 	if(!ed){
 		ed=UI.CreateEditor(attrs);
@@ -483,7 +486,7 @@ W.Edit=function(id,attrs0){
 		var y_caret=attrs.y+(ed_caret.y-scroll_y)*scale;
 		UI.SetCaret(UI.context_window,
 			x_caret,y_caret,
-			attrs.caret_width*scale,UI.GetFontHeight(attrs.font)*scale,
+			attrs.caret_width*scale,ed.GetCharacterHeightAt(attrs.sel1.ccnt)*scale,
 			attrs.caret_color,attrs.caret_flicker);
 	}
 	return attrs;
