@@ -764,6 +764,23 @@ class Array(T)
 				s0=s
 				if uptr(s)-uptr(d)>=uptr(n):break
 			return ret
+		auto FindAll(char[][] rules)
+			if Platform.BUILD=="debug":
+				if rules.n&1:
+					__basic_api.spapReportError("in string.FindAll, the replace rules didn't come in pairs\0")
+			if !rules.n:return iptr[]()
+			ac=__detail.spapAhoCorasickBegin(rules,d,n)
+			ret2=iptr[]()
+			s0=d
+			for(;;)
+				(s,pmatched)=__detail.spapAhoCorasickNext(ac)
+				if pmatched>=0:
+					a=rules[pmatched*2]
+					ret2.push(s-a.n)
+					ret2.push(pmatched)
+				s0=s
+				if uptr(s)-uptr(d)>=uptr(n):break
+			return ret2
 		////////////
 		auto StartsWith(char[] b)
 			return n>=b.n&&__basic_api.memcmp(__pointer(d),__pointer(b.d),b.n)==0

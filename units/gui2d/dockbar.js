@@ -36,8 +36,9 @@ var DrawTabs=function(min_size,layout,x,y,w,h){
 		DrawTabs(min_size,layout[1],x,y+dc0,w,h-dc0);
 	}
 };
+W.DockingLayout_prototype={layout_direction:"inside"}
 W.DockingLayout=function(id,attrs){
-	var obj=UI.Keep(id,attrs);
+	var obj=UI.Keep(id,attrs,W.DockingLayout_prototype);
 	UI.StdAnchoring(id,obj);
 	/////////
 	DrawTabs(obj.min_size||100,obj.layout,obj.x,obj.y,obj.w,obj.h)

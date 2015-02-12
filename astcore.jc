@@ -8486,7 +8486,7 @@ auto readCtUniqueInEvalFlow(PExpression pe_queued,int[] key)
 			return pobj_ret
 	if pe_queued:
 		key2=new(key)
-		key2.push(1)
+		key2.push(pe_queued)
 		is_in_queue=ctUnique(key2)
 		if is_in_queue:return 0
 		ctUnique(key2)=1

@@ -42,10 +42,17 @@ auto makeCaseTable(int2[] src)
 			flush(r0,r1)
 		r0=-1;r1=-1
 	//////
+	arabic_table=new int[0x100*4]
+	for i=0:arabic_table.n-1
+		arabic_table[i]=0x600+(i>>2)
+	opening_brackets=new int[]
+	no_breaks=new int[]
+	spaces=new int[]
 	to_upper=new int2[]
 	to_lower=new int2[]
 	sdata=System.IO.ReadAll("c:\\tp\\osslib\\unicodedata.txt")
 	c0=0
+	s_ligatures=new("[")
 	foreach sline,I in sdata.Tokenize("\r\n")
 		swords=new string[]
 		foreach sword in sline.TokenizeEx(";",1)
@@ -70,10 +77,36 @@ auto makeCaseTable(int2[] src)
 				badChar(c0)
 				badChar(ch)
 		else
+			if scategory=="Ps":
+				opening_brackets.push(ch)
 			if is_wanted[scategory]:
 				goodChar(ch)
 			else
 				badChar(ch)
+		/////////
+		if sdesc.IndexOf('LIGATURE')>=0&&swords[5].StartsWith("<compat>"):
+			SWrite(s_ligatures,'"',Unicode32ToUtf8([scode.asHex(int) foreach scode,I in swords[5].Tokenize(" ") if I>1]),'","',Unicode32ToUtf8([ch]),'", ')
+		if swords[5].StartsWith("<noBreak>"):
+			no_breaks.push(ch)
+		if scategory=="Zs"||ch==9:
+			spaces.push(ch)
+		if swords[5].StartsWith("<isolated>"):
+			if [s.asHex(int)-0x600 foreach s,J in swords[5].Tokenize(" ") if J].n==1:
+				foreach c0 in [s.asHex(int)-0x600 foreach s,J in swords[5].Tokenize(" ") if J]
+					arabic_table[c0*4+0]=ch
+		else if swords[5].StartsWith("<initial>"):
+			if [s.asHex(int)-0x600 foreach s,J in swords[5].Tokenize(" ") if J].n==1:
+				foreach c0 in [s.asHex(int)-0x600 foreach s,J in swords[5].Tokenize(" ") if J]
+					arabic_table[c0*4+1]=ch
+		else if swords[5].StartsWith("<final>"):
+			if [s.asHex(int)-0x600 foreach s,J in swords[5].Tokenize(" ") if J].n==1:
+				foreach c0 in [s.asHex(int)-0x600 foreach s,J in swords[5].Tokenize(" ") if J]
+					arabic_table[c0*4+2]=ch
+		else if swords[5].StartsWith("<medial>"):
+			if [s.asHex(int)-0x600 foreach s,J in swords[5].Tokenize(" ") if J].n==1:
+				foreach c0 in [s.asHex(int)-0x600 foreach s,J in swords[5].Tokenize(" ") if J]
+					arabic_table[c0*4+3]=ch
+	s_ligatures.push(']')
 	flush(r0,r1)
 	//System.IO.CreateFile("test\\wordchars.txt").Write(Unicode32ToUtf8(sret))
 	//Writeln(to_lower)
@@ -81,4 +114,7 @@ auto makeCaseTable(int2[] src)
 	System.IO.CreateFile("test\\to_upper.txt").Write(makeCaseTable(to_upper))
 	System.IO.CreateFile("test\\to_lower.txt").Write(makeCaseTable(to_lower))
 	System.IO.CreateFile("test\\wordchars.txt").Write(coderet)
+	System.IO.CreateFile("test\\misc_chars.txt").Write(FormatAsText(opening_brackets,'\n',no_breaks,'\n',spaces,'\n',arabic_table))
+	System.IO.CreateFile("test\\ligatures.txt").Write(s_ligatures)
+	//todo: opening_brackets
 })()
