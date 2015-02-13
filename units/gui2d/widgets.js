@@ -479,7 +479,7 @@ W.Edit=function(id,attrs0){
 	var scale=attrs.scale;
 	var scroll_x=attrs.scroll_x;
 	var scroll_y=attrs.scroll_y;
-	ed.Render({x:scroll_x,y:scroll_y,w:attrs.w,h:attrs.h, scr_x:attrs.x,scr_y:attrs.y, scale:scale});
+	ed.Render({x:scroll_x,y:scroll_y,w:attrs.w/scale,h:attrs.h/scale, scr_x:attrs.x,scr_y:attrs.y, scale:scale});
 	if(UI.HasFocus(attrs)){
 		var ed_caret=ed.XYFromCcnt(attrs.sel1.ccnt);
 		var x_caret=attrs.x+(ed_caret.x-scroll_x+ed.m_caret_offset)*scale;

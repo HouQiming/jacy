@@ -398,7 +398,7 @@ class CLayouter_baseline
 			///////////////
 			inline projectX(i64 x)
 				return fixed2float(x-scroll_x)*scaling+screen_x
-			inline projectY(i64 x)
+			inline projectY(i64 y)
 				return fixed2float(y-scroll_y)*scaling+screen_y
 			for ch,I in Utf8Chars(s[iptr(line_breaks[i]&0x7fffffffffffffffLL):iptr(min(line_breaks[i+1]&0x7fffffffffffffffLL,ofs))-1])
 				if mode==MODE_SEEK:
@@ -977,7 +977,7 @@ class CEditableText
 				ch=int(u8(chc))
 				if (ch&0xc0)!=0x80&&!(s_pool.n&&s_pool.back()=='\r'&&ch=='\n'):
 					//check for block breaking, but do not break UTF-8 chars or \r\n
-					if p-p_last_newline>=m_block_size&&(!m_is_line_only||p_last_newline>p_last_flush):
+					if p-p_last_flush>=m_block_size&&(!m_is_line_only||p_last_newline>p_last_flush):
 						//need a break...
 						if p_last_newline>p_last_flush:
 							//we got newlines in the block, we can only break at s_pool_last_newline
