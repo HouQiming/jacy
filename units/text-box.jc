@@ -60,6 +60,8 @@ class ITextStateHandler
 	function(CEditableText caller,i64 x,i64 y,JSObject obj):i64 SetCaretOverlay
 	function():i64 GetCaretOffset
 	function(i64[] a):long2 GetXYFromState
+	function(i64[] a,i64[] pp,string s,iptr ofs):int IsAtLineWrap
+	function(int ch):int IsCharInvisible
 	//For bisecting states, we need comparison and in-block linear seeking
 	function(i64[] a,i64[] b):int Compare
 	function(i64[] a,i64[] pp,string s,i64[] b):iptr SeekInBlock
@@ -825,7 +827,7 @@ class CEditableText
 			RecomputeCcntInner(nds_ret.ptail)
 			//recurse one level up
 			nds_toadd=nds_ret
-	auto BlockEdit(CSLNode nd,i64 ccnt_base0,TBlockOp[] bops)
+	auto BlockEdit(int debug_level,CSLNode nd,i64 ccnt_base0,TBlockOp[] bops)
 		assert(!nd.s)
 		//for each child -> untouched / new list (on which we apply random growth)
 		//so the return value is a list
@@ -838,6 +840,7 @@ class CEditableText
 		for(pc=nd.pchild;pc;pc=pc_pnext)
 			pc_pnext=pc.pnext
 			pc_ccnt=pc.ccnt
+			//Writeln(debug_level,' ',formatNumber(iptr(pc),{align:8,base:16}),' ',pc_ccnt)
 			//intersect cut bops with the child
 			p0=p
 			while p<bops.n&&bops[p].ccnt<ccnt_base+pc.ccnt:
@@ -860,6 +863,7 @@ class CEditableText
 					//completely deleted, discard the child
 					//do nothing here but continue on with the loop code
 				else
+					pc.pnext=CSLNode.NULL//this is required
 					if pc.s:
 						assert(p0==p-1)
 						assert(!!bops[p0].ss)
@@ -880,7 +884,7 @@ class CEditableText
 							//keep it
 							nds_pc=nds_pc.cat(TSLList(){phead:pc,ptail:pc})
 					else
-						nds_pc=BlockEdit(pc,ccnt_base,bops[p0:p-1])
+						nds_pc=BlockEdit(debug_level+1,pc,ccnt_base,bops[p0:p-1])
 					(nds_ret,nds_child)=skipListPromote(nds_ret, nds_child,nds_pc,pc)
 				bops[p0]=bk2
 				bops[p-1]=bk
@@ -1050,7 +1054,7 @@ class CEditableText
 		//Writeln(bops)
 		//block replace -> skiplist edit
 		if m_skiplist.ccnt:
-			nds_pc=BlockEdit(m_skiplist,0LL,bops)
+			nds_pc=BlockEdit(0,m_skiplist,0LL,bops)
 		else
 			nds_pc=TSLList()
 			foreach bop in bops
@@ -1091,7 +1095,6 @@ class CEditableText
 				restate_ranges.push(ccnt0_current)
 				restate_ranges.push(sz_current)
 			RecomputeStatesDfs(m_skiplist,0LL,restate_ranges,0L)
-		//debugDumpSL()
 	auto _GetText(string buf,iptr ofs, CSLNode nd,i64 ccnt0,i64 ccnt1)
 		if nd.s:
 			copy(buf[ofs:],nd.s[iptr(ccnt0):iptr(ccnt1-1LL)])
@@ -1384,6 +1387,14 @@ class CEditableText
 			return long2(a[0],a[1])
 	//todo: style changing
 	/////////////////
+	auto IsAtLineWrap(i64 ccnt)
+		if !ccnt:return 0
+		hid=m_handler_registration["renderer"].as(int)
+		handler=m_handlers[hid]
+		if !handler.IsAtLineWrap:return 0
+		(nd,ofs)=BlockFromCcnt(ccnt)
+		return handler.IsAtLineWrap(nd.a,GetPrecomputedStates(handler,nd),nd.s,iptr(ofs))
+	/////////////////
 	inline enumCharsForward(i64 ccnt0)
 		return {'forEach':inline(fbody){
 			ccnt=ccnt0
@@ -1646,6 +1657,12 @@ class CEditableText
 				break
 		return JS.Return(ccnt)
 	}
+	JS_IsAtLineWrap=function(JSContext JS){
+		ccnt=JS.Param(0).or(0LL)
+		range1=GetTextSize()
+		if u64(ccnt)>u64(range1):return 0
+		return JS.Return(IsAtLineWrap(ccnt))
+	}
 	JS_MoveToBoundary=function(JSContext JS){
 		ccnt=JS.Param(0).or(0LL)
 		range1=GetTextSize()
@@ -1659,6 +1676,15 @@ class CEditableText
 			fcheck=function(int c0,int c1){return isWordChar(c0)!=isWordChar(c1)}
 		else if stype=="ctrl_lr_stop":
 			fcheck=function(int c0,int c1){return !isWordChar(c0)&&isWordChar(c1)}
+		else if stype=="invisible_boundary":
+			hid=m_handler_registration["renderer"].as(int)
+			handler=m_handlers[hid]
+			if !handler.IsCharInvisible:
+				return JS.Return(ccnt)
+			if direction<0:
+				fcheck=function(int c0,int c1){return !handler.IsCharInvisible(c0)}
+			else
+				fcheck=function(int c0,int c1){return !handler.IsCharInvisible(c1)}
 		else
 			return 0
 		//boundary types: word, space, ctrl-lr
@@ -1748,6 +1774,7 @@ class CEditableText
 		proto.ExportMethod(this,"GetCharacterHeightAt",JS_GetCharacterHeightAt)
 		proto.ExportMethod(this,"GetDefaultFont",JS_GetDefaultFont)
 		proto.ExportMethod(this,"SnapToCharBoundary",JS_SnapToCharBoundary)
+		proto.ExportMethod(this,"IsAtLineWrap",JS_IsAtLineWrap)
 		proto.ExportMethod(this,"MoveToBoundary",JS_MoveToBoundary)
 		proto.ExportMethod(this,"Undo",JS_Undo)
 		proto.ExportMethod(this,"GetUtf8CharNeighborhood",JS_GetUtf8CharNeighborhood)

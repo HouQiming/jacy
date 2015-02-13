@@ -1982,7 +1982,29 @@ auto coreInit()
 			assert(0)
 		else
 			for i=0:n_args-1
-				genCode(readPool(pecall+EXPR_OFS_ARGS+i),0)
+				auto pe=readPool(pecall+EXPR_OFS_ARGS+i)
+				if g_enable_c_line_info:
+					//generate #line
+					paepos0=readPool(pe+1)
+					if paepos0:
+						assert(readPool(paepos0)==g_tid_TAdvancedEpos)
+						if readPool(paepos0+1)<0:
+							paepos0=readPool(paepos0+2)
+					if paepos0&&g_current_c_line_epos!=paepos0:
+						(id_fn0,ln0,col0)=getLineInfo(readPool(paepos0+1))
+						if id_fn0!=g_current_c_line_idfn||ln0!=g_current_c_line_line:
+							g_code_buffer.push('\n#line ')
+							g_code_buffer.push(new string(ln0+1))
+							if id_fn0!=g_current_c_line_idfn:
+								g_code_buffer.push(' ')
+								g_code_buffer.push('"')
+								g_code_buffer.push(genString(getIdString(id_fn0)))
+								g_code_buffer.push('"')
+							g_code_buffer.push('\n')
+						g_current_c_line_epos=paepos0
+						g_current_c_line_idfn=id_fn0
+						g_current_c_line_line=ln0
+				genCode(pe,0)
 				if g_code_buffer.n>=1&&g_code_buffer.back()==';':continue
 				if g_code_buffer.n>=2&&(g_code_buffer.back()=='\n'&&g_code_buffer[g_code_buffer.n-2]==';'):continue
 				g_code_buffer.push(';')
@@ -11120,27 +11142,6 @@ auto genCode(PExpression pe,int expr_oplevel)
 	flags=readPool(pe)
 	switch flags&EFLAG_MASK{
 	case EFLAG_FCALL:
-		if g_enable_c_line_info:
-			//generate #line
-			paepos0=readPool(pe+1)
-			if paepos0:
-				assert(readPool(paepos0)==g_tid_TAdvancedEpos)
-				if readPool(paepos0+1)<0:
-					paepos0=readPool(paepos0+2)
-			if paepos0&&g_current_c_line_epos!=paepos0:
-				(id_fn0,ln0,col0)=getLineInfo(readPool(paepos0+1))
-				if id_fn0!=g_current_c_line_idfn||ln0!=g_current_c_line_line:
-					g_code_buffer.push('\n#line ')
-					g_code_buffer.push(new string(ln0+1))
-					if id_fn0!=g_current_c_line_idfn:
-						g_code_buffer.push(' ')
-						g_code_buffer.push('"')
-						g_code_buffer.push(genString(getIdString(id_fn0)))
-						g_code_buffer.push('"')
-					g_code_buffer.push('\n')
-				g_current_c_line_epos=paepos0
-				g_current_c_line_idfn=id_fn0
-				g_current_c_line_line=ln0
 		//n_args=flags&~EFLAG_MASK
 		pobjfn=getExprFunction(pe)
 		cb_oncgen=0

@@ -230,6 +230,7 @@ W.Edit_prototype={
 	caret_flicker:500,
 	color:0xff000000,
 	bgcolor_selection:0xffffe0d0,
+	caret_is_wrapped:0,
 	GetHandlerID:function(name){
 		return this.ed.m_handler_registration[name];
 	},
@@ -238,7 +239,7 @@ W.Edit_prototype={
 		var ccnt0=this.sel0.ccnt;
 		var ccnt1=this.sel1.ccnt;
 		var ed=this.ed;
-		var ed_caret=ed.XYFromCcnt(ccnt1);
+		var ed_caret=this.GetCaretXY();
 		var y_original=this.scroll_y;
 		var ccnt_tot=ed.GetTextSize();
 		var ytot=ed.XYFromCcnt(ccnt_tot).y+ed.GetCharacterHeightAt(ccnt_tot);
@@ -282,6 +283,43 @@ W.Edit_prototype={
 		//TestTrigger(KEYCODE_ANY_MOVE)
 		//todo: ui animation?
 	},
+	PreSnapToVisualBoundaryLeft:function(ccnt,side){
+		return this.ed.MoveToBoundary(ccnt,-1,"invisible_boundary")
+	},
+	SnapToVisualBoundary:function(ccnt,side){
+		var ed=this.ed;
+		var ccnt_cb=ed.SnapToCharBoundary(ccnt,side);
+		//return ccnt_cb;
+		var xy=ed.XYFromCcnt(ccnt_cb);
+		var ccnt_vb=ed.SeekXY(xy.x,xy.y);
+		return ccnt_vb;
+	},
+	////////////////////////////
+	GetCaretXY:function(){
+		var ed=this.ed;
+		var xy0=ed.XYFromCcnt(this.sel1.ccnt)
+		if(this.caret_is_wrapped){
+			xy0.x=0
+			xy0.y+=ed.GetCharacterHeightAt(this.sel1.ccnt);
+		}
+		return xy0;
+	},
+	MoveCursorToXY:function(x,y){
+		var ed=this.ed;
+		this.sel1.ccnt=ed.SeekXY(x,y);
+		this.caret_is_wrapped=0;
+		if(ed.IsAtLineWrap(this.sel1.ccnt)){
+			var x0=this.GetCaretXY().x;
+			this.caret_is_wrapped=1;
+			var x1=this.GetCaretXY().x;
+			this.caret_is_wrapped=(Math.abs(x1-x)<Math.abs(x0-x)?1:0);
+		}
+	},
+	CallOnChange:function(){
+		this.caret_is_wrapped=0;
+		if(this.OnChange){this.OnChange(this);}
+	},
+	////////////////////////////
 	OnTextEdit:function(event){
 		this.ed.m_IME_overlay=event;
 		UI.Refresh()
@@ -296,7 +334,7 @@ W.Edit_prototype={
 		this.sel0.ccnt=ccnt0+lg;
 		this.sel1.ccnt=ccnt0+lg;
 		this.AutoScroll("show");
-		if(this.OnChange){this.OnChange(this);}
+		this.CallOnChange();
 		UI.Refresh()
 	},
 	OnKeyDown:function(event){
@@ -318,43 +356,55 @@ W.Edit_prototype={
 			this_outer.AutoScroll("show");
 			UI.Refresh();
 		};
-		//todo: scrolling
 		if(0){
 		}else if(IsHotkey(event,"UP SHIFT+UP")){
-			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
+			var ed_caret=this.GetCaretXY();
 			var bk=this.x_updown;
-			sel1.ccnt=ed.SeekXY(this.x_updown,ed_caret.y-1.0);
+			this.MoveCursorToXY(this.x_updown,ed_caret.y-1.0);
 			epilog();
 			this.x_updown=bk;
 		}else if(IsHotkey(event,"DOWN SHIFT+DOWN")){
 			var hc=ed.GetCharacterHeightAt(sel1.ccnt);
-			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
+			var ed_caret=this.GetCaretXY();
 			var bk=this.x_updown;
-			sel1.ccnt=ed.SeekXY(this.x_updown,ed_caret.y+hc);
+			this.MoveCursorToXY(this.x_updown,ed_caret.y+hc);
 			epilog();
 			this.x_updown=bk;
 		}else if(IsHotkey(event,"LEFT SHIFT+LEFT")){
-			var ccnt=sel1.ccnt;
-			if(ccnt>0){
-				sel1.ccnt=ed.SnapToCharBoundary(ccnt-1,-1);
+			var ccnt=this.PreSnapToVisualBoundaryLeft(sel1.ccnt);
+			if(this.caret_is_wrapped){
+				this.caret_is_wrapped=0;
 				epilog();
+			}else{
+				if(ccnt>0){
+					sel1.ccnt=this.SnapToVisualBoundary(ccnt-1,-1);
+					epilog();
+				}
 			}
 		}else if(IsHotkey(event,"RIGHT SHIFT+RIGHT")){
 			var ccnt=sel1.ccnt;
-			if(ccnt<ed.GetTextSize()){
-				sel1.ccnt=ed.SnapToCharBoundary(ccnt+1,1);
+			if(!this.caret_is_wrapped&&ed.IsAtLineWrap(ccnt)){
+				this.caret_is_wrapped=1;
 				epilog();
+			}else{
+				if(ccnt<ed.GetTextSize()){
+					sel1.ccnt=this.SnapToVisualBoundary(ccnt+1,1);
+					epilog();
+				}
+				this.caret_is_wrapped=0;
 			}
 		}else if(IsHotkey(event,"CTRL+LEFT CTRL+SHIFT+LEFT")){
-			var ccnt=sel1.ccnt;
+			var ccnt=this.PreSnapToVisualBoundaryLeft(sel1.ccnt);
 			if(ccnt>0){
-				sel1.ccnt=ed.MoveToBoundary(ed.SnapToCharBoundary(ccnt-1,-1),-1,"ctrl_lr_stop")
+				sel1.ccnt=this.SnapToVisualBoundary(ed.MoveToBoundary(ed.SnapToCharBoundary(ccnt-1,-1),-1,"ctrl_lr_stop"),-1)
+				this.caret_is_wrapped=(ed.IsAtLineWrap(sel1.ccnt)?1:0);
 				epilog();
 			}
 		}else if(IsHotkey(event,"CTRL+RIGHT CTRL+SHIFT+RIGHT")){
 			var ccnt=sel1.ccnt;
 			if(ccnt<ed.GetTextSize()){
-				sel1.ccnt=ed.MoveToBoundary(ed.SnapToCharBoundary(ccnt+1,1),1,"ctrl_lr_stop")
+				sel1.ccnt=this.SnapToVisualBoundary(ed.MoveToBoundary(ed.SnapToCharBoundary(ccnt+1,1),1,"ctrl_lr_stop"),1)
+				this.caret_is_wrapped=0;
 				epilog();
 			}
 		}else if(IsHotkey(event,"BACKSPACE")||IsHotkey(event,"DELETE")){
@@ -363,52 +413,57 @@ W.Edit_prototype={
 			if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
 			if(ccnt0==ccnt1){
 				if(IsHotkey(event,"BACKSPACE")){
-					if(ccnt0>0){ccnt0=ed.SnapToCharBoundary(ccnt0-1,-1);}
+					if(ccnt0>0){ccnt0=this.SnapToVisualBoundary(this.PreSnapToVisualBoundaryLeft(ccnt0)-1,-1);}
 				}else{
-					if(ccnt1<ed.GetTextSize()){ccnt1=ed.SnapToCharBoundary(ccnt1+1,1);}
+					if(ccnt1<ed.GetTextSize()){ccnt1=this.SnapToVisualBoundary(ccnt1+1,1);}
 				}
 			}
 			if(ccnt0<ccnt1){
 				ed.Edit([ccnt0,ccnt1-ccnt0,null])
-				if(this.OnChange){this.OnChange(this);}
+				this.CallOnChange()
 				UI.Refresh();
 				return;
 			}
 		}else if(IsHotkey(event,"CTRL+HOME SHIFT+CTRL+HOME")){
 			sel1.ccnt=0;
+			this.caret_is_wrapped=0;
 			epilog()
 		}else if(IsHotkey(event,"CTRL+END SHIFT+CTRL+END")){
 			sel1.ccnt=ed.GetTextSize();
+			this.caret_is_wrapped=0;
 			epilog()
 		}else if(IsHotkey(event,"CTRL+A")){
 			sel0.ccnt=0;
 			sel1.ccnt=ed.GetTextSize();
+			this.caret_is_wrapped=0;
 			UI.Refresh();
 		}else if(IsHotkey(event,"RETURN RETURN2")){
 			//todo: DOS mode test
 			this.OnTextInput({"text":"\n"})
 		}else if(IsHotkey(event,"HOME SHIFT+HOME")){
-			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
+			var ed_caret=this.GetCaretXY();
 			var ccnt_lhome=ed.SeekXY(0,ed_caret.y);
-			var ccnt_ehome=ed.MoveToBoundary(ccnt_lhome,1,"space");
-			if(sel1.ccnt==ccnt_ehome){
+			var ccnt_ehome=this.SnapToVisualBoundary(ed.MoveToBoundary(ccnt_lhome,1,"space"),1);
+			if(sel1.ccnt==ccnt_ehome||ccnt_lhome==ccnt_ehome){
 				sel1.ccnt=ccnt_lhome;
+				this.caret_is_wrapped=(ed.IsAtLineWrap(this.sel1.ccnt)?1:0);
 			}else{
 				sel1.ccnt=ccnt_ehome;
 			}
 			epilog();
 		}else if(IsHotkey(event,"END SHIFT+END")){
-			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
-			sel1.ccnt=ed.SeekXY(1e17,ed_caret.y);
+			var ed_caret=this.GetCaretXY();
+			this.MoveCursorToXY(1e17,ed_caret.y);
+			this.caret_is_wrapped=0;
 			epilog();
 		}else if(IsHotkey(event,"PGUP SHIFT+PGUP")){
-			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
-			sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y-this.h);
+			var ed_caret=this.GetCaretXY();
+			this.MoveCursorToXY(ed_caret.x,ed_caret.y-this.h);
 			epilog();
 		}else if(IsHotkey(event,"PGDN SHIFT+PGDN")){
 			var hc=ed.GetCharacterHeightAt(sel1.ccnt);
-			var ed_caret=ed.XYFromCcnt(sel1.ccnt);
-			sel1.ccnt=ed.SeekXY(ed_caret.x,ed_caret.y+this.h);
+			var ed_caret=this.GetCaretXY();
+			this.MoveCursorToXY(ed_caret.x,ed_caret.y+this.h);
 			epilog();
 		}else if(IsHotkey(event,"CTRL+C")||IsHotkey(event,"CTRL+INSERT")){
 			var ccnt0=sel0.ccnt;
@@ -424,7 +479,7 @@ W.Edit_prototype={
 			if(ccnt0<ccnt1){
 				UI.SDL_SetClipboardText(ed.GetText(ccnt0,ccnt1-ccnt0))
 				ed.Edit([ccnt0,ccnt1-ccnt0,null])
-				if(this.OnChange){this.OnChange(this);}
+				this.CallOnChange();
 				UI.Refresh();
 				return;
 			}
@@ -438,7 +493,7 @@ W.Edit_prototype={
 				sel1.ccnt=ret.ccnt+ret.sz;
 				this.AutoScroll("center_if_hidden");
 			}
-			if(this.OnChange){this.OnChange(this);}
+			this.CallOnChange();
 			UI.Refresh();
 		}else if(IsHotkey(event,"CTRL+SHIFT+Z")||IsHotkey(event,"CTRL+Y")){
 			var ret=ed.Undo("redo")
@@ -447,7 +502,7 @@ W.Edit_prototype={
 				sel1.ccnt=ret.ccnt+ret.sz;
 				this.AutoScroll("center_if_hidden");
 			}
-			if(this.OnChange){this.OnChange(this);}
+			this.CallOnChange();
 			UI.Refresh();
 		}else{
 		}
@@ -456,38 +511,38 @@ W.Edit_prototype={
 		}
 	},
 };
-W.Edit=function(id,attrs0){
-	var attrs=UI.Keep(id,attrs0,W.Edit_prototype);
-	UI.StdStyling(id,attrs,attrs0, "edit",attrs.focus_state||"blur");
-	UI.StdAnchoring(id,attrs);
-	if(attrs.show_background){
-		UI.DrawBitmap(0,attrs.x,attrs.y,attrs.w,attrs.h,attrs.bgcolor);
+W.Edit=function(id,attrs){
+	var obj=UI.Keep(id,attrs,W.Edit_prototype);
+	UI.StdStyling(id,obj,attrs, "edit",obj.focus_state||"blur");
+	UI.StdAnchoring(id,obj);
+	if(obj.show_background){
+		UI.DrawBitmap(0,obj.x,obj.y,obj.w,obj.h,obj.bgcolor);
 	}
-	var ed=attrs.ed;
+	var ed=obj.ed;
 	if(!ed){
-		ed=UI.CreateEditor(attrs);
-		if(attrs.text){ed.Edit([0,0,attrs.text],1);}
-		attrs.sel0=ed.CreateLocator(0,-1);attrs.sel0.undo_tracked=1;
-		attrs.sel1=ed.CreateLocator(0,-1);attrs.sel1.undo_tracked=1;
-		attrs.ed=ed;
-		attrs.sel_hl=ed.CreateHighlight(attrs.sel0,attrs.sel1);
-		attrs.sel_hl.color=attrs.bgcolor_selection;
-		attrs.sel_hl.invertible=1;
-		ed.m_caret_locator=attrs.sel1;
+		ed=UI.CreateEditor(obj);
+		if(obj.text){ed.Edit([0,0,obj.text],1);}
+		obj.sel0=ed.CreateLocator(0,-1);obj.sel0.undo_tracked=1;
+		obj.sel1=ed.CreateLocator(0,-1);obj.sel1.undo_tracked=1;
+		obj.ed=ed;
+		obj.sel_hl=ed.CreateHighlight(obj.sel0,obj.sel1);
+		obj.sel_hl.color=obj.bgcolor_selection;
+		obj.sel_hl.invertible=1;
+		ed.m_caret_locator=obj.sel1;
 	}
 	//todo: scrolling
-	var scale=attrs.scale;
-	var scroll_x=attrs.scroll_x;
-	var scroll_y=attrs.scroll_y;
-	ed.Render({x:scroll_x,y:scroll_y,w:attrs.w/scale,h:attrs.h/scale, scr_x:attrs.x,scr_y:attrs.y, scale:scale});
-	if(UI.HasFocus(attrs)){
-		var ed_caret=ed.XYFromCcnt(attrs.sel1.ccnt);
-		var x_caret=attrs.x+(ed_caret.x-scroll_x+ed.m_caret_offset)*scale;
-		var y_caret=attrs.y+(ed_caret.y-scroll_y)*scale;
+	var scale=obj.scale;
+	var scroll_x=obj.scroll_x;
+	var scroll_y=obj.scroll_y;
+	ed.Render({x:scroll_x,y:scroll_y,w:obj.w/scale,h:obj.h/scale, scr_x:obj.x,scr_y:obj.y, scale:scale});
+	if(UI.HasFocus(obj)){
+		var ed_caret=obj.GetCaretXY();
+		var x_caret=obj.x+(ed_caret.x-scroll_x+ed.m_caret_offset)*scale;
+		var y_caret=obj.y+(ed_caret.y-scroll_y)*scale;
 		UI.SetCaret(UI.context_window,
 			x_caret,y_caret,
-			attrs.caret_width*scale,ed.GetCharacterHeightAt(attrs.sel1.ccnt)*scale,
-			attrs.caret_color,attrs.caret_flicker);
+			obj.caret_width*scale,ed.GetCharacterHeightAt(obj.sel1.ccnt)*scale,
+			obj.caret_color,obj.caret_flicker);
 	}
-	return attrs;
+	return obj;
 };
