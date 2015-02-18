@@ -320,6 +320,27 @@ W.Edit_prototype={
 		if(this.OnChange){this.OnChange(this);}
 	},
 	////////////////////////////
+	HookedEdit:function(ops){this.ed.Edit(ops);},
+	GetSelection:function(){
+		var ccnt0=this.sel0.ccnt;
+		var ccnt1=this.sel1.ccnt;
+		if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
+		return [ccnt0,ccnt1];
+	},
+	Init:function(){
+		var ed=this.ed;
+		if(!ed){
+			ed=UI.CreateEditor(this);
+			if(this.text){ed.Edit([0,0,this.text],1);}
+			this.sel0=ed.CreateLocator(0,-1);this.sel0.undo_tracked=1;
+			this.sel1=ed.CreateLocator(0,-1);this.sel1.undo_tracked=1;
+			this.ed=ed;
+			this.sel_hl=ed.CreateHighlight(this.sel0,this.sel1);
+			this.sel_hl.color=this.bgcolor_selection;
+			this.sel_hl.invertible=1;
+			ed.m_caret_locator=this.sel1;
+		}
+	},
 	OnTextEdit:function(event){
 		this.ed.m_IME_overlay=event;
 		UI.Refresh()
@@ -329,7 +350,7 @@ W.Edit_prototype={
 		var ccnt0=this.sel0.ccnt;
 		var ccnt1=this.sel1.ccnt;
 		if(ccnt0>ccnt1){var tmp=ccnt1;ccnt1=ccnt0;ccnt0=tmp;}
-		ed.Edit([ccnt0,ccnt1-ccnt0,event.text])
+		this.HookedEdit([ccnt0,ccnt1-ccnt0,event.text])
 		var lg=Duktape.__byte_length(event.text);
 		this.sel0.ccnt=ccnt0+lg;
 		this.sel1.ccnt=ccnt0+lg;
@@ -356,6 +377,15 @@ W.Edit_prototype={
 			this_outer.AutoScroll("show");
 			UI.Refresh();
 		};
+		if(this.additional_hotkeys){
+			var hk=this.additional_hotkeys;
+			for(var i=0;i<hk.length();i++){
+				if(IsHotkey(event,hk[i].key)){
+					hk[i].action(this);
+					return;
+				}
+			}
+		}
 		if(0){
 		}else if(IsHotkey(event,"UP SHIFT+UP")){
 			var ed_caret=this.GetCaretXY();
@@ -419,7 +449,7 @@ W.Edit_prototype={
 				}
 			}
 			if(ccnt0<ccnt1){
-				ed.Edit([ccnt0,ccnt1-ccnt0,null])
+				this.HookedEdit([ccnt0,ccnt1-ccnt0,null])
 				this.CallOnChange()
 				UI.Refresh();
 				return;
@@ -478,7 +508,7 @@ W.Edit_prototype={
 			if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
 			if(ccnt0<ccnt1){
 				UI.SDL_SetClipboardText(ed.GetText(ccnt0,ccnt1-ccnt0))
-				ed.Edit([ccnt0,ccnt1-ccnt0,null])
+				this.HookedEdit([ccnt0,ccnt1-ccnt0,null])
 				this.CallOnChange();
 				UI.Refresh();
 				return;
@@ -518,22 +548,11 @@ W.Edit=function(id,attrs){
 	if(obj.show_background){
 		UI.DrawBitmap(0,obj.x,obj.y,obj.w,obj.h,obj.bgcolor);
 	}
-	var ed=obj.ed;
-	if(!ed){
-		ed=UI.CreateEditor(obj);
-		if(obj.text){ed.Edit([0,0,obj.text],1);}
-		obj.sel0=ed.CreateLocator(0,-1);obj.sel0.undo_tracked=1;
-		obj.sel1=ed.CreateLocator(0,-1);obj.sel1.undo_tracked=1;
-		obj.ed=ed;
-		obj.sel_hl=ed.CreateHighlight(obj.sel0,obj.sel1);
-		obj.sel_hl.color=obj.bgcolor_selection;
-		obj.sel_hl.invertible=1;
-		ed.m_caret_locator=obj.sel1;
-	}
-	//todo: scrolling
+	if(!obj.ed){obj.Init()}
 	var scale=obj.scale;
 	var scroll_x=obj.scroll_x;
 	var scroll_y=obj.scroll_y;
+	var ed=obj.ed;
 	ed.Render({x:scroll_x,y:scroll_y,w:obj.w/scale,h:obj.h/scale, scr_x:obj.x,scr_y:obj.y, scale:scale});
 	if(UI.HasFocus(obj)){
 		var ed_caret=obj.GetCaretXY();

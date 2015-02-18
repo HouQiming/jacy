@@ -185,6 +185,7 @@ struct TDrawCall
 	window_w=0.f
 	window_h=0.f
 	JSObject js_callback
+	function() native_callback
 
 //slow, we're not expecting to run it every frame
 auto resampleBitmap(TBitmap bmp0, float gamma, int mipmap_level)
@@ -363,6 +364,10 @@ class CUISandbox
 			if err:
 				Writeln(err["stack"].or(""))
 
+class IRendererHook
+	function() BeginFrame
+	function() EndFrame
+
 //the DC singleton
 class CRenderer
 	//////////////
@@ -465,6 +470,7 @@ class CRenderer
 	//////////////
 	m_tick0=0LL
 	m_frame_ticks=0LL
+	m_hooks=new IRendererHook[]
 	auto BeginFrame()
 		//Writeln('----------------')
 		m_drawcalls.clear()
@@ -481,7 +487,11 @@ class CRenderer
 		m_dynamic_packed_bmp=TBitmap()
 		m_dynamic_packings=TTextureSubImage[].NULL
 		m_tick0=System.Time.tick64()
+		foreach hk in m_hooks
+			if hk.BeginFrame:hk.BeginFrame()
 	auto EndFrame()
+		foreach hk in m_hooks.ReverseOrder()
+			if hk.EndFrame:hk.EndFrame()
 		//pack m_dynamic_textures and apply the dynamic drawcalls
 		if m_StretchDIBits_calls.n:
 			//tick0=System.Time.tick64()
@@ -646,6 +656,9 @@ class CRenderer
 				if dc.js_callback:
 					dc.js_callback.Call(JSObject)
 					continue
+				if dc.native_callback:
+					dc.native_callback()
+					continue
 				pslice=m_vbo[dc.pv:]
 				m_tech.SetVertexPointer("P", 2,GL_UNSIGNED_SHORT,0, VERTEX_SIZE*sizeof(int),pslice.d)
 				m_tech.SetVertexPointer("uv_vert", 2,GL_UNSIGNED_SHORT,0, VERTEX_SIZE*sizeof(int),pslice.d+1*sizeof(int))
@@ -686,9 +699,9 @@ class CRenderer
 		m_drawcall_start=int(m_vbo.n)
 		m_window_w=w
 		m_window_h=h
-	auto EndPaint()
+	auto FlushDrawcall()
 		//create a drawcall
-		if m_window_w&&m_window_h:
+		if m_window_w&&m_window_h&&m_drawcall_start<int(m_vbo.n):
 			m_drawcalls.push(TDrawCall(){
 				hwnd:m_hwnd,
 				pv:m_drawcall_start,
@@ -696,23 +709,20 @@ class CRenderer
 				crd16_scale:m_crd16_scale,
 				window_w:m_window_w,
 				window_h:m_window_h})
+		m_drawcall_start=int(m_vbo.n)
+	auto EndPaint()
+		FlushDrawcall()
 		//and to allow caret / progress overlay - videos
 		//refer to the same vbo using different drawcalls
 		m_hwnd=NULL
 		m_clip=float4()
 		m_clip_stack.clear()
 	auto InsertJSDrawCall(JSObject js_callback)
-		if int(m_vbo.n)!=m_drawcall_start:
-			//push drawcall but don't touch anything else
-			m_drawcalls.push(TDrawCall(){
-				hwnd:m_hwnd,
-				pv:m_drawcall_start,
-				nv:(int(m_vbo.n)-m_drawcall_start)/VERTEX_SIZE,
-				crd16_scale:m_crd16_scale,
-				window_w:m_window_w,
-				window_h:m_window_h})
-			m_drawcall_start=int(m_vbo.n)
+		FlushDrawcall()
 		m_drawcalls.push(TDrawCall(){hwnd:m_hwnd,js_callback:js_callback})
+	auto InsertNativeDrawCall(function() native_callback)
+		FlushDrawcall()
+		m_drawcalls.push(TDrawCall(){hwnd:m_hwnd,native_callback:native_callback})
 	inline PushCliprect(float x,float y,float w,float h)
 		m_clip_stack.push(m_clip)
 		m_clip=float4(x,y,x+w,y+h)
@@ -1785,5 +1795,6 @@ auto setupModuleSystem(JSContext JS,int is_real)
 
 setupModuleSystem=Gui2D.detail.setupModuleSystem
 registerUIExtension=Gui2D.detail.registerUIExtension
+registerRenderingHook=inline(a){Gui2D.detail.g_renderer.m_hooks.push(getInterface(a,Gui2D.detail.IRendererHook))}
 CUISandbox=Gui2D.detail.CUISandbox
 CSandboxWindow=Gui2D.detail.CSandboxWindow
