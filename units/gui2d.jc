@@ -367,6 +367,7 @@ class CUISandbox
 class IRendererHook
 	function() BeginFrame
 	function() EndFrame
+	function() OnFirstDraw
 
 //the DC singleton
 class CRenderer
@@ -545,6 +546,7 @@ class CRenderer
 			m_dynamic_packed_bmp=TBitmap()
 			m_dynamic_packings=TTextureSubImage[].NULL
 		m_frame_ticks=System.Time.tick64()-m_tick0
+		m_texture_downloaded=0
 	inline texsubimage_format()
 		if m_srgb_supported&&IS_OPENGL_ES:
 			return GL_SRGB_ALPHA
@@ -580,7 +582,6 @@ class CRenderer
 				Writeln('-------')
 	auto DrawWindow(__pointer hwnd_onlydraw)
 		TestSRGB()
-		m_texture_downloaded=0
 		if !m_texture_downloaded:
 			m_texture_downloaded=1
 			texture_height_needed=m_static_packed_bmp.h
@@ -614,7 +615,7 @@ class CRenderer
 				glBindTexture(GL_TEXTURE_2D,m_texid)
 				glTexSubImage2D(GL_TEXTURE_2D,0,0,m_static_packed_bmp.h,m_dynamic_packed_bmp.w,m_dynamic_packed_bmp.h,texsubimage_format(),GL_UNSIGNED_BYTE,__pointer(m_dynamic_packed_bmp.rgba.d))
 				if texsubimage_format()!=GL_RGBA&&m_srgb_supported&&glGetError()!=GL_NO_ERROR:
-					glTexSubImage2D(GL_TEXTURE_2D,0,0,0,m_static_packed_bmp.w,m_static_packed_bmp.h,GL_RGBA,GL_UNSIGNED_BYTE,__pointer(m_static_packed_bmp.rgba.d))
+					glTexSubImage2D(GL_TEXTURE_2D,0,0,m_static_packed_bmp.h,m_dynamic_packed_bmp.w,m_dynamic_packed_bmp.h,GL_RGBA,GL_UNSIGNED_BYTE,__pointer(m_static_packed_bmp.rgba.d))
 				glBindTexture(GL_TEXTURE_2D,0u)
 			m_dynamic_packed_bmp=TBitmap()
 			m_dynamic_packings=TTextureSubImage[].NULL
@@ -628,6 +629,9 @@ class CRenderer
 			//	glBindBuffer(GL_ARRAY_BUFFER,m_vboid)
 			//	glBufferData(GL_ARRAY_BUFFER,m_vbo_size*sizeof(int),NULL,GL_STREAM_DRAW)
 			//	glBindBuffer(GL_ARRAY_BUFFER,0u)
+			/////////////////////
+			foreach hk in m_hooks.ReverseOrder()
+				if hk.OnFirstDraw:hk.OnFirstDraw()
 		glDisable(GL_DEPTH_TEST)
 		glEnable(GL_BLEND)
 		if !IS_OPENGL_ES&&m_srgb_supported:

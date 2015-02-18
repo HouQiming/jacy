@@ -283,16 +283,35 @@ W.Edit_prototype={
 		//TestTrigger(KEYCODE_ANY_MOVE)
 		//todo: ui animation?
 	},
-	PreSnapToVisualBoundaryLeft:function(ccnt,side){
-		return this.ed.MoveToBoundary(ccnt,-1,"invisible_boundary")
+	PreSnapToVisualBoundary:function(ccnt,side){
+		return this.ed.MoveToBoundary(ccnt,side,"invisible_boundary")
 	},
 	SnapToVisualBoundary:function(ccnt,side){
+		//var ed=this.ed;
+		//var ccnt_cb=ed.SnapToCharBoundary(ccnt,side);
+		////return ccnt_cb;
+		//var xy=ed.XYFromCcnt(ccnt_cb);
+		//var ccnt_vb=ed.SeekXY(xy.x,xy.y);
+		//return ccnt_vb;
+		return this.ed.MoveToBoundary(this.ed.SnapToCharBoundary(ccnt,side),-1,"invisible_boundary")
+	},
+	////////////////////////////
+	SeekLC:function(line,column){
 		var ed=this.ed;
-		var ccnt_cb=ed.SnapToCharBoundary(ccnt,side);
-		//return ccnt_cb;
-		var xy=ed.XYFromCcnt(ccnt_cb);
-		var ccnt_vb=ed.SeekXY(xy.x,xy.y);
-		return ccnt_vb;
+		return ed.Bisect(ed.m_handler_registration["line_column"],[line,column],"ll");
+	},
+	GetLC:function(ccnt){
+		var ed=this.ed;
+		return ed.GetStateAt(ed.m_handler_registration["line_column"],ccnt,"ll");
+	},
+	GetEnhancedHome:function(ccnt){
+		var ccnt_lhome=this.SeekLC(this.GetLC(ccnt)[0],0);
+		return this.SnapToVisualBoundary(this.ed.MoveToBoundary(ccnt_lhome,1,"space"),1)
+	},
+	GetEnhancedEnd:function(ccnt){
+		var ccnt_lend=this.SeekLC(this.GetLC(ccnt)[0],1e17);
+		if(ccnt_lend>0&&this.ed.GetText(ccnt_lend-1,1)=="\n"){ccnt_lend--;}
+		return this.SnapToVisualBoundary(this.ed.MoveToBoundary(ccnt_lend,-1,"space"),-1)
 	},
 	////////////////////////////
 	GetCaretXY:function(){
@@ -379,7 +398,7 @@ W.Edit_prototype={
 		};
 		if(this.additional_hotkeys){
 			var hk=this.additional_hotkeys;
-			for(var i=0;i<hk.length();i++){
+			for(var i=0;i<hk.length;i++){
 				if(IsHotkey(event,hk[i].key)){
 					hk[i].action(this);
 					return;
@@ -401,7 +420,7 @@ W.Edit_prototype={
 			epilog();
 			this.x_updown=bk;
 		}else if(IsHotkey(event,"LEFT SHIFT+LEFT")){
-			var ccnt=this.PreSnapToVisualBoundaryLeft(sel1.ccnt);
+			var ccnt=this.PreSnapToVisualBoundary(sel1.ccnt,-1);
 			if(this.caret_is_wrapped){
 				this.caret_is_wrapped=0;
 				epilog();
@@ -412,7 +431,7 @@ W.Edit_prototype={
 				}
 			}
 		}else if(IsHotkey(event,"RIGHT SHIFT+RIGHT")){
-			var ccnt=sel1.ccnt;
+			var ccnt=this.PreSnapToVisualBoundary(sel1.ccnt,1);
 			if(!this.caret_is_wrapped&&ed.IsAtLineWrap(ccnt)){
 				this.caret_is_wrapped=1;
 				epilog();
@@ -424,14 +443,14 @@ W.Edit_prototype={
 				this.caret_is_wrapped=0;
 			}
 		}else if(IsHotkey(event,"CTRL+LEFT CTRL+SHIFT+LEFT")){
-			var ccnt=this.PreSnapToVisualBoundaryLeft(sel1.ccnt);
+			var ccnt=this.PreSnapToVisualBoundary(sel1.ccnt,-1);
 			if(ccnt>0){
 				sel1.ccnt=this.SnapToVisualBoundary(ed.MoveToBoundary(ed.SnapToCharBoundary(ccnt-1,-1),-1,"ctrl_lr_stop"),-1)
 				this.caret_is_wrapped=(ed.IsAtLineWrap(sel1.ccnt)?1:0);
 				epilog();
 			}
 		}else if(IsHotkey(event,"CTRL+RIGHT CTRL+SHIFT+RIGHT")){
-			var ccnt=sel1.ccnt;
+			var ccnt=this.PreSnapToVisualBoundary(sel1.ccnt,1);
 			if(ccnt<ed.GetTextSize()){
 				sel1.ccnt=this.SnapToVisualBoundary(ed.MoveToBoundary(ed.SnapToCharBoundary(ccnt+1,1),1,"ctrl_lr_stop"),1)
 				this.caret_is_wrapped=0;
@@ -443,7 +462,7 @@ W.Edit_prototype={
 			if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
 			if(ccnt0==ccnt1){
 				if(IsHotkey(event,"BACKSPACE")){
-					if(ccnt0>0){ccnt0=this.SnapToVisualBoundary(this.PreSnapToVisualBoundaryLeft(ccnt0)-1,-1);}
+					if(ccnt0>0){ccnt0=this.SnapToVisualBoundary(this.PreSnapToVisualBoundary(ccnt0,-1)-1,-1);}
 				}else{
 					if(ccnt1<ed.GetTextSize()){ccnt1=this.SnapToVisualBoundary(ccnt1+1,1);}
 				}
@@ -468,23 +487,30 @@ W.Edit_prototype={
 			this.caret_is_wrapped=0;
 			UI.Refresh();
 		}else if(IsHotkey(event,"RETURN RETURN2")){
-			//todo: DOS mode test
 			this.OnTextInput({"text":"\n"})
 		}else if(IsHotkey(event,"HOME SHIFT+HOME")){
 			var ed_caret=this.GetCaretXY();
 			var ccnt_lhome=ed.SeekXY(0,ed_caret.y);
-			var ccnt_ehome=this.SnapToVisualBoundary(ed.MoveToBoundary(ccnt_lhome,1,"space"),1);
+			var ccnt_ehome=Math.max(this.GetEnhancedHome(sel1_ccnt),ccnt_lhome);
 			if(sel1.ccnt==ccnt_ehome||ccnt_lhome==ccnt_ehome){
 				sel1.ccnt=ccnt_lhome;
 				this.caret_is_wrapped=(ed.IsAtLineWrap(this.sel1.ccnt)?1:0);
 			}else{
 				sel1.ccnt=ccnt_ehome;
+				this.caret_is_wrapped=0;
 			}
 			epilog();
 		}else if(IsHotkey(event,"END SHIFT+END")){
 			var ed_caret=this.GetCaretXY();
-			this.MoveCursorToXY(1e17,ed_caret.y);
-			this.caret_is_wrapped=0;
+			var ccnt_lend=ed.SeekXY(1e17,ed_caret.y);
+			var ccnt_eend=Math.min(this.GetEnhancedEnd(sel1_ccnt),ccnt_lend);
+			if(sel1.ccnt==ccnt_eend||ccnt_lend==ccnt_eend){
+				sel1.ccnt=ccnt_lend;
+				this.caret_is_wrapped=0;
+			}else{
+				sel1.ccnt=ccnt_eend;
+				this.caret_is_wrapped=0;
+			}
 			epilog();
 		}else if(IsHotkey(event,"PGUP SHIFT+PGUP")){
 			var ed_caret=this.GetCaretXY();

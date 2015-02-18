@@ -1176,6 +1176,10 @@ auto getInterface(obj,const IInterface)
 		id_name=members[i]
 		if __has_member(obj,id_name):
 			__dot(ret,id_name)=__dot(obj,id_name)
+	//if __has_member(ret,"__rtti"):
+	//	ret.__rtti=iptr(__get_rtti(obj))
+	if __has_member(ret,"__this"):
+		ret.__this=variant(obj)
 	return ret
 
 //////////////////////////////////////////////

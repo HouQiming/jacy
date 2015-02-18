@@ -1,7 +1,3 @@
-/*
-todo:
-	(test) non-word-char shouldn't lead a line
-*/
 import Gui2D.*
 import Gui2D.detail.*
 import Javascript.*
@@ -54,7 +50,9 @@ class ITextStateHandler
 	function(i64[] a,string s_context,string s):u8[] ComputeCharColorID
 	//For rendering states, we need a layouter
 	function(JSObject obj) SetTextStyle
+	function() BeginRender
 	function(i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling) RenderText
+	function() EndRender
 	function(i64[] a,i64[] pp,string s,iptr ofs):i64 GetCharacterHeightAt
 	function():TFont GetDefaultFont
 	function(CEditableText caller,i64 x,i64 y,JSObject obj):i64 SetCaretOverlay
@@ -71,6 +69,7 @@ class ITextStateHandler
 	function(i64[] a,i64[] pp,string s_context,string s, i64[] b):i8[] QueryPerCharValidity
 	////////////////////
 	//for JS operations
+	__variant __this
 	function(JSObject proto) __JS_prototype
 
 auto combineEditorOffset(long2 bb0,long2 bb1)
@@ -760,7 +759,7 @@ class CEditableText
 		for(;;)
 			while ccnt_base+nd.ccnt<=ccnt0&&nd.pnext:
 				ccnt_base+=nd.ccnt
-				handler.Add(acc,nd.a)
+				handler.Add(acc,nd.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
 				nd=nd.pnext
 			if nd.s:
 				handler.AddString(acc,GetPrecomputedStates(handler,nd),GetContextBefore(handler,ccnt_base),nd.s,iptr(ccnt0-ccnt_base))
@@ -777,7 +776,7 @@ class CEditableText
 		for(;;)
 			while ccnt_base+nd.ccnt<=ccnt0&&nd.pnext:
 				ccnt_base+=nd.ccnt
-				handler.Add(acc,nd.a)
+				handler.Add(acc,nd.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
 				nd=nd.pnext
 			if nd.s:
 				n0=m_state_ofs.back()
@@ -1005,12 +1004,13 @@ class CEditableText
 					bop_current.sz+=i64(pb.s.n)-ofs
 				else
 					//assert last block
-			if s_pool_last_newline:
-				s_block=new(s_pool[:s_pool_last_newline-1])
-				if !bop_current.ss:
-					bop_current.ss=new string[]
-				bop_current.ss.push(s_block)
-				s_pool=new(s_pool[s_pool_last_newline:])
+			//if s_pool_last_newline:
+			//	s_block=new(s_pool[:s_pool_last_newline-1])
+			//	if !bop_current.ss:
+			//		bop_current.ss=new string[]
+			//	bop_current.ss.push(s_block)
+			//	s_pool=new(s_pool[s_pool_last_newline:])
+			//	s_pool_last_newline=0L
 			if s_pool.n:
 				//assert(!m_is_line_only)//or end of text... which is untestable here
 				if !bop_current.ss:
@@ -1174,7 +1174,8 @@ class CEditableText
 		it's a non-bisect search using an "or" hierarchy
 		--
 	*/
-	auto _Bisect(i64[] acc, ITextStateHandler handler,i64 ccnt_base0,CSLNode nd,i64[] b)
+	auto _Bisect(i64[] acc, int hid,i64 ccnt_base0,CSLNode nd,i64[] b)
+		handler=m_handlers[hid]
 		if nd.s:
 			n0=m_state_ofs.back()
 			ofspp=nd.a[n0+handler.id]
@@ -1185,16 +1186,16 @@ class CEditableText
 			acc2=new(acc)
 			for(pc=nd.pchild;pc;pc=pc.pnext)
 				copy(acc2,acc)
-				handler.Add(acc2,pc.a)
+				handler.Add(acc2,pc.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
 				if handler.Compare(acc2,b)>0:
 					acc2=i64[].NULL
-					return _Bisect(acc, handler,ccnt_base,pc,b)
+					return _Bisect(acc, hid,ccnt_base,pc,b)
 				copy(acc,acc2)
 				ccnt_base+=pc.ccnt
 			return ccnt_base
 	auto Bisect(int hid,i64[] b)
 		acc=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
-		return _Bisect(acc,m_handlers[hid],0LL,m_skiplist,b)
+		return _Bisect(acc,hid,0LL,m_skiplist,b)
 	auto SeekXY(i64 x,i64 y)
 		hid=m_handler_registration["renderer"].as(int)
 		//ccnt0=Bisect(hid,[__double_as_longlong(x),__double_as_longlong(y)])
@@ -1335,6 +1336,8 @@ class CEditableText
 				g_renderer.DrawBitmap(0, scr_x,xy1.y,max(xy1.x-scr_x,0.f),hc, hl.color)
 		m_highlights.resize(n2)
 		//////////////////////////////
+		if handler.BeginRender:handler.BeginRender()
+		//////////////////////////////
 		//really draw the blocks
 		acc=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
 		if hid_colorer>=0:
@@ -1365,6 +1368,9 @@ class CEditableText
 							handler_colorer.Add(acc_colorer,pc.a[m_state_ofs[hid_colorer]:m_state_ofs[hid_colorer+1]-1])
 					ccnt_base+=pc.ccnt
 		dfsRender(m_skiplist,0LL)
+		//////////////////////////////
+		if handler.EndRender:handler.EndRender()
+		//////////////////////////////
 		g_renderer.PopCliprect()
 		m_caret_offset=fixed2double(handler.GetCaretOffset())
 	/////////////////////////////////////////////////
@@ -1671,7 +1677,10 @@ class CEditableText
 		stype=JS.Param(2).or("space")
 		limit=JS.Param(3).or(65536)
 		if stype=="space":
-			fcheck=function(int c0,int c1){return c1!=' '&&c1!='\t'}
+			if direction<0:
+				fcheck=function(int c0,int c1){return c0!=' '&&c0!='\t'}
+			else
+				fcheck=function(int c0,int c1){return c1!=' '&&c1!='\t'}
 		else if stype=="word_boundary":
 			fcheck=function(int c0,int c1){return isWordChar(c0)!=isWordChar(c1)}
 		else if stype=="ctrl_lr_stop":
@@ -1729,6 +1738,13 @@ class CEditableText
 			n_utf8--
 		return 0
 	}
+	JS_GetHandlerByID=function(JSContext JS){
+		id=JS.Param(0).as(int)
+		if u32(id)<u32(m_handlers.n):
+			return JS.Return(m_handlers[id])
+		else
+			return 0
+	}
 	///////////////////////////
 	auto debugDumpSL()
 		levels=new string[]
@@ -1779,6 +1795,7 @@ class CEditableText
 		proto.ExportMethod(this,"Undo",JS_Undo)
 		proto.ExportMethod(this,"GetUtf8CharNeighborhood",JS_GetUtf8CharNeighborhood)
 		proto.ExportMethod(this,"ConvertUTF8OffsetToBytesize",JS_ConvertUTF8OffsetToBytesize)
+		proto.ExportMethod(this,"GetHandlerByID",JS_GetHandlerByID)
 
 g_registered_state_handlers=new function(CEditableText ret)[string]
 
