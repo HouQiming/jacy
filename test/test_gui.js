@@ -7,26 +7,51 @@ Duktape.__ui_add_path("../kara/ide/res")
 var UI=require("gui2d/ui");
 var W=require("gui2d/widgets");
 
-UI.default_styles.button={
-	transition_dt:0.1,
-	round:24,border_width:3,padding:12,
-	$:{
-		out:{
-			border_color:0xffcc773f,color:0xffffffff,
-			icon_color:0xffcc773f,
-			text_color:0xffcc773f,
+UI.default_styles={
+	button:{
+		transition_dt:0.1,
+		round:24,border_width:3,padding:12,
+		$:{
+			out:{
+				border_color:0xffcc773f,color:0xffffffff,
+				icon_color:0xffcc773f,
+				text_color:0xffcc773f,
+			},
+			over:{
+				border_color:0xffcc773f,color:0xffcc773f,
+				icon_color:0xffffffff,
+				text_color:0xffffffff,
+			},
+			down:{
+				border_color:0xffaa5522,color:0xffaa5522,
+				icon_color:0xffffffff,
+				text_color:0xffffffff,
+			},
+		}
+	},
+	menu_item:{
+		font:UI.Font("Arial",32),
+		transition_dt:0.1,
+		round:0,border_width:1,padding:8,
+		icon_color:0xff000000,
+		text_color:0xff000000,
+		$:{
+			out:{
+				border_color:0x00ffffff,color:0x00ffffff,
+			},
+			over:{
+				border_color:0xffcc773f,color:0xffcc773f,
+				icon_color:0xffffffff,
+				text_color:0xffffffff,
+			},
 		},
-		over:{
-			border_color:0xffcc773f,color:0xffcc773f,
-			icon_color:0xffffffff,
-			text_color:0xffffffff,
-		},
-		down:{
-			border_color:0xffaa5522,color:0xffaa5522,
-			icon_color:0xffffffff,
-			text_color:0xffffffff,
-		},
-	}
+	},
+	menu:{
+		transition_dt:0.1,
+		round:0,border_width:2,padding:8,
+		layout_spacing:8,
+		border_color:0xffcc773f,color:0xffffffff,
+	},
 };
 
 var demo_text_animation=function(id,attrs){
@@ -184,9 +209,41 @@ var demo_textbox=function(id,attrs){
 	UI.End();
 };
 
-UI.Application=demo_textbox;
+var demo_menu=function(id,attrs){
+	var obj=UI.Keep(id,attrs);
+	UI.Begin(obj);
+		var wnd=UI.Begin(W.Window("app",{title:"GUI example",w:1024,h:768,bgcolor:0xffffffff,designated_screen_size:1440,flags:UI.SDL_WINDOW_RESIZABLE,is_main_window:1}))
+			W.Hotkey("",{key:"ALT+F4",action:function(){UI.DestroyWindow(wnd)}});
+			W.Hotkey("",{key:'ESCAPE',action:function(){UI.DestroyWindow(wnd)}});
+			W.Button("menubtn",{
+				anchor:UI.context_parent,anchor_align:"left",anchor_valign:"top",
+				x:16,y:16,
+				font:UI.Font("Inconsolata.ttf",48),text:"Menu",
+				OnClick:function(){
+					if(UI.HasFocus(UI.top.app.menu)){
+						UI.top.app.menu.Close()
+					}else{
+						UI.top.app.menu.Popup();
+					}
+				}});
+			//todo: auto width/height, drag-scrolling
+			W.Menu("menu",{
+				anchor:UI.context_parent.menubtn,anchor_placement:"down",anchor_align:"left",anchor_valign:"top",
+				x:0,y:0,w:300,h:400,
+				items:[
+					{text:"Open"},
+					{text:"Save"},
+					{text:"Exit"},
+				],
+			})
+		UI.End();
+	UI.End();
+};
+
+//UI.Application=demo_textbox;
 //UI.Application=demo_msgbox;
 //UI.Application=demo_text_animation;
+UI.Application=demo_menu;
 
 //UI.setTimeout(function(){print("setTimeout");},1500)
 //UI.setInterval(function(){print("setInterval");},1000)

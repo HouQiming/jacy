@@ -976,6 +976,11 @@ UI.Keep=function(id,attrs,prototype){
 	return ret;
 }
 
+UI.Ditch=function(id){
+	var parent=UI.context_parent;
+	parent[id]=null;
+}
+
 UI.HackCallback=function(f){
 	f.prototype=null;
 	return f;
@@ -1000,7 +1005,13 @@ UI.rc={};
 UI.Font=function(face,size,embolden){
 	var pfnt=UI.font_cache[face];
 	if(!pfnt){
-		pfnt=UI.CreateCoreFontChain(face.split(",").concat(UI.fallback_font_names).map(UI.HackCallback(function(cface){
+		var fnames=face.split(",");
+		if(fnames.length>0&&fnames[fnames.length-1]=="!"){
+			fnames.pop();
+		}else{
+			fnames=fnames.concat(UI.fallback_font_names);
+		}
+		pfnt=UI.CreateCoreFontChain(fnames.map(UI.HackCallback(function(cface){
 			var pcfnt=UI.core_font_cache[cface];
 			if(!pcfnt){
 				pcfnt=UI.CreateCoreFontByName(cface);
@@ -1298,10 +1309,17 @@ UI.ReleaseMouse=function(attrs){
 	}
 }
 
-UI.SetFocus=function(attrs){
-	//todo: events
-	UI.nd_focus=attrs;
-	if(attrs&&attrs.OnTextInput){
+UI.SetFocus=function(obj){
+	if(UI.nd_focus!=obj){
+		if(UI.nd_focus){
+			UI.CallIfAvailable(UI.nd_focus,"OnBlur",UI.nd_focus)
+		}
+		UI.nd_focus=obj;
+		if(obj){
+			UI.CallIfAvailable(obj,"OnFocus",obj)
+		}
+	}
+	if(obj&&obj.OnTextInput){
 		UI.SDL_StartTextInput()
 	}else{
 		UI.SDL_StopTextInput()
@@ -1357,6 +1375,10 @@ UI.IsHotkey=function(event,hotkey_name){
 	}
 	return 0;
 };
+
+UI.IsPressed=function(name){
+	return UI.SDL_IsPressed(UI["SDL_SCANCODE_"+name])
+}
 
 if(!UI.is_real){
 	UI.BeginFrame=function(){};
@@ -1497,6 +1519,17 @@ UI.Run=function(){
 				var nd_mouse_receiver=null;
 				event.x/=UI.pixels_per_unit;
 				event.y/=UI.pixels_per_unit;
+				//print("------------------")
+				//for(var i=lg-1;i>=0;i--){
+				//	var attrs=regions[i];
+				//	var dx=event.x-attrs.x;
+				//	var dy=event.y-attrs.y;
+				//	var is_hit=0
+				//	if(dx>=0&&dx<attrs.w&&dy>=0&&dy<attrs.h){
+				//		is_hit=1;
+				//	}
+				//	print(attrs.x,attrs.y,attrs.w,attrs.h,is_hit?"hit":"")
+				//}
 				if(!UI.nd_captured){
 					for(var i=lg-1;i>=0;i--){
 						var attrs=regions[i];

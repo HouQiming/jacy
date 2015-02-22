@@ -51,7 +51,7 @@ class ITextStateHandler
 	//For rendering states, we need a layouter
 	function(JSObject obj) SetTextStyle
 	function() BeginRender
-	function(i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling) RenderText
+	function(i64 ccnt_base,i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling) RenderText
 	function() EndRender
 	function(i64[] a,i64[] pp,string s,iptr ofs):i64 GetCharacterHeightAt
 	function():TFont GetDefaultFont
@@ -480,7 +480,7 @@ class CLayouter_baseline
 					y+=hc
 		return TRenderingInfo(){bb:long2(x,y),seek_ret:s.n}
 	}
-	RenderText=function(i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling){
+	RenderText=function(i64 ccnt_base,i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling){
 		_RenderText(MODE_RENDER,a,pp,s,s.n,scroll_x,scroll_y,screen_x,screen_y,scaling)
 	}
 	GetCharacterHeightAt=function(i64[] a,i64[] pp,string s,iptr ofs){
@@ -1095,6 +1095,8 @@ class CEditableText
 				restate_ranges.push(ccnt0_current)
 				restate_ranges.push(sz_current)
 			RecomputeStatesDfs(m_skiplist,0LL,restate_ranges,0L)
+	inline InvalidateStates(i64[] ccnt_range)
+		RecomputeStatesDfs(m_skiplist,0LL,ccnt_range,0)
 	auto _GetText(string buf,iptr ofs, CSLNode nd,i64 ccnt0,i64 ccnt1)
 		if nd.s:
 			copy(buf[ofs:],nd.s[iptr(ccnt0):iptr(ccnt1-1LL)])
@@ -1354,7 +1356,7 @@ class CEditableText
 					color_ids=handler_colorer.ComputeCharColorID(acc_colorer,s_context,nd.s)
 				else
 					color_ids=u8[].NULL
-				handler.RenderText(acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s, color_ids, x,y,scr_x,scr_y,scale)
+				handler.RenderText(ccnt_base,acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s, color_ids, x,y,scr_x,scr_y,scale)
 				handler.Add(acc,nd.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
 			else
 				for(pc=nd.pchild;pc;pc=pc.pnext)
@@ -1500,6 +1502,28 @@ class CEditableText
 	}
 	JS_GetTextSize=function(JSContext JS){
 		return JS.Return(GetTextSize())
+	}
+	JS_InvalidateStates=function(JSContext JS){
+		js_ops=JS.Param(0).as(JSObject)
+		if !js_ops:return 0
+		n=js_ops["length"].as(iptr)
+		if !(n>0)||(n%2):
+			return JS.ReturnError("bad operation array length @1".Replace(["@1",string(n)]))
+		//one array with even-odd packing
+		range0=0LL
+		range1=GetTextSize()
+		ranges=new i64[]
+		for i=0:2:n-2
+			ccnt=js_ops[i].as(i64)
+			sz=js_ops[i+1].as(i64)
+			if u64(ccnt)<u64(range0)||u64(ccnt+sz)>u64(range1)||u64(ccnt+sz)<u64(ccnt):
+				return JS.ReturnError("invalid operation #@1".Replace(["@1",string(i)]))
+			range0=ccnt+sz
+			///////
+			ranges.push(ccnt)
+			ranges.push(sz)
+		InvalidateStates(ranges)
+		return 0
 	}
 	JS_Render=function(JSContext JS){
 		ed=this
@@ -1779,6 +1803,7 @@ class CEditableText
 		proto.ExportMethod(this,"Edit",JS_Edit)
 		proto.ExportMethod(this,"GetText",JS_GetText)
 		proto.ExportMethod(this,"GetTextSize",JS_GetTextSize)
+		proto.ExportMethod(this,"InvalidateStates",JS_InvalidateStates)
 		proto.ExportMethod(this,"Render",JS_Render)
 		proto.ExportMethod(this,"CreateLocator",JS_CreateLocator)
 		proto.ExportMethod(this,"CreateHighlight",JS_CreateHighlight)

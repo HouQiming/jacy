@@ -473,7 +473,7 @@ auto main()
 	once("0")
 	once("")
 	//////////////
-	s_code0=System.IO.ReadAllText("glpure_part0.spap")
+	s_code0=System.IO.ReadAllText("test\\glpure_part0.jc")
 	g_typedef_code=g_typedef_code.Replace([
 		"GLenum","int",
 		"GLboolean","unsigned char",
@@ -499,7 +499,7 @@ auto main()
 		"GLfixed","int",
 		"GLvoidptr","__pointer",
 	]).Replace(["GLvoid","void"])
-	//todo: CreateFile(@"c:\tp\kara\pure\units\g-l.spap").Write(s_code0+'__C(int,"@global:'+g_typedef_code+'");\n\n'+g_code)
+	CreateFile("c:\\tp\\pure\\units\\g-l.jc").Write(s_code0+'__C(int,"@global:'+g_typedef_code+'");\n\n'+g_code)
 	/////////////
 	doSDL()
 	/////////////

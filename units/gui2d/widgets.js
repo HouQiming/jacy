@@ -48,6 +48,8 @@ W.Window=function(id,attrs){
 	attrs.y=0;
 	if(!UI.is_real){
 		UI.sandbox_main_window=attrs.__hwnd;
+		UI.sandbox_main_window_w=attrs.w*UI.pixels_per_unit;
+		UI.sandbox_main_window_h=attrs.h*UI.pixels_per_unit;
 		UI.Clear(attrs.bgcolor||0xffffffff);
 	}
 	return attrs;
@@ -133,46 +135,63 @@ W.Region=function(id,attrs,proto){
 	return attrs;
 }
 
+W.PureRegion=function(id,obj){
+	UI.context_regions.push(obj);
+	obj.region___hwnd=UI.context_window.__hwnd;
+	return obj;
+}
+
 ////////////////////////////////////////
 //utility
-W.Group=function(id,attrs0){
-	var attrs=UI.Keep(id,attrs0);
-	UI.StdAnchoring(id,attrs);
+W.Group=function(id,attrs){
+	/*
+	item_template
+	item_object
+	items:
+		id
+		object_type
+		is_hidden
+	*/
+	var obj=UI.Keep(id,attrs);
+	UI.StdAnchoring(id,obj);
 	/////////
-	var items=attrs.items||[];
-	var item_template=attrs.item_template||{};
-	var item_object=attrs.item_object;
-	var selection=attrs.selection;
+	var items=obj.items||[];
+	var item_template=obj.item_template||{};
+	var item_object=obj.item_object;
+	var selection=obj.selection;
 	//layouting: just set layout_direction and layout_spacing
-	UI.Begin(attrs);
-	//attrs.layout_auto_anchor=attrs;
+	UI.Begin(obj);
+	obj.layout_auto_anchor=null;
 	for(var i=0;i<items.length;i++){
 		var items_i=items[i];
+		if(items_i.is_hidden){continue;}
+		if(!items_i.id){items_i.id="$"+i.toString();}
 		var obj_temp=Object.create(item_template);
+		obj_temp.x=0;obj_temp.y=0;//for layouting
 		for(var key in items_i){
 			obj_temp[key]=items_i[key];
 		}
 		if(selection){
 			obj_temp.selected=selection[items_i.id];
 		}
-		var itemobj_i=item_object(items_i.id,obj_temp);
+		var itemobj_i=(items_i.object_type||item_object)(items_i.id,obj_temp);
 		itemobj_i.__kept=1;
 	}
-	//attrs.layout_auto_anchor=null;
-	UI.End(attrs);
+	obj.layout_auto_anchor=null;
+	UI.End(obj);
 	//delete the non-kept
-	for(var key in attrs){
+	for(var key in obj){
 		//check for leading $
 		if(key.charCodeAt(0)==0x24){
-			var child=attrs[key];
+			var child=obj[key];
 			if(child.__kept){
 				child.__kept=0;
 			}else{
-				delete attrs[key];
+				delete obj[key];
 			}
 		}
 	}
-	return attrs;
+	return obj;
 }
 
 //todo: clipping/scrolling/zooming host with phone awareness
@@ -180,42 +199,74 @@ W.Group=function(id,attrs0){
 ////////////////////////////////////////
 //widgets
 W.Button_prototype={
+	use_measured_dims:1,
+	icon_text_align:'center',
+	icon_text_valign:'center',
+	//////////////////
 	OnMouseOver:function(){this.mouse_state="over";UI.Refresh();},
 	OnMouseOut:function(){this.mouse_state="out";UI.Refresh();},
 	OnMouseDown:function(){this.mouse_state="down";UI.Refresh();},
 	OnMouseUp:function(){this.mouse_state="over";UI.Refresh();}
 };
-W.Button=function(id,attrs0){
-	//////////////////
-	//styling
-	var attrs=UI.Keep(id,attrs0,W.Button_prototype);
-	UI.StdStyling(id,attrs,attrs0, "button",attrs.mouse_state||"out");
+
+W.DrawIconText=function(id,obj,attrs){
 	//size estimation
-	var bmpid=(UI.rc[attrs.icon]||0);
-	if(attrs.w_icon){
-		attrs.w_bmp=attrs.w_icon;
-		attrs.h_bmp=attrs.h_icon;
+	var bmpid=(UI.rc[obj.icon]||0);
+	if(obj.w_icon){
+		obj.w_bmp=obj.w_icon;
+		obj.h_bmp=obj.h_icon;
 	}else{
 		if(bmpid){
-			UI.GetBitmapSize(bmpid,attrs);
+			UI.GetBitmapSize(bmpid,obj);
 		}else{
-			attrs.w_bmp=0;
-			attrs.h_bmp=0;
+			obj.w_bmp=0;
+			obj.h_bmp=0;
 		}
 	}
-	UI.LayoutText(attrs);
-	var padding=(attrs.padding||4);
-	attrs.w=(attrs0.w||(attrs.w_bmp+attrs.w_text+padding*2));
-	attrs.h=(attrs0.h||(Math.max(attrs.h_bmp,attrs.h_text)+padding*2));
-	UI.StdAnchoring(id,attrs);
+	obj.w=1e17;//for UI.LayoutText
+	UI.LayoutText(obj);
+	var padding=(obj.padding||0);
+	if(obj.use_measured_dims){
+		obj.w=(attrs.w||(obj.w_bmp+obj.w_text+padding*2));
+		obj.h=(attrs.h||(Math.max(obj.h_bmp,obj.h_text)+padding*2));
+		UI.StdAnchoring(id,obj);
+	}
+	//print(obj.w,obj.h,obj.w_bmp,obj.h_bmp,obj.w_text,obj.h_text)
 	//////////////////
 	//rendering
-	UI.RoundRect(attrs);
-	var x=attrs.x+padding;
-	if(bmpid){UI.DrawBitmap(bmpid,x,attrs.y+(attrs.h-attrs.h_bmp)*0.5,attrs.w_bmp,attrs.h_bmp,attrs.icon_color||0xffffffff);}
-	x+=attrs.w_bmp;
-	UI.DrawTextControl(attrs,x,attrs.y+(attrs.h-attrs.h_text)*0.5,attrs.text_color||0xffffffff)
-	return W.Region(id,attrs);
+	UI.RoundRect(obj);
+	var alg=(obj.icon_text_align||'center');
+	var inner_w=obj.w_bmp+obj.w_text;
+	var x;
+	if(alg=='left'){
+		x=obj.x+padding;
+	}else if(alg=='center'){
+		x=obj.x+(obj.w-inner_w)*0.5;
+	}else{
+		x=obj.x+(obj.w-inner_w-padding);
+	}
+	var compute_y=function(inner_h){
+		var alg=(obj.icon_text_valign||'center');
+		if(alg=='left'){
+			return obj.y+padding;
+		}else if(alg=='center'){
+			return obj.y+(obj.h-inner_h)*0.5;
+		}else{
+			return obj.y+(obj.h-inner_h-padding);
+		}
+	}
+	if(bmpid){UI.DrawBitmap(bmpid,x,compute_y(obj.h_bmp),obj.w_bmp,obj.h_bmp,obj.icon_color||0xffffffff);}
+	x+=obj.w_bmp;
+	UI.DrawTextControl(obj,x,compute_y(obj.h_text),obj.text_color||0xffffffff)
+};
+
+W.Button=function(id,attrs){
+	//////////////////
+	//styling
+	var obj=UI.Keep(id,attrs,W.Button_prototype);
+	UI.StdStyling(id,obj,attrs, "button",obj.mouse_state||"out");
+	W.DrawIconText(id,obj,attrs)
+	return W.PureRegion(id,obj);
 }
 
 W.Edit_prototype={
@@ -378,7 +429,6 @@ W.Edit_prototype={
 		UI.Refresh()
 	},
 	OnKeyDown:function(event){
-		//todo: global hotkey table - keyed using things like "CTRL+C", if not found, tokenize at +
 		//allow multiple keys
 		/*
 		mouse messages
@@ -569,7 +619,7 @@ W.Edit_prototype={
 };
 W.Edit=function(id,attrs){
 	var obj=UI.Keep(id,attrs,W.Edit_prototype);
-	UI.StdStyling(id,obj,attrs, "edit",obj.focus_state||"blur");
+	UI.StdStyling(id,obj,attrs, "edit",UI.HasFocus(obj)?"focus":"blur");
 	UI.StdAnchoring(id,obj);
 	if(obj.show_background){
 		UI.DrawBitmap(0,obj.x,obj.y,obj.w,obj.h,obj.bgcolor);
@@ -591,3 +641,109 @@ W.Edit=function(id,attrs){
 	}
 	return obj;
 };
+
+/////////////////////////////////////////////////////
+//menu
+W.MenuItem_prototype={
+	use_measured_dims:1,
+	icon_text_align:'left',
+	icon_text_valign:'center',
+	OnMouseOver:function(){
+		this.parent.selection={};
+		this.parent.selection[this.id]=1;
+		UI.Refresh();
+	},
+	OnClick:function(){
+		this.action();
+		this.parent.Close()
+	}
+};
+W.MenuItem=function(id,attrs){
+	var obj=UI.Keep(id,attrs,W.MenuItem_prototype);
+	obj.parent=UI.context_parent;
+	//styling should draw the box
+	UI.StdStyling(id,obj,attrs, "menu_item",obj.parent.selection[obj.id]?"over":"out");
+	W.DrawIconText(id,obj,attrs)
+	return W.PureRegion(id,obj);
+}
+
+W.Menu_prototype={
+	item_object:W.MenuItem,
+	layout_direction:"down",
+	//////////////
+	IDFromSelection:function(){
+		var items=this.items;
+		var sel=this.selection;
+		///////
+		var items_clean=[];
+		var sel_id=0;
+		for(var i=0;i<items.length;i++){
+			var item_i=items[i];
+			if(sel[item_i.id]){
+				sel_id=items_clean.length;
+			}
+			if(item_i.is_hidden){continue;}
+			items_clean.push(item_i);
+		}
+		if(sel_id>=items_clean.length){sel_id--;}
+		return {'sel_id':sel_id,'items_clean':items_clean};
+	},
+	//////////////
+	OnKeyDown:function(event){
+		var sdesc=this.IDFromSelection();
+		var sel_id=sdesc.sel_id;
+		var items_clean=sdesc.items_clean;
+		if(0){
+		}else if(UI.IsHotkey(event,"UP")){
+			sel_id=(sel_id+items_clean.length-1)%Math.max(items_clean.length,1)
+			this.selection={};
+			this.selection[items_clean[sel_id].id]=1;
+			UI.Refresh()
+		}else if(UI.IsHotkey(event,"DOWN")){
+			sel_id=(sel_id+1)%Math.max(items_clean.length,1)
+			this.selection={};
+			this.selection[items_clean[sel_id].id]=1;
+			UI.Refresh()
+		}else if(UI.IsHotkey(event,"RETURN")){
+			items_clean[sel_id].action();
+			if(UI.HasFocus(this)){
+				this.Close();
+			}
+			UI.Refresh()
+		}else{
+			//todo: left/right for submenu
+		}
+	},
+	//OnBlur:function(obj){
+	//	//hide it, but how?
+	//	//nothing: no focus, no render
+	//},
+	Popup:function(){
+		this.nd_focus_saved=UI.nd_focus;
+		UI.SetFocus(this)
+	},
+	Close:function(){
+		UI.SetFocus(this.nd_focus_saved)
+	},
+};
+W.Menu=function(id,attrs){
+	var obj=UI.Keep(id,attrs,W.Menu_prototype);
+	UI.StdStyling(id,obj,attrs, "menu",UI.HasFocus(obj)?"focus":"blur");
+	UI.StdAnchoring(id,obj);
+	if(UI.HasFocus(obj)){
+		if(!obj.selection){
+			obj.selection={"$0":1};
+		}
+		UI.RoundRect(obj);
+		W.PureRegion(id,obj)//region goes before children
+		W.Group(id,attrs)
+		return obj;
+	}else{
+		return obj;
+	}
+}
+
+//a sensible default style
+
+//todo: self-destructing child node? we won't need the menu later, and it's costly
+//if(){Group()}else{UI.Ditch()} in MenuButton

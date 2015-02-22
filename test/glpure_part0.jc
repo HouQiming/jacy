@@ -3145,6 +3145,9 @@ class GLTechnique
 		else if T==float4[]:
 			m_refs.push(variant(a))
 			SetVertexPointer(name, 4,GL_FLOAT,0, 0,a.d)
+		else if T==int[]:
+			m_refs.push(variant(a))
+			SetVertexPointer(name, 4,GL_UNSIGNED_BYTE,1, 0,a.d)
 		else
 			__error("invalid vertex array type '@1'",T)
 	auto SetIndexBuffer(GLuint ebo,iptr ofs,int type)

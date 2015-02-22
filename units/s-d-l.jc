@@ -956,6 +956,7 @@ module detail
 	SDL_GetClipboardText=__c_function(__pointer,"SDL_GetClipboardText","SDL.h")
 	SDL_HasClipboardText=__c_function(int,"SDL_HasClipboardText","SDL.h")
 	SDL_free=__c_function(int,"SDL_free","SDL.h")
+	SDL_GetKeyboardState=__c_function(__pointer,"SDL_GetKeyboardState","SDL.h")
 	//////
 	g_sdl_gl_context=NULL
 	g_is_hwnd=new int[iptr]
@@ -1124,6 +1125,15 @@ module detail
 			__C(int,"((SDL_Rect*)@1)->h=@2",prect,h)
 			SDL_SetTextInputRect(prect)
 			return 0
+		}
+		JS_SDL["SDL_IsPressed"]=function(JSContext JS){
+			scan_code=JS.Param(0).or(0)
+			nkeys=0
+			p=iptr(SDL_GetKeyboardState(&nkeys))
+			if u32(scan_code)<u32(nkeys):
+				return JS.Return(!!__memory(u8,p+scan_code))
+			else
+				return 0
 		}
 		//clipboard
 		JS_SDL["SDL_SetClipboardText"]=function(JSContext JS){

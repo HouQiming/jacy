@@ -1066,7 +1066,7 @@ class CRenderer
 		//simply emulate windows drawtext
 		s32=Utf8ToUnicode32(s)
 		(gc_space,delta_y)=CacheGlyph(fnt,int(' '))
-		wspace=gc_space.dx
+		wspace=gc_space?gc_space.dx:0.f
 		wtab=wspace*8.f
 		hc=GetCharacterHeight(fnt)
 		poses=new float2[s32.n]
@@ -1181,9 +1181,18 @@ class CRenderer
 		ret.sz=ret.n
 		return TBitmap(){rgba:ret,w:w,h:h}
 	////////////////
-	auto CacheRR(float radius,float border_width,const is_border)
+	auto CacheRR(float radius0,float arg,const is_border)
+		radius=radius0
 		if radius<=0.f:return 0
-		key=int3(0x80000000,is_border?__float_as_int(border_width):0x80000000,__float_as_int(radius))
+		if is_border==2:
+			//shadow
+			border_width=0.f
+			filter_width=min(arg,radius*0.5f)
+			key=int3(0x80000000,__float_as_int(-filter_width),__float_as_int(radius))
+		else
+			border_width=arg
+			filter_width=0.f
+			key=int3(0x80000000,is_border==1?__float_as_int(border_width):0xffffffff,__float_as_int(radius))
 		ret=m_glyph_cache[key]
 		if !ret:
 			ret=m_glyph_cache_prev[key]
@@ -1192,8 +1201,9 @@ class CRenderer
 				rif=System.Math.ceil(radius)
 				ri=int(rif)
 				scale=rif/radius
+				radius-=filter_width
 				r2=System.Math.sqr(16.f*radius*scale)
-				if is_border:
+				if is_border==1:
 					rb2=System.Math.sqr(16.f*(radius-border_width)*scale)
 				rgba=new int[(ri+2)*(ri+2)]
 				p=0
@@ -1205,7 +1215,7 @@ class CRenderer
 							x2_max=r2-y2
 							if !(x2_max>0.f):continue
 							x_max=System.Math.sqrt(x2_max)
-							if is_border:
+							if is_border==1:
 								x2_max_border=rb2-y2
 								if x2_max_border>=0.f:
 									x_max_border=System.Math.sqrt(x2_max_border)
@@ -1216,6 +1226,48 @@ class CRenderer
 								a+=max(min(x_max-float(x*16),16.f),0.f)
 						a*=255.f/256.f
 						rgba[p++]=(int(a)<<24)+0xffffff
+				if is_border==2:
+					//filter
+					fwi=int(System.Math.ceil(filter_width))
+					fw2=System.Math.sqr(16.f*filter_width)
+					flg=fwi*2+1
+					fbuf=new float[flg*flg]
+					for fy=0:fwi
+						for fx=0:fwi
+							a=0.f
+							for aa_y=0:15
+								y2=System.Math.sqr(float(max(fy*16+aa_y,0)))
+								x2_max=fw2-y2
+								if !(x2_max>0.f):continue
+								x_max=System.Math.sqrt(x2_max)
+								a+=max(min(x_max-float(fx*16),16.f),0.f)
+							a*=(1.f/256.f)
+							fbuf[flg*(-fy+fwi)+(-fx+fwi)]=a
+							fbuf[flg*(-fy+fwi)+(fx+fwi)]=a
+							fbuf[flg*(fy+fwi)+(-fx+fwi)]=a
+							fbuf[flg*(fy+fwi)+(fx+fwi)]=a
+					nmlz=1.f/[d foreach d in fbuf].Sum()
+					foreach d,I in fbuf
+						fbuf[I]*=nmlz
+					sz=ri+2
+					rgba2=new int[sz*sz]
+					for y=0:sz-1
+						for x=0:sz-1
+							acc=float4(0.f,0.f,0.f,0.f)
+							pf=0
+							for fy=-fwi:fwi
+								addr=min(max(y+fy,0),sz-1)*sz
+								for fx=-fwi:fwi
+									C=rgba[addr+min(max(x+fx,0),sz-1)]
+									wt=fbuf[pf]
+									for i in crange(4)
+										acc[i]+=float((C>>(i*8))&255)*wt
+									pf++
+							C=0
+							for i in crange(4)
+								C+=max(min(int(acc[i]),255),0)<<(i*8)
+							rgba2[y*sz+x]=C
+					rgba=rgba2
 				ret=new CGlyphCacheItem
 				ret.bmp.rgba=rgba
 				ret.bmp.w=ri+2
@@ -1252,8 +1304,12 @@ class CRenderer
 		if obj[sname].has(0):
 			inline lerp(a,b,t){return a+(b-a)*t}
 			//gradient - compute C at the points
-			p0=float2(obj[sname][0]["x"].as(float),obj[sname][0]["y"].as(float))
-			p1=float2(obj[sname][1]["x"].as(float),obj[sname][1]["y"].as(float))
+			p0x=obj[sname][0]["x"].as(float)
+			p0y=obj[sname][0]["y"].as(float)
+			p0=float2(p0x,p0y)
+			p1x=obj[sname][1]["x"].as(float)
+			p1y=obj[sname][1]["y"].as(float)
+			p1=float2(p1x,p1y)
 			C0=obj[sname][0]["color"].or(-1)
 			C1=obj[sname][1]["color"].or(-1)
 			dt=p1-p0
@@ -1561,7 +1617,11 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 		w=obj["w"].or(0.f)*g_renderer.m_pixels_per_unit
 		h=obj["h"].or(0.f)*g_renderer.m_pixels_per_unit
 		eff_radius=max(min(radius,min(w,h)*0.5f),border_width)
-		bmpid=g_renderer.CacheRR(eff_radius,0.f,0)
+		if border_width<0.f:
+			//shadowed
+			bmpid=g_renderer.CacheRR(eff_radius,-border_width,2)
+		else
+			bmpid=g_renderer.CacheRR(eff_radius,0.f,0)
 		x=obj["x"].or(0.f)*g_renderer.m_pixels_per_unit
 		y=obj["y"].or(0.f)*g_renderer.m_pixels_per_unit
 		g_renderer.Draw3x3(x,y,w,h,eff_radius, bmpid,obj,"color",0)
