@@ -1419,6 +1419,10 @@ UI.GLWidget=function(fcall){
 	UI.InsertJSDrawCall(fcall)
 }
 
+UI.SetSystemCursor=function(mouse_cursor){
+	return UI.SDL_SetSystemCursor(UI["SDL_SYSTEM_CURSOR_"+mouse_cursor.toUpperCase()]||0)
+};
+
 UI.Run=function(){
 	var event=null;
 	for(;;){
@@ -1517,6 +1521,7 @@ UI.Run=function(){
 				var regions=UI.context_regions;
 				var lg=regions.length;
 				var nd_mouse_receiver=null;
+				var mouse_cursor="arrow";
 				event.x/=UI.pixels_per_unit;
 				event.y/=UI.pixels_per_unit;
 				//print("------------------")
@@ -1550,7 +1555,11 @@ UI.Run=function(){
 							UI.nd_mouse_over=null;
 						}
 					}
+					UI.SetSystemCursor(mouse_cursor)
 					break;
+				}else{
+					mouse_cursor=(nd_mouse_receiver.mouse_cursor||mouse_cursor);
+					UI.SetSystemCursor(mouse_cursor)
 				}
 				if(event.type==UI.SDL_MOUSEMOTION){
 					//nd_mouse_receiver

@@ -312,6 +312,7 @@ W.Edit_prototype={
 	scroll_y:0,
 	x_updown:0,
 	//////////
+	mouse_cursor:"ibeam",
 	caret_width:2,
 	caret_color:0xff000000,
 	caret_flicker:500,
@@ -675,7 +676,7 @@ W.Edit=function(id,attrs){
 			obj.caret_width*scale,ed.GetCharacterHeightAt(obj.sel1.ccnt)*scale,
 			obj.caret_color,obj.caret_flicker);
 	}
-	return obj;
+	return W.PureRegion(id,obj);
 };
 
 /////////////////////////////////////////////////////
@@ -851,5 +852,4 @@ W.ComboBox=function(id,attrs){
 	return obj;
 }
 
-//todo: self-destructing child node? we won't need the menu later, and it's costly
-//if(){Group()}else{UI.Ditch()} in MenuButton
+//todo: slider bar

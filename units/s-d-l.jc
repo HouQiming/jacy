@@ -957,6 +957,8 @@ module detail
 	SDL_HasClipboardText=__c_function(int,"SDL_HasClipboardText","SDL.h")
 	SDL_free=__c_function(int,"SDL_free","SDL.h")
 	SDL_GetKeyboardState=__c_function(__pointer,"SDL_GetKeyboardState","SDL.h")
+	SDL_CreateSystemCursor=__c_function(__pointer,"SDL_CreateSystemCursor","SDL.h")
+	SDL_SetCursor=__c_function(int,"SDL_SetCursor","SDL.h")
 	//////
 	g_sdl_gl_context=NULL
 	g_is_hwnd=new int[iptr]
@@ -1153,6 +1155,18 @@ module detail
 		}
 		JS_SDL["SDL_HasClipboardText"]=function(JSContext JS){
 			return JS.Return(SDL_HasClipboardText())
+		}
+		//cursor
+		cursor_map=new __pointer[int]
+		JS_SDL["SDL_SetSystemCursor"]=function(JSContext JS){
+			cur=JS.Param(0).or(SDL_SYSTEM_CURSOR_ARROW)
+			hcur=cursor_map[cur]
+			if !hcur:
+				hcur=SDL_CreateSystemCursor(cur)
+				if !hcur:return 0
+				cursor_map[cur]=hcur
+			SDL_SetCursor(hcur)
+			return JS.Return(cur)	
 		}
 		return JS_SDL
 	//auto createGLJSObject(JSObject JS_GL)
