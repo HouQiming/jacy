@@ -157,7 +157,6 @@ W.Group=function(id,attrs){
 	/////////
 	var items=obj.items||[];
 	var item_template=obj.item_template||{};
-	var item_object=obj.item_object;
 	var selection=obj.selection;
 	//layouting: just set layout_direction and layout_spacing
 	UI.Begin(obj);
@@ -172,9 +171,9 @@ W.Group=function(id,attrs){
 			obj_temp[key]=items_i[key];
 		}
 		if(selection){
-			obj_temp.selected=selection[items_i.id];
+			obj_temp.selected=selection[obj_temp.id];
 		}
-		var itemobj_i=(items_i.object_type||item_object)(items_i.id,obj_temp);
+		var itemobj_i=(obj_temp.object_type)(obj_temp.id,obj_temp);
 		itemobj_i.__kept=1;
 	}
 	obj.layout_auto_anchor=null;
@@ -208,6 +207,26 @@ W.Button_prototype={
 	OnMouseDown:function(){this.mouse_state="down";UI.Refresh();},
 	OnMouseUp:function(){this.mouse_state="over";UI.Refresh();}
 };
+
+UI.MeasureIconText=function(obj){
+	//size estimation
+	var bmpid=(UI.rc[obj.icon]||0);
+	if(obj.w_icon){
+		obj.w_bmp=obj.w_icon;
+		obj.h_bmp=obj.h_icon;
+	}else{
+		if(bmpid){
+			UI.GetBitmapSize(bmpid,obj);
+		}else{
+			obj.w_bmp=0;
+			obj.h_bmp=0;
+		}
+	}
+	obj.w=1e17;//for UI.LayoutText
+	UI.LayoutText(obj);
+	var padding=(obj.padding||0);
+	return {w:(obj.w_bmp+obj.w_text+padding*2),h:Math.max(obj.h_bmp,obj.h_text)+padding*2};
+}
 
 W.DrawIconText=function(id,obj,attrs){
 	//size estimation
@@ -247,7 +266,7 @@ W.DrawIconText=function(id,obj,attrs){
 	}
 	var compute_y=function(inner_h){
 		var alg=(obj.icon_text_valign||'center');
-		if(alg=='left'){
+		if(alg=='up'){
 			return obj.y+padding;
 		}else if(alg=='center'){
 			return obj.y+(obj.h-inner_h)*0.5;
@@ -258,6 +277,23 @@ W.DrawIconText=function(id,obj,attrs){
 	if(bmpid){UI.DrawBitmap(bmpid,x,compute_y(obj.h_bmp),obj.w_bmp,obj.h_bmp,obj.icon_color||0xffffffff);}
 	x+=obj.w_bmp;
 	UI.DrawTextControl(obj,x,compute_y(obj.h_text),obj.text_color||0xffffffff)
+};
+
+var g_icon_text_from_style=["w_icon","h_icon","padding","icon_text_align","icon_text_valign","icon_color","text_color","x","y","w","h","font"];
+var g_icon_text_from_data=["icon","text"];
+W.DrawIconTextEx=function(style,data){
+	var obj={};
+	for(var i=0;i<g_icon_text_from_style.length;i++){
+		var id=g_icon_text_from_style[i];
+		obj[id]=style[id];
+	}
+	for(var i=0;i<g_icon_text_from_data.length;i++){
+		var id=g_icon_text_from_data[i];
+		obj[id]=data[id];
+	}
+	obj.color=0;
+	obj.border_color=0;
+	W.DrawIconText("",obj,obj);
 };
 
 W.Button=function(id,attrs){
@@ -664,11 +700,12 @@ W.MenuItem=function(id,attrs){
 	//styling should draw the box
 	UI.StdStyling(id,obj,attrs, "menu_item",obj.parent.selection[obj.id]?"over":"out");
 	W.DrawIconText(id,obj,attrs)
+	UI.HackCallback(obj.action)
 	return W.PureRegion(id,obj);
 }
 
 W.Menu_prototype={
-	item_object:W.MenuItem,
+	item_template:{object_type:W.MenuItem},
 	layout_direction:"down",
 	//////////////
 	IDFromSelection:function(){
@@ -721,9 +758,11 @@ W.Menu_prototype={
 	Popup:function(){
 		this.nd_focus_saved=UI.nd_focus;
 		UI.SetFocus(this)
+		UI.Refresh()
 	},
 	Close:function(){
 		UI.SetFocus(this.nd_focus_saved)
+		UI.Refresh()
 	},
 };
 W.Menu=function(id,attrs){
@@ -731,19 +770,86 @@ W.Menu=function(id,attrs){
 	UI.StdStyling(id,obj,attrs, "menu",UI.HasFocus(obj)?"focus":"blur");
 	UI.StdAnchoring(id,obj);
 	if(UI.HasFocus(obj)){
+		//auto width/height, drag-scrolling
 		if(!obj.selection){
 			obj.selection={"$0":1};
 		}
 		UI.RoundRect(obj);
 		W.PureRegion(id,obj)//region goes before children
 		W.Group(id,attrs)
+		if(!attrs.w||!attrs.h){
+			//auto sizing
+			var w_max=0;
+			var h_tot=0;
+			var spacing=(obj.layout_spacing||0);
+			for(var i=0;i<obj.items.length;i++){
+				var item_i=obj[obj.items[i].id];
+				if(!item_i||item_i.is_hidden){continue;}
+				//todo: left part vs right part
+				var dim_i=UI.MeasureIconText(item_i)
+				w_max=Math.max(w_max,dim_i.w)
+				h_tot+=dim_i.h+spacing;
+			}
+			var obj_w=(attrs.w||w_max+(obj.w_base||0));
+			var obj_h=(attrs.h||Math.min(h_tot,obj.h_max||h_tot));
+			if(obj.w!=obj_w){obj.w=obj_w;UI.Refresh()}
+			if(obj.h!=obj_h){obj.h=obj_h;UI.Refresh()}
+		}
 		return obj;
 	}else{
 		return obj;
 	}
 }
 
-//a sensible default style
+//a sensible default style - qpad
+W.ComboBox_prototype={
+	OnMouseOver:function(){this.mouse_state="over";UI.Refresh();},
+	OnMouseOut:function(){this.mouse_state="out";UI.Refresh();},
+	OnClick:function(){
+		if(UI.HasFocus(this.menu)){
+			this.menu.Close()
+		}else{
+			this.menu.Popup();
+		}
+	},
+};
+W.ComboBox=function(id,attrs){
+	//items same as menu, need explicit w h
+	var obj=UI.Keep(id,attrs,W.ComboBox_prototype);
+	UI.StdStyling(id,obj,attrs, "combobox",obj.edit&&UI.HasFocus(obj.edit)?"focus":"blur");
+	UI.StdAnchoring(id,obj);
+	if(!obj.menu){
+		obj.selection_id="$"+(obj.selection||0);
+	}else{
+		for(var id in obj.menu.selection){
+			if(obj.menu.selection[id]){
+				obj.selection_id=id;
+				break
+			}
+		}
+	}
+	//"show active"
+	UI.RoundRect(obj);
+	W.PureRegion(id,obj);
+	var item_active=obj[obj.selection_id];
+	if(!item_active){
+		item_active=obj.items[obj.selection_id.substr(1)];
+	}
+	//it's a styling problem, just do it manually, ignore the generality
+	W.DrawIconTextEx(obj,item_active)
+	UI.Begin(obj)
+		//todo: action...
+		W.Menu("menu",{
+			'x':obj.x, 'y':obj.y+obj.h, 'w':obj.w, 'items':obj.items, 
+			'style':obj.menu_style,
+			'item_template':{object_type:W.MenuItem,action:function(){obj.selection=parseInt(this.id.substr(1));obj.menu.Close();}},
+		})
+		if(obj.has_edit){
+			W.Edit("edit",{'font':obj.font,'color':obj.text_color, 'style':obj.edit_style});
+		}
+	UI.End(obj)
+	return obj;
+}
 
 //todo: self-destructing child node? we won't need the menu later, and it's costly
 //if(){Group()}else{UI.Ditch()} in MenuButton

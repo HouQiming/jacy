@@ -494,6 +494,56 @@ class CLayouter_baseline
 		proto.ExportProperty(this,"m_color")
 	}
 
+class CLine_handler
+	name=function(){return "line_column"}
+	stateSize=function(){return 2}
+	/////////////////
+	AddString=function(i64[] a,i64[] pp,string s_context,string s,iptr ofs){
+		l=a[0]
+		c=a[1]
+		foreach ch,I in Utf8Chars(s)
+			if I>=ofs:break
+			if ch=='\n':
+				l++
+				c=0LL
+			else
+				c++
+		a[0]=l
+		a[1]=c
+	}
+	Add=function(i64[] a,i64[] b){
+		if b[0]:
+			a[0]+=b[0]
+			a[1]=b[1]
+		else
+			a[1]+=b[1]
+	}
+	/////////////////
+	//compare known-positive doubles as ints
+	Compare=function(i64[] a,i64[] b){
+		ret=__C_compare(a[0],b[0])
+		if !ret:
+			ret=__C_compare(a[1],b[1])
+		return ret
+	}
+	SeekInBlock=function(i64[] a,i64[] unused,string s,i64[] b){
+		l=a[0]
+		c=a[1]
+		bl=b[0]
+		bc=b[1]
+		foreach ch,I in Utf8Chars(s)
+			if ch=='\n':
+				l++
+				c=0LL
+			else
+				c++
+			if l>bl||l==bl&&c>bc:
+				return iptr(I)
+		return s.n
+	}
+	////////////////////
+	__JS_prototype=function(JSObject proto){}
+
 ///////////////////////////////
 /*/
 hybrid line-size consistency
@@ -1835,6 +1885,7 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 		ret=new CEditableText
 		if !obj_handlers:
 			ret.AddStateHandler(new CLayouter_baseline)
+			ret.AddStateHandler(new CLine_handler)
 		else
 			for i=0:obj_handlers.length()-1
 				auto f=g_registered_state_handlers[obj_handlers[i].or("")]
@@ -1850,6 +1901,7 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 })
 
 registerStateHandler("renderer_baseline",CLayouter_baseline)
+registerStateHandler("line_column_unicode",CLine_handler)
 }
 
 registerStateHandler=TextBox.detail.registerStateHandler

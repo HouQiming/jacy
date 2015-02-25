@@ -30,7 +30,7 @@ UI.default_styles={
 		}
 	},
 	menu_item:{
-		font:UI.Font("Arial",32),
+		font:UI.Font("Arial",16),
 		transition_dt:0.1,
 		round:0,border_width:1,padding:8,
 		icon_color:0xff000000,
@@ -49,8 +49,15 @@ UI.default_styles={
 	menu:{
 		transition_dt:0.1,
 		round:0,border_width:2,padding:8,
-		layout_spacing:8,
+		layout_spacing:0,
 		border_color:0xffcc773f,color:0xffffffff,
+	},
+	combobox:{
+		transition_dt:0.1,
+		round:0,border_width:2,padding:8,
+		layout_spacing:0,
+		border_color:0xffcc773f,text_color:0xff000000,color:0xffffffff,icon_text_align:'left',
+		font:UI.Font("Arial",24),
 	},
 };
 
@@ -226,16 +233,24 @@ var demo_menu=function(id,attrs){
 						UI.top.app.menu.Popup();
 					}
 				}});
-			//todo: auto width/height, drag-scrolling
 			W.Menu("menu",{
 				anchor:UI.context_parent.menubtn,anchor_placement:"down",anchor_align:"left",anchor_valign:"top",
-				x:0,y:0,w:300,h:400,
+				x:0,y:0,
 				items:[
 					{text:"Open"},
 					{text:"Save"},
 					{text:"Exit"},
 				],
 			})
+			W.ComboBox("combobox",{
+				anchor:UI.context_parent,anchor_align:"right",anchor_valign:"top",
+				x:16,y:16,w:300,h:32,
+				items:[
+					{text:"Item 0"},
+					{text:"Item 1"},
+					{text:"Item 2"},
+				],
+			});
 		UI.End();
 	UI.End();
 };
