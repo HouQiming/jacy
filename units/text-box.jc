@@ -1069,13 +1069,27 @@ class CEditableText
 			if bop_current.sz||bop_current.ss:
 				bops.push(bop_current)
 				bop_current=TBlockOp()
+			s_pool=new string
+			s_pool_last_newline=0L
 		foreach op in ops
 			if !pb||ccnt_base+pb.ccnt<op.ccnt:
 				//we've left the current block, need to reseek
-				flush()
-				(pb,ofs)=BlockFromCcnt(op.ccnt)
+				(pb2,ofs2)=BlockFromCcnt(op.ccnt)
+				//if pb:Writeln('>>> ',op.ccnt-ofs2,' ',ccnt_base+pb.ccnt)
+				if pb&&op.ccnt-ofs2==ccnt_base+pb.ccnt:
+					//don't flush if it's the immediately next block - we gotta merge that anyway
+					//just merge the tail, the remaining code should finish the rest
+					//Writeln('immediate next')
+					is_immediate_after=1
+					poolString(pb.s[iptr(ofs):])
+				else
+					is_immediate_after=0
+					flush()
+				pb=pb2
+				ofs=ofs2
 				ccnt_base=op.ccnt-ofs
-				bop_current.ccnt=ccnt_base
+				if !is_immediate_after:
+					bop_current.ccnt=ccnt_base
 				ofs=0LL
 			ofs_new=i64(op.ccnt-ccnt_base)
 			if ofs_new>ofs:
@@ -1099,10 +1113,9 @@ class CEditableText
 			bop_current.sz=op.ccnt+op.sz-bop_current.ccnt
 			if op.s:poolString(op.s)
 		flush()
-		//todo
-		Writeln(ops)
-		Writeln('---------------------------------------------------------')
-		Writeln(bops)
+		//Writeln(ops)
+		//Writeln('---------------------------------------------------------')
+		//Writeln(bops)
 		//block replace -> skiplist edit
 		if m_skiplist.ccnt:
 			nds_pc=BlockEdit(0,m_skiplist,0LL,bops)
