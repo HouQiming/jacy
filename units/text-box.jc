@@ -1099,9 +1099,10 @@ class CEditableText
 			bop_current.sz=op.ccnt+op.sz-bop_current.ccnt
 			if op.s:poolString(op.s)
 		flush()
-		//Writeln(ops)
-		//Writeln('---------------------------------------------------------')
-		//Writeln(bops)
+		//todo
+		Writeln(ops)
+		Writeln('---------------------------------------------------------')
+		Writeln(bops)
 		//block replace -> skiplist edit
 		if m_skiplist.ccnt:
 			nds_pc=BlockEdit(0,m_skiplist,0LL,bops)
