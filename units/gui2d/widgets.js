@@ -841,7 +841,8 @@ W.ComboBox=function(id,attrs){
 	UI.Begin(obj)
 		//todo: action...
 		W.Menu("menu",{
-			'x':obj.x, 'y':obj.y+obj.h, 'w':obj.w, 'items':obj.items, 
+			'x':obj.x, 'y':obj.y+obj.h, 'w':obj.w,
+			'items':obj.items,
 			'style':obj.menu_style,
 			'item_template':{object_type:W.MenuItem,action:function(){obj.selection=parseInt(this.id.substr(1));obj.menu.Close();}},
 		})

@@ -1304,7 +1304,7 @@ class CEditableText
 						if ccnt_base>=ccnt:
 							break
 						if handler.hasValidResult(acc,da,b):
-							all_accs.push(acc)
+							all_accs.push(new(acc))
 							all_ccnts.push(ccnt_base)
 							all_pcs.push(pc)
 					else
@@ -1521,6 +1521,7 @@ class CEditableText
 				return JS.ReturnError("invalid operation #@1".Replace(["@1",string(i)]))
 			range0=op.ccnt+op.sz
 			ops.push(op)
+		ops.Sortby(inline(a){return a.ccnt})
 		if is_raw:
 			RawEdit(ops)
 		else
