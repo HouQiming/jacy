@@ -1049,6 +1049,7 @@ UI.End=function(){
 		attrs.__window_parent=null;
 		UI.EndPaint();
 	}
+	return attrs;
 }
 
 ////////////////////////////////////////
@@ -1216,7 +1217,7 @@ UI.doVAlign=function(anchor_align,attrs,obj_anchor){
 UI.StdAnchoring=function(id,attrs){
 	//anchoring, default to parent
 	if(attrs.__anchored){return;}
-	var obj_anchor=attrs.anchor;
+	var obj_anchor=attrs.anchor;if(obj_anchor=='parent'){obj_anchor=UI.context_parent;}
 	var anchor_placement;
 	var anchor_align;
 	var anchor_valign;

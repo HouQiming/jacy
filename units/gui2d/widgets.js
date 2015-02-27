@@ -158,13 +158,17 @@ W.Group=function(id,attrs){
 	var items=obj.items||[];
 	var item_template=obj.item_template||{};
 	var selection=obj.selection;
+	var sel_obj_temps;
+	if(obj.draw_selection_last){sel_obj_temps=[];}
 	//layouting: just set layout_direction and layout_spacing
 	UI.Begin(obj);
 	obj.layout_auto_anchor=null;
 	for(var i=0;i<items.length;i++){
 		var items_i=items[i];
-		if(items_i.is_hidden){continue;}
 		if(!items_i.id){items_i.id="$"+i.toString();}
+		if(items_i.is_hidden){continue;}
+		var itemobj_i=obj[items_i.id];
+		if(itemobj_i&&itemobj_i.is_hidden){itemobj_i.__kept=1;continue;}
 		var obj_temp=Object.create(item_template);
 		obj_temp.x=0;obj_temp.y=0;//for layouting
 		for(var key in items_i){
@@ -173,8 +177,20 @@ W.Group=function(id,attrs){
 		if(selection){
 			obj_temp.selected=selection[obj_temp.id];
 		}
-		var itemobj_i=(obj_temp.object_type)(obj_temp.id,obj_temp);
-		itemobj_i.__kept=1;
+		if(obj.draw_selection_last&&obj_temp.selected){
+			sel_obj_temps.push(obj_temp)
+		}else{
+			itemobj_i=(obj_temp.object_type)(obj_temp.id,obj_temp);
+			itemobj_i.__kept=1;
+		}
+	}
+	if(obj.draw_selection_last){
+		for(var i=0;i<sel_obj_temps.length;i++){
+			var obj_temp=sel_obj_temps[i];
+			var itemobj_i=(obj_temp.object_type)(obj_temp.id,obj_temp);
+			itemobj_i.__kept=1;
+		}
+		sel_obj_temps=null;
 	}
 	obj.layout_auto_anchor=null;
 	UI.End(obj);
@@ -300,7 +316,7 @@ W.Button=function(id,attrs){
 	//////////////////
 	//styling
 	var obj=UI.Keep(id,attrs,W.Button_prototype);
-	UI.StdStyling(id,obj,attrs, "button",obj.mouse_state||"out");
+	UI.StdStyling(id,obj,attrs, "button",(obj.checked?"checked_":"")+(obj.mouse_state||"out"));
 	W.DrawIconText(id,obj,attrs)
 	return W.PureRegion(id,obj);
 }
@@ -653,6 +669,32 @@ W.Edit_prototype={
 			if(this.OnSelectionChange){this.OnSelectionChange(this);}
 		}
 	},
+	////////////////////////////
+	OnMouseDown:function(event){
+		this.in_dragging=1
+		//this.drag_x0=
+		//this.drag_y0=
+		var x0=event.x-this.x+this.scroll_x
+		var y0=event.y-this.y+this.scroll_y
+		this.sel0.ccnt=this.ed.SeekXY(x0,y0);
+		this.sel1.ccnt=this.ed.SeekXY(x0,y0);
+		UI.CaptureMouse(this)
+		if(this.OnSelectionChange){this.OnSelectionChange(this);}
+		UI.Refresh()
+	},
+	OnMouseMove:function(event){
+		if(!this.in_dragging){return;}
+		var x1=event.x-this.x+this.scroll_x
+		var y1=event.y-this.y+this.scroll_y
+		this.sel1.ccnt=this.ed.SeekXY(x1,y1);
+		if(this.OnSelectionChange){this.OnSelectionChange(this);}
+		UI.Refresh()
+	},
+	OnMouseUp:function(event){
+		UI.ReleaseMouse(this)
+		this.in_dragging=0
+		UI.Refresh()
+	},
 };
 W.Edit=function(id,attrs){
 	var obj=UI.Keep(id,attrs,W.Edit_prototype);
@@ -753,8 +795,11 @@ W.Menu_prototype={
 		}
 	},
 	//OnBlur:function(obj){
-	//	//hide it, but how?
-	//	//nothing: no focus, no render
+	//	if(!obj.in_on_blur){
+	//		obj.in_on_blur=1;
+	//		UI.SetFocus(this.nd_focus_saved)
+	//		obj.in_on_blur=0;
+	//	}
 	//},
 	Popup:function(){
 		this.nd_focus_saved=UI.nd_focus;
@@ -839,7 +884,7 @@ W.ComboBox=function(id,attrs){
 	//it's a styling problem, just do it manually, ignore the generality
 	W.DrawIconTextEx(obj,item_active)
 	UI.Begin(obj)
-		W.Text("-",{anchor:UI.context_parent,anchor_align:"right",anchor_valign:"center",font:obj.arrow_font,x:obj.padding,text:"▼",color:obj.text_color})
+		W.Text("-",{anchor:UI.context_parent,anchor_align:"right",anchor_valign:"center",font:obj.arrow_font,x:obj.padding,text:"▼",color:obj.icon_color})
 		W.Menu("menu",{
 			'x':obj.x, 'y':obj.y+obj.h, 'w':obj.w,
 			'items':obj.items,
