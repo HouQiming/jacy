@@ -839,7 +839,7 @@ W.ComboBox=function(id,attrs){
 	//it's a styling problem, just do it manually, ignore the generality
 	W.DrawIconTextEx(obj,item_active)
 	UI.Begin(obj)
-		//todo: action...
+		W.Text("-",{anchor:UI.context_parent,anchor_align:"right",anchor_valign:"center",font:obj.arrow_font,x:obj.padding,text:"▼",color:obj.text_color})
 		W.Menu("menu",{
 			'x':obj.x, 'y':obj.y+obj.h, 'w':obj.w,
 			'items':obj.items,

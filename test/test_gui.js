@@ -58,6 +58,7 @@ UI.default_styles={
 		layout_spacing:0,
 		border_color:0xffcc773f,text_color:0xff000000,color:0xffffffff,icon_text_align:'left',
 		font:UI.Font("Arial",24),
+		arrow_font:UI.Font("Arial",12),
 	},
 };
 

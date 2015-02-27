@@ -1077,7 +1077,7 @@ class CEditableText
 				(pb2,ofs2)=BlockFromCcnt(op.ccnt)
 				//if pb:Writeln('>>> ',op.ccnt-ofs2,' ',ccnt_base+pb.ccnt)
 				if pb&&op.ccnt-ofs2==ccnt_base+pb.ccnt:
-					//don't flush if it's the immediately next block - we gotta merge that anyway
+					//don't flush if it's the immediately following block - we gotta merge that anyway
 					//just merge the tail, the remaining code should finish the rest
 					//Writeln('immediate next')
 					is_immediate_after=1
@@ -1086,8 +1086,7 @@ class CEditableText
 					is_immediate_after=0
 					flush()
 				pb=pb2
-				ofs=ofs2
-				ccnt_base=op.ccnt-ofs
+				ccnt_base=op.ccnt-ofs2
 				if !is_immediate_after:
 					bop_current.ccnt=ccnt_base
 				ofs=0LL
@@ -1110,6 +1109,7 @@ class CEditableText
 				ofs+=op.sz
 				if ofs>=pb.ccnt:
 					(pb,ofs)=BlockFromCcnt(op.ccnt+op.sz)
+					ccnt_base=op.ccnt+op.sz-ofs
 			bop_current.sz=op.ccnt+op.sz-bop_current.ccnt
 			if op.s:poolString(op.s)
 		flush()
