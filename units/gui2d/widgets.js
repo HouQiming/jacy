@@ -159,7 +159,6 @@ W.Group=function(id,attrs){
 	var item_template=obj.item_template||{};
 	var selection=obj.selection;
 	var sel_obj_temps;
-	if(obj.draw_selection_last){sel_obj_temps=[];}
 	//layouting: just set layout_direction and layout_spacing
 	UI.Begin(obj);
 	obj.layout_auto_anchor=null;
@@ -177,20 +176,8 @@ W.Group=function(id,attrs){
 		if(selection){
 			obj_temp.selected=selection[obj_temp.id];
 		}
-		if(obj.draw_selection_last&&obj_temp.selected){
-			sel_obj_temps.push(obj_temp)
-		}else{
-			itemobj_i=(obj_temp.object_type)(obj_temp.id,obj_temp);
-			itemobj_i.__kept=1;
-		}
-	}
-	if(obj.draw_selection_last){
-		for(var i=0;i<sel_obj_temps.length;i++){
-			var obj_temp=sel_obj_temps[i];
-			var itemobj_i=(obj_temp.object_type)(obj_temp.id,obj_temp);
-			itemobj_i.__kept=1;
-		}
-		sel_obj_temps=null;
+		itemobj_i=(obj_temp.object_type)(obj_temp.id,obj_temp);
+		itemobj_i.__kept=1;
 	}
 	obj.layout_auto_anchor=null;
 	UI.End(obj);
