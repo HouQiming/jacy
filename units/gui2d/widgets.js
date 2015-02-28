@@ -130,12 +130,13 @@ W.Region=function(id,attrs,proto){
 	//attrs is needed to track OnClick and stuff, *even if we don't store any var*
 	attrs=UI.Keep(id,attrs,proto);
 	UI.StdAnchoring(id,attrs);
-	UI.context_regions.push(attrs);
-	attrs.region___hwnd=UI.context_window.__hwnd;
-	return attrs;
+	return W.PureRegion(id,obj)
 }
 
 W.PureRegion=function(id,obj){
+	if(obj==UI.nd_focus){
+		UI.context_focus_is_a_region=1
+	}
 	UI.context_regions.push(obj);
 	obj.region___hwnd=UI.context_window.__hwnd;
 	return obj;
@@ -316,6 +317,7 @@ W.Edit_prototype={
 	x_updown:0,
 	//////////
 	mouse_cursor:"ibeam",
+	default_style_name:"edit",
 	caret_width:2,
 	caret_color:0xff000000,
 	caret_flicker:500,
@@ -371,6 +373,8 @@ W.Edit_prototype={
 		this.scroll_x=Math.max(this.scroll_x,0);
 		this.scroll_y=Math.max(Math.min(this.scroll_y,ytot-(page_height-hc)),0);
 		this.x_updown=ed_caret.x
+		if(this.disable_scrolling_x){this.scroll_x=0;}
+		if(this.disable_scrolling_y){this.scroll_y=0;}
 		//TestTrigger(KEYCODE_ANY_MOVE)
 		//todo: ui animation?
 	},
@@ -490,7 +494,7 @@ W.Edit_prototype={
 			var hk=this.additional_hotkeys;
 			for(var i=0;i<hk.length;i++){
 				if(IsHotkey(event,hk[i].key)){
-					hk[i].action(this);
+					hk[i].action.call(this);
 					return;
 				}
 			}
@@ -659,8 +663,6 @@ W.Edit_prototype={
 	////////////////////////////
 	OnMouseDown:function(event){
 		this.in_dragging=1
-		//this.drag_x0=
-		//this.drag_y0=
 		var x0=event.x-this.x+this.scroll_x
 		var y0=event.y-this.y+this.scroll_y
 		this.sel0.ccnt=this.ed.SeekXY(x0,y0);
@@ -683,9 +685,9 @@ W.Edit_prototype={
 		UI.Refresh()
 	},
 };
-W.Edit=function(id,attrs){
-	var obj=UI.Keep(id,attrs,W.Edit_prototype);
-	UI.StdStyling(id,obj,attrs, "edit",UI.HasFocus(obj)?"focus":"blur");
+W.Edit=function(id,attrs,proto){
+	var obj=UI.Keep(id,attrs,proto||W.Edit_prototype);
+	UI.StdStyling(id,obj,attrs, obj.default_style_name,UI.HasFocus(obj)?"focus":"blur");
 	UI.StdAnchoring(id,obj);
 	if(obj.show_background){
 		UI.DrawBitmap(0,obj.x,obj.y,obj.w,obj.h,obj.bgcolor);
@@ -835,6 +837,16 @@ W.Menu=function(id,attrs){
 }
 
 //a sensible default style - qpad
+UI.SetComboBoxText=function(obj,text){
+	for(var i=0;i<obj.items.length;i++){
+		if(obj.items[i].text==text&&obj.items[i].id){
+			obj.selection_id=obj.items[i].id;
+			return 1
+		}
+	}
+	return 0
+}
+
 W.ComboBox_prototype={
 	OnMouseOver:function(){this.mouse_state="over";UI.Refresh();},
 	OnMouseOut:function(){this.mouse_state="out";UI.Refresh();},
@@ -876,7 +888,11 @@ W.ComboBox=function(id,attrs){
 			'x':obj.x, 'y':obj.y+obj.h, 'w':obj.w,
 			'items':obj.items,
 			'style':obj.menu_style,
-			'item_template':{object_type:W.MenuItem,action:function(){obj.selection=parseInt(this.id.substr(1));obj.menu.Close();}},
+			'item_template':{object_type:W.MenuItem,action:function(){
+				obj.selection=parseInt(this.id.substr(1));
+				if(obj.OnChange){obj.OnChange.call(obj)};
+				obj.menu.Close();
+			}},
 		})
 		if(obj.has_edit){
 			W.Edit("edit",{'font':obj.font,'color':obj.text_color, 'style':obj.edit_style});

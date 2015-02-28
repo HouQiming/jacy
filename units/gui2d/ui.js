@@ -968,7 +968,7 @@ UI.Keep=function(id,attrs,prototype){
 		parent[id]=ret;
 	}
 	if(ret.OnTextInput){
-		if(!UI.nd_focus&&(!UI.context_tentative_focus||(UI.context_tentative_focus.default_focus||0)<(ret.default_focus||0))){
+		if((!UI.context_tentative_focus||(UI.context_tentative_focus.default_focus||0)<(ret.default_focus||0))){
 			UI.context_tentative_focus=ret;
 		}
 	}
@@ -1089,6 +1089,7 @@ UI.interpolators.color=function(a,b,t){
 	}
 	return b;
 }
+UI.interpolators.caption_color=UI.interpolators.color;
 UI.interpolators.border_color=UI.interpolators.color;
 UI.interpolators.text_color=UI.interpolators.color;
 UI.interpolators.icon_color=UI.interpolators.color;
@@ -1387,17 +1388,22 @@ if(!UI.is_real){
 	UI.pixels_per_unit=1;//the sandbox shouldn't see or change that
 }
 
+UI.frame_callbacks=[];
 UI.DrawFrame=function(){
 	//the main painting loop
 	UI.need_to_refresh=0;
 	UI.BeginFrame();
+	UI.context_focus_is_a_region=0;
 	UI.context_paint_queue=[];
 	UI.context_hotkeys=[];
 	UI.context_regions=[];
 	UI.context_parent=UI;
 	UI.context_tentative_focus=null;
+	for(var i=0;i<UI.frame_callbacks.length;i++){
+		UI.frame_callbacks[i]();
+	}
 	UI.Application("top",{});
-	if(!UI.nd_focus&&UI.context_tentative_focus){
+	if((!UI.nd_focus||!UI.context_focus_is_a_region)&&UI.context_tentative_focus){
 		UI.SetFocus(UI.context_tentative_focus);
 		UI.Refresh();
 	}

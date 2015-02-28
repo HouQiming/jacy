@@ -46,6 +46,7 @@ auto makeCaseTable(int2[] src)
 	for i=0:arabic_table.n-1
 		arabic_table[i]=0x600+(i>>2)
 	opening_brackets=new int[]
+	closing_brackets=new int[]
 	no_breaks=new int[]
 	spaces=new int[]
 	to_upper=new int2[]
@@ -77,8 +78,10 @@ auto makeCaseTable(int2[] src)
 				badChar(c0)
 				badChar(ch)
 		else
-			if scategory=="Ps":
+			if scategory=="Ps"||scategory=="Pi":
 				opening_brackets.push(ch)
+			if scategory=="Pe"||scategory=="Pf":
+				closing_brackets.push(ch)
 			if is_wanted[scategory]:
 				goodChar(ch)
 			else
@@ -114,7 +117,6 @@ auto makeCaseTable(int2[] src)
 	System.IO.CreateFile("test\\to_upper.txt").Write(makeCaseTable(to_upper))
 	System.IO.CreateFile("test\\to_lower.txt").Write(makeCaseTable(to_lower))
 	System.IO.CreateFile("test\\wordchars.txt").Write(coderet)
-	System.IO.CreateFile("test\\misc_chars.txt").Write(FormatAsText(opening_brackets,'\n',no_breaks,'\n',spaces,'\n',arabic_table))
+	System.IO.CreateFile("test\\misc_chars.txt").Write(FormatAsText(opening_brackets,'\n',closing_brackets,'\n',no_breaks,'\n',spaces,'\n',arabic_table))
 	System.IO.CreateFile("test\\ligatures.txt").Write(s_ligatures)
-	//todo: opening_brackets
 })()
