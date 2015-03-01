@@ -479,13 +479,13 @@ auto tokenize(iptr ptr_start,int g_ignore_indents)
 						break;
 					case 'x','u':
 						chu=0
-						for j=0:(ch0=='u'?3:1)
+						for j=0:(c=='u'?3:1)
 							chj=int(feed[ptr])
 							if chj:ptr++
 							si=((chj-'0')&0x1f)
 							if si>=0x10:si-=7
 							chu=chu*16+(si&0xf)
-						if ch0=='x':
+						if c=='x':
 							str.push(char(chu))
 						else
 							if chu>=2048:

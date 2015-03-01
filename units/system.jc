@@ -6279,6 +6279,13 @@ module IO
 		inline Seek(iptr p)
 			return !fseek(_gethf(),p,SEEK_SET)
 		/**
+		 * \brief Get the file pointer
+		 *
+		 * @return The current file pointer location, in bytes
+		*/
+		inline Position()
+			return ftell(_gethf())
+		/**
 		 * \brief Move the file pointer by a relative amount
 		 *
 		 * @param p is the number of bytes to move. p can be negative.

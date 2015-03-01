@@ -431,7 +431,35 @@ W.Edit_prototype={
 	},
 	CallOnChange:function(){
 		this.caret_is_wrapped=0;
+		this.AutoScroll('show')
 		if(this.OnChange){this.OnChange(this);}
+	},
+	Copy:function(){
+		var ccnt0=this.sel0.ccnt;
+		var ccnt1=this.sel1.ccnt;
+		var ed=this.ed
+		if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
+		if(ccnt0<ccnt1){
+			UI.SDL_SetClipboardText(ed.GetText(ccnt0,ccnt1-ccnt0))
+		}
+	},
+	Cut:function(){
+		var ccnt0=this.sel0.ccnt;
+		var ccnt1=this.sel1.ccnt;
+		var ed=this.ed
+		if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
+		if(ccnt0<ccnt1){
+			this.Copy();//UI.SDL_SetClipboardText(ed.GetText(ccnt0,ccnt1-ccnt0))
+			this.HookedEdit([ccnt0,ccnt1-ccnt0,null])
+			this.CallOnChange();
+			UI.Refresh();
+			return 1;
+		}
+		return 0;
+	},
+	Paste:function(){
+		var stext=UI.SDL_GetClipboardText()
+		this.OnTextInput({"text":stext})
 	},
 	////////////////////////////
 	HookedEdit:function(ops){this.ed.Edit(ops);},
@@ -464,10 +492,12 @@ W.Edit_prototype={
 		var ccnt0=this.sel0.ccnt;
 		var ccnt1=this.sel1.ccnt;
 		if(ccnt0>ccnt1){var tmp=ccnt1;ccnt1=ccnt0;ccnt0=tmp;}
-		this.HookedEdit([ccnt0,ccnt1-ccnt0,event.text])
-		var lg=Duktape.__byte_length(event.text);
-		this.sel0.ccnt=ccnt0+lg;
-		this.sel1.ccnt=ccnt0+lg;
+		var ops=[ccnt0,ccnt1-ccnt0,event.text];
+		this.HookedEdit(ops)
+		//for hooked case, need to recompute those
+		var lg=Duktape.__byte_length(ops[2]);
+		this.sel0.ccnt=ops[0]+lg;
+		this.sel1.ccnt=ops[0]+lg;
 		this.AutoScroll("show");
 		this.CallOnChange();
 		UI.Refresh()
@@ -616,26 +646,11 @@ W.Edit_prototype={
 			this.MoveCursorToXY(ed_caret.x,ed_caret.y+this.h);
 			epilog();
 		}else if(IsHotkey(event,"CTRL+C")||IsHotkey(event,"CTRL+INSERT")){
-			var ccnt0=sel0.ccnt;
-			var ccnt1=sel1.ccnt;
-			if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
-			if(ccnt0<ccnt1){
-				UI.SDL_SetClipboardText(ed.GetText(ccnt0,ccnt1-ccnt0))
-			}
+			this.Copy()
 		}else if(IsHotkey(event,"CTRL+X")||IsHotkey(event,"SHIFT+DELETE")){
-			var ccnt0=sel0.ccnt;
-			var ccnt1=sel1.ccnt;
-			if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
-			if(ccnt0<ccnt1){
-				UI.SDL_SetClipboardText(ed.GetText(ccnt0,ccnt1-ccnt0))
-				this.HookedEdit([ccnt0,ccnt1-ccnt0,null])
-				this.CallOnChange();
-				UI.Refresh();
-				return;
-			}
+			if(this.Cut()){return;}
 		}else if(IsHotkey(event,"CTRL+V")||IsHotkey(event,"SHIFT+INSERT")){
-			var stext=UI.SDL_GetClipboardText()
-			this.OnTextInput({"text":stext})
+			this.Paste()
 		}else if(IsHotkey(event,"CTRL+Z")||IsHotkey(event,"ALT+BACKSPACE")){
 			var ret=ed.Undo()
 			if(ret&&ret.sz){
@@ -667,6 +682,7 @@ W.Edit_prototype={
 		var y0=event.y-this.y+this.scroll_y
 		this.sel0.ccnt=this.ed.SeekXY(x0,y0);
 		this.sel1.ccnt=this.ed.SeekXY(x0,y0);
+		UI.SetFocus(this)
 		UI.CaptureMouse(this)
 		if(this.OnSelectionChange){this.OnSelectionChange(this);}
 		UI.Refresh()
@@ -837,16 +853,6 @@ W.Menu=function(id,attrs){
 }
 
 //a sensible default style - qpad
-UI.SetComboBoxText=function(obj,text){
-	for(var i=0;i<obj.items.length;i++){
-		if(obj.items[i].text==text&&obj.items[i].id){
-			obj.selection_id=obj.items[i].id;
-			return 1
-		}
-	}
-	return 0
-}
-
 W.ComboBox_prototype={
 	OnMouseOver:function(){this.mouse_state="over";UI.Refresh();},
 	OnMouseOut:function(){this.mouse_state="out";UI.Refresh();},
@@ -857,14 +863,31 @@ W.ComboBox_prototype={
 			this.menu.Popup();
 		}
 	},
+	GetSelection:function(){
+		var item_active=this[this.selection_id];
+		if(!item_active){
+			item_active=this.items[this.selection_id.substr(1)];
+		}
+		return item_active
+	},
+	SetText:function(text){
+		for(var i=0;i<this.items.length;i++){
+			if(this.items[i].text==text){
+				this.selection_id="$"+i;
+				return 1
+			}
+		}
+		return 0
+	}
+	
 };
 W.ComboBox=function(id,attrs){
 	//items same as menu, need explicit w h
 	var obj=UI.Keep(id,attrs,W.ComboBox_prototype);
 	UI.StdStyling(id,obj,attrs, "combobox",obj.edit&&UI.HasFocus(obj.edit)?"focus":"blur");
 	UI.StdAnchoring(id,obj);
-	if(!obj.menu){
-		obj.selection_id="$"+(obj.selection||0);
+	if(!UI.HasFocus(obj.menu)){
+		if(!obj.selection_id){obj.selection_id="$"+(obj.default_selection||0);}
 	}else{
 		for(var id in obj.menu.selection){
 			if(obj.menu.selection[id]){
