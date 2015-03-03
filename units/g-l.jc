@@ -1,5 +1,7 @@
-//g-l.spap is auto-generated, modify glpure_part0.spap please
+//g-l.spap is auto-generated, please work on test/glpure_part0.spap instead
+import "javascript.jc"
 import System.Console.*
+import Javascript.*
 
 GLenum=int
 GLboolean=u8
@@ -3193,7 +3195,132 @@ class GLTechnique
 			st=P_quad;
 		}")
 		return Draw(0u,GL_TRIANGLE_FAN,4)
+	/////////////////////////////////////////////////////////
+	//JS part
+	JS_SetUniform=function(JSContext JS){
+		name=JS.Param(0).as(string)
+		if !name:return JS.ReturnError("invalid name")
+		val=JS.Param(1).as(JSObject)
+		if !val:
+			valf=JS.Param(1).as(float)
+			SetFloat(name,valf)
+		else
+			lg=val.length()
+			if u32(lg)>16u:
+				return JS.ReturnError("invalid uniform array length")
+			a=new float[lg]
+			if lg==2:
+				SetFloat2(name,float2(a[0],a[1]))
+			else if lg==3:
+				SetFloat3(name,float3(a[0],a[1],a[2]))
+			else if lg==4:
+				SetFloat4(name,float4(a[0],a[1],a[2],a[3]))
+			else if lg==16:
+				SetMatrix(name,a)
+			else
+				return JS.ReturnError("invalid uniform array length")
+		return 0
+	}
+	JS_SetTexture=function(JSContext JS){
+		name=JS.Param(0).as(string)
+		if !name:return JS.ReturnError("invalid name")
+		s_sampler=JS.Param(1).as(string)
+		if !s_sampler:return JS.ReturnError("invalid sampler name")
+		what=JS.Param(2).as(GLenum)
+		texobj=JS.Param(3).as(CJSGLTexture)
+		if !texobj:return JS.ReturnError("invalid texture")
+		this.SetTexture(name,s_sampler,what,texobj.m_texid)
+		return 0
+	}
+	//////////
+	CJSNativeBuffer m_js_cpu_vbo
+	int2[] m_js_offset_checker
+	JS_SetVBO=function(JSContext JS){
+		if m_js_offset_checker:
+			return JS.ReturnError("you can only specify one VBO for each draw call")
+		buf=JS.Param(0).as(CJSNativeBuffer)
+		//allow nulling it out
+		m_js_cpu_vbo=buf
+		return 0
+	}
+	//leave the buffer overflow unchecked -- it's trusted code for now
+	JS_SetVertexPointer=function(JSContext JS){
+		name=JS.Param(0).as(string)
+		if !name:return JS.ReturnError("invalid name")
+		dim=JS.Param(1).or(4)
+		type=JS.Param(2).or(GL_FLOAT)
+		normalized=JS.Param(3).or(type!=GL_FLOAT)
+		stride=JS.Param(4).or(0)
+		ofs=JS.Param(5).or(0)
+		if !m_js_cpu_vbo:
+			return JS.ReturnError("please call SetVBO first")
+		SetVertexPointer(name,dim,type,normalized,iptr(stride),iptr(ofs)+m_js_cpu_vbo.buf.d)
+		//a weak check, it is NOT SECURE!
+		if !m_js_offset_checker:
+			m_js_offset_checker=new int2[]
+		m_js_offset_checker.push(int2(stride,ofs))
+		return 0
+	}
+	JS_Draw=function(JSContext JS){
+		if !m_js_cpu_vbo:
+			return JS.ReturnError("please call SetVBO first")
+		//GLuint vbo
+		mode0=JS.Param(0).or(GL_TRIANGLES)
+		count0=JS.Param(1).or(0)
+		foreach chk in m_js_offset_checker
+			if uptr(chk.x*(count0-1)+chk.y)>=uptr(m_js_cpu_vbo.buf.n*sizeof(int)):
+				return JS.ReturnError("out-of-bound VBO access")
+		ret=Draw(0u,mode0,count0)
+		m_js_offset_checker=int2[].NULL
+		return JS.Return(ret)
+	}
+	__JS_prototype=function(JSObject proto){
+		//shader and varying
+		proto.ExportProperty(this,"m_code_vs")
+		proto.ExportProperty(this,"m_code_fs")
+		proto.ExportProperty(this,"m_code_varyings")
+		proto.ExportProperty(this,"m_code_extensions")
+		proto.ExportProperty(this,"m_instance_count")
+		proto.ExportMethod(this,"SetUniform",JS_SetUniform)
+		proto.ExportMethod(this,"SetTexture",JS_SetTexture)
+		proto.ExportMethod(this,"SetVBO",JS_SetVBO)
+		proto.ExportMethod(this,"SetVertexPointer",JS_SetVertexPointer)
+		proto.ExportMethod(this,"Draw",JS_Draw)
+	}
 
+/////////////////////////////////////////////////////////
+//JS buffer object, f32 and i32 array writes
+class CJSNativeBuffer
+	int[] buf
+	JS_Write=function(JSContext JS){
+		ofs=JS.Param(0).or(0)
+		stype=JS.Param(1).or("int")
+		arr=JS.Param(2).as(JSObject)
+		if !arr:return 0
+		if ofs&3:return JS.ReturnError("unaligned write of nativebuffers")
+		ofs>>=2
+		n=arr.length()
+		if !(u32(ofs)<u32(buf.n)&&u32(ofs+n)<=u32(buf.n)&&u32(ofs)<u32(ofs+n)):
+			return JS.ReturnError("out-of-bound write of nativebuffers")
+		if stype.StartsWith("i"):
+			for i=ofs:ofs+n-1
+				buf[i]=arr[i-ofs].as(int)
+		else
+			for i=ofs:ofs+n-1
+				buf[i]=arr[i-ofs].as(float)
+		return 0
+	}
+	__JS_prototype=function(JSObject proto){
+		proto.ExportMethod(this,"Write",JS_Write)
+	}
+
+class CJSGLTexture
+	GLuint m_texid
+	auto __done__()
+		if m_texid:
+			texid=m_texid
+			glDeleteTextures(1,&texid)
+	
 auto glCreateTexture(int format,int w,int h, int filter,int wraps,int wrapt,__pointer ptr_init)
 	tex=0u
 	glGenTextures(1, &tex)
@@ -3267,6 +3394,57 @@ auto glCreateTexture(int format,int w,int h, int filter,int wraps,int wrapt,__po
 		glDeleteTextures(1,&tex)
 		tex=0u
 	return tex
+
+auto createGLJSObject(JSObject JS_GL)
+	JS_GL["glCreateTechnique"]=function(JSContext JS){
+		return JS.Return(new GLTechnique)
+	}
+	JS_GL["glCreateCPUBuffer"]=function(JSContext JS){
+		n=JS.Param(0).or(0L)
+		if n<=0L:return 0
+		return JS.Return(new CJSNativeBuffer(){buf:new int[n]})
+	}
+	JS_GL["glEnable"]=function(JSContext JS){
+		what=JS.Param(0).or(0)
+		glEnable(what)
+		return 0
+	}
+	JS_GL["glDisable"]=function(JSContext JS){
+		what=JS.Param(0).or(0)
+		glDisable(what)
+		return 0
+	}
+	JS_GL["glCreateTexture"]=function(JSContext JS){
+		format=JS.Param(0).as(int)
+		w=JS.Param(1).as(int)
+		h=JS.Param(2).as(int)
+		filter=JS.Param(3).or(GL_LINEAR)
+		wraps=JS.Param(4).or(GL_CLAMP_TO_EDGE)
+		wrapt=JS.Param(5).or(GL_CLAMP_TO_EDGE)
+		buf=JS.Param(6).as(CJSNativeBuffer)
+		texid=glCreateTexture(format,w,h,filter,wraps,wrapt,__pointer(buf?buf.buf.d:0L))
+		if texid:
+			return JS.Return(new CJSGLTexture(){m_texid:texid})
+		else
+			return 0
+	}
+	JS_GL["glTexSubImage2D"]=function(JSContext JS){
+		texobj=JS.Param(0).as(CJSGLTexture)
+		if !texobj:return JS.ReturnError("bad texture object")
+		level=JS.Param(1).as(GLint)
+		xoffset=JS.Param(2).as(GLint)
+		yoffset=JS.Param(3).as(GLint)
+		width=JS.Param(4).as(GLsizei)
+		height=JS.Param(5).as(GLsizei)
+		format=JS.Param(6).as(GLenum)
+		type=JS.Param(7).as(GLenum)
+		pixels_buf=JS.Param(8).as(CJSNativeBuffer)
+		if !texobj:return JS.ReturnError("bad pixel bufer")
+		glBindTexture(GL_TEXTURE_2D,texobj.m_texid)
+		glTexSubImage2D(GL_TEXTURE_2D,level,xoffset,yoffset,width,height,format,type,__pointer(pixels_buf.buf.d))
+		return 0
+	}
+
 ///////////////////////////////////////////////////
 //code from here are automatically generated
 __C(int,"@global:#ifndef _WIN32

@@ -1862,3 +1862,9 @@ registerUIExtension=Gui2D.detail.registerUIExtension
 registerRenderingHook=inline(a){Gui2D.detail.g_renderer.m_hooks.push(getInterface(a,Gui2D.detail.IRendererHook))}
 CUISandbox=Gui2D.detail.CUISandbox
 CSandboxWindow=Gui2D.detail.CSandboxWindow
+
+auto ProvideGLFunctions()
+	registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
+		if is_real:
+			createGLJSObject(JS_UI)
+	})
