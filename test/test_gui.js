@@ -7,60 +7,192 @@ Duktape.__ui_add_path("../kara/ide/res")
 var UI=require("gui2d/ui");
 var W=require("gui2d/widgets");
 
-UI.default_styles={
-	button:{
-		transition_dt:0.1,
-		round:24,border_width:3,padding:12,
-		$:{
-			out:{
-				border_color:0xffcc773f,color:0xffffffff,
-				icon_color:0xffcc773f,
-				text_color:0xffcc773f,
-			},
-			over:{
-				border_color:0xffcc773f,color:0xffcc773f,
-				icon_color:0xffffffff,
-				text_color:0xffffffff,
-			},
-			down:{
-				border_color:0xffaa5522,color:0xffaa5522,
-				icon_color:0xffffffff,
-				text_color:0xffffffff,
-			},
-		}
-	},
-	menu_item:{
-		font:UI.Font("Arial",16),
-		transition_dt:0.1,
-		round:0,border_width:1,padding:8,
-		icon_color:0xff000000,
-		text_color:0xff000000,
-		$:{
-			out:{
-				border_color:0x00ffffff,color:0x00ffffff,
-			},
-			over:{
-				border_color:0xffcc773f,color:0xffcc773f,
-				icon_color:0xffffffff,
-				text_color:0xffffffff,
+UI.SetUIColorTheme=function(C){
+	UI.current_theme_color=C[0];
+	UI.default_styles={
+		button:{
+			transition_dt:0.1,
+			round:4,border_width:3,padding:12,
+			$:{
+				out:{
+					border_width:0,
+					border_color:0x00ffffff,color:0x00ffffff,
+					icon_color:C[0],
+					text_color:C[0],
+				},
+				over:{
+					border_color:C[0],color:C[0],
+					icon_color:0xffffffff,
+					text_color:0xffffffff,
+				},
+				down:{
+					border_color:C[1],color:C[1],
+					icon_color:0xffffffff,
+					text_color:0xffffffff,
+				},
+			}
+		},
+		check_button:{
+			transition_dt:0.1,
+			round:0,border_width:3,padding:12,
+			$:{
+				out:{
+					border_color:0x00ffffff,color:0x00ffffff,
+					icon_color:C[0],
+					text_color:C[0],
+				},
+				over:{
+					border_color:C[0],color:C[0],
+					icon_color:0xffffffff,
+					text_color:0xffffffff,
+				},
+				down:{
+					border_color:C[1],color:C[1],
+					icon_color:0xffffffff,
+					text_color:0xffffffff,
+				},
+				////////////////////
+				checked_out:{
+					border_color:C[0],color:0x00ffffff,
+					icon_color:C[0],
+					text_color:C[0],
+				},
+				checked_over:{
+					border_color:C[0],color:C[0],
+					icon_color:0xffffffff,
+					text_color:0xffffffff,
+				},
+				checked_down:{
+					border_color:C[1],color:C[1],
+					icon_color:0xffffffff,
+					text_color:0xffffffff,
+				},
+			}
+		},
+		menu_item:{
+			font:UI.Font("res/fonts/opensans.ttf",24),
+			transition_dt:0.1,
+			round:0,border_width:1,padding:8,
+			icon_color:0xff000000,
+			text_color:0xff000000,
+			$:{
+				out:{
+					border_color:0x00ffffff,color:0x00ffffff,
+				},
+				over:{
+					border_color:C[0],color:C[0],
+					icon_color:0xffffffff,
+					text_color:0xffffffff,
+				},
 			},
 		},
-	},
-	menu:{
-		transition_dt:0.1,
-		round:0,border_width:2,padding:8,
-		layout_spacing:0,
-		border_color:0xffcc773f,color:0xffffffff,
-	},
-	combobox:{
-		transition_dt:0.1,
-		round:0,border_width:2,padding:8,
-		layout_spacing:0,
-		border_color:0xffcc773f,text_color:0xff000000,color:0xffffffff,icon_text_align:'left',
-		font:UI.Font("Arial",24),
-		arrow_font:UI.Font("Arial",12),
-	},
+		menu:{
+			transition_dt:0.1,
+			round:4,border_width:2,padding:8,
+			layout_spacing:0,
+			border_color:C[0],color:0xffffffff,
+		},
+		combobox:{
+			transition_dt:0.1,
+			round:8,border_width:2,padding:8,
+			layout_spacing:0,
+			border_color:C[0],icon_color:C[0],text_color:0xff000000,color:0xffffffff,icon_text_align:'left',
+			font:UI.Font("res/fonts/opensans.ttf",24),
+			arrow_font:UI.Font("res/fonts/opensans.ttf",24),
+		},
+		sub_window:{
+			transition_dt:0.1,
+			round:0,border_width:2,
+			padding:4,h_caption:24,
+			/////////////////
+			layout_direction:"inside",layout_align:'left',layout_valign:'up',
+			/////////////////
+			font:UI.Font("res/fonts/opensans.ttf",20,100),
+			color:0xffffffff,border_color:C[0],border_width:2,
+			caption_color:C[0],text_color:0xffdddddd,
+			button_style:{
+				transition_dt:0.1,
+				round:0,border_width:2,padding:8,
+				border_width:0,color:0,
+				text_color:0xffdddddd,
+				font:UI.Font("res/fonts/opensans.ttf",20,100),
+				$:{
+					out:{
+						text_color:0xffdddddd
+					},
+					over:{
+						text_color:0xffffffff,
+					},
+					down:{
+						text_color:0xffffffff,
+					},
+				}
+			},
+		},
+		tab_label:{
+			transition_dt:0.1,
+			shadow_color:0xaa000000, shadow_size:8, color:C[0],
+			font:UI.Font("res/fonts/opensans.ttf",24), padding:16,
+			$:{
+				active:{
+					text_color:0xffffffff,
+				},
+				inactive:{
+					text_color:0xff444444,
+				},
+			}
+		},
+		tabbed_document:{
+			transition_dt:0.1,
+			h_caption:32, h_bar:4, color:0xffbbbbbb,
+		},
+		box_document:{
+			border_color:(0xcc000000&C[0]),border_width:2,
+			color:(0x44000000&C[0]),
+		},
+		txtx_editor:{
+			border_color:0xff000000,border_width:2,
+			color:0xffffffff,
+		},
+		slider:{
+			transition_dt:0.1,
+			bgcolor:[{x:0,y:0,color:0xffbbbbbb},{x:0,y:1,color:0xffdddddd}],
+			//border_width:2, border_color:0xff444444,
+			round:8,
+			color:C[0],
+			padding:0,
+			//label_text:'▲',
+			//label_raise:0.4,
+			//label_font:UI.Font("res/fonts/opensans.ttf",32),
+			//label_color:C[0],
+			middle_bar:{
+				w:8,h:8,
+				round:2,
+				color:0xffffffff, border_width:2, border_color:0xff444444,
+			},
+		},
+		edit_box:{
+			transition_dt:0.1,
+			round:4,padding:8,
+			color:0xffffffff,
+			border_width:0,
+			border_color:0xffffffff,
+			font:UI.Font("res/fonts/opensans.ttf",24),
+			text_color:0xff000000,
+			$:{
+				blur:{
+					border_width:0,
+					border_color:0xffffffff,
+				},
+				focus:{
+					border_width:2,
+					border_color:C[0],
+				},
+			},
+		}
+	};
 };
+UI.SetUIColorTheme([0xffcc7733,0xffaa5522])
 
 var demo_text_animation=function(id,attrs){
 	attrs=UI.Keep(id,attrs);
@@ -256,10 +388,21 @@ var demo_menu=function(id,attrs){
 	UI.End();
 };
 
+var demo_widgets=function(id,attrs){
+	var obj=UI.Keep(id,attrs);
+	UI.Begin(obj);
+		W.Hotkey("",{key:"ALT+F4",action:function(){UI.DestroyWindow(wnd)}});
+		var wnd=UI.Begin(W.Window("app",{title:"Widgets demo",w:1280,h:720,bgcolor:0xfff0f0f0,designated_screen_size:1080,flags:UI.SDL_WINDOW_RESIZABLE,is_main_window:1}))
+			W.Slider("slider",{x:10,y:10,w:256,h:16})
+			W.EditBox("editbox",{x:10,y:36,w:256,h:32})
+		UI.End();
+	UI.End();
+};
+
 //UI.Application=demo_textbox;
 //UI.Application=demo_msgbox;
 //UI.Application=demo_text_animation;
-UI.Application=demo_menu;
+UI.Application=demo_widgets;
 
 //UI.setTimeout(function(){print("setTimeout");},1500)
 //UI.setInterval(function(){print("setInterval");},1000)

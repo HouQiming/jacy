@@ -19,40 +19,41 @@ UI.SetCaret=function(attrs,x,y,w,h,C,dt){
 	attrs.caret_C=C;
 	attrs.caret_state=1;
 	attrs.caret_dt=dt;
+	attrs.caret_is_set=1
 	UI.SDL_SetTextInputRect(x*UI.pixels_per_unit,y*UI.pixels_per_unit,w*UI.pixels_per_unit,h*UI.pixels_per_unit)
 };
 
 W.Window=function(id,attrs){
-	attrs=UI.Keep(id,attrs);
+	obj=UI.Keep(id,attrs);
 	//the dpi is not per-inch,
 	if(!UI.pixels_per_unit){
 		var display_mode=UI.SDL_GetCurrentDisplayMode();
-		var design_screen_dim=attrs.designated_screen_size||Math.min(attrs.w,attrs.h)||1600;
+		var design_screen_dim=obj.designated_screen_size||Math.min(obj.w,obj.h)||1600;
 		var screen_dim=Math.min(display_mode.w,display_mode.h);
 		UI.pixels_per_unit=screen_dim/design_screen_dim;
-		UI.ResetRenderer(UI.pixels_per_unit,attrs.gamma||2.2);
+		UI.ResetRenderer(UI.pixels_per_unit,obj.gamma||2.2);
 		UI.LoadStaticImages(UI.rc);
 		//wipe out initialization routines for security
 		UI.LoadPackedTexture=null;
 		UI.LoadStaticImages=null;
 	}
-	if(!attrs.__hwnd){
+	if(!obj.__hwnd){
 		//no default event handler for the window
-		attrs.__hwnd=UI.SDL_CreateWindow(attrs.title||"untitled",attrs.x||UI.SDL_WINDOWPOS_CENTERED,attrs.y||UI.SDL_WINDOWPOS_CENTERED,attrs.w*UI.pixels_per_unit,attrs.h*UI.pixels_per_unit, attrs.flags);
+		obj.__hwnd=UI.SDL_CreateWindow(obj.title||"untitled",obj.x||UI.SDL_WINDOWPOS_CENTERED,obj.y||UI.SDL_WINDOWPOS_CENTERED,obj.w*UI.pixels_per_unit,obj.h*UI.pixels_per_unit, obj.flags);
 	}
 	//defer the innards painting to the first OnPaint - need the GL context
-	UI.context_paint_queue.push(attrs);
-	UI.HackAllCallbacks(attrs);
-	UI.BeginPaint(attrs.__hwnd,attrs);//EndPaint in UI.End()
-	attrs.x=0;
-	attrs.y=0;
+	UI.context_paint_queue.push(obj);
+	UI.BeginPaint(obj.__hwnd,obj);//EndPaint in UI.End()
+	obj.x=0;
+	obj.y=0;
+	obj.caret_is_set=0
 	if(!UI.is_real){
-		UI.sandbox_main_window=attrs.__hwnd;
-		UI.sandbox_main_window_w=attrs.w*UI.pixels_per_unit;
-		UI.sandbox_main_window_h=attrs.h*UI.pixels_per_unit;
-		UI.Clear(attrs.bgcolor||0xffffffff);
+		UI.sandbox_main_window=obj.__hwnd;
+		UI.sandbox_main_window_w=obj.w*UI.pixels_per_unit;
+		UI.sandbox_main_window_h=obj.h*UI.pixels_per_unit;
+		UI.Clear(obj.bgcolor||0xffffffff);
 	}
-	return attrs;
+	return obj;
 }
 
 W.FillRect=function(id,attrs){
@@ -208,8 +209,8 @@ W.Button_prototype={
 	//////////////////
 	OnMouseOver:function(){this.mouse_state="over";UI.Refresh();},
 	OnMouseOut:function(){this.mouse_state="out";UI.Refresh();},
-	OnMouseDown:function(){this.mouse_state="down";UI.Refresh();},
-	OnMouseUp:function(){this.mouse_state="over";UI.Refresh();}
+	OnMouseDown:function(){UI.CaptureMouse(this);this.mouse_state="down";UI.Refresh();},
+	OnMouseUp:function(){UI.ReleaseMouse(this);this.mouse_state="over";UI.Refresh();}
 };
 
 UI.MeasureIconText=function(obj){
@@ -467,6 +468,9 @@ W.Edit_prototype={
 	},
 	Paste:function(){
 		var stext=UI.SDL_GetClipboardText()
+		if(this.is_single_line){
+			stext=stext.replace("\n"," ");
+		}
 		this.OnTextInput({"text":stext})
 	},
 	////////////////////////////
@@ -619,7 +623,11 @@ W.Edit_prototype={
 			this.caret_is_wrapped=0;
 			UI.Refresh();
 		}else if(IsHotkey(event,"RETURN RETURN2")){
-			this.OnTextInput({"text":"\n"})
+			if(this.is_single_line){
+				this.OnEnter.call(this)
+			}else{
+				this.OnTextInput({"text":"\n"})
+			}
 		}else if(IsHotkey(event,"HOME SHIFT+HOME")){
 			var ed_caret=this.GetCaretXY();
 			var ccnt_lhome=ed.SeekXY(0,ed_caret.y);
@@ -720,6 +728,7 @@ W.Edit=function(id,attrs,proto){
 	var scroll_x=obj.scroll_x;
 	var scroll_y=obj.scroll_y;
 	var ed=obj.ed;
+	//todo: empty hint
 	ed.Render({x:scroll_x,y:scroll_y,w:obj.w/scale,h:obj.h/scale, scr_x:obj.x,scr_y:obj.y, scale:scale});
 	if(UI.HasFocus(obj)){
 		var ed_caret=obj.GetCaretXY();
@@ -747,7 +756,8 @@ W.MenuItem_prototype={
 	OnClick:function(){
 		this.action();
 		this.parent.Close()
-	}
+	},
+	action:function(){}
 };
 W.MenuItem=function(id,attrs){
 	var obj=UI.Keep(id,attrs,W.MenuItem_prototype);
@@ -755,7 +765,6 @@ W.MenuItem=function(id,attrs){
 	//styling should draw the box
 	UI.StdStyling(id,obj,attrs, "menu_item",obj.parent.selection[obj.id]?"over":"out");
 	W.DrawIconText(id,obj,attrs)
-	UI.HackCallback(obj.action)
 	return W.PureRegion(id,obj);
 }
 
@@ -885,14 +894,14 @@ W.ComboBox_prototype={
 			}
 		}
 		return 0
+	},
+	GetSubStyle:function(){
+		return this.edit&&UI.HasFocus(this.edit)?"focus":"blur"
 	}
-	
 };
 W.ComboBox=function(id,attrs){
 	//items same as menu, need explicit w h
-	var obj=UI.Keep(id,attrs,W.ComboBox_prototype);
-	UI.StdStyling(id,obj,attrs, "combobox",obj.edit&&UI.HasFocus(obj.edit)?"focus":"blur");
-	UI.StdAnchoring(id,obj);
+	var obj=UI.StdWidget(id,attrs,"combobox",W.ComboBox_prototype)
 	if(!UI.HasFocus(obj.menu)){
 		if(!obj.selection_id){obj.selection_id="$"+(obj.default_selection||0);}
 	}else{
@@ -931,4 +940,157 @@ W.ComboBox=function(id,attrs){
 	return obj;
 }
 
-//todo: slider bar
+W.Slider_prototype={
+	value:0,
+	OnMouseDown:function(event){
+		this.mouse_state="down";
+		UI.CaptureMouse(this)
+		this.OnMouseMove(event)
+		UI.Refresh();
+	},
+	OnMouseUp:function(){
+		UI.ReleaseMouse(this)
+		this.mouse_state="over";
+		UI.Refresh();
+	},
+	OnMouseOver:function(){
+		this.mouse_state="over";
+		UI.Refresh();
+	},
+	OnMouseOut:function(){
+		this.mouse_state="out";
+		UI.Refresh();
+	},
+	OnMouseMove:function(event){
+		if(this.mouse_state!="down"){return;}
+		this.OnChange(Math.max(Math.min((event.x-this.x)/this.w,1),0))
+		UI.Refresh()
+	},
+	OnChange:function(value){this.value=value;},
+	GetSubStyle:function(){
+		return this.mouse_state||"out"
+	},
+};
+W.SliderLabel_prototype={
+	OnMouseDown:function(event){
+		var obj=this.parent
+		UI.CaptureMouse(this)
+		this.is_dragging=1
+		this.anchor_x=event.x
+		this.anchor_w_value=obj.w*obj.value
+	},
+	OnMouseUp:function(){
+		this.is_dragging=0
+		UI.ReleaseMouse(this)
+	},
+	OnMouseMove:function(event){
+		if(!this.is_dragging){return;}
+		var obj=this.parent
+		obj.OnChange(Math.max(Math.min((event.x-this.anchor_x+this.anchor_w_value)/obj.w,1),0))
+		UI.Refresh()
+	},
+}
+W.Slider=function(id,attrs){
+	var obj=UI.StdWidget(id,attrs,"slider",W.Slider_prototype)
+	//how do we set the initial value reliably?
+	//we don't: we provide an OnChange callback, and put the value itself on the fcall - just like boxdocs
+	var w_value=obj.value*obj.w;
+	W.PureRegion(id,obj)
+	if(obj.bgcolor||obj.border_color){
+		UI.RoundRect({
+			x:obj.x, y:obj.y, w:obj.w, h:obj.h, round:obj.round, 
+			color:obj.bgcolor, border_width:obj.border_width, border_color:obj.border_color})
+	}
+	if(obj.color){
+		UI.PushCliprect(obj.x,obj.y,w_value,obj.h)
+		UI.RoundRect({
+			x:obj.x+obj.padding, y:obj.y+obj.padding, w:obj.w-obj.padding*2, h:obj.h-obj.padding*2, round:obj.round,
+			color:obj.color})
+		UI.PopCliprect()
+	}
+	if(obj.middle_bar){
+		UI.RoundRect({
+			x:obj.x+w_value-obj.middle_bar.w*0.5, y:obj.y-obj.middle_bar.h*0.5, w:obj.middle_bar.w, h:obj.h+obj.middle_bar.h, round:obj.middle_bar.round,
+			color:obj.middle_bar.color, border_width:obj.middle_bar.border_width, border_color:obj.middle_bar.border_color})
+	}
+	if(obj.label_text){
+		var tmp={w:1e17,h:1e17,font:obj.label_font,text:obj.label_text}
+		UI.LayoutText(tmp);
+		UI.Begin(obj)
+			var obj_label={}
+			obj_label.x=obj.x+w_value-tmp.w_text*0.5
+			obj_label.y=obj.y+obj.h-tmp.h_text*obj.label_raise
+			obj_label.w=tmp.w_text
+			obj_label.h=tmp.h_text
+			obj_label.parent=obj
+			W.Region("label",obj_label,W.SliderLabel_prototype)
+			UI.DrawTextControl(tmp,obj_label.x,obj_label.y,obj.label_color)
+		UI.End()
+	}
+	return obj;
+}
+
+W.EditBox_prototype={
+	value:"aa",
+	focus_state:"blur",
+	OnClick:function(){
+		if(this.focus_state=="blur"){
+			this.bak_value=this.value;
+			this.focus_state="focus"
+		}else{
+			this.focus_state="blur"
+		}
+		UI.Refresh()
+	},
+	OnChange:function(value){this.value=value;},
+	GetSubStyle:function(){
+		return this.focus_state;
+	}
+}
+W.EditBox=function(id,attrs){
+	//coulddo: tab-stop system
+	var obj=UI.StdWidget(id,attrs,"edit_box",W.EditBox_prototype)
+	UI.RoundRect(obj)
+	W.PureRegion(id,obj)
+	var dim_text=UI.MeasureIconText({font:obj.font,text:obj.hint_text||obj.value})
+	UI.Begin(obj)
+		if(obj.focus_state=="focus"){
+			var is_newly_created=!obj.edit;
+			W.Edit("edit",{
+				anchor:'parent',anchor_align:"left",anchor_valign:"center",
+				x:obj.padding,y:0,w:obj.w-obj.padding*2,h:dim_text.h,
+				font:obj.font, color:obj.text_color, text:obj.value,
+				hint_text:obj.hint_text,
+				is_single_line:1,
+				additional_hotkeys:[{key:"ESCAPE",action:function(){
+					//cancel the change
+					obj.OnChange(obj.bak_value)
+					obj.bak_value=undefined
+					obj.focus_state="blur"
+					UI.Refresh()
+				}}],
+				OnBlur:function(){
+					obj.OnChange(obj.edit.ed.GetText())
+					obj.focus_state="blur"
+					UI.Refresh()
+				},
+				OnEnter:function(){
+					this.OnBlur()
+				},
+			});
+			if(is_newly_created){
+				UI.SetFocus(obj.edit)
+				obj.edit.sel0.ccnt=0
+				obj.edit.sel1.ccnt=obj.edit.ed.GetTextSize()
+			}
+		}else{
+			//text
+			obj.edit=undefined
+			W.Text("text",{
+				anchor:'parent',anchor_align:"left",anchor_valign:"center",
+				x:obj.padding,y:0,w:dim_text.w,h:dim_text.h,
+				font:obj.font, color:obj.text_color, text:obj.value,
+				});
+		}
+	UI.End()
+}

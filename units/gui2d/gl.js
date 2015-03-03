@@ -21,6 +21,13 @@ var UI=require("gui2d/ui");
 	tech_prototype.SetFragmentShader=function(s){
 		this.m_code_fs=s
 	}
+	tech_prototype.SetStandardUniforms=function(s_fs,vars){
+		var vp=UI.glGetViewport()
+		this.SetUniform("scale",[2.f/(vp[2]*UI.pixels_per_unit),2.f/(vp[3]*UI.pixels_per_unit)])
+		var srgb_status=UI.GetSRGBStatus()
+		this.SetUniform("srgb_gamma",srgb_status.gamma)
+		this.SetUniform("srgb_supported",srgb_status.srgb_supported)
+	}
 })();
 
 UI.GL_FALSE=(0x0)

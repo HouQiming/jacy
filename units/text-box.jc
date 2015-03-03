@@ -338,7 +338,8 @@ class CLayouter_baseline
 			fnt_scaled.h*=scaling
 			//smart emboldening for SRGB
 			if g_renderer.m_srgb_supported:
-				fnt_scaled.embolden+=int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*3000.f/fnt_scaled.h)
+				//fnt_scaled.embolden+=int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*3000.f/fnt_scaled.h)
+				fnt_scaled.SmartEmbolden(m_color)
 			//Writeln('after fnt_scaled ',m_font.h)
 			//scalingd=double(scaling)
 		w_tab=i64(m_tab_width)*charWidth(' ')

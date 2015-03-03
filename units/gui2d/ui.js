@@ -993,7 +993,9 @@ UI.Keep=function(id,attrs,prototype){
 	if(attrs_old){
 		ret=attrs_old;
 		for(var key in attrs){
-			ret[key]=attrs[key];
+			var f=attrs[key];
+			if(typeof f=='function'){f.prototype=null;}
+			ret[key]=f;
 		}
 		ret.__anchored=0;
 	}else{
@@ -1074,15 +1076,19 @@ UI.Begin=function(attrs){
 }
 
 UI.End=function(){
-	var attrs=UI.context_parent;
-	UI.context_parent=attrs.__parent;
-	attrs.__parent=null;
-	if(attrs.__hwnd){
-		UI.context_window=attrs.__window_parent;
-		attrs.__window_parent=null;
+	var obj=UI.context_parent;
+	UI.context_parent=obj.__parent;
+	obj.__parent=null;
+	if(obj.__hwnd){
+		UI.context_window=obj.__window_parent;
+		obj.__window_parent=null;
+		if(!obj.caret_is_set){
+			obj.caret_w=0;
+			obj.caret_h=0;
+		}
 		UI.EndPaint();
 	}
-	return attrs;
+	return obj;
 }
 
 ////////////////////////////////////////
@@ -1126,6 +1132,7 @@ UI.interpolators.caption_color=UI.interpolators.color;
 UI.interpolators.border_color=UI.interpolators.color;
 UI.interpolators.text_color=UI.interpolators.color;
 UI.interpolators.icon_color=UI.interpolators.color;
+UI.interpolators.value=function(a,b,t){return b;}
 
 //todo: standardize hover tracking
 UI.StdStyling=function(id,attrs,attrs0,s_default_style_name,child_style){
@@ -1316,6 +1323,12 @@ UI.StdAnchoring=function(id,attrs){
 	attrs.anchor=null;
 }
 
+UI.StdWidget=function(id,attrs,style_name,proto){
+	var obj=UI.Keep(id,attrs,proto)
+	UI.StdStyling(id,obj,attrs,style_name,obj.GetSubStyle?obj.GetSubStyle():undefined)
+	UI.StdAnchoring(id,obj)
+	return obj;
+}
 ////////////////////////////////////////
 UI.DeleteTemps=function(attrs){
 	for(var key in attrs){
@@ -1436,7 +1449,11 @@ UI.DrawFrame=function(){
 		UI.frame_callbacks[i]();
 	}
 	UI.Application("top",{});
-	if((!UI.nd_focus||!UI.context_focus_is_a_region)&&UI.context_tentative_focus){
+	if(!UI.context_focus_is_a_region){
+		//if the node is gone, DO NOT CALL OnBlur! just null it out
+		UI.nd_focus=null;
+	}
+	if(!UI.nd_focus&&UI.context_tentative_focus){
 		UI.SetFocus(UI.context_tentative_focus);
 		UI.Refresh();
 	}
@@ -1468,6 +1485,9 @@ UI.Run=function(){
 	for(;;){
 		if(UI.need_to_refresh){
 			UI.DrawFrame();
+			if(UI.is_real&&UI.GetSRGBStatus().srgb_supported==-1){
+				UI.need_to_refresh=1
+			}
 			for(var i=0;i<UI.context_paint_queue.length;i++){
 				var obj=UI.context_paint_queue[i];
 				obj.caret_state=1;

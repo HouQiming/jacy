@@ -34,6 +34,7 @@ FTW_GetGlyphId=__c_function(int,"FTW_GetGlyphId","stb_truetype.h", "c_files","st
 FTW_GetAscent=__c_function(float,"FTW_GetAscent","stb_truetype.h", "c_files","stb_truetype.c")
 FTW_GetGlyphAdvance=__c_function(float,"FTW_GetGlyphAdvance","stb_truetype.h", "c_files","stb_truetype.c")
 FTW_GetKerning=__c_function(float,"FTW_GetKerning","stb_truetype.h", "c_files","stb_truetype.c")
+FTW_SetRetardedWindingOrder=__c_function(int,"FTW_SetRetardedWindingOrder","stb_truetype.h", "c_files","stb_truetype.c")
 stbi_write_png_to_mem=__c_function(__pointer,"stbi_write_png_to_mem","stb_image_write.h", "c_files","stb_image_write.c")
 stbi_free_image_write=__c_function(__pointer,"stbi_free_image_write","stb_image_write.h", "c_files","stb_image_write.c")
 stbi_load_from_memory=__c_function(__pointer,"stbi_load_from_memory","stb_image.h", "c_files","stb_image.c")
@@ -316,6 +317,8 @@ struct TFont
 	pfnt=CCoreFont.NULL
 	h=0.f
 	embolden=0
+	auto SmartEmbolden(int m_color)
+		embolden+=int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*3000.f/h)
 
 //struct TGlyphCacheItem
 class CGlyphCacheItem
@@ -729,7 +732,7 @@ class CRenderer
 		m_drawcalls.push(TDrawCall(){hwnd:m_hwnd,native_callback:native_callback})
 	inline PushCliprect(float x,float y,float w,float h)
 		m_clip_stack.push(m_clip)
-		m_clip=float4(x,y,x+w,y+h)
+		m_clip=float4(max(m_clip.x,x),max(m_clip.y,y),min(m_clip.z,x+w),min(m_clip.w,y+h))
 	inline PopCliprect()
 		m_clip=m_clip_stack.pop()
 	auto _DrawBitmap(int hbmp, float x0,float y0,float w0,float h0, int C, int is_static)
@@ -758,7 +761,8 @@ class CRenderer
 			t=dx/w
 			w=dx
 			cu*=t
-		if cu<=0.f:return
+		//use negated tests against NaN
+		if !(cu>0.f)||!(x+w>x):return
 		if y<m_clip.y:
 			dy=m_clip.y-y
 			t=dy/h
@@ -770,7 +774,7 @@ class CRenderer
 			t=dy/h
 			h=dy
 			cv*=t
-		if cv<=0.f:return
+		if !(cv>0.f)||!(y+h>y):return
 		inline f2i_P(float f)
 			//return max(min(int(f*float(m_crd16_scale)),65535),0)
 			return max(min(__float_as_int(f*float(m_crd16_scale)+8388608.f)-0x4b000000,65535),0)
@@ -1380,13 +1384,13 @@ class CRenderer
 					du=(u1-u0)*t
 					u1+=du
 				if !(x1>x0):continue
-				if y<m_clip.y:
+				if y0<m_clip.y:
 					dy=m_clip.y-y0
 					t=dy/(y1-y0)
 					y0=m_clip.y
 					dv=(v1-v0)*t
 					v0+=dv
-				if m_clip.w<y+h:
+				if m_clip.w<y1:
 					dy=m_clip.w-y1
 					t=dy/(y1-y0)
 					y1=m_clip.w
@@ -1533,9 +1537,27 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 				obj["h_bmp"]=double(g_renderer.m_static_original_sizes[bmpid].y)
 			return 0
 		}
+		JS_UI["PushCliprect"]=function(JSContext JS){
+			x=JS.Param(0).as(float)*g_renderer.m_pixels_per_unit
+			y=JS.Param(1).as(float)*g_renderer.m_pixels_per_unit
+			w=JS.Param(2).as(float)*g_renderer.m_pixels_per_unit
+			h=JS.Param(3).as(float)*g_renderer.m_pixels_per_unit
+			g_renderer.PushCliprect(x,y,w,h)
+			return 0
+		}
+		JS_UI["PopCliprect"]=function(JSContext JS){
+			g_renderer.PopCliprect()
+			return 0
+		}
 	//////////////////
 	JS_UI["CreateCoreFontByName"]=function(JSContext JS){
 		return JS.Return(g_renderer.CreateCoreFontByName(sbox,JS.Param(0).as(string)))
+	}
+	JS_UI["SetRetardedWindingOrder"]=function(JSContext JS){
+		pfnt=JS.Param(0).as(CCoreFont)
+		if !pfnt:return 0
+		FTW_SetRetardedWindingOrder(pfnt.hfnt)
+		return 0
 	}
 	JS_UI["CreateCoreFontChain"]=function(JSContext JS){
 		arr=JS.Param(0).as(JSObject)
@@ -1597,7 +1619,10 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 		fnt=attrs["font"].as(TFont)
 		if !fnt.pfnt:return 0
 		foreach li in layout.chars
-			g_renderer.DrawChar(fnt,x0+li.pos.x,y0+li.pos.y,int(C),li.ch)
+			fnt_li=fnt
+			if g_renderer.m_srgb_supported:
+				fnt_li.SmartEmbolden(li.ch)
+			g_renderer.DrawChar(fnt_li,x0+li.pos.x,y0+li.pos.y,int(C),li.ch)
 		return 0
 	}
 	JS_UI["DrawChar"]=function(JSContext JS){
@@ -1867,4 +1892,10 @@ auto ProvideGLFunctions()
 	registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 		if is_real:
 			createGLJSObject(JS_UI)
+			JS_UI["GetCurrentWindowSize"]=function(JSContext JS){
+				ret=JS.New()
+				ret[0]=Gui2D.detail.g_renderer.m_window_w*Gui2D.detail.g_renderer.m_pixels_per_unit
+				ret[1]=Gui2D.detail.g_renderer.m_window_h*Gui2D.detail.g_renderer.m_pixels_per_unit
+				return JS.Return(ret)
+			}
 	})

@@ -3209,7 +3209,9 @@ class GLTechnique
 			if u32(lg)>16u:
 				return JS.ReturnError("invalid uniform array length")
 			a=new float[lg]
-			if lg==2:
+			if lg==1:
+				SetFloat(name,a[0])
+			else if lg==2:
 				SetFloat2(name,float2(a[0],a[1]))
 			else if lg==3:
 				SetFloat3(name,float3(a[0],a[1],a[2]))
@@ -3402,7 +3404,7 @@ auto createGLJSObject(JSObject JS_GL)
 	JS_GL["glCreateCPUBuffer"]=function(JSContext JS){
 		n=JS.Param(0).or(0L)
 		if n<=0L:return 0
-		return JS.Return(new CJSNativeBuffer(){buf:new int[n]})
+		return JS.Return(new CJSNativeBuffer(){buf:new int[(n+3)>>2]})
 	}
 	JS_GL["glEnable"]=function(JSContext JS){
 		what=JS.Param(0).or(0)
@@ -3442,6 +3444,24 @@ auto createGLJSObject(JSObject JS_GL)
 		if !texobj:return JS.ReturnError("bad pixel bufer")
 		glBindTexture(GL_TEXTURE_2D,texobj.m_texid)
 		glTexSubImage2D(GL_TEXTURE_2D,level,xoffset,yoffset,width,height,format,type,__pointer(pixels_buf.buf.d))
+		return 0
+	}
+	JS_GL["glGetViewport"]=function(JSContext JS){
+		view_port=new float[4]
+		glGetFloatv(GL_VIEWPORT,__pointer(view_port.d))
+		ret=JS.NewArray()
+		ret[0]=view_port[0]
+		ret[1]=view_port[1]
+		ret[2]=view_port[2]
+		ret[3]=view_port[3]
+		return JS.Return(ret)
+	}
+	JS_GL["glViewport"]=function(JSContext JS){
+		x=JS.Param(0).as(int)
+		y=JS.Param(1).as(int)
+		w=JS.Param(2).as(int)
+		h=JS.Param(3).as(int)
+		glViewport(x,y,w,h)
 		return 0
 	}
 
