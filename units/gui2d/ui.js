@@ -943,6 +943,39 @@ UI.setTimeout=function(f,ms){
 	return timer_id;
 };
 
+var g_auto_refresh_timer_id;
+var g_need_auto_refresh=0
+UI.animation_framerate=50;
+var fauto_refresher=function(){
+	if(g_need_auto_refresh){
+		g_need_auto_refresh=0;
+		UI.Refresh()
+	}else{
+		var my_id=g_auto_refresh_timer_id;
+		g_auto_refresh_timer_id=undefined;
+		UI.clearInterval(my_id);
+	}
+}
+
+UI.AutoRefresh=function(){
+	if(g_auto_refresh_timer_id==undefined){
+		UI.Refresh()
+		g_auto_refresh_timer_id=UI.setInterval(fauto_refresher,1000/UI.animation_framerate)
+	}else{
+		g_need_auto_refresh=1;
+	}
+}
+
+UI.SetAnimationFrameRate=function(fps){
+	if(g_auto_refresh_timer_id!=undefined){
+		var my_id=g_auto_refresh_timer_id;
+		g_auto_refresh_timer_id=undefined;
+		UI.clearInterval(my_id);
+	}
+	UI.animation_framerate=fps;
+	UI.AutoRefresh();
+}
+
 UI.GetPreviousState=function(id){
 	var parent=UI.context_parent;
 	var attrs_old=parent[id];
@@ -1177,7 +1210,7 @@ UI.StdStyling=function(id,attrs,attrs0,s_default_style_name,child_style){
 					fc[key]=(UI.interpolators[key]||UI.default_interpolator)(f0[key],f1[key],t);
 				}
 			}
-			UI.Refresh();//coulddo: a target framerate
+			UI.AutoRefresh();
 		}
 		if(state.transition_current_frame){
 			var fc=state.transition_current_frame;
