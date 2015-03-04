@@ -73,16 +73,15 @@ UI.SetUIColorTheme=function(C){
 		},
 		menu_item:{
 			font:UI.Font("res/fonts/opensans.ttf",24),
-			transition_dt:0.1,
-			round:0,border_width:1,padding:8,
+			transition_dt:1,
+			round:0,padding:8,
 			icon_color:0xff000000,
 			text_color:0xff000000,
+			color:C[0]&0x00ffffff,
 			$:{
-				out:{
-					border_color:0x00ffffff,color:0x00ffffff,
-				},
+				out:{},
 				over:{
-					border_color:C[0],color:C[0],
+					color:C[0],
 					icon_color:0xffffffff,
 					text_color:0xffffffff,
 				},
@@ -90,7 +89,7 @@ UI.SetUIColorTheme=function(C){
 		},
 		menu:{
 			transition_dt:0.1,
-			round:4,border_width:2,padding:8,
+			round:4,border_width:2,padding:8,w_base:4,
 			layout_spacing:0,
 			border_color:C[0],color:0xffffffff,
 		},
