@@ -1148,7 +1148,7 @@ UI.interpolators.color=function(a,b,t){
 		//32-bit rgba
 		return UI.lerp_rgba(a,b,t);
 	}else{
-		//todo: convert both sides to gradient first, then lerp all attrs, including x/y
+		//coulddo: convert both sides to gradient first, then lerp all attrs, including x/y
 	}
 	return b;
 }
@@ -1203,7 +1203,7 @@ UI.StdStyling=function(id,attrs,attrs0,s_default_style_name,child_style){
 			for(var key in ref_frame){
 				if(ref_frame[key]!=attrs[key]){
 					//gradient comparison
-					if(Array.isArray(ref_frame[key])&&Array.isArray(attrs[key])&&JSON.stringify(ref_frame[key])==JSON.stringify(attrs[key])){
+					if(typeof ref_frame[key]=='object'&&typeof attrs[key]=='object'){
 						continue;
 					}
 					need_transition=1;

@@ -1549,6 +1549,14 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			g_renderer.PopCliprect()
 			return 0
 		}
+		JS_UI["GetCliprect"]=function(JSContext JS){
+			ret=JS.New()
+			ret["x"]=g_renderer.m_clip.x/g_renderer.m_pixels_per_unit
+			ret["y"]=g_renderer.m_clip.y/g_renderer.m_pixels_per_unit
+			ret["w"]=g_renderer.m_clip.z/g_renderer.m_pixels_per_unit
+			ret["h"]=g_renderer.m_clip.w/g_renderer.m_pixels_per_unit
+			return JS.Return(ret)
+		}
 	//////////////////
 	JS_UI["CreateCoreFontByName"]=function(JSContext JS){
 		return JS.Return(g_renderer.CreateCoreFontByName(sbox,JS.Param(0).as(string)))
@@ -1731,6 +1739,26 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 		fnt=JS.Param(0).as(TFont)
 		if !fnt.pfnt:return 0
 		return JS.Return(g_renderer.GetCharacterAdvance(fnt,JS.Param(1).or(int(' '))))
+	}
+	JS_UI["MeasureText"]=function(JSContext JS){
+		fnt=JS.Param(0).as(TFont)
+		stext=JS.Param(1).as(string)
+		if !fnt.pfnt||!stext:return 0
+		x=0.f
+		y=0.f
+		w=0.f
+		hc=g_renderer.GetCharacterHeight(fnt)
+		foreach ch in Utf8ToUnicode32(stext)
+			if ch=='\n':
+				w=max(w,x)
+				x=0.f
+				y+=hc
+			x+=g_renderer.GetCharacterAdvance(fnt,ch)
+		w=max(w,x)
+		ret=JS.New()
+		ret["w"]=w
+		ret["h"]=y+hc
+		return JS.Return(ret)
 	}
 	///////////////////////////////////
 	//timer

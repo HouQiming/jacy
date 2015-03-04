@@ -213,7 +213,7 @@ W.Button_prototype={
 	OnMouseDown:function(){UI.CaptureMouse(this);this.mouse_state="down";UI.Refresh();},
 	OnMouseUp:function(){UI.ReleaseMouse(this);this.mouse_state="over";UI.Refresh();},
 	OnClick:function(){
-		this.OnChange(!this.value);
+		this.OnChange(this.value?0:1);
 	},
 	OnChange:function(value){this.value=value;},
 };
@@ -232,10 +232,11 @@ UI.MeasureIconText=function(obj){
 			obj.h_bmp=0;
 		}
 	}
-	obj.w=1e17;//for UI.LayoutText
-	UI.LayoutText(obj);
+	//obj.w=1e17;//for UI.LayoutText
+	//UI.LayoutText(obj);
+	var text_dim=UI.MeasureText(obj.font,obj.text)
 	var padding=(obj.padding||0);
-	return {w:(obj.w_bmp+obj.w_text+padding*2),h:Math.max(obj.h_bmp,obj.h_text)+padding*2};
+	return {w:(obj.w_bmp+text_dim.w+padding*2),h:Math.max(obj.h_bmp,text_dim.h)+padding*2};
 }
 
 W.DrawIconText=function(id,obj,attrs){
@@ -432,9 +433,18 @@ W.Edit_prototype={
 		}
 		return xy0;
 	},
+	SeekXY:function(x,y){
+		var ed=this.ed
+		var ccnt=ed.SeekXY(x,y)
+		if(ccnt==ed.GetTextSize()){
+			//eof special case for mousing
+			ccnt=ed.SeekXY(x,ed.XYFromCcnt(ccnt).y)
+		}
+		return ccnt
+	},
 	MoveCursorToXY:function(x,y){
 		var ed=this.ed;
-		this.sel1.ccnt=ed.SeekXY(x,y);
+		this.sel1.ccnt=this.SeekXY(x,y);
 		this.caret_is_wrapped=0;
 		if(ed.IsAtLineWrap(this.sel1.ccnt)){
 			var x0=this.GetCaretXY().x;
@@ -635,7 +645,7 @@ W.Edit_prototype={
 			}
 		}else if(IsHotkey(event,"HOME SHIFT+HOME")){
 			var ed_caret=this.GetCaretXY();
-			var ccnt_lhome=ed.SeekXY(0,ed_caret.y);
+			var ccnt_lhome=this.SeekXY(0,ed_caret.y);
 			var ccnt_ehome=Math.max(this.GetEnhancedHome(sel1_ccnt),ccnt_lhome);
 			if(sel1.ccnt==ccnt_ehome||ccnt_lhome==ccnt_ehome){
 				sel1.ccnt=ccnt_lhome;
@@ -647,7 +657,7 @@ W.Edit_prototype={
 			epilog();
 		}else if(IsHotkey(event,"END SHIFT+END")){
 			var ed_caret=this.GetCaretXY();
-			var ccnt_lend=ed.SeekXY(1e17,ed_caret.y);
+			var ccnt_lend=this.SeekXY(1e17,ed_caret.y);
 			var ccnt_eend=Math.min(this.GetEnhancedEnd(sel1_ccnt),ccnt_lend);
 			if(sel1.ccnt==ccnt_eend||ccnt_lend==ccnt_eend){
 				sel1.ccnt=ccnt_lend;
@@ -697,27 +707,27 @@ W.Edit_prototype={
 	},
 	////////////////////////////
 	OnMouseDown:function(event){
-		this.in_dragging=1
+		this.is_dragging=1
 		var x0=event.x-this.x+this.scroll_x
 		var y0=event.y-this.y+this.scroll_y
-		this.sel0.ccnt=this.ed.SeekXY(x0,y0);
-		this.sel1.ccnt=this.ed.SeekXY(x0,y0);
+		this.sel0.ccnt=this.SeekXY(x0,y0);
+		this.sel1.ccnt=this.SeekXY(x0,y0);
 		UI.SetFocus(this)
 		UI.CaptureMouse(this)
 		if(this.OnSelectionChange){this.OnSelectionChange(this);}
 		UI.Refresh()
 	},
 	OnMouseMove:function(event){
-		if(!this.in_dragging){return;}
+		if(!this.is_dragging){return;}
 		var x1=event.x-this.x+this.scroll_x
 		var y1=event.y-this.y+this.scroll_y
-		this.sel1.ccnt=this.ed.SeekXY(x1,y1);
+		this.sel1.ccnt=this.SeekXY(x1,y1);
 		if(this.OnSelectionChange){this.OnSelectionChange(this);}
 		UI.Refresh()
 	},
 	OnMouseUp:function(event){
 		UI.ReleaseMouse(this)
-		this.in_dragging=0
+		this.is_dragging=0
 		UI.Refresh()
 	},
 };
@@ -875,71 +885,56 @@ W.Menu=function(id,attrs){
 
 //a sensible default style - qpad
 W.ComboBox_prototype={
+	value:undefined,
 	OnMouseOver:function(){this.mouse_state="over";UI.Refresh();},
 	OnMouseOut:function(){this.mouse_state="out";UI.Refresh();},
 	OnClick:function(){
 		if(UI.HasFocus(this.menu)){
 			this.menu.Close()
 		}else{
+			this.menu.selection={};
+			for(var i=0;i<this.items.length;i++){
+				if(this.items[i].text==this.value){
+					this.menu.selection["$"+i]=1
+					break
+				}
+			}
 			this.menu.Popup();
 		}
 	},
-	GetSelection:function(){
-		var item_active=this[this.selection_id];
-		if(!item_active){
-			item_active=this.items[this.selection_id.substr(1)];
-		}
-		return item_active
-	},
-	SetText:function(text){
-		for(var i=0;i<this.items.length;i++){
-			if(this.items[i].text==text){
-				this.selection_id="$"+i;
-				return 1
-			}
-		}
-		return 0
-	},
 	GetSubStyle:function(){
 		return this.edit&&UI.HasFocus(this.edit)?"focus":"blur"
-	}
+	},
+	OnChange:function(value){this.value=value;},
 };
 W.ComboBox=function(id,attrs){
 	//items same as menu, need explicit w h
 	var obj=UI.StdWidget(id,attrs,"combobox",W.ComboBox_prototype)
-	if(!UI.HasFocus(obj.menu)){
-		if(!obj.selection_id){obj.selection_id="$"+(obj.default_selection||0);}
-	}else{
-		for(var id in obj.menu.selection){
-			if(obj.menu.selection[id]){
-				obj.selection_id=id;
-				break
-			}
+	if(obj.value==undefined){
+		if(obj.items.length){
+			obj.value=obj.items[0].text;
+		}else{
+			obj.value="";
 		}
 	}
-	//"show active"
+	//show active
 	UI.RoundRect(obj);
 	W.PureRegion(id,obj);
-	var item_active=obj[obj.selection_id];
-	if(!item_active){
-		item_active=obj.items[obj.selection_id.substr(1)];
-	}
 	//it's a styling problem, just do it manually, ignore the generality
-	W.DrawIconTextEx(obj,item_active)
+	W.DrawIconTextEx(obj,{x:obj.x,y:obj.y,w:obj.w,h:obj.h, font:obj.font,text:obj.value,color:obj.text_color})
 	UI.Begin(obj)
-		W.Text("-",{anchor:UI.context_parent,anchor_align:"right",anchor_valign:"center",font:obj.arrow_font,x:obj.padding,text:"▼",color:obj.icon_color})
+		W.Text("-",{anchor:UI.context_parent,anchor_align:"right",anchor_valign:"center",font:obj.label_font,x:obj.padding,text:"▼",color:obj.icon_color})
 		W.Menu("menu",{
 			'x':obj.x, 'y':obj.y+obj.h, 'w':obj.w,
 			'items':obj.items,
 			'style':obj.menu_style,
 			'item_template':{object_type:W.MenuItem,action:function(){
-				obj.selection=parseInt(this.id.substr(1));
-				if(obj.OnChange){obj.OnChange.call(obj)};
+				if(obj.OnChange){obj.OnChange.call(obj,this.text)};
 				obj.menu.Close();
 			}},
 		})
 		if(obj.has_edit){
-			W.Edit("edit",{'font':obj.font,'color':obj.text_color, 'style':obj.edit_style});
+			//todo: edit vs menu
 		}
 	UI.End(obj)
 	return obj;
@@ -1006,22 +1001,23 @@ W.Slider=function(id,attrs){
 	//how do we set the initial value reliably?
 	//we don't: we provide an OnChange callback, and put the value itself on the fcall - just like boxdocs
 	var w_value=obj.value*obj.w;
+	var h_slider=obj.h_slider||obj.h;
 	W.PureRegion(id,obj)
 	if(obj.bgcolor||obj.border_color){
 		UI.RoundRect({
-			x:obj.x, y:obj.y, w:obj.w, h:obj.h, round:obj.round, 
+			x:obj.x, y:obj.y+(obj.h-h_slider)*0.5, w:obj.w, h:h_slider, round:obj.round,
 			color:obj.bgcolor, border_width:obj.border_width, border_color:obj.border_color})
 	}
 	if(obj.color){
 		UI.PushCliprect(obj.x,obj.y,w_value,obj.h)
 		UI.RoundRect({
-			x:obj.x+obj.padding, y:obj.y+obj.padding, w:obj.w-obj.padding*2, h:obj.h-obj.padding*2, round:obj.round,
+			x:obj.x+obj.padding, y:obj.y+(obj.h-h_slider)*0.5+obj.padding, w:obj.w-obj.padding*2, h:h_slider-obj.padding*2, round:obj.round,
 			color:obj.color})
 		UI.PopCliprect()
 	}
 	if(obj.middle_bar){
 		UI.RoundRect({
-			x:obj.x+w_value-obj.middle_bar.w*0.5, y:obj.y-obj.middle_bar.h*0.5, w:obj.middle_bar.w, h:obj.h+obj.middle_bar.h, round:obj.middle_bar.round,
+			x:obj.x+w_value-obj.middle_bar.w*0.5, y:obj.y+(obj.h-h_slider-obj.middle_bar.h)*0.5, w:obj.middle_bar.w, h:h_slider+obj.middle_bar.h, round:obj.middle_bar.round,
 			color:obj.middle_bar.color, border_width:obj.middle_bar.border_width, border_color:obj.middle_bar.border_color})
 	}
 	if(obj.label_text){
@@ -1042,7 +1038,7 @@ W.Slider=function(id,attrs){
 }
 
 W.EditBox_prototype={
-	value:"aa",
+	value:"",
 	focus_state:"blur",
 	OnClick:function(){
 		if(this.focus_state=="blur"){
@@ -1063,7 +1059,7 @@ W.EditBox=function(id,attrs){
 	var obj=UI.StdWidget(id,attrs,"edit_box",W.EditBox_prototype)
 	UI.RoundRect(obj)
 	W.PureRegion(id,obj)
-	var dim_text=UI.MeasureIconText({font:obj.font,text:obj.hint_text||obj.value})
+	var dim_text=UI.MeasureIconText({font:obj.font,text:obj.hint_text||obj.value||"0"})
 	UI.Begin(obj)
 		if(obj.focus_state=="focus"){
 			var is_newly_created=!obj.edit;
@@ -1104,4 +1100,124 @@ W.EditBox=function(id,attrs){
 				});
 		}
 	UI.End()
+	return obj;
+}
+
+W.Select_prototype={
+	value:0,
+	OnChange:function(value){this.value=value;},
+	OnClick:function(){
+		this.OnChange(this.value?0:1)
+		UI.Refresh()
+	},
+}
+W.Select=function(id,attrs){
+	//the value is the numerical id
+	var obj0=UI.GetPreviousState(id);
+	if(obj0){attrs.value_animated=obj0.value;}
+	var obj=UI.StdWidget(id,attrs,"select",W.Select_prototype)
+	UI.Begin(obj)
+		var items=obj.items;
+		if(items.length==2&&items[0]==0&&items[1]==1){
+			//on/off slider for the [0,1] case
+			W.Slider("impl",{
+				anchor:'parent',anchor_align:'right',anchor_valign:'fill',x:obj.slider_style.middle_bar.w*0.25,y:0,
+				style:obj.slider_style,
+				value:obj.value_animated,
+				OnChange:function(value){obj.OnChange(value<0.5?0:1)},
+				OnMouseDown:function(event){
+					this.clickdet_value=obj.value;
+					this.clickdet_x=event.x
+					this.clickdet_y=event.y
+					this.clickdet_out=0
+					W.Slider_prototype.OnMouseDown.call(this,event)
+				},
+				OnMouseMove:function(event){
+					var dx=this.clickdet_x-event.x
+					var dy=this.clickdet_y-event.y
+					if(dx*dx+dy*dy>=this.tolerance*this.tolerance){
+						this.clickdet_out=1
+					}
+					W.Slider_prototype.OnMouseMove.call(this,event)
+				},
+				OnMouseUp:function(event){
+					W.Slider_prototype.OnMouseUp.call(this,event)
+					if(this.clickdet_value==obj.value&&!this.clickdet_out){
+						obj.OnChange(obj.value?0:1)
+					}
+				},
+			})
+		}else{
+			var w_needed=(items.length-1)*obj.spacing+obj.padding*2;
+			var w_max=0
+			for(var i=0;i<items.length;i++){
+				var w_i=UI.MeasureIconText({font:obj.font,text:items[i].toString()}).w;
+				w_needed+=w_i
+				w_max=Math.max(w_max,w_i)
+			}
+			//note: right-align the control
+			if(w_needed<=obj.w){
+				//multi-button
+				//they are actual buttons, just clipped buttons, which handles animation, mouseover and stuff
+				//the main widget only draws the separator lines and the outmost border
+				//we don't really need separator lines yet, can't AA them anyway
+				var x_base=obj.x+obj.w-w_needed+obj.button_style.border_width,x_cur=x_base;
+				for(var i=0;i<items.length;i++){
+					var x_last=x_cur
+					if(i==0){
+						x_cur+=obj.padding;
+					}else{
+						x_cur+=obj.spacing*0.5;
+					}
+					var x_text=x_cur;
+					x_cur+=UI.MeasureIconText({font:obj.font,text:items[i].toString()}).w
+					if(i<items.length-1){
+						x_cur+=obj.spacing*0.5;
+					}else{
+						x_cur+=obj.padding;
+					}
+					UI.PushCliprect(x_last,obj.y,x_cur-x_last,obj.h)
+					var btn_i=W.Button("$"+i,{
+						x:x_base+obj.button_style.border_width,y:obj.y+obj.button_style.border_width,w:w_needed-obj.button_style.border_width*2,h:obj.h-obj.button_style.border_width*2,
+						text:"",style:obj.button_style,
+						value:(obj.value==i),i:i,
+						OnChange:function(value){
+							obj.OnChange(this.i);
+							UI.Refresh()
+						},
+					})
+					btn_i.x=x_last
+					btn_i.w=x_cur-x_last
+					W.Text("",{
+						anchor:'parent',anchor_align:'left',anchor_valign:'center',
+						x:x_text-obj.x,y:0,
+						font:obj.font,text:items[i],
+						color:btn_i.text_color,
+					})
+					UI.PopCliprect()
+				}
+			}else{
+				//combobox - loop-search for numerical value
+				var items2=[];
+				w_max+=obj.combo_box_padding
+				for(var i=0;i<obj.items.length;i++){
+					items2[i]={'text':obj.items[i]};
+				}
+				W.ComboBox("combobox",{
+					x:obj.x+obj.w-w_max,y:obj.y,w:w_max,h:obj.h,
+					items:items2,value:items[obj.value],
+					style:obj.combo_box_style,
+					OnChange:function(value){
+						for(var i=0;i<obj.items.length;i++){
+							if(items[i]==value){
+								obj.OnChange(i);
+								break
+							}
+						}
+					},
+				});
+			}
+		}
+	UI.End()
+	return obj;
 }

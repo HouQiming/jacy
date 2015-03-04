@@ -9,6 +9,8 @@ var W=require("gui2d/widgets");
 
 UI.SetUIColorTheme=function(C){
 	UI.current_theme_color=C[0];
+	var C_grey=0xffaaaaaa
+	var C_dark=UI.lerp_rgba(C[0],0xff000000,0.15)
 	UI.default_styles={
 		button:{
 			transition_dt:0.1,
@@ -26,7 +28,7 @@ UI.SetUIColorTheme=function(C){
 					text_color:0xffffffff,
 				},
 				down:{
-					border_color:C[1],color:C[1],
+					border_color:C_dark,color:C_dark,
 					icon_color:0xffffffff,
 					text_color:0xffffffff,
 				},
@@ -47,7 +49,7 @@ UI.SetUIColorTheme=function(C){
 					text_color:0xffffffff,
 				},
 				down:{
-					border_color:C[1],color:C[1],
+					border_color:C_dark,color:C_dark,
 					icon_color:0xffffffff,
 					text_color:0xffffffff,
 				},
@@ -63,7 +65,7 @@ UI.SetUIColorTheme=function(C){
 					text_color:0xffffffff,
 				},
 				checked_down:{
-					border_color:C[1],color:C[1],
+					border_color:C_dark,color:C_dark,
 					icon_color:0xffffffff,
 					text_color:0xffffffff,
 				},
@@ -94,11 +96,11 @@ UI.SetUIColorTheme=function(C){
 		},
 		combobox:{
 			transition_dt:0.1,
-			round:8,border_width:2,padding:8,
+			round:4,border_width:2,padding:8,
 			layout_spacing:0,
 			border_color:C[0],icon_color:C[0],text_color:0xff000000,color:0xffffffff,icon_text_align:'left',
 			font:UI.Font("res/fonts/opensans.ttf",24),
-			arrow_font:UI.Font("res/fonts/opensans.ttf",24),
+			label_font:UI.Font("res/fonts/opensans.ttf",24),
 		},
 		sub_window:{
 			transition_dt:0.1,
@@ -189,10 +191,71 @@ UI.SetUIColorTheme=function(C){
 					border_color:C[0],
 				},
 			},
+		},
+		color_picker:{
+			w_text:16,w_slider:128,w_edit:54,
+			h_slider:12,
+			h_edit:32,
+			h_space:24,
+			padding:8,
+			border_width:1.5,
+			border_color:0xff444444,
+			text_color:0xff000000,
+			font:UI.Font("res/fonts/opensans.ttf",24),
+		},
+		select:{
+			transition_dt:0.1,
+			value_animated:0,
+			font:UI.Font("res/fonts/opensans.ttf",24),
+			padding:12,spacing:12,
+			combo_box_padding:40,
+			slider_style:{
+				transition_dt:0.1,
+				tolerance:2,
+				w:32,h_slider:8,
+				bgcolor:[{x:0,y:0,color:0xffbbbbbb},{x:0,y:1,color:0xffdddddd}],
+				round:8,
+				color:C[0],
+				padding:0,
+				middle_bar:{
+					w:16,h:8,
+					round:8,
+					color:0xffffffff, border_width:2, border_color:0xff444444,
+				},
+			},
+			button_style:{
+				transition_dt:0.1,
+				color:0xffffffff,border_color:C[0],
+				round:16,border_width:2,padding:12,
+				$:{
+					out:{
+						text_color:C[0],
+					},
+					over:{
+						text_color:C_dark,
+					},
+					down:{
+						text_color:C_dark,
+					},
+					////////////////////
+					checked_out:{
+						color:C[0],
+						text_color:0xffffffff,
+					},
+					checked_over:{
+						color:C[0],
+						text_color:0xffffffff,
+					},
+					checked_down:{
+						color:C[0],
+						text_color:0xffffffff,
+					},
+				}
+			},
 		}
 	};
 };
-UI.SetUIColorTheme([0xffcc7733,0xffaa5522])
+UI.SetUIColorTheme([0xffcc7733])
 
 var demo_text_animation=function(id,attrs){
 	attrs=UI.Keep(id,attrs);
@@ -393,8 +456,19 @@ var demo_widgets=function(id,attrs){
 	UI.Begin(obj);
 		W.Hotkey("",{key:"ALT+F4",action:function(){UI.DestroyWindow(wnd)}});
 		var wnd=UI.Begin(W.Window("app",{title:"Widgets demo",w:1280,h:720,bgcolor:0xfff0f0f0,designated_screen_size:1080,flags:UI.SDL_WINDOW_RESIZABLE,is_main_window:1}))
-			W.Slider("slider",{x:10,y:10,w:256,h:16})
+			W.ComboBox("combobox",{
+				x:310,y:10,w:300,h:32,
+				items:[
+					{text:"Item 0"},
+					{text:"Item 1"},
+					{text:"Item 2"},
+				],
+			});
+			W.Slider("slider",{x:10,y:10,w:256,h:8})
 			W.EditBox("editbox",{x:10,y:36,w:256,h:32})
+			W.Select("select0",{x:10,y:96,w:256,h:16,items:[0,1]})
+			W.Select("select1",{x:10,y:120,w:256,h:32,items:["RGB","HSV"]})
+			W.Select("select2",{x:10,y:160,w:256,h:32,items:["Choice A","選択乙","long long long shit"]})
 		UI.End();
 	UI.End();
 };
