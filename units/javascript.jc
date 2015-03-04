@@ -266,8 +266,15 @@ module duktape
 				if duk_is_null_or_undefined(_ctx(),-1):
 					ret=JSObject.NULL
 				else
+					if Platform.BUILD=="debug":
+						is_err=0
+						if duk_is_error(_ctx(),-1):
+							is_err=1
 					refid=_pop_object()
 					ret=JSObject(){"m_jsctx":this,"m_handle":refid}
+					if Platform.BUILD=="debug":
+						if is_err:
+							System.Console.Writeln(ret["stack"].as(string))
 				//else if T==JSFunction:
 				//	refid=_pop_function()
 				//	ret=JSFunction(){"m_jsctx":this,"m_handle":refid}

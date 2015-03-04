@@ -990,6 +990,23 @@ UI.Keep=function(id,attrs,prototype){
 		attrs_old=Object.create(prototype);
 		parent[id]=attrs_old;
 	}
+	////////////////
+	var ppt_name=attrs.property_name;
+	if(ppt_name){
+		var sheet=UI.context_property_sheet;
+		if(sheet){
+			var ppt=sheet[ppt_name];
+			if(Array.isArray(ppt)){
+				attrs.value=ppt[0];
+				attrs.OnChange=ppt[1];
+				attrs.BeginContinuousChange=ppt[2];
+				attrs.EndContinuousChange=ppt[3];
+			}else{
+				if(ppt!=undefined){attrs.value=ppt;}
+				attrs.OnChange=function(value){sheet[this.property_name]=value;};
+			}
+		}
+	}
 	if(attrs_old){
 		ret=attrs_old;
 		for(var key in attrs){
@@ -1072,6 +1089,10 @@ UI.Begin=function(attrs){
 		attrs.__window_parent=UI.context_window;
 		UI.context_window=attrs;
 	}
+	if(attrs.property_sheet){
+		attrs.__property_sheet_parent=UI.context_property_sheet;
+		UI.context_property_sheet=attrs.property_sheet;
+	}
 	return attrs;
 }
 
@@ -1087,6 +1108,9 @@ UI.End=function(){
 			obj.caret_h=0;
 		}
 		UI.EndPaint();
+	}
+	if(obj.property_sheet){
+		UI.context_property_sheet=obj.__property_sheet_parent;
 	}
 	return obj;
 }

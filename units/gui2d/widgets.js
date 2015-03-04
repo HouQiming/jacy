@@ -203,6 +203,7 @@ W.Group=function(id,attrs){
 ////////////////////////////////////////
 //widgets
 W.Button_prototype={
+	value:0,
 	use_measured_dims:1,
 	icon_text_align:'center',
 	icon_text_valign:'center',
@@ -210,7 +211,11 @@ W.Button_prototype={
 	OnMouseOver:function(){this.mouse_state="over";UI.Refresh();},
 	OnMouseOut:function(){this.mouse_state="out";UI.Refresh();},
 	OnMouseDown:function(){UI.CaptureMouse(this);this.mouse_state="down";UI.Refresh();},
-	OnMouseUp:function(){UI.ReleaseMouse(this);this.mouse_state="over";UI.Refresh();}
+	OnMouseUp:function(){UI.ReleaseMouse(this);this.mouse_state="over";UI.Refresh();},
+	OnClick:function(){
+		this.OnChange(!this.value);
+	},
+	OnChange:function(value){this.value=value;},
 };
 
 UI.MeasureIconText=function(obj){
@@ -305,7 +310,7 @@ W.Button=function(id,attrs){
 	//////////////////
 	//styling
 	var obj=UI.Keep(id,attrs,W.Button_prototype);
-	UI.StdStyling(id,obj,attrs, "button",(obj.checked?"checked_":"")+(obj.mouse_state||"out"));
+	UI.StdStyling(id,obj,attrs, "button",(obj.value?"checked_":"")+(obj.mouse_state||"out"));
 	W.DrawIconText(id,obj,attrs)
 	return W.PureRegion(id,obj);
 }
@@ -944,12 +949,14 @@ W.Slider_prototype={
 	value:0,
 	OnMouseDown:function(event){
 		this.mouse_state="down";
+		this.BeginContinuousChange()
 		UI.CaptureMouse(this)
 		this.OnMouseMove(event)
 		UI.Refresh();
 	},
 	OnMouseUp:function(){
 		UI.ReleaseMouse(this)
+		this.EndContinuousChange()
 		this.mouse_state="over";
 		UI.Refresh();
 	},
@@ -963,10 +970,12 @@ W.Slider_prototype={
 	},
 	OnMouseMove:function(event){
 		if(this.mouse_state!="down"){return;}
-		this.OnChange(Math.max(Math.min((event.x-this.x)/this.w,1),0))
+		this.OnChange(Math.max(Math.min((event.x-this.x)/this.w,1),0),1)
 		UI.Refresh()
 	},
 	OnChange:function(value){this.value=value;},
+	BeginContinuousChange:function(){},
+	EndContinuousChange:function(){},
 	GetSubStyle:function(){
 		return this.mouse_state||"out"
 	},
@@ -974,6 +983,7 @@ W.Slider_prototype={
 W.SliderLabel_prototype={
 	OnMouseDown:function(event){
 		var obj=this.parent
+		obj.BeginContinuousChange()
 		UI.CaptureMouse(this)
 		this.is_dragging=1
 		this.anchor_x=event.x
@@ -982,11 +992,12 @@ W.SliderLabel_prototype={
 	OnMouseUp:function(){
 		this.is_dragging=0
 		UI.ReleaseMouse(this)
+		obj.EndContinuousChange()
 	},
 	OnMouseMove:function(event){
 		if(!this.is_dragging){return;}
 		var obj=this.parent
-		obj.OnChange(Math.max(Math.min((event.x-this.anchor_x+this.anchor_w_value)/obj.w,1),0))
+		obj.OnChange(Math.max(Math.min((event.x-this.anchor_x+this.anchor_w_value)/obj.w,1),0),1)
 		UI.Refresh()
 	},
 }

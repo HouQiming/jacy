@@ -3200,15 +3200,17 @@ class GLTechnique
 	JS_SetUniform=function(JSContext JS){
 		name=JS.Param(0).as(string)
 		if !name:return JS.ReturnError("invalid name")
-		val=JS.Param(1).as(JSObject)
-		if !val:
-			valf=JS.Param(1).as(float)
+		valf=JS.Param(1).as(float)
+		if (System.Algorithm.__float_as_int(valf)&0x7f800000)!=0x7f800000:
 			SetFloat(name,valf)
 		else
+			val=JS.Param(1).as(JSObject)
 			lg=val.length()
 			if u32(lg)>16u:
 				return JS.ReturnError("invalid uniform array length")
 			a=new float[lg]
+			for i=0:lg-1
+				a[i]=val[i].as(float)
 			if lg==1:
 				SetFloat(name,a[0])
 			else if lg==2:
@@ -3309,7 +3311,7 @@ class CJSNativeBuffer
 				buf[i]=arr[i-ofs].as(int)
 		else
 			for i=ofs:ofs+n-1
-				buf[i]=arr[i-ofs].as(float)
+				buf[i]=System.Algorithm.__float_as_int(arr[i-ofs].as(float))
 		return 0
 	}
 	__JS_prototype=function(JSObject proto){
