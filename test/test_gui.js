@@ -73,13 +73,12 @@ UI.SetUIColorTheme=function(C){
 		},
 		menu_item:{
 			font:UI.Font("res/fonts/opensans.ttf",24),
-			transition_dt:1,
+			transition_dt:0.1,
 			round:0,padding:8,
 			icon_color:0xff000000,
 			text_color:0xff000000,
-			color:C[0]&0x00ffffff,
+			color:0x00ffffff,
 			$:{
-				out:{},
 				over:{
 					color:C[0],
 					icon_color:0xffffffff,

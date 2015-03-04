@@ -1141,7 +1141,7 @@ UI.default_interpolator=function(a,b,t){
 	return b;
 }
 UI.lerp_rgba=function(a,b,t){
-	return (lerp(a&0xff,b&0xff,t)|0)+(lerp(a&0xff00,b&0xff00,t)&0xff00)+(lerp(a&0xff0000,b&0xff0000,t)&0xff0000)+(a&0xff000000)//(lerp(a&0xff000000,b&0xff000000,t)&0xff000000)
+	return (lerp(a&0xff,b&0xff,t)|0)+(lerp(a&0xff00,b&0xff00,t)&0xff00)+(lerp(a&0xff0000,b&0xff0000,t)&0xff0000)+((lerp((a>>24)&0xff,(b>>24)&0xff,t)|0)<<24)
 }
 UI.interpolators.color=function(a,b,t){
 	if(isNumber(a)&&isNumber(b)){
@@ -1383,12 +1383,13 @@ UI.ReleaseMouse=function(attrs){
 
 UI.SetFocus=function(obj){
 	if(UI.nd_focus!=obj){
+		var old_focus=UI.nd_focus;
 		if(UI.nd_focus){
-			UI.CallIfAvailable(UI.nd_focus,"OnBlur",UI.nd_focus)
+			UI.CallIfAvailable(UI.nd_focus,"OnBlur",obj)
 		}
 		UI.nd_focus=obj;
 		if(obj){
-			UI.CallIfAvailable(obj,"OnFocus",obj)
+			UI.CallIfAvailable(obj,"OnFocus",old_focus)
 		}
 	}
 	if(obj&&obj.OnTextInput){

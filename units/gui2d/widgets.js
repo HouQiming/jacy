@@ -821,7 +821,7 @@ W.Menu_prototype={
 			this.selection[items_clean[sel_id].id]=1;
 			UI.Refresh()
 		}else if(UI.IsHotkey(event,"RETURN")){
-			items_clean[sel_id].action();
+			this[items_clean[sel_id].id].action();
 			if(UI.HasFocus(this)){
 				this.Close();
 			}
@@ -838,7 +838,11 @@ W.Menu_prototype={
 	//	}
 	//},
 	Popup:function(){
-		this.nd_focus_saved=UI.nd_focus;
+		var sv=UI.nd_focus;
+		while(sv&&sv.nd_focus_saved){
+			sv=sv.nd_focus_saved
+		}
+		this.nd_focus_saved=sv;
 		UI.SetFocus(this)
 		UI.Refresh()
 	},
