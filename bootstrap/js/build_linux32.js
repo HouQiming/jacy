@@ -1,4 +1,4 @@
-var g_need_ssh_for_linux=(g_current_arch=="linux32"||g_current_arch=="linux64");
+var g_need_ssh_for_linux=!(g_current_arch=="linux32"||g_current_arch=="linux64");
 
 g_action_handlers.make=function(){
 	var ssh_addr=GetServerSSH('linux');
@@ -25,7 +25,7 @@ g_action_handlers.make=function(){
 		UpdateTo(g_work_dir+"/upload/res.zip",g_work_dir+"/res.zip")
 	}
 	if(g_json.icon_file){
-		var fn_icon=g_json.icon_file[0];
+		var fn_icon=SearchForFile(g_json.icon_file[0]);
 		UpdateTo(g_work_dir+"/upload/ic_launcher.png",fn_icon)
 	}
 	////////////////////////

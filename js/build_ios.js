@@ -17,37 +17,28 @@ build: CODE_SIGN_IDENTITY="iPhone Distribution:"
 codesign -s "Distribution" the-ipa
 xcrun -sdk iphoneos Validation -online -upload -verbose "path to ipa"
 */
-IOS=[]
-IOS.c_file_list=NewArray()
+var g_need_ssh_for_mac=(g_current_arch!="mac");
+var IOS=[]
+IOS.c_file_list=[]
 
 IOS.CopyToUpload=function(fn0){
-	fn=NormalizeFileName(fn0)
-	spackage_dir=PRJ.work+"/upload"
-	//mkdir(spackage_dir)
-	pslash=LastIndexOf(fn0,'\\')
-	star=spackage_dir+"/"+mid(fn0,pslash+1)
+	var fn=fn0
+	var spackage_dir=g_work_dir+"/upload"
+	var star=spackage_dir+"/"+RemovePath(fn0)
 	UpdateTo(star,fn)
-	IOS.c_file_list.add(mid(fn0,pslash+1))
-};
-
-IOS.CopyLibToUpload=function(fn0){
-	fn=NormalizeFileName(fn0)
-	spackage_dir=PRJ.work+"/upload/SDL/lib"
-	pslash=LastIndexOf(fn0,'\\')
-	star=spackage_dir+"/"+mid(fn0,pslash+1)
-	UpdateTo(star,fn)
-	IOS.c_file_list.add("SDL/lib/"+mid(fn0,pslash+1))
+	IOS.c_file_list.push(RemovePath(fn0))
 }
 
-PRJ.Build=function(){
-	if !(PRJ.target=="ios"||PRJ.target=="ios-release"):
-		return 0
-	ssh_addr=GetServerSSH('mac')
-	dir_pmenv=root+"/mac/pmenv"
-	if !FileExists(PRJ.work+"/buildtmp_ready"):
-		sbuildtmp=SHA1(NormalizeFileName(PRJ.work),8)
-		CreateFile(PRJ.work+"/buildtmp_ready",sbuildtmp)
-		mkdir(PRJ.work+"/upload/SDL/lib")
+g_action_handlers.make=function(){
+	//todo: local case
+	var ssh_addr=GetServerSSH('mac')
+	var dir_pmenv=g_root+"/mac/pmenv"
+	//build the project dir locally
+	!? //g_need_ssh_for_mac
+	if !FileExists(g_work_dir+"/buildtmp_ready"):
+		sbuildtmp=SHA1(NormalizeFileName(g_work_dir),8)
+		CreateFile(g_work_dir+"/buildtmp_ready",sbuildtmp)
+		mkdir(g_work_dir+"/upload/SDL/lib")
 		if FileExists(PRJ.root+"/default_screen.png"):
 			s_rm_default="rm Default.png;"
 		else
@@ -77,14 +68,14 @@ PRJ.Build=function(){
 			s_rm_default+s_rm_icon+
 			'rm main.c;'+
 			'exit')
-		cd(PRJ.work)
+		cd(g_work_dir)
 		//rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp,'./upload')
-		//sinfo=ReadFileNonLocked(PRJ.work+"/upload/Info.plist")
+		//sinfo=ReadFileNonLocked(g_work_dir+"/upload/Info.plist")
 		//sinfo=StringReplace(sinfo,["com.yourcompany.${PRODUCT_NAME:identifier}",StringReplace("com.spap."+PRJ.name,["_",""])])
-		//CreateIfDifferent(PRJ.work+"/upload/Info.plist",sinfo)
+		//CreateIfDifferent(g_work_dir+"/upload/Info.plist",sinfo)
 		//<string></string>
-	sbuildtmp=ReadFileNonLocked(PRJ.work+"/buildtmp_ready")
-	cd(PRJ.work)
+	sbuildtmp=ReadFileNonLocked(g_work_dir+"/buildtmp_ready")
+	cd(g_work_dir)
 	////////////////////////
 	dir_prj_template=dir_pmenv+""
 	//copy-in the relevant source files
@@ -94,50 +85,47 @@ PRJ.Build=function(){
 			IOS.CopyToUpload(fn)
 	for(i=0;i<len(libs);i++)
 		fn=libs[i]
-		if MatchRegex(".*\\.a",StringToLower(fn)):
-			IOS.CopyLibToUpload(fn)
-		else if MatchRegex(".*\\.(c|cpp|m)",StringToLower(fn)):
-			IOS.CopyToUpload(fn)
+		IOS.CopyToUpload(fn)
 	if VAR.ios_use_reszip_png:
-		IOS.CopyToUpload(PRJ.work+"\\reszip.bundle")
+		IOS.CopyToUpload(g_work_dir+"\\reszip.bundle")
 	//generate SPAP as main.c
 	if PRJ.has_spap:
 		SPAP.is_release=PRJ.is_release
 		SPAP.is64=0
 		SPAP.Detect()
 		SPAP.options=" -g --C --outputC -Dnodllmess -Drebuild -Done_pass -Ddumb_temp_names -Dcpp.entrypoint=SDL_main -Denabled.platform.ios=1 -Denabled.platform.unix=1 "
-		s_C_output=NormalizeFileName(PRJ.work+"/spap_main_c.txt")
+		s_C_output=NormalizeFileName(g_work_dir+"/spap_main_c.txt")
 		ret=SPAP.CompileMain(s_C_output)
 		if !ret:
 			Write('error> SPAP compiler failed\n')
 			exit(1)
-		CreateIfDifferent(PRJ.work+"/upload/main.c",ReadFile(s_C_output))
+		CreateIfDifferent(g_work_dir+"/upload/main.c",ReadFile(s_C_output))
 	//icons
 	if FileExists(PRJ.root+"/ic_launcher.png"):
-		fntouch=PRJ.work+"/ic_launcher.png._touch"
+		fntouch=g_work_dir+"/ic_launcher.png._touch"
 		if IsNewer(fntouch,PRJ.root+"/ic_launcher.png")
 			sexe_resample_png=NormalizeFileName(root+"/osslib/android/misc_tools/resample_png.exe")
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+PRJ.work+'/upload/Icon.png" 57 57')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+PRJ.work+'/upload/Icon-72.png" 72 72')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+PRJ.work+'/upload/Icon-Small.png" 29 29')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+PRJ.work+'/upload/Icon-Small-50.png" 50 50')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+PRJ.work+'/upload/Icon@2x.png" 114 114')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+PRJ.work+'/upload/Icon-72@2x.png" 144 144')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+PRJ.work+'/upload/Icon-Small@2x.png" 58 58')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+PRJ.work+'/upload/Icon-Small-50@2x.png" 100 100')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+PRJ.work+'/upload/Icon-76.png" 76 76')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+PRJ.work+'/upload/Icon-60.png" 60 60')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+PRJ.work+'/upload/Icon-76@2x.png" 152 152')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+PRJ.work+'/upload/Icon-60@2x.png" 120 120')
+			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon.png" 57 57')
+			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-72.png" 72 72')
+			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-Small.png" 29 29')
+			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-Small-50.png" 50 50')
+			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon@2x.png" 114 114')
+			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-72@2x.png" 144 144')
+			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-Small@2x.png" 58 58')
+			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-Small-50@2x.png" 100 100')
+			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-76.png" 76 76')
+			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-60.png" 60 60')
+			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-76@2x.png" 152 152')
+			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-60@2x.png" 120 120')
 			CreateFile(fntouch,PRJ.root+"/ic_launcher.png")
 	if FileExists(PRJ.root+"/default_screen.png"):
-		RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/default_screen.png" "'+PRJ.work+'/upload/Default-568h.png" 320 568')
-		UpdateTo(PRJ.work+'/upload/Default.png',PRJ.root+"/default_screen.png")
+		RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/default_screen.png" "'+g_work_dir+'/upload/Default-568h.png" 320 568')
+		UpdateTo(g_work_dir+'/upload/Default.png',PRJ.root+"/default_screen.png")
 	if FileExists(PRJ.root+"/dist.mobileprovision"):
-		UpdateTo(PRJ.work+'/upload/dist.mobileprovision',PRJ.root+"/dist.mobileprovision")
+		UpdateTo(g_work_dir+'/upload/dist.mobileprovision',PRJ.root+"/dist.mobileprovision")
 	//the re-add approach has guid issues
 	//if !PRJ.is_release:
-	//	spaptemp=ls(PRJ.work+"/upload/__spaptemp__/*.c")
+	//	spaptemp=ls(g_work_dir+"/upload/__spaptemp__/*.c")
 	//	for(i=0;i<len(spaptemp);i++)
 	//		fn=spaptemp[i]
 	//		CopyToUpload(fn)
@@ -154,7 +142,7 @@ PRJ.Build=function(){
 		StringAppend(spython,'project.add_file("'+ios_frameworks[i]+'",tree="SDKROOT")\n')
 	StringAppend(spython,'if project.modified:\n')
 	StringAppend(spython,'	project.save()\n')
-	CreateIfDifferent(PRJ.work+"/upload/tmp.py",spython)
+	CreateIfDifferent(g_work_dir+"/upload/tmp.py",spython)
 	rsync('./upload',ssh_addr+':~/_buildtmp/'+sbuildtmp)
 	sshell=""
 	StringAppend(sshell,'echo "----updating project----";')
@@ -205,7 +193,7 @@ PRJ.Build=function(){
 PRJ.Run=function(sdir_target){
 	if !(PRJ.target=="ios"||PRJ.target=="ios-release"):
 		return 0
-	sbuildtmp=ReadFileNonLocked(PRJ.work+"/buildtmp_ready")
+	sbuildtmp=ReadFileNonLocked(g_work_dir+"/buildtmp_ready")
 	if !sbuildtmp:
 		Write("error> the project hasn't been built yet")
 		exit(1)

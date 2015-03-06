@@ -131,9 +131,34 @@ g_action_handlers.rsync=function(){
 	rsync(g_cli_args[0],g_cli_args[1],g_cli_args[2])
 };
 
+g_action_handlers.envpush=function(){
+	var server=g_cli_args[0];
+	var ssh_addr=GetServerSSH(server)
+	var s_original_dir=pwd()
+	cd(g_root+"/osslib/"+server)
+	rsync('./pmenv',ssh_addr+':~/pmenv')
+	cd(s_original_dir)
+	UpdateTo(g_root+"/osslib/include/wrapper_defines.h",g_root+"/units/wrapper_defines.h")
+	cd(g_root+"/osslib")
+	rsync('./include',ssh_addr+':~/pmenv/include')
+	cd(s_original_dir)
+}
+
+g_action_handlers.envpull=function(){
+	var server=g_cli_args[0];
+	var ssh_addr=GetServerSSH(server)
+	var dir0=pwd()
+	cd(g_root+"/osslib/"+server)
+	rsync(ssh_addr+':~/pmenv','./pmenv')
+	cd(dir0)
+}
+
 g_action_handlers.clean=function(){
-	shell(["rm","-rf",g_arch+"/pm_tmp"])
-	shell(["rm","-rf",g_arch+"/bin"])
+	if(!g_cli_args[0]){
+		die("please specify a project directory")
+	}
+	shell(["rm","-rf",g_cli_args[0]+"/pm_tmp"])
+	shell(["rm","-rf",g_cli_args[0]+"/bin"])
 };
 
 (function(){

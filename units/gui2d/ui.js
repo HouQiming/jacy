@@ -945,7 +945,7 @@ UI.setTimeout=function(f,ms){
 
 var g_auto_refresh_timer_id;
 var g_need_auto_refresh=0
-UI.animation_framerate=50;
+UI.animation_framerate=60;
 var fauto_refresher=function(){
 	if(g_need_auto_refresh){
 		g_need_auto_refresh=0;
@@ -959,11 +959,15 @@ var fauto_refresher=function(){
 
 UI.AutoRefresh=function(){
 	if(!UI.is_real){return;}
-	if(g_auto_refresh_timer_id==undefined){
+	if(UI.animation_framerate>20){
 		UI.Refresh()
-		g_auto_refresh_timer_id=UI.setInterval(fauto_refresher,1000/UI.animation_framerate)
 	}else{
-		g_need_auto_refresh=1;
+		if(g_auto_refresh_timer_id==undefined){
+			UI.Refresh()
+			g_auto_refresh_timer_id=UI.setInterval(fauto_refresher,1000/UI.animation_framerate)
+		}else{
+			g_need_auto_refresh=1;
+		}
 	}
 }
 
@@ -1089,6 +1093,7 @@ UI.Begin=function(attrs){
 	if(attrs.__hwnd){
 		attrs.__window_parent=UI.context_window;
 		UI.context_window=attrs;
+		UI.context_topmost_callbacks=[];
 	}
 	if(attrs.property_sheet){
 		attrs.__property_sheet_parent=UI.context_property_sheet;
@@ -1099,6 +1104,13 @@ UI.Begin=function(attrs){
 
 UI.End=function(){
 	var obj=UI.context_parent;
+	if(obj.__hwnd){
+		//topmost widgets...
+		for(var i=0;i<UI.context_topmost_callbacks.length;i++){
+			UI.context_topmost_callbacks[i]()
+		}
+		UI.context_topmost_callbacks=undefined;
+	}
 	UI.context_parent=obj.__parent;
 	obj.__parent=null;
 	if(obj.__hwnd){
@@ -1457,6 +1469,7 @@ UI.IsPressed=function(name){
 if(!UI.is_real){
 	UI.BeginFrame=function(){};
 	UI.EndFrame=function(){};
+	UI.SDL_StopTextInput=function(){};
 	UI.pixels_per_unit=1;//the sandbox shouldn't see or change that
 }
 
@@ -1508,6 +1521,11 @@ UI.JSDrawWindow=function(obj){
 UI.GLWidget=function(fcall){
 	UI.HackCallback(fcall);
 	UI.InsertJSDrawCall(fcall)
+}
+
+UI.TopMostWidget=function(fcall){
+	UI.HackCallback(fcall);
+	UI.context_topmost_callbacks.push(fcall)
 }
 
 UI.SetSystemCursor=function(mouse_cursor){

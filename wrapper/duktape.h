@@ -723,15 +723,7 @@ static __inline__ unsigned long long duk_rdtsc(void) {
       (defined(__WORDSIZE) && (__WORDSIZE == 64))
 #define DUK_F_64BIT_PTRS
 #else
-#if defined(ANDROID)||defined(__ANDROID__)
-#if defined(__LP64__)
-#define DUK_F_64BIT_PTRS
-#else
-#define DUK_F_32BIT_PTRS
-#endif
-#else
 /* not sure, not needed with C99 anyway */
-#endif
 #endif
 
 /* Intermediate define for 'have inttypes.h' */

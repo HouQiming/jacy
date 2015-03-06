@@ -1631,6 +1631,7 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 	}
 	JS_UI["RoundRect"]=function(JSContext JS){
 		obj=JS.Param(0).as(JSObject)
+		if !obj:return 0
 		radius=obj["round"].or(0.f)*g_renderer.m_pixels_per_unit
 		border_width=obj["border_width"].or(0.f)*g_renderer.m_pixels_per_unit
 		w=obj["w"].or(0.f)*g_renderer.m_pixels_per_unit

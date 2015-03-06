@@ -4,7 +4,7 @@ var UI=require("gui2d/ui");
 var W=exports;
 
 //todo: Mac, iOS, Android fonts
-UI.font_name="segoeui,arial"
+UI.font_name="segoeui,Roboto-Regular,Arial"
 UI.Theme_Minimalistic=function(C){
 	UI.current_theme_color=C[0];
 	var C_dark=UI.lerp_rgba(C[0],0xff000000,0.15)
@@ -285,6 +285,10 @@ UI.SetCaret=function(attrs,x,y,w,h,C,dt){
 };
 
 UI.ChooseScalingFactor=function(obj){
+	if(!UI.is_real){
+		UI.pixels_per_unit=1
+		return;
+	}
 	var display_mode=UI.SDL_GetCurrentDisplayMode();
 	var design_screen_dim=obj.designated_screen_size||Math.min(obj.w,obj.h)||1600;
 	var screen_dim=Math.min(display_mode.w,display_mode.h);
@@ -294,7 +298,7 @@ UI.ChooseScalingFactor=function(obj){
 	////wipe out initialization routines for security
 	//UI.LoadPackedTexture=null;
 	//UI.LoadStaticImages=null;
-}
+};
 
 W.Window=function(id,attrs){
 	var obj=UI.Keep(id,attrs);
@@ -421,6 +425,10 @@ W.Group=function(id,attrs){
 	*/
 	var obj=UI.Keep(id,attrs);
 	UI.StdAnchoring(id,obj);
+	return W.PureGroup(obj)
+}
+
+W.PureGroup=function(obj){
 	/////////
 	var items=obj.items||[];
 	var item_template=obj.item_template||{};
@@ -1143,14 +1151,14 @@ W.Menu=function(id,attrs){
 	var obj=UI.Keep(id,attrs,W.Menu_prototype);
 	UI.StdStyling(id,obj,attrs, "menu",UI.HasFocus(obj)?"focus":"blur");
 	UI.StdAnchoring(id,obj);
-	if(UI.HasFocus(obj)){
+	if(UI.HasFocus(obj)){UI.TopMostWidget(function(){
 		//auto width/height, drag-scrolling
 		if(!obj.selection){
 			obj.selection={"$0":1};
 		}
 		UI.RoundRect(obj);
 		W.PureRegion(id,obj)//region goes before children
-		W.Group(id,attrs)
+		W.PureGroup(obj)
 		if(!attrs.w||!attrs.h){
 			//auto sizing
 			var w_max=0;
@@ -1170,7 +1178,7 @@ W.Menu=function(id,attrs){
 			if(obj.h!=obj_h){obj.h=obj_h;UI.Refresh()}
 		}
 		return obj;
-	}else{
+	})}else{
 		return obj;
 	}
 }

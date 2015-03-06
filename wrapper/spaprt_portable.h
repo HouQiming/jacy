@@ -46,5 +46,6 @@ void *osal_mmap(void *addr, iptr length, int prot, int flags,int fd);
 int osal_errno();
 
 void* osal_mmap_res_zip(iptr* psize);
+char* osal_getStoragePath();
 
 #endif

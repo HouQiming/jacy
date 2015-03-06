@@ -59,9 +59,7 @@ g_action_handlers.make=function(){
 	//////////////////////////////////////
 	//unzip pass: the skeleton project and the .so libs should work this way
 	var s_original_dir=pwd()
-	cd(g_work_dir)
 	mkdir(g_work_dir+"/touch")
-	cd(s_original_dir)
 	var libs=g_json.lib_files
 	var re_zip=new RegExp(".*\\.zip");
 	if(libs){
@@ -194,10 +192,10 @@ g_action_handlers.make=function(){
 					LOCAL_CFLAGS += -mfloat-abi=softfp -mfpu=neon -DHAS_NEON -DNEED_MAIN_WRAPPING\n\
 				endif\n\
 			endif\n')
-		s_android_mk.push('LOCAL_CFLAGS += -O3 -fno-var-tracking-assignments -DPM_RELEASE -DNEED_MAIN_WRAPPING\n')
+		s_android_mk.push('LOCAL_CFLAGS += -O3 -fno-var-tracking-assignments -DPM_RELEASE -DNEED_MAIN_WRAPPING -std=c99 -fomit-frame-pointer\n')
 	}else{
 		//-ffast-math
-		s_android_mk.push('LOCAL_CFLAGS += -O0 -fno-var-tracking-assignments -DNEED_MAIN_WRAPPING\n')
+		s_android_mk.push('LOCAL_CFLAGS += -O0 -fno-var-tracking-assignments -DNEED_MAIN_WRAPPING -std=c99\n')
 	}
 	s_android_mk.push('LOCAL_SHARED_LIBRARIES := SDL2')
 	for(var j=0;g_json.android_libnames&&g_json.android_libnames[j];j++){
