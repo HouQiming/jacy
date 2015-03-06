@@ -1,0 +1,20 @@
+<package name="DDE_Face">
+	<target n="win32">
+		<dll n="commercial/ddeface/windows/x86/ddeface.dll"/>
+		<lib n="commercial/ddeface/windows/x86/ddeface.lib"/>
+	</target>
+	<target n="win64">
+		<dll n="commercial/ddeface/windows/x64/ddeface64.dll"/>
+		<lib n="commercial/ddeface/windows/x64/ddeface64.lib"/>
+	</target>
+	<target n="android">
+		<array a="android_so" n="commercial/ddeface/android/libs"/>
+		<array a="android_libname" n="ddeface"/>
+	</target>
+	<target n="ios">
+		<lib n="commercial/ddeface/ios/libdde.a"/>
+	</target>
+	<target n="mac">
+		<lib n="commercial/ddeface/mac/libdde.a"/>
+	</target>
+</package>

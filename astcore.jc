@@ -11123,7 +11123,10 @@ auto genConst(int cid)
 			else
 				mask=(i64(1)<<n_bits)-1
 				mask_sgn=(i64(1)<<(n_bits-1))
-			sval=string((cns.val_bin&mask)|-(cns.val_bin&mask_sgn))
+			if n_bits==32&&i32(cns.val_bin)==0x80000000:
+				sval="0x80000000"
+			else
+				sval=string((cns.val_bin&mask)|-(cns.val_bin&mask_sgn))
 			if sval[0]=='-':
 				g_code_buffer.push(' ')
 			g_code_buffer.push(sval)

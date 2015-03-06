@@ -1485,6 +1485,7 @@ UI.DrawFrame=function(){
 	if(!UI.context_focus_is_a_region){
 		//if the node is gone, DO NOT CALL OnBlur! just null it out
 		UI.nd_focus=null;
+		UI.SDL_StopTextInput()
 	}
 	if(!UI.nd_focus&&UI.context_tentative_focus){
 		UI.SetFocus(UI.context_tentative_focus);
@@ -1548,6 +1549,11 @@ UI.Run=function(){
 					}
 				}
 			}
+			if(UI.Platform.ARCH=="android"&&UI.android_hack_refresh_twice){
+				//android bug: need to refresh twice
+				UI.android_hack_refresh_twice=0;
+				UI.need_to_refresh=1;
+			}
 		}
 		if(UI.need_to_refresh){
 			event=UI.SDL_PollEvent();
@@ -1567,6 +1573,13 @@ UI.Run=function(){
 				break
 			case UI.SDL_WINDOWEVENT:
 				switch(event.event){
+				case UI.SDL_WINDOWEVENT_SIZE_CHANGED:
+					if(UI.Platform.ARCH=="android"){
+						//android bug: need to refresh twice
+						UI.android_hack_refresh_twice=1;
+					}
+					UI.Refresh();
+					break
 				case UI.SDL_WINDOWEVENT_RESIZED:
 					UI.Refresh();
 					break
@@ -1692,4 +1705,8 @@ UI.Run=function(){
 		//print(JSON.stringify(event))
 	}
 	return UI;
+}
+
+print=function(){
+	Duktape.__write_log(Array.prototype.slice.call(arguments,0).join(" "))
 }

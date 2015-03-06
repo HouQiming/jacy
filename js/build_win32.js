@@ -132,7 +132,7 @@ g_action_handlers.make=function(){
 	}
 	//icon and application name
 	if(g_json.icon_file){
-		var fn_icon=g_json.icon_file[0];
+		var fn_icon=SearchForFile(g_json.icon_file[0]);
 		var fn_res=g_work_dir+"/a.res";
 		if(!IsNewerThan(fn_res,fn_icon)){
 			CreateFile(g_work_dir+"/a.rc",'1 ICON "a.ico"\n')

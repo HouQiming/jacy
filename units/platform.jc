@@ -3,3 +3,4 @@ BUILD=__env_build
 IS_UNIX=(ARCH=="linux32"||ARCH=="linux64"||ARCH=="mac"||ARCH=="android"||ARCH=="ios")
 IS_WINDOWS=(ARCH=="win32"||ARCH=="win64"||ARCH=="winrt")
 IS_MOBILE=(ARCH=="android"||ARCH=="ios")
+IS_APPLE=(ARCH=='ios'||ARCH=='mac')

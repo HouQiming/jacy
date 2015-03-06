@@ -1,0 +1,10 @@
+<package name="Hunspell">
+	<target n="win32">
+		<dll n="src/win_api/Release_dll/libhunspell/libhunspell.dll"/>
+		<lib n="src/win_api/Release_dll/libhunspell/libhunspell.lib"/>
+	</target>
+	<target n="win64">
+		<dll n="src/win_api/x64/Release_dll/libhunspell64.dll"/>
+		<lib n="src/win_api/x64/Release_dll/libhunspell64.lib"/>
+	</target>
+</package>

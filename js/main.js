@@ -105,6 +105,7 @@ RemovePath=function(fname){
 
 SearchForFile=function(fn){
 	if(FileExists(fn)){return fn};
+	if(FileExists(g_base_dir+"/"+fn)){return g_base_dir+"/"+fn};
 	for(var i=0;i<g_search_paths.length;i++){
 		var fnx=g_search_paths[i]+"/"+fn;
 		if(FileExists(fnx)){return fnx};
@@ -147,6 +148,33 @@ g_action_handlers.clean=function(){
 	//parse the json
 	var s_json=ReadFile(g_json_file);
 	g_json=JSON.parse(s_json);
+	if(g_json.include_json){
+		//the length may CHANGE every iteration
+		for(var i=0;i<g_json.include_json.length;i++){
+			var fn=SearchForFile(g_json.include_json[i]);
+			var scode=ReadFile(fn);
+			if(!scode){die("unable to find @1".replace("@1",g_json.include_json[i]));continue;}
+			var obj=JSON.parse(scode)
+			for(var j in obj){
+				if(!Array.isArray(obj[j])){
+					obj[j]=[obj[j]];
+				}
+				var tmp={}
+				var a0=(g_json[j]||[]),a1=obj[j]
+				for(var k=0;k<a0.length;k++){
+					tmp[a0[k]]=1;
+				}
+				for(var k=0;k<a1.length;k++){
+					tmp[a1[k]]=1;
+				}
+				var a2=[]
+				for(var ret in tmp){
+					a2.push(ret)
+				}
+				g_json[j]=a2;
+			}
+		}
+	}
 	//translate the configuration variables
 	var re_envvar=new RegExp('\\$\\{([0-9a-zA-Z$_]+)\\}',"g")
 	var ftranslate_envvar=function(smatch,svname){
@@ -209,12 +237,12 @@ g_action_handlers.clean=function(){
 	eval(s_jssrc);
 	if(!g_action_handlers[g_action]){die("I don't know how to perform action '@1'".replace("@1",g_action));}
 	//run the js files first
-	var js_files=g_json.js_files;
-	if(js_files){
-		for(var i=0;i<js_files.length;i++){
-			var fn=SearchForFile(js_files[i]);
+	var include_js=g_json.include_js;
+	if(include_js){
+		for(var i=0;i<include_js.length;i++){
+			var fn=SearchForFile(include_js[i]);
 			var scode=ReadFile(fn);
-			if(!scode){die("unable to find @1".replace("@1",js_files[i]));continue;}
+			if(!scode){die("unable to find @1".replace("@1",include_js[i]));continue;}
 			eval(scode);
 		}
 	}

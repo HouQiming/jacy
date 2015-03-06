@@ -1,0 +1,10 @@
+<package name="SDL">
+	<target n="win32">
+		<dll n="lib/x86/sdl2.dll"/>
+		<lib n="lib/x86/sdl2.lib"/>
+	</target>
+	<target n="win64">
+		<dll n="lib/x64/sdl2.dll"/>
+		<lib n="lib/x64/sdl2.lib"/>
+	</target>
+</package>

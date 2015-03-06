@@ -1,24 +1,4 @@
 //sharpening filter for font -- just downsample it differently... would it even work?
-/*
-todo:
-	sandboxing
-		explicitly-invoked fake message loop
-		forced render-to-VBO
-			clearcolor + VBO is enough for viewported rendering
-			no need to store the image in GPU memory
-			VBO creation can ignore any FBO inter-dependency
-		no SDL functions, emulate in software
-		--
-		need per-sandbox scaling and sandbox rendering
-	SDL_SetWindowGrab
-	could have a SDL renderer fallback for legacy windows / tinycore
-		SDL sw is deadly slow - not worth using
-		better write up one myself if we ever need it
-		--
-		we could special-case it
-			when we modulate the color, one side must have been 1
-			then we just do the SDL framebuffer
-*/
 import Javascript.*
 import SDL.*
 import GL.*
@@ -353,6 +333,11 @@ class CUISandbox
 		arr_res_zip=szipname
 		if !arr_res_zip||!arr_res_zip.n:
 			if Platform.ARCH=='android'||Platform.ARCH=='ios'||Platform.ARCH=='mac':
+				if Platform.ARCH=='android':
+					__generate_json("c_files","zipres.c")
+					__generate_json("android_system_libnames","android")
+				else if Platform.ARCH=='ios'||Platform.ARCH=='mac':
+					__generate_json("objc_files","zipres_ios.m")
 				sz=0L
 				pzip=osal_mmap_res_zip(&sz)
 				if pzip:
@@ -1862,7 +1847,9 @@ auto ParseZip(string dat)
 	return ret
 
 auto setupModuleSystem(JSContext JS,int is_real)
-	__generate_json("js_files","res_zip.js")
+	__generate_json("include_js","res_zip.js")
+	__generate_json("js_units","gui2d/ui.js")
+	__generate_json("js_units","gui2d/widgets.js")
 	sbox=new CUISandbox
 	global=JS.GetGlobal()
 	global["Duktape"]["__ui_native_hack"]=function(JSContext JS){
@@ -1906,6 +1893,11 @@ auto setupModuleSystem(JSContext JS,int is_real)
 		duktape.duk_to_lstring(JS._ctx(),-1,&lg)
 		duktape.duk_pop(JS._ctx())
 		return JS.Return(lg)
+	}
+	global["Duktape"]["__write_log"]=function(JSContext JS){
+		if Platform.BUILD=="debug":
+			Writeln(JS.Param(0).or(""))
+		return JS.Return(0)
 	}
 	return sbox
 

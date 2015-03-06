@@ -1,9 +1,10 @@
+var re_backslash=new RegExp("\\\\","g")
 var onlydir=function(sdir,serr){
 	var files=ls(sdir)
 	if(!files.length){
 		die("can't find "+serr+'\n')
 	}else{
-		return files[0]
+		return files[0].replace(re_backslash,"/")
 	}
 }
 
@@ -80,7 +81,7 @@ g_action_handlers.make=function(){
 	//build the project in the work dir
 	//icon: ic_launcher.png resampling
 	if(g_json.icon_file){
-		var fn_icon=g_json.icon_file[0];
+		var fn_icon=SearchForFile(g_json.icon_file[0]);
 		var fntouch=g_work_dir+"/touch/ic_launcher.png._touch"
 		if(IsNewerThan(fn_icon,fntouch)){
 			mkdir(g_work_dir+'/res/drawable-xxhdpi/')
@@ -187,16 +188,16 @@ g_action_handlers.make=function(){
 		//	LOCAL_CFLAGS += -ffast-math\n\
 		s_android_mk.push('\n\
 			ifeq ($(TARGET_ARCH_ABI),x86)\n\
-				LOCAL_CFLAGS += -mtune=atom -msse2 -mfpmath=sse -DHAS_SSE\n\
+				LOCAL_CFLAGS += -mtune=atom -msse2 -mfpmath=sse -DHAS_SSE -DNEED_MAIN_WRAPPING\n\
 			else \n\
 				ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)\n\
-					LOCAL_CFLAGS += -mfloat-abi=softfp -mfpu=neon -DHAS_NEON\n\
+					LOCAL_CFLAGS += -mfloat-abi=softfp -mfpu=neon -DHAS_NEON -DNEED_MAIN_WRAPPING\n\
 				endif\n\
 			endif\n')
-		s_android_mk.push('LOCAL_CFLAGS += -O3 -fno-var-tracking-assignments -DPM_RELEASE\n')
+		s_android_mk.push('LOCAL_CFLAGS += -O3 -fno-var-tracking-assignments -DPM_RELEASE -DNEED_MAIN_WRAPPING\n')
 	}else{
 		//-ffast-math
-		s_android_mk.push('LOCAL_CFLAGS += -O0 -fno-var-tracking-assignments\n')
+		s_android_mk.push('LOCAL_CFLAGS += -O0 -fno-var-tracking-assignments -DNEED_MAIN_WRAPPING\n')
 	}
 	s_android_mk.push('LOCAL_SHARED_LIBRARIES := SDL2')
 	for(var j=0;g_json.android_libnames&&g_json.android_libnames[j];j++){
@@ -248,8 +249,9 @@ g_action_handlers.make=function(){
 	}
 	if(g_json.android_force_orientation){
 		XML_SetNodeAttrValue(xml_activity,"android:screenOrientation",g_json.android_force_orientation[0])
-		XML_SetNodeAttrValue(xml_activity,"android:configChanges","keyboardHidden")
+		//XML_SetNodeAttrValue(xml_activity,"android:configChanges","keyboardHidden")
 	}
+	XML_SetNodeAttrValue(xml_activity,"android:configChanges","keyboard|keyboardHidden|orientation|screenSize")
 	CreateIfDifferent(g_work_dir+"/AndroidManifest.xml",XML_ToString(xml))
 	//////////
 	xml=ParseXML(ReadFile(ANDROID.skeleton+"/build.xml"))
@@ -277,7 +279,9 @@ g_action_handlers.make=function(){
 	var s_ant_bat='@echo off\nset PATH=%PATH%;'+ANDROID.jdk+'\nset JAVA_HOME='+ANDROID.jdk+'\n';
 	s_ant_bat=s_ant_bat+'call "'+ANDROID.ant_home+"/bin/ant.bat"+'" '+(ANDROID.is_release?"release\n":"debug\n");
 	CreateFile(g_work_dir+"/build.bat",s_ant_bat)
-	shell([g_work_dir+"/build.bat"])
+	cd(g_work_dir)
+	shell(["build.bat"])
+	cd(s_original_dir)
 	var fnapk;
 	if(ANDROID.is_release){
 		fnapk=g_work_dir+"/bin/"+g_main_name+"-release-unsigned.apk"
@@ -295,14 +299,14 @@ g_action_handlers.make=function(){
 			shell([fnkeytool,'-J-Duser.language=en','-v','-keysize','2048','-keystore',fnks,'-alias','spapkey','-keyalg','RSA','-validity','10000','-genkey','-storepass','spapkey','-keypass','spapkey','-dname','CN=SPAP Release,OU=SPAP,O=SPAP,L=SPAP,ST=SPAP,C=US'])
 		}
 		var fnjarsigner=ANDROID.jdk+"/bin/jarsigner.exe"
-		shell(['-J-Duser.language=en','-sigalg','SHA1withRSA','-digestalg','SHA1','-keystore',fnks,'-storepass','spapkey','-keypass','spapkey',fnapk,'spapkey'])
+		shell([fnjarsigner,'-J-Duser.language=en','-sigalg','SHA1withRSA','-digestalg','SHA1','-keystore',fnks,'-storepass','spapkey','-keypass','spapkey',fnapk,'spapkey'])
 		var fnzipalign=ANDROID.adt+"/sdk/tools/zipalign.exe"
 		if(FileExists(g_bin_dir+"/"+g_main_name+".apk")){
 			shell(['rm',g_bin_dir+"/"+g_main_name+'.apk'])
 		}
 		shell([fnzipalign,'16',fnapk,g_bin_dir+"/"+g_main_name+".apk"])
 	}else{
-		mv(fnapk,g_bin_dir+"/"+g_main_name+".apk")
+		shell(["mv",fnapk,g_bin_dir+"/"+g_main_name+".apk"])
 	}
 	var fnapk=g_bin_dir+"/"+g_main_name+".apk"
 	if(!FileExists(fnapk)){

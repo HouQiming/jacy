@@ -284,19 +284,23 @@ UI.SetCaret=function(attrs,x,y,w,h,C,dt){
 	UI.SDL_SetTextInputRect(x*UI.pixels_per_unit,y*UI.pixels_per_unit,w*UI.pixels_per_unit,h*UI.pixels_per_unit)
 };
 
+UI.ChooseScalingFactor=function(obj){
+	var display_mode=UI.SDL_GetCurrentDisplayMode();
+	var design_screen_dim=obj.designated_screen_size||Math.min(obj.w,obj.h)||1600;
+	var screen_dim=Math.min(display_mode.w,display_mode.h);
+	UI.pixels_per_unit=screen_dim/design_screen_dim;
+	UI.ResetRenderer(UI.pixels_per_unit,obj.gamma||2.2);
+	UI.LoadStaticImages(UI.rc);
+	////wipe out initialization routines for security
+	//UI.LoadPackedTexture=null;
+	//UI.LoadStaticImages=null;
+}
+
 W.Window=function(id,attrs){
-	obj=UI.Keep(id,attrs);
+	var obj=UI.Keep(id,attrs);
 	//the dpi is not per-inch,
 	if(!UI.pixels_per_unit){
-		var display_mode=UI.SDL_GetCurrentDisplayMode();
-		var design_screen_dim=obj.designated_screen_size||Math.min(obj.w,obj.h)||1600;
-		var screen_dim=Math.min(display_mode.w,display_mode.h);
-		UI.pixels_per_unit=screen_dim/design_screen_dim;
-		UI.ResetRenderer(UI.pixels_per_unit,obj.gamma||2.2);
-		UI.LoadStaticImages(UI.rc);
-		//wipe out initialization routines for security
-		UI.LoadPackedTexture=null;
-		UI.LoadStaticImages=null;
+		UI.ChooseScalingFactor(obj)
 	}
 	if(!obj.__hwnd){
 		//no default event handler for the window
@@ -1027,7 +1031,7 @@ W.Edit=function(id,attrs,proto){
 	var scroll_x=obj.scroll_x;
 	var scroll_y=obj.scroll_y;
 	var ed=obj.ed;
-	//todo: empty hint
+	//todo: hint_text for empty box
 	ed.Render({x:scroll_x,y:scroll_y,w:obj.w/scale,h:obj.h/scale, scr_x:obj.x,scr_y:obj.y, scale:scale});
 	if(UI.HasFocus(obj)){
 		var ed_caret=obj.GetCaretXY();
@@ -1509,3 +1513,98 @@ W.Select=function(id,attrs){
 	UI.End()
 	return obj;
 }
+
+//use anchor_placement to determine the side, default to right
+W.AutoHidePanel_prototype={
+	anchor:'parent',
+	anchor_placement:'right',
+	position:0,velocity:0,max_velocity:1,acceleration:0.2,
+	Simulate:function(){
+		var a=this.dragging_samples;
+		if(a){
+			var n=a.length,p0=Math.max(n-3,0);
+			this.position=a[n-1]-a[0]+this.initial_position
+			if(n-1<=p0){
+				//don't even change the velocity yet
+			}else{
+				this.velocity=(a[n-1]-a[p0])/(n-1-p0)
+			}
+			if(this.position<w*0.5){
+				this.target_position=0
+			}else{
+				this.target_position=w
+			}
+		}else{
+			if(this.target_position){
+				this.position+=this.velocity;
+				if(this.target_position>this.position){
+					this.velocity+=this.acceleration;
+				}else{
+					this.velocity-=this.acceleration;
+				}
+				if(this.target_position==this.position){
+					this.velocity=0
+					this.target_position=undefined;
+				}
+				UI.AutoRefresh()
+			}
+		}
+		this.velocity=Math.max(Math.min(this.velocity,this.max_velocity),-this.max_velocity)
+	}
+}
+W.AutoHidePanel_knob_prototype={
+	OnMouseDown:function(event){
+		var obj=this.owner
+		if(!obj.dragging_samples){
+			obj.dragging_samples=[];
+		}
+		//anchor like normal widgets
+		obj.initial_position=obj.position
+		this.OnMouseMove(event);
+		obj.target_position=(obj.position==0?obj.w:0)
+	},
+	OnMouseMove:function(event){
+		var obj=this.owner;
+		if(!obj.dragging_samples){return;}
+		if(obj.anchor_placement=='left'||obj.anchor_placement=='top'){
+			obj.dragging_samples.push(-event.x)
+		}else{
+			obj.dragging_samples.push(event.x)
+		}
+		obj.Simulate()
+		UI.Refresh()
+	},
+	OnMouseUp:function(event){
+		var obj=this.owner;
+		obj.dragging_samples=null
+		UI.Refresh()
+	}
+}
+var g_inverse_dir={'left':'right','right':'left','up':'down','down':'up','center':'center','fill':'fill'}
+W.AutoHidePanel=function(id,attrs){
+	var obj=UI.Keep(id,attrs,W.AutoHidePanel_prototype)
+	UI.StdStyling(id,obj,attrs,"auto_hide_panel")
+	if(obj.anchor_placement=='left'||obj.anchor_placement=='right'){
+		obj.x=-obj.position;obj.y=0
+		obj.anchor_align=obj.anchor_placement
+		obj.anchor_valign='fill'
+	}else{
+		obj.y=-obj.position;obj.x=0
+		obj.anchor_valign=obj.anchor_placement
+		obj.anchor_align='fill'
+	}
+	UI.StdAnchoring(id,obj)
+	//simply place the child object inside Begin / End
+	UI.Begin(obj)
+		//one of w/h will be overwriten with fill anyway
+		W.Region("knob",{
+			anchor:'parent',anchor_placement:g_inverse_dir[obj.anchor_placement],anchor_align:obj.anchor_align,anchor_valign:obj.anchor_valign,
+			x:0,y:0,w:obj.knob_size,h:obj.knob_size,
+			owner:obj
+		},W.AutoHidePanel_knob_prototype)
+		if(!obj.dragging_samples){obj.Simulate()}
+	UI.End()
+	return obj;
+}
+
+//todo: ListView - oob-scrolling handlers, default item template, keyboard operation, editbox - long-press selection

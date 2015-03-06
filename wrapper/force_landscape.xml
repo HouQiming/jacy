@@ -1,0 +1,5 @@
+<package name="force_landscape">
+	<target n="android">
+		<var n="android_force_orientation" v="landscape"/>
+	</target>
+</package>
