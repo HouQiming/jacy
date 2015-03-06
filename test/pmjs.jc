@@ -125,7 +125,15 @@ auto writeico(auto f,int[] img0,int w,int h)
 	}
 	global["find"]=function(JSContext JS){
 		fn0=JS.Param(0).or("*")
+		if Platform.IS_WINDOWS:
+			fn0=fn0.Replace(["/","\\"])
 		return JS.Return([new(fn) foreach fn in System.IO.EnumFiles(fn0,System.IO.ENUM_FILE|System.IO.ENUM_RECURSIVE)])
+	}
+	global["ls"]=function(JSContext JS){
+		fn0=JS.Param(0).or("*")
+		if Platform.IS_WINDOWS:
+			fn0=fn0.Replace(["/","\\"])
+		return JS.Return([new(fn) foreach fn in System.IO.EnumFiles(fn0,System.IO.ENUM_FILE|System.IO.ENUM_DIR)])
 	}
 	auto shellcmd(auto shell_args,int do_system)
 		if !shell_args:
@@ -248,6 +256,58 @@ auto writeico(auto f,int[] img0,int w,int h)
 	global["cd"]=function(JSContext JS){
 		auto s=JS.Param(0).or("")
 		return JS.Return(System.IO.SetCurrentDirectory(s))
+	}
+	global["pwd"]=function(JSContext JS){
+		return JS.Return(System.IO.CurrentDirectory())
+	}
+	//////////////
+	global["ParseXML"]=function(JSContext JS){
+		auto sraw=JS.Param(0).as(string)
+		if !sraw:return 0
+		if sraw.StartsWith('<?'):
+			preal_start=sraw.IndexOf('?>')
+			if preal_start>=0:
+				sraw=sraw[preal_start+2:]
+		return JS.Return(System.XML.Parse(sraw))
+	}
+	global["XML_ToString"]=function(JSContext JS){
+		ndxml=JS.Param(0).as(System.XML.Node)
+		if !ndxml:return 0
+		return JS.Return('<?xml version="1.0" encoding="utf-8"?>\n'+ndxml.ToString())
+	}
+	global["XML_GetNodeName"]=function(JSContext JS){
+		ndxml=JS.Param(0).as(System.XML.Node)
+		if !ndxml:return 0
+		return JS.Return(ndxml.name)
+	}
+	global["XML_GetNodeAttrValue"]=function(JSContext JS){
+		ndxml=JS.Param(0).as(System.XML.Node)
+		sattrname=JS.Param(1).as(string)
+		if !ndxml||!sattrname:return 0
+		return JS.Return(ndxml.Attr(sattrname,""))
+	}
+	global["XML_Child"]=function(JSContext JS){
+		ndxml=JS.Param(0).as(System.XML.Node)
+		sname=JS.Param(1).as(string)
+		if !ndxml||!sname:return 0
+		return JS.Return(ndxml.FirstChild(sname))
+	}
+	global["XML_SetNodeAttrValue"]=function(JSContext JS){
+		ndxml=JS.Param(0).as(System.XML.Node)
+		sattrname=JS.Param(1).as(string)
+		svalue=JS.Param(2).as(string)
+		if !ndxml||!sattrname||!svalue:return 0
+		ndxml.Attr(sattrname)=svalue
+		return 0
+	}
+	global["XML_AddChild"]=function(JSContext JS){
+		ndxml=JS.Param(0).as(System.XML.Node)
+		sndname=JS.Param(1).as(string)
+		svalue=JS.Param(2).as(string)
+		if !ndxml||!sndname:return 0
+		ndnew=ndxml.Add(sndname)
+		if svalue&&svalue.n:ndnew.Attr("")=svalue
+		return JS.Return(ndnew)
 	}
 	//////////////
 	//default js

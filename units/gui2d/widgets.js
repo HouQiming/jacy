@@ -3,6 +3,267 @@
 var UI=require("gui2d/ui");
 var W=exports;
 
+//todo: Mac, iOS, Android fonts
+UI.font_name="segoeui,arial"
+UI.Theme_Minimalistic=function(C){
+	UI.current_theme_color=C[0];
+	var C_dark=UI.lerp_rgba(C[0],0xff000000,0.15)
+	var C_sel=UI.lerp_rgba(C[0],0xffffffff,0.75)
+	UI.default_styles={
+		"label":{
+			font:UI.Font(UI.font_name,24),
+			color:0xff000000,
+		},
+		button:{
+			transition_dt:0.1,
+			round:16,border_width:3,padding:12,
+			font:UI.Font(UI.font_name,24),
+			$:{
+				out:{
+					border_color:C[0],color:0xffffffff,
+					icon_color:C[0],
+					text_color:C[0],
+				},
+				over:{
+					border_color:C[0],color:C[0],
+					icon_color:0xffffffff,
+					text_color:0xffffffff,
+				},
+				down:{
+					border_color:C_dark,color:C_dark,
+					icon_color:0xffffffff,
+					text_color:0xffffffff,
+				},
+			}
+		},
+		edit:{
+			//animating edit would ruin a lot of object properties
+			transition_dt:0,
+			bgcolor_selection:C_sel,
+		},
+		check_button:{
+			transition_dt:0.1,
+			round:0,border_width:3,padding:12,
+			$:{
+				out:{
+					border_color:0x00ffffff,color:0x00ffffff,
+					icon_color:C[0],
+					text_color:C[0],
+				},
+				over:{
+					border_color:C[0],color:C[0],
+					icon_color:0xffffffff,
+					text_color:0xffffffff,
+				},
+				down:{
+					border_color:C_dark,color:C_dark,
+					icon_color:0xffffffff,
+					text_color:0xffffffff,
+				},
+				////////////////////
+				checked_out:{
+					border_color:C[0],color:0x00ffffff,
+					icon_color:C[0],
+					text_color:C[0],
+				},
+				checked_over:{
+					border_color:C[0],color:C[0],
+					icon_color:0xffffffff,
+					text_color:0xffffffff,
+				},
+				checked_down:{
+					border_color:C_dark,color:C_dark,
+					icon_color:0xffffffff,
+					text_color:0xffffffff,
+				},
+			}
+		},
+		menu_item:{
+			font:UI.Font(UI.font_name,24),
+			transition_dt:0.1,
+			round:0,padding:8,
+			icon_color:0xff000000,
+			text_color:0xff000000,
+			color:0x00ffffff,
+			$:{
+				over:{
+					color:C[0],
+					icon_color:0xffffffff,
+					text_color:0xffffffff,
+				},
+			},
+		},
+		menu:{
+			transition_dt:0.1,
+			round:4,border_width:2,padding:8,
+			layout_spacing:0,
+			border_color:C[0],color:0xffffffff,
+		},
+		combobox:{
+			transition_dt:0.1,
+			round:4,border_width:2,padding:8,
+			layout_spacing:0,
+			border_color:C[0],icon_color:C[0],text_color:0xff000000,color:0xffffffff,icon_text_align:'left',
+			font:UI.Font(UI.font_name,24),
+			label_font:UI.Font(UI.font_name,24),
+		},
+		sub_window:{
+			transition_dt:0.1,
+			round:0,border_width:2,
+			padding:4,h_caption:24,
+			/////////////////
+			layout_direction:"inside",layout_align:'left',layout_valign:'up',
+			/////////////////
+			font:UI.Font(UI.font_name,20,100),
+			color:0xffffffff,border_color:C[0],border_width:2,
+			caption_color:C[0],text_color:0xffdddddd,
+			button_style:{
+				transition_dt:0.1,
+				round:0,border_width:2,padding:8,
+				border_width:0,color:0,
+				text_color:0xffdddddd,
+				font:UI.Font(UI.font_name,20,100),
+				$:{
+					out:{
+						text_color:0xffdddddd
+					},
+					over:{
+						text_color:0xffffffff,
+					},
+					down:{
+						text_color:0xffffffff,
+					},
+				}
+			},
+		},
+		tab_label:{
+			transition_dt:0.1,
+			shadow_size:8,
+			font:UI.Font(UI.font_name,24), padding:16,
+			$:{
+				active:{
+					text_color:0xffffffff,
+					color:C[0],
+					shadow_color:0xaa000000, 
+				},
+				inactive:{
+					text_color:0xff444444,
+					color:C[0]&0x00ffffff,
+					shadow_color:0x00000000, 
+				},
+			}
+		},
+		tabbed_document:{
+			transition_dt:0.1,
+			h_caption:32, h_bar:4, color:0xffbbbbbb, border_color:C[0]
+		},
+		box_document:{
+			border_color:(0xcc000000&C[0]),border_width:2,
+			color:(0x44000000&C[0]),
+		},
+		txtx_editor:{
+			border_color:0xff000000,border_width:2,
+			color:0xffffffff,
+		},
+		slider:{
+			transition_dt:0.1,
+			bgcolor:[{x:0,y:0,color:0xffbbbbbb},{x:0,y:1,color:0xffdddddd}],
+			//border_width:2, border_color:0xff444444,
+			h_slider:8,
+			round:8,
+			color:C[0],
+			padding:0,
+			//label_text:'▲',
+			//label_raise:0.4,
+			//label_font:UI.Font(UI.font_name,32),
+			//label_color:C[0],
+			middle_bar:{
+				w:8,h:8,
+				round:2,
+				color:0xffffffff, border_width:2, border_color:0xff444444,
+			},
+		},
+		edit_box:{
+			transition_dt:0.1,
+			round:4,padding:8,
+			color:0xffffffff,
+			border_width:2,
+			border_color:0xffbbbbbb,
+			font:UI.Font(UI.font_name,24),
+			text_color:0xff000000,
+			$:{
+				blur:{
+					border_color:0xffbbbbbb,
+				},
+				focus:{
+					border_color:C[0],
+				},
+			},
+		},
+		color_picker:{
+			w_text:16,w_slider:128,w_edit:54,
+			h_slider:12,
+			h_edit:32,
+			h_space:24,
+			padding:8,
+			border_width:1.5,
+			border_color:0xff444444,
+			text_color:0xff000000,
+			font:UI.Font(UI.font_name,24),
+		},
+		select:{
+			transition_dt:0.1,
+			value_animated:0,
+			font:UI.Font(UI.font_name,24),
+			padding:12,spacing:12,
+			combo_box_padding:40,
+			slider_style:{
+				transition_dt:0.1,
+				tolerance:2,
+				w:32,h_slider:8,
+				bgcolor:[{x:0,y:0,color:0xffbbbbbb},{x:0,y:1,color:0xffdddddd}],
+				round:8,
+				color:C[0],
+				padding:0,
+				middle_bar:{
+					w:16,h:8,
+					round:8,
+					color:0xffffffff, border_width:2, border_color:0xff444444,
+				},
+			},
+			button_style:{
+				transition_dt:0.1,
+				color:0xffffffff,border_color:C[0],
+				round:16,border_width:2,padding:12,
+				$:{
+					out:{
+						text_color:C[0],
+					},
+					over:{
+						text_color:C_dark,
+					},
+					down:{
+						text_color:C_dark,
+					},
+					////////////////////
+					checked_out:{
+						color:C[0],
+						text_color:0xffffffff,
+					},
+					checked_over:{
+						color:C[0],
+						text_color:0xffffffff,
+					},
+					checked_down:{
+						color:C[0],
+						text_color:0xffffffff,
+					},
+				}
+			},
+		}
+	};
+};
+
 UI.DestroyWindow=function(attrs){
 	UI.CallIfAvailable(attrs,"OnDestroy");
 	if(attrs.is_main_window){
@@ -202,6 +463,12 @@ W.Group=function(id,attrs){
 
 ////////////////////////////////////////
 //widgets
+W.Label=function(id,attrs){
+	UI.StdStyling(id,attrs,attrs,"label")
+	W.Text(id,attrs)
+	return attrs
+}
+
 W.Button_prototype={
 	value:0,
 	use_measured_dims:1,
@@ -707,11 +974,27 @@ W.Edit_prototype={
 	},
 	////////////////////////////
 	OnMouseDown:function(event){
-		this.is_dragging=1
 		var x0=event.x-this.x+this.scroll_x
 		var y0=event.y-this.y+this.scroll_y
-		this.sel0.ccnt=this.SeekXY(x0,y0);
-		this.sel1.ccnt=this.SeekXY(x0,y0);
+		var ccnt_clicked=this.SeekXY(x0,y0);
+		if(event.clicks==2){
+			//double-click
+			this.sel0.ccnt=this.SnapToValidLocation(this.ed.MoveToBoundary(this.ed.SnapToCharBoundary(Math.max(this.SkipInvisibles(ccnt_clicked,-1)-1,0),-1),-1,"word_boundary"),-1)
+			this.sel1.ccnt=this.SnapToValidLocation(this.ed.MoveToBoundary(this.ed.SnapToCharBoundary(Math.min(this.SkipInvisibles(ccnt_clicked,1)+1,this.ed.GetTextSize()),1),1,"word_boundary"),1)
+			UI.Refresh()
+			return
+		}
+		if(event.clicks>=3){
+			//triple-click
+			var line=this.GetLC(ccnt_clicked)[0]
+			this.sel0.ccnt=this.SeekLC(line,0)
+			this.sel1.ccnt=this.SeekLC(line+1,0)
+			UI.Refresh()
+			return
+		}
+		this.is_dragging=1
+		this.sel0.ccnt=ccnt_clicked;
+		this.sel1.ccnt=ccnt_clicked;
 		UI.SetFocus(this)
 		UI.CaptureMouse(this)
 		if(this.OnSelectionChange){this.OnSelectionChange(this);}
@@ -726,6 +1009,7 @@ W.Edit_prototype={
 		UI.Refresh()
 	},
 	OnMouseUp:function(event){
+		if(!this.is_dragging){return;}
 		UI.ReleaseMouse(this)
 		this.is_dragging=0
 		UI.Refresh()

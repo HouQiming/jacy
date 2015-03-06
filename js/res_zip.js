@@ -21,7 +21,7 @@ function call7z(sdir,fnzip0,fnames,sextra_arg){
 	}
 	if (g_arch=="android"){
 		mkdir(g_work_dir+"/assets");
-		fnzip=NormalizeFileName(g_work_dir+"/assets/reszip.mp3");
+		fnzip=g_work_dir+"/assets/reszip.mp3";
 	}
 	var needed=0;
 	var res_files=find(g_base_dir+"/res/*");

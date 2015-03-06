@@ -6485,12 +6485,11 @@ module IO
 	auto CurrentDirectory()
 		buf=new i16[264]
 		if !GetCurrentDirectoryW(260,buf):return string.NULL
-		fdnameu=new i16[]
 		for i=0:259
 			if !buf[i]:
-				fdnameu.n=i
+				buf.resize(i)
 				break
-		return Algorithm.UnicodeToUtf8(fdnameu)
+		return Algorithm.UnicodeToUtf8(buf)
 	/**
 	 * \brief Set the current directory.
 	 *
@@ -7151,7 +7150,7 @@ module Console
 		if Platform.IS_MOBILE:
 			strz=clone(str)
 			strz.push(char(0))
-			osal_WriteLog(strz.d)
+			osal_WriteLog(__pointer(strz.d))
 		else if Platform.IS_WINDOWS:
 			if !g_is_console_utf8:
 				g_is_console_utf8=1

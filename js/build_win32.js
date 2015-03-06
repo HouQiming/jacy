@@ -137,8 +137,8 @@ g_action_handlers.make=function(){
 		if(!IsNewerThan(fn_res,fn_icon)){
 			CreateFile(g_work_dir+"/a.rc",'1 ICON "a.ico"\n')
 			ResampleImage(fn_icon,g_work_dir+'/a.ico','ico');
-			var scmd='@echo off\ncall "'+VC.sbatname+'"\nrc /fo "'+NormalizeFileName(fn_res)+'" "'+NormalizeFileName(g_work_dir+"/a.rc")+'"'
-			var scallrc=NormalizeFileName(g_work_dir+"/callrc.bat");
+			var scmd='@echo off\ncall "'+VC.sbatname+'"\nrc /fo "'+fn_res+'" "'+g_work_dir+"/a.rc"+'"'
+			var scallrc=g_work_dir+"/callrc.bat";
 			if(!CreateFile(scallrc,scmd)){
 				throw new Error("can't create callrc.bat")
 			}

@@ -7,253 +7,7 @@ Duktape.__ui_add_path("../kara/ide/res")
 var UI=require("gui2d/ui");
 var W=require("gui2d/widgets");
 
-UI.SetUIColorTheme=function(C){
-	UI.current_theme_color=C[0];
-	var C_grey=0xffaaaaaa
-	var C_dark=UI.lerp_rgba(C[0],0xff000000,0.15)
-	UI.default_styles={
-		button:{
-			transition_dt:0.1,
-			round:4,border_width:3,padding:12,
-			$:{
-				out:{
-					border_width:0,
-					border_color:0x00ffffff,color:0x00ffffff,
-					icon_color:C[0],
-					text_color:C[0],
-				},
-				over:{
-					border_color:C[0],color:C[0],
-					icon_color:0xffffffff,
-					text_color:0xffffffff,
-				},
-				down:{
-					border_color:C_dark,color:C_dark,
-					icon_color:0xffffffff,
-					text_color:0xffffffff,
-				},
-			}
-		},
-		check_button:{
-			transition_dt:0.1,
-			round:0,border_width:3,padding:12,
-			$:{
-				out:{
-					border_color:0x00ffffff,color:0x00ffffff,
-					icon_color:C[0],
-					text_color:C[0],
-				},
-				over:{
-					border_color:C[0],color:C[0],
-					icon_color:0xffffffff,
-					text_color:0xffffffff,
-				},
-				down:{
-					border_color:C_dark,color:C_dark,
-					icon_color:0xffffffff,
-					text_color:0xffffffff,
-				},
-				////////////////////
-				checked_out:{
-					border_color:C[0],color:0x00ffffff,
-					icon_color:C[0],
-					text_color:C[0],
-				},
-				checked_over:{
-					border_color:C[0],color:C[0],
-					icon_color:0xffffffff,
-					text_color:0xffffffff,
-				},
-				checked_down:{
-					border_color:C_dark,color:C_dark,
-					icon_color:0xffffffff,
-					text_color:0xffffffff,
-				},
-			}
-		},
-		menu_item:{
-			font:UI.Font("res/fonts/opensans.ttf",24),
-			transition_dt:0.1,
-			round:0,padding:8,
-			icon_color:0xff000000,
-			text_color:0xff000000,
-			color:0x00ffffff,
-			$:{
-				over:{
-					color:C[0],
-					icon_color:0xffffffff,
-					text_color:0xffffffff,
-				},
-			},
-		},
-		menu:{
-			transition_dt:0.1,
-			round:4,border_width:2,padding:8,w_base:4,
-			layout_spacing:0,
-			border_color:C[0],color:0xffffffff,
-		},
-		combobox:{
-			transition_dt:0.1,
-			round:4,border_width:2,padding:8,
-			layout_spacing:0,
-			border_color:C[0],icon_color:C[0],text_color:0xff000000,color:0xffffffff,icon_text_align:'left',
-			font:UI.Font("res/fonts/opensans.ttf",24),
-			label_font:UI.Font("res/fonts/opensans.ttf",24),
-		},
-		sub_window:{
-			transition_dt:0.1,
-			round:0,border_width:2,
-			padding:4,h_caption:24,
-			/////////////////
-			layout_direction:"inside",layout_align:'left',layout_valign:'up',
-			/////////////////
-			font:UI.Font("res/fonts/opensans.ttf",20,100),
-			color:0xffffffff,border_color:C[0],border_width:2,
-			caption_color:C[0],text_color:0xffdddddd,
-			button_style:{
-				transition_dt:0.1,
-				round:0,border_width:2,padding:8,
-				border_width:0,color:0,
-				text_color:0xffdddddd,
-				font:UI.Font("res/fonts/opensans.ttf",20,100),
-				$:{
-					out:{
-						text_color:0xffdddddd
-					},
-					over:{
-						text_color:0xffffffff,
-					},
-					down:{
-						text_color:0xffffffff,
-					},
-				}
-			},
-		},
-		tab_label:{
-			transition_dt:0.1,
-			shadow_color:0xaa000000, shadow_size:8, color:C[0],
-			font:UI.Font("res/fonts/opensans.ttf",24), padding:16,
-			$:{
-				active:{
-					text_color:0xffffffff,
-				},
-				inactive:{
-					text_color:0xff444444,
-				},
-			}
-		},
-		tabbed_document:{
-			transition_dt:0.1,
-			h_caption:32, h_bar:4, color:0xffbbbbbb,
-		},
-		box_document:{
-			border_color:(0xcc000000&C[0]),border_width:2,
-			color:(0x44000000&C[0]),
-		},
-		txtx_editor:{
-			border_color:0xff000000,border_width:2,
-			color:0xffffffff,
-		},
-		slider:{
-			transition_dt:0.1,
-			bgcolor:[{x:0,y:0,color:0xffbbbbbb},{x:0,y:1,color:0xffdddddd}],
-			//border_width:2, border_color:0xff444444,
-			round:8,
-			color:C[0],
-			padding:0,
-			//label_text:'▲',
-			//label_raise:0.4,
-			//label_font:UI.Font("res/fonts/opensans.ttf",32),
-			//label_color:C[0],
-			middle_bar:{
-				w:8,h:8,
-				round:2,
-				color:0xffffffff, border_width:2, border_color:0xff444444,
-			},
-		},
-		edit_box:{
-			transition_dt:0.1,
-			round:4,padding:8,
-			color:0xffffffff,
-			border_width:0,
-			border_color:0xffffffff,
-			font:UI.Font("res/fonts/opensans.ttf",24),
-			text_color:0xff000000,
-			$:{
-				blur:{
-					border_width:0,
-					border_color:0xffffffff,
-				},
-				focus:{
-					border_width:2,
-					border_color:C[0],
-				},
-			},
-		},
-		color_picker:{
-			w_text:16,w_slider:128,w_edit:54,
-			h_slider:12,
-			h_edit:32,
-			h_space:24,
-			padding:8,
-			border_width:1.5,
-			border_color:0xff444444,
-			text_color:0xff000000,
-			font:UI.Font("res/fonts/opensans.ttf",24),
-		},
-		select:{
-			transition_dt:0.1,
-			value_animated:0,
-			font:UI.Font("res/fonts/opensans.ttf",24),
-			padding:12,spacing:12,
-			combo_box_padding:40,
-			slider_style:{
-				transition_dt:0.1,
-				tolerance:2,
-				w:32,h_slider:8,
-				bgcolor:[{x:0,y:0,color:0xffbbbbbb},{x:0,y:1,color:0xffdddddd}],
-				round:8,
-				color:C[0],
-				padding:0,
-				middle_bar:{
-					w:16,h:8,
-					round:8,
-					color:0xffffffff, border_width:2, border_color:0xff444444,
-				},
-			},
-			button_style:{
-				transition_dt:0.1,
-				color:0xffffffff,border_color:C[0],
-				round:16,border_width:2,padding:12,
-				$:{
-					out:{
-						text_color:C[0],
-					},
-					over:{
-						text_color:C_dark,
-					},
-					down:{
-						text_color:C_dark,
-					},
-					////////////////////
-					checked_out:{
-						color:C[0],
-						text_color:0xffffffff,
-					},
-					checked_over:{
-						color:C[0],
-						text_color:0xffffffff,
-					},
-					checked_down:{
-						color:C[0],
-						text_color:0xffffffff,
-					},
-				}
-			},
-		}
-	};
-};
-UI.SetUIColorTheme([0xffcc7733])
+UI.Theme_Minimalistic([0xffcc7733])
 
 var demo_text_animation=function(id,attrs){
 	attrs=UI.Keep(id,attrs);
@@ -449,7 +203,9 @@ var demo_menu=function(id,attrs){
 	UI.End();
 };
 
+var g_theme_id=0
 var demo_widgets=function(id,attrs){
+	UI.Theme_Minimalistic([[0xffcc5533,0xff33aa33,0xff3333aa][g_theme_id]])
 	var obj=UI.Keep(id,attrs);
 	UI.Begin(obj);
 		W.Hotkey("",{key:"ALT+F4",action:function(){UI.DestroyWindow(wnd)}});
@@ -464,9 +220,12 @@ var demo_widgets=function(id,attrs){
 			});
 			W.Slider("slider",{x:10,y:10,w:256,h:8})
 			W.EditBox("editbox",{x:10,y:36,w:256,h:32})
-			W.Select("select0",{x:10,y:96,w:256,h:16,items:[0,1]})
-			W.Select("select1",{x:10,y:120,w:256,h:32,items:["RGB","HSV"]})
-			W.Select("select2",{x:10,y:160,w:256,h:32,items:["Choice A","選択乙","long long long shit"]})
+			W.Select("select0",{x:10,y:100,w:256,h:32,items:[0,1]})
+			W.Select("select1",{
+				x:10,y:140,w:256,h:32,
+				value:g_theme_id,OnChange:function(value){g_theme_id=value},
+				items:["Blue","Green","Red"]})
+			W.Select("select2",{x:10,y:180,w:256,h:32,items:["Choice A","選択乙","long long long shit"]})
 		UI.End();
 	UI.End();
 };

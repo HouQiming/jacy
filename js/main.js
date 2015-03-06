@@ -1,4 +1,8 @@
 
+die=function(){
+	throw new Error(Array.prototype.slice.call(arguments,0).join(""))
+};
+
 UpdateTo=function(fn_old,fn_new){
 	if(!FileExists(fn_new))return 0;
 	if(FileExists(fn_old)&&!IsNewerThan(fn_new,fn_old))return 0;
@@ -28,7 +32,7 @@ GetServerSSH=function(server){
 	var fn_config=g_root+"/js/config.json";
 	if(!ret){
 		print("can't find configuration entry @1, please fill out its corresponding entry in @2".replace("@1","SSH_SERVER_"+server).replace("@2",fn_config));
-		throw new Error("can't find the SSH server");
+		die("can't find the SSH server");
 	}
 	return ret;
 };
@@ -149,7 +153,7 @@ g_action_handlers.clean=function(){
 		var value=g_config[svname];
 		if(!value){
 			print("unresolved configuration variable @1, please fill out its corresponding entry in @2".replace("@1",svname).replace("@2",fn_config));
-			throw new Error("unresolved configuration variable");
+			die("unresolved configuration variable");
 		}
 		return value;
 	};
@@ -188,7 +192,7 @@ g_action_handlers.clean=function(){
 			var path=g_json.search_paths[i];
 			if(!g_config[path]){
 				print("unresolved search path @1, please fill out its corresponding entry in @2".replace("@1",path).replace("@2",fn_config));
-				throw new Error("unresolved search path");
+				die("unresolved search path");
 				return;
 			}
 			g_search_paths.push(g_config[path]);
@@ -201,16 +205,16 @@ g_action_handlers.clean=function(){
 	}
 	//locate the per-arch script and eval that
 	var s_jssrc=ReadFile(g_root+"/js/build_"+g_arch+".js")
-	if(!s_jssrc){throw new Error("I don't know how to build for platform '@1'".replace("@1",g_arch));}
+	if(!s_jssrc){die("I don't know how to build for platform '@1'".replace("@1",g_arch));}
 	eval(s_jssrc);
-	if(!g_action_handlers[g_action]){throw new Error("I don't know how to perform action '@1'".replace("@1",g_action));}
+	if(!g_action_handlers[g_action]){die("I don't know how to perform action '@1'".replace("@1",g_action));}
 	//run the js files first
 	var js_files=g_json.js_files;
 	if(js_files){
 		for(var i=0;i<js_files.length;i++){
 			var fn=SearchForFile(js_files[i]);
 			var scode=ReadFile(fn);
-			if(!scode){throw new Error("unable to find @1".replace("@1",js_files[i]));continue;}
+			if(!scode){die("unable to find @1".replace("@1",js_files[i]));continue;}
 			eval(scode);
 		}
 	}

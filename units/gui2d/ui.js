@@ -958,6 +958,7 @@ var fauto_refresher=function(){
 }
 
 UI.AutoRefresh=function(){
+	if(!UI.is_real){return;}
 	if(g_auto_refresh_timer_id==undefined){
 		UI.Refresh()
 		g_auto_refresh_timer_id=UI.setInterval(fauto_refresher,1000/UI.animation_framerate)
@@ -999,8 +1000,8 @@ UI.Keep=function(id,attrs,prototype){
 			if(Array.isArray(ppt)){
 				attrs.value=ppt[0];
 				attrs.OnChange=ppt[1];
-				attrs.BeginContinuousChange=ppt[2];
-				attrs.EndContinuousChange=ppt[3];
+				if(ppt[2]){attrs.BeginContinuousChange=ppt[2];}
+				if(ppt[3]){attrs.EndContinuousChange=ppt[3];}
 			}else{
 				if(ppt!=undefined){attrs.value=ppt;}
 				attrs.OnChange=function(value){sheet[this.property_name]=value;};
@@ -1261,8 +1262,8 @@ UI.doHAlign=function(anchor_align,attrs,obj_anchor){
 	}else if(anchor_align=="right"){
 		attrs.x=obj_anchor.x-(attrs.x||0)+obj_anchor.w-attrs.w;
 	}else if(anchor_align=="fill"){
-		attrs.x=obj_anchor.x;
-		attrs.w=obj_anchor.w;
+		attrs.w=obj_anchor.w-(attrs.x||0)*2;
+		attrs.x=obj_anchor.x+(attrs.x||0);
 	}
 };
 
@@ -1274,8 +1275,8 @@ UI.doVAlign=function(anchor_align,attrs,obj_anchor){
 	}else if(anchor_align=="down"){
 		attrs.y=obj_anchor.y-(attrs.y||0)+obj_anchor.h-attrs.h;
 	}else if(anchor_align=="fill"){
-		attrs.y=obj_anchor.y;
-		attrs.h=obj_anchor.h;
+		attrs.h=obj_anchor.h-(attrs.y||0)*2;
+		attrs.y=obj_anchor.y+(attrs.y||0);
 	}
 };
 
@@ -1460,6 +1461,7 @@ if(!UI.is_real){
 }
 
 UI.frame_callbacks=[];
+UI.CallNextFrame=function(f){UI.frame_callbacks.push(f)}
 UI.DrawFrame=function(){
 	//the main painting loop
 	UI.need_to_refresh=0;
@@ -1470,8 +1472,14 @@ UI.DrawFrame=function(){
 	UI.context_regions=[];
 	UI.context_parent=UI;
 	UI.context_tentative_focus=null;
-	for(var i=0;i<UI.frame_callbacks.length;i++){
-		UI.frame_callbacks[i]();
+	var cb0=UI.frame_callbacks
+	UI.frame_callbacks=[]
+	for(var i=0;i<cb0.length;i++){
+		var f=cb0[i]
+		f.prototype=null;
+		if(f()){
+			UI.frame_callbacks.push(f)
+		}
 	}
 	UI.Application("top",{});
 	if(!UI.context_focus_is_a_region){
@@ -1505,7 +1513,10 @@ UI.SetSystemCursor=function(mouse_cursor){
 	return UI.SDL_SetSystemCursor(UI["SDL_SYSTEM_CURSOR_"+mouse_cursor.toUpperCase()]||0)
 };
 
+UI.OpenFile=function(){};
+
 UI.Run=function(){
+	if(!UI.is_real){return;}
 	var event=null;
 	for(;;){
 		if(UI.need_to_refresh){
@@ -1671,6 +1682,9 @@ UI.Run=function(){
 					}
 				}
 				break;
+			case UI.SDL_DROPFILE:
+				UI.OpenFile(event.file)
+				break
 			}
 			event=UI.SDL_PollEvent();
 			if(!event)break;

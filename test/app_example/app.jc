@@ -1,0 +1,19 @@
+import "javascript.jc"
+import "gui2d.jc"
+import "text-box.jc"
+import Javascript.*
+import Gui2D.*
+import System.Console.*
+
+__generate_json("js_units","gui2d/ui.js")
+__generate_json("js_units","gui2d/widgets.js")
+
+(function(){
+	Gui2D.ProvideGLFunctions()
+	JS=new JSContext
+	sbox=setupModuleSystem(JS,1)
+	sbox.UILoadZip(string.NULL)
+	/////////////
+	//todo: some native code?
+	sbox.UIRunJS(JS,"res/ui_main.js")
+})()

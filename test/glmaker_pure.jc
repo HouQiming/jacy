@@ -295,8 +295,9 @@ auto doSDL()
 					s_c_code.push('number')
 				else if s_type=="char*":
 					s_c_code.push('string')
-					s_c_code.push(FormatAsText('(ctx,SDL_GetInputEventText(pe));SDL_FreeInputEventText(pe);'))
-					pushed=1
+					if s_var=="text":
+						s_c_code.push(FormatAsText('(ctx,SDL_GetInputEventText(pe));SDL_FreeInputEventText(pe);'))
+						pushed=1
 				else if s_type=="void*":
 					s_c_code.push('pointer')
 				else if s_type=="SDL_Keysym":
