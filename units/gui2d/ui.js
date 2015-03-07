@@ -1752,6 +1752,8 @@ UI.Run=function(){
 	return UI;
 }
 
-print=function(){
-	Duktape.__write_log(Array.prototype.slice.call(arguments,0).join(" "))
+if(UI.Platform.ARCH=="android"){
+	print=function(){
+		Duktape.__write_log(Array.prototype.slice.call(arguments,0).join(" "))
+	}
 }

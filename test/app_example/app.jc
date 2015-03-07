@@ -5,12 +5,17 @@ import Javascript.*
 import Gui2D.*
 import System.Console.*
 
+//specify the icon file name
 __generate_json("icon_file","icon256.png")
 
 (function(){
+	//create a Javascript interpreter context
+	//variables automatically goes to the lowest-appeared scope
 	JS=new JSContext
+	//setup the UI modules and load res/* files from the platform's asset storage
 	sbox=setupModuleSystem(JS,1)
 	sbox.UILoadZip(string.NULL)
 	/////////////
+	//give control to the JS main
 	sbox.UIRunJS(JS,"res/ui_main.js")
 })()

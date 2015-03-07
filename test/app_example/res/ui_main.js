@@ -1,22 +1,42 @@
 var UI=require("gui2d/ui");
 var W=require("gui2d/widgets");
 
-//need a larger number to handle the 4:3 ipad screen
+/*
+this example only handles the landscape orientation
+choose the "screen size" at which you designed the UI, measured as the length of the shorter edge
+	for a higher-resolution screen (e.g. iPad-mini's 2048x1536), the UI would be scaled up to match
+	it should be larger than the actual window to handle the 4:3 ipad screen
+*/
 UI.ChooseScalingFactor({designated_screen_size:480})
+//choose a theme color
 UI.Theme_Minimalistic([0xffcc7733])
 
+//some algorithm parameters you'd want to adjust in a real program: the "document" in "document-view"
 var g_parameters={param0:0.3,param1:2};
+
+//the main UI definition
 UI.Application=function(id,attrs){
 	UI.Begin(UI.Keep(id,attrs));
 	var wnd=UI.Begin(W.Window('app',{
 		title:'Example App',w:640,h:360,bgcolor:0xffffffff,
 		flags:UI.SDL_WINDOW_MAXIMIZED|UI.SDL_WINDOW_RESIZABLE,
+		is_main_window:1,
+		/*
+		the property sheet is the "view" in "document-view"
+		it links your algorithm parameters to the widgets adjusting them
+			then you assign a property_name and link them to each widget
+		each parameter is provided as
+			name:[current value, function(value){set the real parameter to value}],
+		you should place constraints in the setting function, i.e., enforce min/max ranges, make sure it's an integer, etc
+		using a property sheet allows widgets operating on the same parameter to be automatically linked
+		*/
 		property_sheet:{
-			param0:[parseFloat(g_parameters.param0).toFixed(2),function(value){g_parameters.param0=value;}],
+			param0:[parseFloat(g_parameters.param0).toFixed(2),function(value){g_parameters.param0=Math.min(Math.max(parseFloat(value),0));}],
 			param1_edit:[g_parameters.param1,function(value){g_parameters.param1=Math.max(Math.min(value,5),0);}],
 			param1_slider:[g_parameters.param1/5,function(value){g_parameters.param1=Math.floor(value*5);}],
 		},
-		is_main_window:1}));
+	}));
+	//the widgets are created in the UI editor
 	/*widget*/(W.Label('text_363',{'x':254,'y':9,
 		text:'Widget demo'}));
 	/*widget*/(W.Label('text_435',{'x':12,'y':48.325592041015625,
