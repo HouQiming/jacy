@@ -4,7 +4,7 @@ var UI=require("gui2d/ui");
 var W=exports;
 
 //todo: Mac, iOS, Android fonts
-UI.font_name="segoeui,Roboto-Regular,Arial"
+UI.font_name="LucidaGrande,_H_HelveticaNeue,segoeui,Roboto-Regular,Arial"
 UI.Theme_Minimalistic=function(C){
 	UI.current_theme_color=C[0];
 	var C_dark=UI.lerp_rgba(C[0],0xff000000,0.15)
@@ -391,7 +391,6 @@ if(attrs.w)
 //user input
 W.Hotkey=function(id,attrs){
 	if(!attrs.action){return;}
-	UI.HackCallback(attrs.action);
 	UI.context_hotkeys.push(attrs);
 	return attrs;
 }

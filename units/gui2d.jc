@@ -1860,6 +1860,13 @@ auto setupModuleSystem(JSContext JS,int is_real)
 		createUIObject(mod_obj,sbox,is_real)
 		if is_real: 
 			createSDLJSObject(mod_obj,0)
+			///////
+			//smart texture size
+			pmode=__C(__pointer,"@decl:SDL_DisplayMode @1={0}")
+			SDL.detail.SDL_GetCurrentDisplayMode(0,pmode)
+			w=__C(int,"((SDL_DisplayMode*)@1)->w",pmode)
+			h=__C(int,"((SDL_DisplayMode*)@1)->h",pmode)
+			m_texture_width=max(promoteToTextureSize(max(w,h)),1024)
 		return 0
 	}
 	global["Duktape"]["__ui_load_zip"]=function(JSContext JS){

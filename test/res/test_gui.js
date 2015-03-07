@@ -1,7 +1,7 @@
 //Duktape.__ui_add_path("test")
 //Duktape.__ui_add_path("../ide/assets")
-Duktape.__ui_load_zip()
-Duktape.__ui_add_path("../kara/ide/res")
+//Duktape.__ui_load_zip()
+//Duktape.__ui_add_path("../kara/ide/res")
 
 //the duktape with system is completely unusable - we have to put all exports in the global object
 var UI=require("gui2d/ui");
@@ -13,7 +13,8 @@ var demo_text_animation=function(id,attrs){
 	attrs=UI.Keep(id,attrs);
 	if(!attrs.anim_x){attrs.anim_x=0;attrs.danim_x=1;}
 	attrs.text=attrs.text||"Grumpy wizards make toxic brew for the evil Queen and Jack.";//"The quick brown fox jumps over a lazy dog.";
-	attrs.font=attrs.font||"RobotoCondensed-Regular";//"segoeui";
+	//attrs.font=attrs.font||"RobotoCondensed-Regular";//"segoeui";
+	attrs.font=UI.font_name
 	UI.Begin(attrs);
 		var wnd=UI.Begin(W.Window("app",{title:"GUI hello world",w:1024,h:768,bgcolor:0xff000000,designated_screen_size:1440,flags:UI.SDL_WINDOW_MAXIMIZED|UI.SDL_WINDOW_RESIZABLE,is_main_window:1}))
 			W.Hotkey("",{key:"ALT+F4",action:function(){UI.DestroyWindow(wnd)}});
@@ -36,7 +37,8 @@ var demo_text_animation=function(id,attrs){
 				OnClick:function(){attrs.text="世の中に、必要な悪があるなんて、子供たちに教えたくありません"}})
 			var y0=340;
 			var s_text=attrs.text;
-			for(var i=12;i<68;i*=1.07){
+			//1.07
+			for(var i=12;i<68;i*=1.1){
 				//Text("",{x:attrs.anim_x+10,y:y0,font:UI.Font("cambria",i),text:"Hello world!",color:0xff000000})
 				W.Text("",{x:attrs.anim_x+10,y:y0,font:UI.Font(attrs.font,i),text:s_text,color:0xffffffff})
 				W.Text("",{x:wnd.w/2+attrs.anim_x+10,y:y0,font:UI.Font(attrs.font,i),text:s_text,color:0xff000080})
@@ -232,8 +234,8 @@ var demo_widgets=function(id,attrs){
 
 //UI.Application=demo_textbox;
 //UI.Application=demo_msgbox;
-//UI.Application=demo_text_animation;
-UI.Application=demo_widgets;
+UI.Application=demo_text_animation;
+//UI.Application=demo_widgets;
 
 //UI.setTimeout(function(){print("setTimeout");},1500)
 //UI.setInterval(function(){print("setInterval");},1000)

@@ -8,6 +8,8 @@ __generate_json("js_units","gui2d/widgets.js")
 
 (function(){
 	JS=new JSContext
-	setupModuleSystem(JS,1)
-	JS.debugRunFile("test/test_gui.js")
+	sbox=setupModuleSystem(JS,1)
+	sbox.UILoadZip(string.NULL)
+	/////////////
+	sbox.UIRunJS(JS,"res/test_gui.js")
 })()
