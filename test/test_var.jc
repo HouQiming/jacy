@@ -1,0 +1,9 @@
+import System.Console.*
+
+(function(){
+	a=100
+	Writeln('a=',a)
+})()
+
+//you can not access a out of the function
+//Writeln(a) <-- Error

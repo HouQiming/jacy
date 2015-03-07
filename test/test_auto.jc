@@ -1,8 +1,11 @@
-printf=__c_function(int,"printf","stdio.h")
+import System.Console.*
 
-a=100
-auto f()
-	auto a=200
-	printf("in f: %d\n",a)
-f()
-printf("%d\n",a)
+(function(){
+	a=100
+	f=function(){
+		auto a=200
+		Writeln("in f: ",a)
+	}
+	f()
+	Writeln('out of f: ',a)
+})()

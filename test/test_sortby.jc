@@ -1,0 +1,8 @@
+import System.Console.*
+import System.Algorithm.*
+
+(function(){
+	dat=[1,4,2,8,5,7,3,6,9]
+	dat.Sortby(function(int a){return -a})
+	Writeln(dat)
+})()

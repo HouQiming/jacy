@@ -1,0 +1,9 @@
+import System.Console.*
+
+(function(){
+	a=0
+	inc=function(){a++}
+	Writeln('a=',a)
+	inc()
+	Writeln('a=',a)
+})()

@@ -1,19 +1,23 @@
-printf=__c_function(int,"printf","stdio.h")
+import System.Console.*
 
-struct int2
+struct int2x{
 	x=0
 	y=1
-	function __init__(v_x,v_y)
+	auto __init__(v_x,v_y){
 		x=v_x
 		y=v_y
+	}
+}
 
-a=int2(3,4)
-b=int2(5,6)
-c=a
-d=int2()
-a.x+=b.x
-a.y+=b.y
-printf("a=(%d,%d)\n",a.x,a.y)
-printf("b=(%d,%d)\n",b.x,b.y)
-printf("c=(%d,%d)\n",c.x,c.y)
-printf("d=(%d,%d)\n",d.x,d.y)
+(function(){
+	a=int2x(3,4)
+	b=int2x(5,6)
+	c=a
+	d=int2x()
+	a.x+=b.x
+	a.y+=b.y
+	Writeln("a=",a)
+	Writeln("b=",b)
+	Writeln("c=",c)
+	Writeln("d=",d)
+})()

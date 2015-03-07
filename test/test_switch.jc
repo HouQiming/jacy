@@ -1,7 +1,5 @@
 import System.Console.*
 
-scanf=__c_function(int,"scanf","stdio.h")
-
 (function(){
 	for n in range(8)
 		Write(n,' ')

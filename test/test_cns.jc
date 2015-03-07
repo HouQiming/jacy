@@ -1,0 +1,10 @@
+import System.Console.*
+
+ONE=1
+TWO=2
+THREE=3
+(function(){
+	Writeln(ONE+TWO+THREE)
+	if ONE==TWO:
+		Writeln('huh?')
+})()
