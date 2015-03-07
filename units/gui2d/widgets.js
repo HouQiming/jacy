@@ -1523,28 +1523,37 @@ W.Select=function(id,attrs){
 }
 
 //use anchor_placement to determine the side, default to right
-//todo: test, on PC it should be mouse-move triggered
+//todo: on PC it should be mouse-move triggered
 W.AutoHidePanel_prototype={
 	anchor_placement:'right',
-	position:0,velocity:0,max_velocity:1,acceleration:0.2,
+	position:0,velocity:0,max_velocity:3,acceleration:0.2,oob_scale:0.5,oob_limit:20,dt_threshold:0.1,velocity_to_target_threshold:0.7,
 	Simulate:function(){
 		var a=this.dragging_samples;
+		var size=(this.anchor_placement=='left'||this.anchor_placement=='right'?this.w:this.h)
 		if(a){
 			var n=a.length,p0=Math.max(n-3,0);
-			this.position=a[n-1]-a[0]+this.initial_position
-			if(n-1<=p0){
-				//don't even change the velocity yet
-			}else{
-				this.velocity=(a[n-1]-a[p0])/(n-1-p0)
+			this.position=a[n-1].x-a[0].x+this.initial_position
+			if(this.position<0){this.position*=this.oob_scale;}
+			if(this.position>=size){this.position=(this.position-size)*this.oob_scale+size;}
+			this.position=Math.max(Math.min(this.position,size+this.oob_limit),-this.oob_limit)
+			var p2=Math.max(n-2,0)
+			var dt=a[n-1].t-a[p2].t
+			if(p2>0&&dt<=0){
+				p2--
+				dt=a[n-1].t-a[p2].t
 			}
-			//todo: could be h
-			if(this.position<this.w*0.5){
+			if(dt<=0){
+				this.velocity=0;
+			}else{
+				this.velocity=(a[n-1].x-a[Math.max(n-2,0)].x)/(dt*UI.animation_framerate);
+			}
+			if(this.position<size*0.5){
 				this.target_position=0
 			}else{
-				this.target_position=this.w
+				this.target_position=size
 			}
 		}else{
-			if(this.target_position){
+			if(this.target_position!=undefined){
 				this.position+=this.velocity;
 				if(this.target_position>this.position){
 					this.velocity+=this.acceleration;
@@ -1570,6 +1579,7 @@ W.AutoHidePanel_knob_prototype={
 		}
 		//anchor like normal widgets
 		obj.initial_position=obj.position
+		obj.tick0=Duktape.__ui_get_tick()
 		this.OnMouseMove(event);
 		obj.target_position=(obj.position==0?obj.w:0)
 		UI.CaptureMouse(this)
@@ -1577,10 +1587,11 @@ W.AutoHidePanel_knob_prototype={
 	OnMouseMove:function(event){
 		var obj=this.owner;
 		if(!obj.dragging_samples){return;}
+		var t=Duktape.__ui_seconds_between_ticks(obj.tick0,Duktape.__ui_get_tick());
 		if(obj.anchor_placement=='left'||obj.anchor_placement=='top'){
-			obj.dragging_samples.push(event.x)
+			obj.dragging_samples.push({x:event.x,t:t})
 		}else{
-			obj.dragging_samples.push(-event.x)
+			obj.dragging_samples.push({x:-event.x,t:t})
 		}
 		obj.Simulate()
 		UI.Refresh()
@@ -1588,6 +1599,18 @@ W.AutoHidePanel_knob_prototype={
 	OnMouseUp:function(event){
 		UI.ReleaseMouse(this)
 		var obj=this.owner;
+		var t=Duktape.__ui_seconds_between_ticks(obj.tick0,Duktape.__ui_get_tick());
+		if(obj.dragging_samples&&obj.dragging_samples.length){
+			var dt=t-obj.dragging_samples[obj.dragging_samples.length-1].t
+			obj.velocity*=Math.max(obj.dt_threshold-dt,0)/obj.dt_threshold
+		}
+		if(obj.velocity>obj.max_velocity*obj.velocity_to_target_threshold){
+			var size=(obj.anchor_placement=='left'||obj.anchor_placement=='right'?obj.w:obj.h)
+			obj.target_position=size
+		}
+		if(obj.velocity<-obj.max_velocity*obj.velocity_to_target_threshold){
+			obj.target_position=0
+		}
 		obj.dragging_samples=undefined
 		UI.Refresh()
 	}
@@ -1607,17 +1630,17 @@ W.AutoHidePanel=function(id,attrs){
 	}
 	obj.anchor='parent'
 	UI.StdAnchoring(id,obj)
+	var is_x=(obj.anchor_placement=='left'||obj.anchor_placement=='right')
+	var size=(is_x?obj.w:obj.h)
 	//simply place the child object inside Begin / End
 	UI.Begin(obj)
 		//one of w/h will be overwritten with fill anyway
 		W.Region("knob",{
 			anchor:'parent',anchor_placement:g_inverse_dir[obj.anchor_placement],anchor_align:obj.anchor_align,anchor_valign:obj.anchor_valign,
-			x:0,y:0,w:obj.knob_size,h:obj.knob_size,
+			x:is_x?-size:0,y:is_x?-size:0,w:obj.knob_size+size,h:obj.knob_size+size,
 			owner:obj
 		},W.AutoHidePanel_knob_prototype)
 		if(!obj.dragging_samples){obj.Simulate()}
-		//todo: knob should cover the body too
-		//todo: oob/2, limiter
 	UI.End()
 	return obj;
 }
