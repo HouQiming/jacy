@@ -161,6 +161,17 @@ g_action_handlers.clean=function(){
 	shell(["rm","-rf",g_cli_args[0]+"/bin"])
 };
 
+g_action_handlers.runjs=function(){
+	if(!g_cli_args[0]){
+		die("please specify a js file")
+	}
+	var scode=ReadFile(g_cli_args[0]);
+	if(!scode){
+		die("unable to find @1".replace("@1",g_cli_args[0]));
+	}
+	eval(scode);
+};
+
 (function(){
 	var fn_config=g_root+"/js/config.json";
 	g_config=eval("(function(){"+ReadFile(fn_config)+"})()");

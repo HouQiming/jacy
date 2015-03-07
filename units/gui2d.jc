@@ -630,18 +630,6 @@ class CRenderer
 				m_srgb_supported=0
 		//glEnable(GL_TEXTURE_2D)
 		glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA)
-		m_tech.SetVarying("vec2 uv;vec4 C;")
-		m_tech.SetVertexShader("
-		void main(){
-			vec2 P_scr=P*scale.xy;
-			uv=uv_vert*scale.zw;
-			"+(m_srgb_supported?"C=vec4(pow(C_vert.xyz,vec3("+formatNumber(m_gamma,{frac:7})+")),C_vert.w);":"C=C_vert;")+"
-			gl_Position=vec4(P_scr.x+trans.x,P_scr.y+trans.y,1.0,1.0);
-		}")
-		if m_srgb_supported&&!m_tex_is_srgb:
-			m_tech.SetFragmentShader("void main(){vec4 C_tex=texture2D(tex0,uv);gl_FragColor=vec4(pow(C_tex.xyz,vec3("+formatNumber(m_gamma,{frac:7})+")),C_tex.w)*C;}")
-		else
-			m_tech.SetFragmentShader("void main(){gl_FragColor=texture2D(tex0,uv)*C;}")
 		//debugDumpVBO()
 		foreach dc in m_drawcalls
 			if dc.hwnd==hwnd_onlydraw||!hwnd_onlydraw:
@@ -651,6 +639,19 @@ class CRenderer
 				if dc.native_callback:
 					dc.native_callback()
 					continue
+				if !m_tech.m_prg:
+					m_tech.SetVarying("vec2 uv;vec4 C;")
+					m_tech.SetVertexShader("
+					void main(){
+						vec2 P_scr=P*scale.xy;
+						uv=uv_vert*scale.zw;
+						"+(m_srgb_supported?"C=vec4(pow(C_vert.xyz,vec3("+formatNumber(m_gamma,{frac:7})+")),C_vert.w);":"C=C_vert;")+"
+						gl_Position=vec4(P_scr.x+trans.x,P_scr.y+trans.y,1.0,1.0);
+					}")
+					if m_srgb_supported&&!m_tex_is_srgb:
+						m_tech.SetFragmentShader("void main(){vec4 C_tex=texture2D(tex0,uv);gl_FragColor=vec4(pow(C_tex.xyz,vec3("+formatNumber(m_gamma,{frac:7})+")),C_tex.w)*C;}")
+					else
+						m_tech.SetFragmentShader("void main(){gl_FragColor=texture2D(tex0,uv)*C;}")
 				pslice=m_vbo[dc.pv:]
 				m_tech.SetVertexPointer("P", 2,GL_UNSIGNED_SHORT,0, VERTEX_SIZE*sizeof(int),pslice.d)
 				m_tech.SetVertexPointer("uv_vert", 2,GL_UNSIGNED_SHORT,0, VERTEX_SIZE*sizeof(int),pslice.d+1*sizeof(int))

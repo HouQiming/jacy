@@ -1,7 +1,8 @@
 var UI=require("gui2d/ui");
 var W=require("gui2d/widgets");
 
-UI.ChooseScalingFactor({designated_screen_size:360})
+//need a larger number to handle the 4:3 ipad screen
+UI.ChooseScalingFactor({designated_screen_size:480})
 UI.Theme_Minimalistic([0xffcc7733])
 
 var g_parameters={param0:0.3,param1:2};

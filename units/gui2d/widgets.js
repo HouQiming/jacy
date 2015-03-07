@@ -1523,8 +1523,8 @@ W.Select=function(id,attrs){
 }
 
 //use anchor_placement to determine the side, default to right
+//todo: test, on PC it should be mouse-move triggered
 W.AutoHidePanel_prototype={
-	anchor:'parent',
 	anchor_placement:'right',
 	position:0,velocity:0,max_velocity:1,acceleration:0.2,
 	Simulate:function(){
@@ -1537,10 +1537,11 @@ W.AutoHidePanel_prototype={
 			}else{
 				this.velocity=(a[n-1]-a[p0])/(n-1-p0)
 			}
-			if(this.position<w*0.5){
+			//todo: could be h
+			if(this.position<this.w*0.5){
 				this.target_position=0
 			}else{
-				this.target_position=w
+				this.target_position=this.w
 			}
 		}else{
 			if(this.target_position){
@@ -1550,8 +1551,9 @@ W.AutoHidePanel_prototype={
 				}else{
 					this.velocity-=this.acceleration;
 				}
-				if(this.target_position==this.position){
+				if(Math.abs(this.target_position-this.position)<this.velocity*2){
 					this.velocity=0
+					this.position=this.target_position
 					this.target_position=undefined;
 				}
 				UI.AutoRefresh()
@@ -1570,21 +1572,23 @@ W.AutoHidePanel_knob_prototype={
 		obj.initial_position=obj.position
 		this.OnMouseMove(event);
 		obj.target_position=(obj.position==0?obj.w:0)
+		UI.CaptureMouse(this)
 	},
 	OnMouseMove:function(event){
 		var obj=this.owner;
 		if(!obj.dragging_samples){return;}
 		if(obj.anchor_placement=='left'||obj.anchor_placement=='top'){
-			obj.dragging_samples.push(-event.x)
-		}else{
 			obj.dragging_samples.push(event.x)
+		}else{
+			obj.dragging_samples.push(-event.x)
 		}
 		obj.Simulate()
 		UI.Refresh()
 	},
 	OnMouseUp:function(event){
+		UI.ReleaseMouse(this)
 		var obj=this.owner;
-		obj.dragging_samples=null
+		obj.dragging_samples=undefined
 		UI.Refresh()
 	}
 }
@@ -1601,16 +1605,19 @@ W.AutoHidePanel=function(id,attrs){
 		obj.anchor_valign=obj.anchor_placement
 		obj.anchor_align='fill'
 	}
+	obj.anchor='parent'
 	UI.StdAnchoring(id,obj)
 	//simply place the child object inside Begin / End
 	UI.Begin(obj)
-		//one of w/h will be overwriten with fill anyway
+		//one of w/h will be overwritten with fill anyway
 		W.Region("knob",{
 			anchor:'parent',anchor_placement:g_inverse_dir[obj.anchor_placement],anchor_align:obj.anchor_align,anchor_valign:obj.anchor_valign,
 			x:0,y:0,w:obj.knob_size,h:obj.knob_size,
 			owner:obj
 		},W.AutoHidePanel_knob_prototype)
 		if(!obj.dragging_samples){obj.Simulate()}
+		//todo: knob should cover the body too
+		//todo: oob/2, limiter
 	UI.End()
 	return obj;
 }

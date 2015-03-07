@@ -3,9 +3,14 @@ PROVISIONING_PROFILE = "487F3EAC-05FB-4A2A-9EA0-31F1F35760EB";
 "PROVISIONING_PROFILE[sdk=iphoneos*]" = "487F3EAC-05FB-4A2A-9EA0-31F1F35760EB";
 to build SDL:
 	cd ~/pmenv/SDL2-2.0.3
+	rm -rf build
 	build-scripts/iosbuild.sh configure-armv7
-	cp ../build/armv7/include/SDL_config.h ../include/
+	cp include/SDL_config.h ./build/armv7/include/SDL_config.h 
+	build-scripts/iosbuild.sh make-armv7
+	
+old
 	cd ~/pmenv/SDL2-2.0.3/Xcode-iOS/SDL
+	rm -rf build
 	xcodebuild -sdk iphoneos -configuration Release -scheme='libSDL' build
 	xcodebuild -sdk iphonesimulator -configuration Release -scheme='libSDL' build
 	lipo -create build/Release-iphoneos/libSDL2.a build/Release-iphonesimulator/libSDL2.a -output build/libSDL2.a
@@ -30,182 +35,187 @@ IOS.CopyToUpload=function(fn0){
 }
 
 g_action_handlers.make=function(){
-	//todo: local case
-	var ssh_addr=GetServerSSH('mac')
+	var ssh_addr
+	if(g_need_ssh_for_mac){
+		ssh_addr=GetServerSSH('mac');
+	}
 	var dir_pmenv=g_root+"/mac/pmenv"
 	//build the project dir locally
-	!? //g_need_ssh_for_mac
-	if !FileExists(g_work_dir+"/buildtmp_ready"):
-		sbuildtmp=SHA1(NormalizeFileName(g_work_dir),8)
-		CreateFile(g_work_dir+"/buildtmp_ready",sbuildtmp)
-		mkdir(g_work_dir+"/upload/SDL/lib")
-		if FileExists(PRJ.root+"/default_screen.png"):
-			s_rm_default="rm Default.png;"
-		else
-			s_rm_default=""
-		if FileExists(PRJ.root+"/ic_launcher.png"):
-			s_rm_icon="rm Icon.png;"
-		else
-			s_rm_icon=""
-		envssh('mac',
-			'echo "----cleanup----";'+
-			'chmod -R 777 ~/_buildtmp/'+sbuildtmp+';'+
-			'rm -rf ~/_buildtmp/'+sbuildtmp+';'+
-			'mkdir -p ~/_buildtmp/'+sbuildtmp+'/SDL/lib;'+
-			'mkdir -p ~/_buildtmp/'+sbuildtmp+'/SDL/include;'+
-			'echo "----template----";'+
-			'cp -r ~/pmenv/SDL2-2.0.3/Xcode-iOS/Template/SDL\\ iOS\\ Application/* ~/_buildtmp/'+sbuildtmp+'/;'+
-			'cp ~/pmenv/modxproj.py ~/_buildtmp/'+sbuildtmp+'/;'+
-			'echo "----SDL----";'+
-			'cp -r ~/pmenv/SDL2-2.0.3/include/* ~/_buildtmp/'+sbuildtmp+'/SDL/include/;'+
-			'cp -r ~/pmenv/SDL2-2.0.3/Xcode-iOS/SDL/build/libSDL2.a ~/_buildtmp/'+sbuildtmp+'/SDL/lib/libSDL.a;'+
-			'cd ~/_buildtmp/'+sbuildtmp+';'+
-			'echo "----patch----";'+
-			"sed -i '' 's/___PROJECTNAME___/"+PRJ.name+"/g' ___PROJECTNAME___.xcodeproj/project.pbxproj;"+
-			"sed -i '' 's/com.yourcompany.*\\}/"+StringReplace("com.spap."+PRJ.name,["_",""])+"/g' Info.plist;"+
-			"cp ___PROJECTNAME___.xcodeproj/project.pbxproj ./xproj.bak;"+
-			'mv ___PROJECTNAME___.xcodeproj "'+PRJ.name+'.xcodeproj";'+
-			s_rm_default+s_rm_icon+
-			'rm main.c;'+
-			'exit')
-		cd(g_work_dir)
-		//rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp,'./upload')
-		//sinfo=ReadFileNonLocked(g_work_dir+"/upload/Info.plist")
-		//sinfo=StringReplace(sinfo,["com.yourcompany.${PRODUCT_NAME:identifier}",StringReplace("com.spap."+PRJ.name,["_",""])])
-		//CreateIfDifferent(g_work_dir+"/upload/Info.plist",sinfo)
-		//<string></string>
-	sbuildtmp=ReadFileNonLocked(g_work_dir+"/buildtmp_ready")
-	cd(g_work_dir)
-	////////////////////////
-	dir_prj_template=dir_pmenv+""
-	//copy-in the relevant source files
-	for(i=0;i<len(wrapper_files);i++)
-		fn=wrapper_files[i]
-		if MatchRegex(".*\\.(c|cpp|m)",StringToLower(fn)):
+	mkdir(g_work_dir+"/upload/")
+	if(!FileExists(g_work_dir+"/SDL_setup")){
+		//the SDL skeleton project
+		shell(["cp","-r",g_config.IOS_SKELETON_PATH+"/*",g_work_dir+"/upload/"])
+		var s_text=ReadFile(g_work_dir+"/upload/___PROJECTNAME___.xcodeproj/project.pbxproj")
+		CreateFile(g_work_dir+"/upload/___PROJECTNAME___.xcodeproj/project.pbxproj",s_text.replace(new RegExp("___PROJECTNAME___","g"),g_main_name))
+		s_text=ReadFile(g_work_dir+"/upload/Info.plist")
+		CreateFile(g_work_dir+"/upload/Info.plist",s_text.replace(new RegExp("com.yourcompany.*\\}","g"),"com.spap."+g_main_name.replace(new RegExp("_","g"),"")))
+		shell(["mv",g_work_dir+'/upload/___PROJECTNAME___.xcodeproj',g_work_dir+'/upload/'+g_main_name+'.xcodeproj'])
+		CreateFile(g_work_dir+"/SDL_setup","1")
+	}
+	var sbuildtmp;
+	if(g_need_ssh_for_mac){
+		if(!FileExists(g_work_dir+"/buildtmp_ready")){
+			sbuildtmp=SHA1(g_work_dir,8)
+			CreateFile(g_work_dir+"/buildtmp_ready",sbuildtmp)
+			mkdir(g_work_dir+"/upload/")
+			envssh('mac',
+				'echo "----cleanup----";'+
+				'chmod -R 777 ~/_buildtmp/'+sbuildtmp+';'+
+				'rm -rf ~/_buildtmp/'+sbuildtmp+';'+
+				'mkdir -p ~/_buildtmp/'+sbuildtmp+';'+
+				'exit')
+		}
+		sbuildtmp=ReadFile(g_work_dir+"/buildtmp_ready")
+	}
+	var CopyFiles=function(file_set){
+		if(!file_set){return;}
+		for(var i=0;i<file_set.length;i++){
+			var fn=SearchForFile(file_set[i])
 			IOS.CopyToUpload(fn)
-	for(i=0;i<len(libs);i++)
-		fn=libs[i]
-		IOS.CopyToUpload(fn)
-	if VAR.ios_use_reszip_png:
-		IOS.CopyToUpload(g_work_dir+"\\reszip.bundle")
-	//generate SPAP as main.c
-	if PRJ.has_spap:
-		SPAP.is_release=PRJ.is_release
-		SPAP.is64=0
-		SPAP.Detect()
-		SPAP.options=" -g --C --outputC -Dnodllmess -Drebuild -Done_pass -Ddumb_temp_names -Dcpp.entrypoint=SDL_main -Denabled.platform.ios=1 -Denabled.platform.unix=1 "
-		s_C_output=NormalizeFileName(g_work_dir+"/spap_main_c.txt")
-		ret=SPAP.CompileMain(s_C_output)
-		if !ret:
-			Write('error> SPAP compiler failed\n')
-			exit(1)
-		CreateIfDifferent(g_work_dir+"/upload/main.c",ReadFile(s_C_output))
+		}
+	}
+	CopyFiles(g_json.h_files)
+	CopyFiles(g_json.c_files)
+	CopyFiles(g_json.objc_files)
+	CopyFiles(g_json.lib_files)
+	IOS.CopyToUpload(g_work_dir+"\\reszip.bundle")
 	//icons
-	if FileExists(PRJ.root+"/ic_launcher.png"):
-		fntouch=g_work_dir+"/ic_launcher.png._touch"
-		if IsNewer(fntouch,PRJ.root+"/ic_launcher.png")
-			sexe_resample_png=NormalizeFileName(root+"/osslib/android/misc_tools/resample_png.exe")
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon.png" 57 57')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-72.png" 72 72')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-Small.png" 29 29')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-Small-50.png" 50 50')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon@2x.png" 114 114')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-72@2x.png" 144 144')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-Small@2x.png" 58 58')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-Small-50@2x.png" 100 100')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-76.png" 76 76')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-60.png" 60 60')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-76@2x.png" 152 152')
-			RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/ic_launcher.png" "'+g_work_dir+'/upload/Icon-60@2x.png" 120 120')
-			CreateFile(fntouch,PRJ.root+"/ic_launcher.png")
-	if FileExists(PRJ.root+"/default_screen.png"):
-		RunProgram('"'+sexe_resample_png+'" "'+PRJ.root+'/default_screen.png" "'+g_work_dir+'/upload/Default-568h.png" 320 568')
-		UpdateTo(g_work_dir+'/upload/Default.png',PRJ.root+"/default_screen.png")
-	if FileExists(PRJ.root+"/dist.mobileprovision"):
-		UpdateTo(g_work_dir+'/upload/dist.mobileprovision',PRJ.root+"/dist.mobileprovision")
-	//the re-add approach has guid issues
-	//if !PRJ.is_release:
-	//	spaptemp=ls(g_work_dir+"/upload/__spaptemp__/*.c")
-	//	for(i=0;i<len(spaptemp);i++)
-	//		fn=spaptemp[i]
-	//		CopyToUpload(fn)
-	spython=""
-	StringAppend(spython,'from modxproj import XcodeProject\n')
-	StringAppend(spython,'project = XcodeProject.Load("'+PRJ.name+'.xcodeproj/project.pbxproj")\n')
+	if(g_json.icon_file){
+		var fn_icon=SearchForFile(g_json.icon_file[0]);
+		var fntouch=g_work_dir+"/ic_launcher.png._touch"
+		if(IsNewerThan(fn_icon,fntouch)){
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.png',57,57)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-72.png',72,72)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-Small.png',29,29)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-Small-50.png',50,50)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon@2x.png',114,114)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-72@2x.png',144,144)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-Small@2x.png',58,58)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-Small-50@2x.png',100,100)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-76.png',76,76)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-60.png',60,60)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-76@2x.png',152,152)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-60@2x.png',120,120)
+			CreateFile(fntouch,fn_icon)
+		}
+	}
+	if(g_json.default_screen_file){
+		var fn_icon=SearchForFile(g_json.default_screen_file[0])
+		var fntouch=g_work_dir+"/Default.png._touch"
+		if(IsNewerThan(fn_icon,fntouch)){
+			ResampleImage(fn_icon,g_work_dir+'/upload/Default.png',320,480)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Default-568h.png',320,568)
+			CreateFile(fntouch,fn_icon)
+		}
+	}
+	if(FileExists(g_base_dir+"/dist.mobileprovision")){
+		UpdateTo(g_work_dir+'/upload/dist.mobileprovision',g_base_dir+"/dist.mobileprovision")
+	}
+	var spython=[]
+	spython.push('from modxproj import XcodeProject\n')
+	spython.push('project = XcodeProject.Load("'+g_main_name+'.xcodeproj/project.pbxproj")\n')
 	//we don't have to add main.c
-	for(i=0;IOS.c_file_list[i];i++)
-		fn=IOS.c_file_list[i]
-		StringAppend(spython,'fn="'+fn+'"\n')
-		StringAppend(spython,'if len(project.get_files_by_name(fn))<=0:\n')
-		StringAppend(spython,'	project.add_file(fn)\n')
-	for(i=0;ios_frameworks[i];i++)
-		StringAppend(spython,'project.add_file("'+ios_frameworks[i]+'",tree="SDKROOT")\n')
-	StringAppend(spython,'if project.modified:\n')
-	StringAppend(spython,'	project.save()\n')
-	CreateIfDifferent(g_work_dir+"/upload/tmp.py",spython)
-	rsync('./upload',ssh_addr+':~/_buildtmp/'+sbuildtmp)
-	sshell=""
-	StringAppend(sshell,'echo "----updating project----";')
-	StringAppend(sshell,'cd ~/_buildtmp/'+sbuildtmp+';')
-	StringAppend(sshell,'chmod -R 700 ~/_buildtmp/'+sbuildtmp+'/*;')
+	for(var i=0;IOS.c_file_list[i];i++){
+		var fn=IOS.c_file_list[i]
+		spython.push('fn="'+fn+'"\n')
+		spython.push('if len(project.get_files_by_name(fn))<=0:\n')
+		spython.push('	project.add_file(fn)\n')
+	}
+	if(g_json.ios_frameworks){
+		for(var i=0;g_json.ios_frameworks[i];i++){
+			spython.push('project.add_file("'+g_json.ios_frameworks[i]+'",tree="SDKROOT")\n')
+		}
+	}
+	spython.push('if project.modified:\n')
+	spython.push('	project.save()\n')
+	CreateIfDifferent(g_work_dir+"/upload/tmp.py",spython.join(""))
+	var sshell=[]
+	if(g_need_ssh_for_mac){
+		rsync(g_work_dir+'/upload',ssh_addr+':~/_buildtmp/'+sbuildtmp)
+		sshell.push('echo "----updating project----";')
+		sshell.push('cd ~/_buildtmp/'+sbuildtmp+';')
+		sshell.push('chmod -R 700 ~/_buildtmp/'+sbuildtmp+'/*;')
+	}else{
+		sshell.push('#!/bin/sh\n')
+		sshell.push('cd '+g_work_dir+'/upload;')
+	}
 	//the re-add approach has guid issues
-	//StringAppend(sshell,'cp xproj.bak "'+PRJ.name+'.xcodeproj/project.pbxproj";')
-	StringAppend(sshell,'python ./tmp.py;')
-	StringAppend(sshell,'echo "----building----";')
-	if PRJ.is_release||VAR.use_real_phone:
-		//StringAppend(sshell,'security list-keychains -s login.keychain;')
-		//StringAppend(sshell,'security default-keychain -s login.keychain;')
-		StringAppend(sshell,'security unlock-keychain -p \'\' login.keychain;')
-	if PRJ.is_release:
-		StringAppend(sshell,'xcodebuild -sdk iphoneos -configuration Release build OTHER_CFLAGS=\'${inherited} -ffast-math -w -I${HOME}/pmenv/include\';')
-	else
-		if VAR.use_real_phone:
-			StringAppend(sshell,'xcodebuild -sdk iphoneos -configuration Debug build OTHER_CFLAGS=\'${inherited} -O0 -ffast-math -w -I${HOME}/pmenv/include\';')
-		else
-			StringAppend(sshell,'xcodebuild -sdk iphonesimulator -configuration Debug build OTHER_CFLAGS=\'${inherited} -O0 -ffast-math -w -I${HOME}/pmenv/include\';')
-	if PRJ.is_release:
-		StringAppend(sshell,'cp Icon.png build/Release-iphoneos/'+PRJ.name+'.app/Icon.png;')
-		StringAppend(sshell,'cp Icon-72.png build/Release-iphoneos/'+PRJ.name+'.app/Icon-72.png;')
-		StringAppend(sshell,'cp Icon-Small.png build/Release-iphoneos/'+PRJ.name+'.app/Icon-Small.png;')
-		StringAppend(sshell,'cp Icon-Small-50.png build/Release-iphoneos/'+PRJ.name+'.app/Icon-Small-50.png;')
-		StringAppend(sshell,'cp Icon@2x.png build/Release-iphoneos/'+PRJ.name+'.app/Icon@2x.png;')
-		StringAppend(sshell,'cp Icon-72@2x.png build/Release-iphoneos/'+PRJ.name+'.app/Icon-72@2x.png;')
-		StringAppend(sshell,'cp Icon-Small@2x.png build/Release-iphoneos/'+PRJ.name+'.app/Icon-Small@2x.png;')
-		StringAppend(sshell,'cp Icon-Small-50@2x.png build/Release-iphoneos/'+PRJ.name+'.app/Icon-Small-50@2x.png;')
-		StringAppend(sshell,'cp Icon-76.png build/Release-iphoneos/'+PRJ.name+'.app/Icon-76.png;')
-		StringAppend(sshell,'cp Icon-60.png build/Release-iphoneos/'+PRJ.name+'.app/Icon-60.png;')
-		StringAppend(sshell,'cp Icon-76@2x.png build/Release-iphoneos/'+PRJ.name+'.app/Icon-76@2x.png;')
-		StringAppend(sshell,'cp Icon-60@2x.png build/Release-iphoneos/'+PRJ.name+'.app/Icon-60@2x.png;')
-		StringAppend(sshell,'cp Default-568h.png build/Release-iphoneos/'+PRJ.name+'.app/Default-568h.png;')
-		StringAppend(sshell,'cp Default.png build/Release-iphoneos/'+PRJ.name+'.app/Default.png;')
-		StringAppend(sshell,'xcrun -sdk iphoneos PackageApplication -v `pwd`/build/Release-iphoneos/'+PRJ.name+'.app --sign \'iPhone Distribution\' --embed dist.mobileprovision;')
-		StringAppend(sshell,'codesign -s \'iPhone Distribution\' \'build/Release-iphoneos/'+PRJ.name+'.ipa\';')
-		//StringAppend(sshell,'echo xcrun -sdk iphoneos Validation -online -upload -verbose build/Release-iphoneos/'+PRJ.name+'.ipa|grep -v should;')
-	//if PRJ.is_release||VAR.use_real_phone:
-	//	StringAppend(sshell,'security list-keychains -s login.keychain;')
-	//	StringAppend(sshell,'security default-keychain -s login.keychain;')
-	StringAppend(sshell,'exit')
-	//Write(sshell)
-	envssh('mac',sshell)
+	sshell.push('python ./tmp.py;')
+	sshell.push('echo "----building----";')
+	if(g_build!="debug"||g_config.IOS_USE_REAL_PHONE){
+		//sshell.push('security list-keychains -s login.keychain;')
+		//sshell.push('security default-keychain -s login.keychain;')
+		//todo: prompt for pwd instead?
+		sshell.push('security unlock-keychain -p \'\' login.keychain;')
+	}
+	if(g_build!="debug"){
+		sshell.push('xcodebuild -sdk iphoneos -configuration Release build OTHER_CFLAGS=\'${inherited} -DNEED_MAIN_WRAPPING -std=c99 -w -I${HOME}/pmenv/include\';')
+	}else{
+		if(g_config.IOS_USE_REAL_PHONE){
+			sshell.push('xcodebuild -sdk iphoneos -configuration Debug build OTHER_CFLAGS=\'${inherited} -O0 -DNEED_MAIN_WRAPPING -std=c99 -w -I${HOME}/pmenv/include\';')
+		}else{
+			sshell.push('xcodebuild -sdk iphonesimulator -configuration Debug build OTHER_CFLAGS=\'${inherited} -O0 -DNEED_MAIN_WRAPPING -std=c99 -w -I${HOME}/pmenv/include\';')
+		}
+	}
+	if(g_build!="debug"){
+		sshell.push('cp Icon.png build/Release-iphoneos/'+g_main_name+'.app/Icon.png;')
+		sshell.push('cp Icon-72.png build/Release-iphoneos/'+g_main_name+'.app/Icon-72.png;')
+		sshell.push('cp Icon-Small.png build/Release-iphoneos/'+g_main_name+'.app/Icon-Small.png;')
+		sshell.push('cp Icon-Small-50.png build/Release-iphoneos/'+g_main_name+'.app/Icon-Small-50.png;')
+		sshell.push('cp Icon@2x.png build/Release-iphoneos/'+g_main_name+'.app/Icon@2x.png;')
+		sshell.push('cp Icon-72@2x.png build/Release-iphoneos/'+g_main_name+'.app/Icon-72@2x.png;')
+		sshell.push('cp Icon-Small@2x.png build/Release-iphoneos/'+g_main_name+'.app/Icon-Small@2x.png;')
+		sshell.push('cp Icon-Small-50@2x.png build/Release-iphoneos/'+g_main_name+'.app/Icon-Small-50@2x.png;')
+		sshell.push('cp Icon-76.png build/Release-iphoneos/'+g_main_name+'.app/Icon-76.png;')
+		sshell.push('cp Icon-60.png build/Release-iphoneos/'+g_main_name+'.app/Icon-60.png;')
+		sshell.push('cp Icon-76@2x.png build/Release-iphoneos/'+g_main_name+'.app/Icon-76@2x.png;')
+		sshell.push('cp Icon-60@2x.png build/Release-iphoneos/'+g_main_name+'.app/Icon-60@2x.png;')
+		sshell.push('cp Default-568h.png build/Release-iphoneos/'+g_main_name+'.app/Default-568h.png;')
+		sshell.push('cp Default.png build/Release-iphoneos/'+g_main_name+'.app/Default.png;')
+		sshell.push('xcrun -sdk iphoneos PackageApplication -v `pwd`/build/Release-iphoneos/'+g_main_name+'.app --sign \'iPhone Distribution\' --embed dist.mobileprovision;')
+		sshell.push('codesign -s \'iPhone Distribution\' \'build/Release-iphoneos/'+g_main_name+'.ipa\';')
+	}
+	//if g_build!="debug"||g_config.IOS_USE_REAL_PHONE:
+	//	sshell.push('security list-keychains -s login.keychain;')
+	//	sshell.push('security default-keychain -s login.keychain;')
+	if(g_need_ssh_for_mac){
+		sshell.push('exit')
+		envssh('mac',sshell.join(""))
+	}else{
+		CreateFile(g_work_dir+"/build_local.sh",sshell.join(""))
+		shell([g_work_dir+"/build_local.sh"])
+	}
+	//get back the build result? messy
 	return 1
 }
 
-PRJ.Run=function(sdir_target){
-	if !(PRJ.target=="ios"||PRJ.target=="ios-release"):
-		return 0
-	sbuildtmp=ReadFileNonLocked(g_work_dir+"/buildtmp_ready")
-	if !sbuildtmp:
-		Write("error> the project hasn't been built yet")
-		exit(1)
-	ssh_addr=GetServerSSH('mac')
-	sshell=""
-	if PRJ.is_release:
-		StringAppend(sshell,'killall lldb; killall ios-deploy; ~/pmenv/ios-deploy/ios-deploy -d -b ~/_buildtmp/'+sbuildtmp+'/build/Release-iphoneos/'+PRJ.name+'.app; ')
-	else
-		if VAR.use_real_phone:
-			StringAppend(sshell,'killall lldb; killall ios-deploy; ~/pmenv/ios-deploy/ios-deploy -d -b ~/_buildtmp/'+sbuildtmp+'/build/Debug-iphoneos/'+PRJ.name+'.app;')
-		else
-			StringAppend(sshell,'~/pmenv/ios-sim launch ~/_buildtmp/'+sbuildtmp+'/build/Debug-iphonesimulator/'+PRJ.name+'.app; ')
-	StringAppend(sshell,'exit')
-	envssh('mac',sshell)
+g_action_handlers.run=function(sdir_target){
+	var s_target_dir;
+	if(g_need_ssh_for_mac){
+		var sbuildtmp=ReadFile(g_work_dir+"/buildtmp_ready")
+		if(!sbuildtmp){
+			die("the project hasn't been built yet")
+		}
+		s_target_dir='~/_buildtmp/'+sbuildtmp
+	}else{
+		s_target_dir=g_work_dir+"/upload"
+	}
+	var sshell=[]
+	if(g_build!="debug"){
+		sshell.push('killall lldb; killall ios-deploy; '+s_target_dir+'/ios-deploy -d -b '+s_target_dir+'/build/Release-iphoneos/'+g_main_name+'.app; ')
+	}else{
+		if(g_config.IOS_USE_REAL_PHONE){
+			sshell.push('killall lldb; killall ios-deploy; '+s_target_dir+'/ios-deploy -d -b '+s_target_dir+'/build/Debug-iphoneos/'+g_main_name+'.app;')
+		}else{
+			sshell.push('~/pmenv/ios-sim launch '+s_target_dir+'/build/Debug-iphonesimulator/'+g_main_name+'.app;')
+		}
+	}
+	if(g_need_ssh_for_mac){
+		sshell.push('exit')
+		var ssh_addr=GetServerSSH('mac')
+		envssh('mac',sshell.join(""))
+	}else{
+		CreateFile(g_work_dir+"/run_local.sh",sshell.join(""))
+		shell([g_work_dir+"/run_local.sh"])
+	}
 }

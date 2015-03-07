@@ -1875,8 +1875,8 @@ EXPORT int osal_GetCommandLine(char*** pargv){
 }
 
 #ifdef NEED_MAIN_WRAPPING
-//on unixes, we need to reconstruct GetCommandLine
-#ifdef _WIN32
+#if defined(_WIN32)
+//those platforms don't need SDL_main
 #undef main
 #endif
 extern int real_main();

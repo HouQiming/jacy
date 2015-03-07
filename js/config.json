@@ -10,9 +10,11 @@ if(g_current_arch=="linux32"||g_current_arch=="linux64"){
 return {
 	//"DEFAULT_SEARCH_PATHS":["C:/tp/kara/wrapper"],
 	"DEFAULT_SEARCH_PATHS":[g_root+"/wrapper"],
-	"SDL_PATH":"C:/tp/kara/osslib",
+	"SDL_PATH":"C:/tp/pure/osslib",
 	"MKL_PATH":"C:/Program Files (x86)/Intel/Composer XE/mkl",
-	"ADK_PATH":"C:/tp/kara/osslib/android",
+	"ADK_PATH":"C:/tp/pure/osslib/android",
+	"IOS_SKELETON_PATH":"C:/tp/pure/osslib/ios/skeleton_project",
+	"IOS_USE_REAL_PHONE":1,
 	"BULLET_PATH":"C:/tp/osslib/bullet-2.82-r2704",
 	//"SSH_SERVER_LINUX":"hqm@192.168.85.109",
 	//"SSH_SERVER_LINUX":"qiming@127.0.0.1",

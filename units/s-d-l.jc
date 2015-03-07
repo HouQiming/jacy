@@ -931,6 +931,7 @@ module detail
 	SDL_WINDOW_RESIZABLE=32
 	SDL_WINDOW_SHOWN=4
 	//////
+	SDL_GetError=__c_function(__pointer,"SDL_GetError","SDL.h")
 	SDL_CreateWindow=__c_function(__pointer,"SDL_CreateWindow","SDL.h")
 	SDL_DestroyWindow=__c_function(int,"SDL_DestroyWindow","SDL.h")
 	SDL_Init=__c_function(__pointer,"SDL_Init","SDL.h")
@@ -1011,6 +1012,9 @@ module detail
 			hwnd=SDL_CreateWindow(title,x,y,w,h, SDL_WINDOW_OPENGL|SDL_WINDOW_ALLOW_HIGHDPI|flags)
 			if hwnd:
 				g_is_hwnd[iptr(hwnd)]=1
+			else
+				//if Platform.BUILD=="debug":
+				return JS.ReturnError(System.detail.pcharToString(SDL_GetError()))
 			return JS.Return(hwnd)
 		}
 		JS_SDL["SDL_DestroyWindow"]=function(JSContext JS){
