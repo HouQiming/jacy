@@ -992,10 +992,6 @@ UI.Keep=function(id,attrs,prototype){
 	var parent=UI.context_parent;
 	var attrs_old=parent[id];
 	var ret;
-	if(prototype&&!attrs_old){
-		attrs_old=Object.create(prototype);
-		parent[id]=attrs_old;
-	}
 	////////////////
 	var ppt_name=attrs.property_name;
 	if(ppt_name){
@@ -1022,7 +1018,16 @@ UI.Keep=function(id,attrs,prototype){
 		}
 		ret.__anchored=0;
 	}else{
-		ret=attrs;
+		if(prototype){
+			ret=Object.create(prototype);
+			for(var key in attrs){
+				var f=attrs[key];
+				if(typeof f=='function'){f.prototype=null;}
+				ret[key]=f;
+			}
+		}else{
+			ret=attrs;
+		}
 		parent[id]=ret;
 	}
 	if(ret.OnTextInput){
@@ -1131,17 +1136,18 @@ UI.End=function(){
 }
 
 ////////////////////////////////////////
-UI.LayoutText=function(attrs){
-	var font=attrs.font||"Arial,16,b";
-	if(typeof font=='string'){
-		var sparts=font.split(",");
-		if(sparts.length<3){return;}
-		var sbold=sparts.pop();
-		var ssize=sparts.pop();
-		attrs.font=UI.Font(sparts.join(","),parseFloat(ssize),sbold=="b"||sbold=="ab");
-	}
-	UI._LayoutText(attrs);
-}
+//UI.LayoutText=function(attrs){
+//	var font=attrs.font||"Arial,16,b";
+//	if(typeof font=='string'){
+//		var sparts=font.split(",");
+//		if(sparts.length<3){return;}
+//		var sbold=sparts.pop();
+//		var ssize=sparts.pop();
+//		attrs.font=UI.Font(sparts.join(","),parseFloat(ssize),sbold=="b"||sbold=="ab");
+//	}
+//	UI._LayoutText(attrs);
+//}
+UI.LayoutText=UI._LayoutText
 
 lerp=function(a,b,t){return a+(b-a)*t;}
 isNumber=function(a){return typeof(a)=='number';}
@@ -1227,7 +1233,7 @@ UI.StdStyling=function(id,attrs,attrs0,s_default_style_name,child_style){
 			for(var key in ref_frame){
 				if(ref_frame[key]!=attrs[key]){
 					//gradient comparison
-					if(typeof ref_frame[key]=='object'&&typeof attrs[key]=='object'){
+					if(typeof ref_frame[key]=='object'||typeof attrs[key]=='object'){
 						continue;
 					}
 					need_transition=1;

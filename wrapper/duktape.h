@@ -1,3 +1,4 @@
+#define DUK_OPT_NO_ES6_PROXY
 /*
  *  Duktape public API for Duktape 1.1.0.
  *  See the API reference for documentation on call semantics.

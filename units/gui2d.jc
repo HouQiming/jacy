@@ -1057,8 +1057,7 @@ class CRenderer
 	auto ComputeTextLayout(TFont fnt, float w0,float h0,string s, int flags)
 		//simply emulate windows drawtext
 		s32=Utf8ToUnicode32(s)
-		(gc_space,delta_y)=CacheGlyph(fnt,int(' '))
-		wspace=gc_space?gc_space.dx:0.f
+		wspace=GetCharacterAdvance(fnt,int(' '))
 		wtab=wspace*8.f
 		hc=GetCharacterHeight(fnt)
 		poses=new float2[s32.n]
@@ -1084,16 +1083,15 @@ class CRenderer
 					dx=min((floor(x/wtab)+1.f)*wtab,w0)-x
 				else
 					dx=wspace
+			else if ch=='\n':
+				dx=0.f
+				delta_y=0.f
 			else
-				if ch=='\n':
-					dx=0.f
-					delta_y=0.f
+				(gc_I,delta_y)=CacheGlyph(fnt,ch)
+				if gc_I:
+					dx=gc_I.dx
 				else
-					(gc_I,delta_y)=CacheGlyph(fnt,ch)
-					if gc_I:
-						dx=gc_I.dx
-					else
-						dx=0.f
+					dx=0.f
 			if x&&(x>=w0||x+dx>w0)||ch=='\n':
 				xbak=x
 				ybak=y

@@ -4,9 +4,7 @@ PROVISIONING_PROFILE = "487F3EAC-05FB-4A2A-9EA0-31F1F35760EB";
 to build SDL:
 	cd ~/pmenv/SDL2-2.0.3
 	rm -rf build
-	build-scripts/iosbuild.sh configure-armv7
-	cp include/SDL_config.h ./build/armv7/include/SDL_config.h 
-	build-scripts/iosbuild.sh make-armv7
+	build-scripts/iosbuild.sh
 	
 old
 	cd ~/pmenv/SDL2-2.0.3/Xcode-iOS/SDL
