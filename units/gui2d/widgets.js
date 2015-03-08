@@ -3,7 +3,6 @@
 var UI=require("gui2d/ui");
 var W=exports;
 
-//todo: Mac, iOS, Android fonts
 UI.font_name="LucidaGrande,_H_HelveticaNeue,segoeui,Roboto-Regular,Arial"
 UI.Theme_Minimalistic=function(C){
 	UI.current_theme_color=C[0];
@@ -349,34 +348,6 @@ W.Text=function(id,attrs){
 W.RoundRect=function(id,attrs){
 	UI.StdAnchoring(id,attrs);
 	UI.RoundRect(attrs)
-	return attrs;
-}
-
-UI.DrawIcon=function(attrs){
-	//bmp or ttf
-	//todo: height-sized?
-	var bmpid;
-	var icon_font,icon_char;
-	var size={};
-	if(attrs.icon_file){
-		bmpid=UI.rc[attrs.icon_file];
-		UI.GetBitmapSize(bmpid,size);
-	}else{
-		icon_font=attrs.icon_font;
-		icon_char=attrs.icon_char.charCodeAt(0);
-		size.w=UI.GetCharacterAdvance(icon_font,icon_char);
-		size.h=UI.GetCharacterHeight(icon_font);
-	}
-	var w=attrs.w||size.w;
-	var h=attrs.h||size.h;
-	var x=attrs.x+(w-size.w)*0.5;
-	var y=attrs.y+(h-size.h)*0.5;
-	if(attrs.icon_file){
-		UI.DrawBitmap(0,x,y,size.w,size.h,attrs.color);
-	}else{
-		//todo: character border...
-		UI.DrawChar(icon_font,x,y,icon_char)
-	}
 	return attrs;
 }
 
@@ -1340,6 +1311,7 @@ W.EditBox_prototype={
 	value:"",
 	focus_state:"blur",
 	OnClick:function(){
+		if(!this.OnChange){return;}
 		if(this.focus_state=="blur"){
 			this.bak_value=this.value;
 			this.focus_state="focus"
@@ -1360,6 +1332,7 @@ W.EditBox=function(id,attrs){
 	W.PureRegion(id,obj)
 	var dim_text=UI.MeasureIconText({font:obj.font,text:obj.hint_text||obj.value||"0"})
 	UI.Begin(obj)
+		if(!obj.OnChange){obj.focus_state="blur";}
 		if(obj.focus_state=="focus"){
 			var is_newly_created=!obj.edit;
 			W.Edit("edit",{
@@ -1394,7 +1367,7 @@ W.EditBox=function(id,attrs){
 			obj.edit=undefined
 			W.Text("text",{
 				anchor:'parent',anchor_align:"left",anchor_valign:"center",
-				x:obj.padding,y:0,w:dim_text.w,h:dim_text.h,
+				x:obj.padding,y:0,w:obj.w-obj.padding*2,h:dim_text.h,
 				font:obj.font, color:obj.text_color, text:obj.value,
 				});
 		}
@@ -1522,10 +1495,10 @@ W.Select=function(id,attrs){
 }
 
 //use anchor_placement to determine the side, default to right
-//todo: on PC it should be mouse-move triggered
 W.AutoHidePanel_prototype={
 	anchor_placement:'right',
-	position:0,velocity:0,max_velocity:3,acceleration:0.2,oob_scale:0.5,oob_limit:20,dt_threshold:0.1,velocity_to_target_threshold:0.7,
+	layout_direction:'inside',layout_align:'left',layout_valign:'up',
+	position:0,velocity:0,max_velocity:6,acceleration:0.2,oob_scale:0.5,oob_limit:20,dt_threshold:0.1,velocity_to_target_threshold:0.5,
 	Simulate:function(){
 		var a=this.dragging_samples;
 		var size=(this.anchor_placement=='left'||this.anchor_placement=='right'?this.w:this.h)
@@ -1554,9 +1527,13 @@ W.AutoHidePanel_prototype={
 		}else{
 			if(this.target_position!=undefined){
 				this.position+=this.velocity;
+				if(this.position<-this.oob_limit){this.velocity=0;this.position=-this.oob_limit}
+				if(this.position>size+this.oob_limit){this.velocity=0;this.position=size+this.oob_limit}
 				if(this.target_position>this.position){
+					if(this.velocity<0){this.velocity=0}
 					this.velocity+=this.acceleration;
 				}else{
+					if(this.velocity>0){this.velocity=0}
 					this.velocity-=this.acceleration;
 				}
 				if(Math.abs(this.target_position-this.position)<this.velocity*2){
@@ -1587,10 +1564,11 @@ W.AutoHidePanel_knob_prototype={
 		var obj=this.owner;
 		if(!obj.dragging_samples){return;}
 		var t=Duktape.__ui_seconds_between_ticks(obj.tick0,Duktape.__ui_get_tick());
-		if(obj.anchor_placement=='left'||obj.anchor_placement=='top'){
-			obj.dragging_samples.push({x:event.x,t:t})
+		var side=(obj.anchor_placement=='left'||obj.anchor_placement=='right'?"x":"y")
+		if(obj.anchor_placement=='left'||obj.anchor_placement=='up'){
+			obj.dragging_samples.push({x:event[side],t:t})
 		}else{
-			obj.dragging_samples.push({x:-event.x,t:t})
+			obj.dragging_samples.push({x:-event[side],t:t})
 		}
 		obj.Simulate()
 		UI.Refresh()
@@ -1636,7 +1614,7 @@ W.AutoHidePanel=function(id,attrs){
 		//one of w/h will be overwritten with fill anyway
 		W.Region("knob",{
 			anchor:'parent',anchor_placement:g_inverse_dir[obj.anchor_placement],anchor_align:obj.anchor_align,anchor_valign:obj.anchor_valign,
-			x:is_x?-size:0,y:is_x?-size:0,w:obj.knob_size+size,h:obj.knob_size+size,
+			x:is_x?-size:0,y:is_x?0:-size,w:obj.knob_size+size,h:obj.knob_size+size,
 			owner:obj
 		},W.AutoHidePanel_knob_prototype)
 		if(!obj.dragging_samples){obj.Simulate()}

@@ -29,8 +29,6 @@ Basically:
 * Library function names look like C#: `Writeln('Hello world')`
 * Strings go either way like Javascript: `'Hello world'`
 
-A slightly more complex example is available at *app_example/app.jc*.
-
 ## Language
 
 ### Variables and expressions
@@ -407,9 +405,9 @@ Normal classes can implement the same behavior, in fact, `for in` is just a synt
 		dat[I]=a*10
 	})
 
-Provide a `forEach` method, and `for in` is ready to use. You can alternatively write it as `foreach in`.
+Provide a `forEach` method, and `for in` is ready to use. You can alternatively write it as `foreach in`. Please refer to *units/__builtin.jc* for examples.
 
-Jacy also provide C++-like maps in an intuitive syntax:
+Jacy also provides C++-like maps in an intuitive syntax:
 
 	a=new int[string]
 	
@@ -429,16 +427,27 @@ There are built-in 2D-4D vectors in D3D/CUDA names like `float3` or `uint4`.
 
 ## Writing apps
 
-This section deals with features bending on the “application” side.
+This section deals with features bending on the “application” side, i.e., developing phone apps with GUI.
+
+### Getting started
+
+An example app is available at *app_example/app.jc*, with explanation in comments.
 
 ### Imports and modules
+
+!?
 
 ### Javascript-JC-C interface
 
 __pointer
 polymorphism
 
+### Declarative UI
+
 ## Writing fast programs
+
+compiler-eliminated structures
+strong / weak (screw-upable things like vector to pointer)
 
 ### Templates and inlines
 

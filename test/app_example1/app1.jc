@@ -12,5 +12,25 @@ __generate_json("icon_file","icon256.png")
 	sbox=setupModuleSystem(JS,1)
 	sbox.UILoadZip(string.NULL)
 	/////////////
+	//export a function to Javascript
+	global=JS.GetGlobal()
+	global["RunNativeCode"]=function(JSContext JS){
+		//use ["name"] to access JS members, and use .as(type) to read its value
+		//without .as, it's an error
+		//for efficiency reasons, each statement can have at most one JS access
+		a=global["g_params"]["a"].as(double)
+		b=global["g_params"]["b"].as(double)
+		//when writing, the type is automatically deduced
+		global["g_params"]["result"]=a+b
+		//return 0 returns undefined to JS
+		return 0
+	}
+	global["NativeFunction"]=function(JSContext JS){
+		//use JS.Param(#) to access params
+		//use or to provide a default value in case the parameter is undefined
+		s=JS.Param(0).or("")
+		//use JS.Return() to return values to JS
+		return JS.Return(System.Algorithm.SHA1Digest(s)[0:15]+"...")
+	}
 	sbox.UIRunJS(JS,"res/ui_main.js")
 })()
