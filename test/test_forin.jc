@@ -1,0 +1,8 @@
+import System.Console.*
+
+(function(){
+	dat=[1,4,2,8,5,7,3,6,9]
+	for a,I in dat
+		dat[I]=a*10
+	Writeln(dat)
+})()

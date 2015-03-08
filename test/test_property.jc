@@ -1,0 +1,22 @@
+import System.Console.*
+
+class CClass1{
+	m_value=0
+	auto print(){
+		Writeln('calling CClass1.print, interal m_value=',m_value,', property value()=',value())
+	}
+	auto value(){
+		return double(m_value)/100.0
+	}
+	auto set_value(double a){
+		m_value=int(a*100.0)
+	}
+}
+
+(function(){
+	a=new CClass1()
+	a.value()=1.5 //equivalent to a.set_value(1.5)
+	a.print()
+	a.value()=12.345
+	a.print()
+})()

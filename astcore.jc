@@ -10367,8 +10367,12 @@ auto createCallGraph()
 			raw_data=readPool(p+i)
 			pobjfn_called=(raw_data>>1)
 			assert(pobjfn_called>0)
+			if pobjfn_called<0:continue
 			//Writeln(dumpObject(pobjfn_called))
 			pinv=readPool(pobjfn_called+FUNCTION_OFS_PINV_CALL_GRAPH_EDGES)-1
+			if pinv<0:
+				assert(0)
+				continue
 			writePool(pobjfn_called+FUNCTION_OFS_PINV_CALL_GRAPH_EDGES,pinv)
 			writePool(pinv,pobjfn*2+(raw_data&1))
 	

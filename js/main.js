@@ -169,7 +169,7 @@ g_action_handlers.runjs=function(){
 	if(!scode){
 		die("unable to find @1".replace("@1",g_cli_args[0]));
 	}
-	eval(scode);
+	debugEval(scode,g_cli_args[0]);
 };
 
 (function(){
@@ -279,7 +279,7 @@ g_action_handlers.runjs=function(){
 			var fn=SearchForFile(include_js[i]);
 			var scode=ReadFile(fn);
 			if(!scode){die("unable to find @1".replace("@1",include_js[i]));continue;}
-			eval(scode);
+			debugEval(scode,fn);
 		}
 	}
 	(g_action_handlers[g_action])();

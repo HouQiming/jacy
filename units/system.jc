@@ -7731,7 +7731,7 @@ module Env
 			if !System.IO.DirExists(sret):System.IO.CreateDirectory(sret)
 			return sret
 	auto NormalizeFileName(string fn)
-		if !fn:return NULL
+		if !fn:return string.NULL
 		if !fn.n:return new string
 		fnn=toNativeString(fn)
 		if Platform.IS_UNIX:
