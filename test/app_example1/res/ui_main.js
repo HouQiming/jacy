@@ -24,7 +24,7 @@ var PortraitPanel=function(id,attrs){
 		property_name:'result'}));
 	/*widget*/(W.Label('text_999x',{'x':33.60867419942679,'y':103.47136497497559,
 		text:'SHA1',color:0xffffffff}));
-	/*widget*/(W.EditBox('editbox_1098x',{'x':111.86343383789063,'y':103.47136497497559,'w':328.4239323390183,'h':24.471364974975586,
+	/*widget*/(W.EditBox('editbox_1098x',{'x':111.86343383789063,'y':103.47136497497559,'w':326.90407573635326,'h':24.471364974975586,
 		property_name:'result_SHA1'}));
 	/*insert here*/
 	/*editor: UI.EndVirtualWindow()//*/
@@ -37,14 +37,14 @@ var PortraitMode=function(id,attrs){
 		/*editor: position:300,//*/
 	});
 	/*widget*/(W.Label('text_2435',{
-		anchor:'parent',anchor_align:'center',anchor_valign:'down',
-		'x':0,'y':obj.position+78.58590698242188,
+		anchor:obj,anchor_placement:'up',anchor_align:'center',anchor_valign:'down',
+		'x':0,'y':81.58590698242188,
 		font:UI.Font(UI.font_name,72,-50),
 		text:'Pull here',color:UI.current_theme_color}));
 	/*widget*/(W.Label('text_2435',{
-		anchor:'parent',anchor_align:'center',anchor_valign:'down',
-		'x':0,'y':obj.position+0,
-		font:UI.Font(UI.font_name,96,200),
+		anchor:obj,anchor_placement:'up',anchor_align:'center',anchor_valign:'down',
+		'x':0,'y':0,
+		font:UI.Font(UI.font_name,96,-50),
 		text:'\u2191',color:UI.current_theme_color}));
 	/*insert here*/
 	UI.Begin(obj)
@@ -67,11 +67,11 @@ var LandscapePanel=function(id,attrs){
 		property_name:'b'}));
 	/*widget*/(W.Label('text_999',{'x':13.608674199426787,'y':105.4713649749756,
 		text:'Result',color:0xffffffff}));
-	/*widget*/(W.EditBox('editbox_1098',{'x':91.86343383789063,'y':105.4713649749756,'w':186.73138527279255,'h':24.471364974975586,
+	/*widget*/(W.EditBox('editbox_1098',{'x':90.55325717579032,'y':105.4713649749756,'w':187.701687038509,'h':24.471364974975586,
 		property_name:'result'}));
-	/*widget*/(W.Label('text_999x',{'x':124.60867419942679,'y':360.4713649749756,
-		text:'SHA1',color:0xffffffff}));
-	/*widget*/(W.EditBox('editbox_1098x',{'x':13.608674199426787,'y':389.6615571790405,'w':267.30964726706117,'h':68.34431451462808,
+	/*widget*/(W.Label('text_999x',{'x':221.02407594136685,'y':184.65134930105953,
+		text:'SHA1 \u2191',color:0xffffffff}));
+	/*widget*/(W.EditBox('editbox_1098x',{'x':13,'y':141.94272994995117,'w':265.25809823585763,'h':30.708619351108347,
 		property_name:'result_SHA1'}));
 	/*insert here*/
 	/*editor: UI.EndVirtualWindow()//*/
@@ -84,14 +84,14 @@ var LandscapeMode=function(id,attrs){
 		/*editor: position:300,//*/
 	});
 	/*widget*/(W.Label('text_2435',{
-		anchor:'parent',anchor_align:'right',anchor_valign:'center',
-		'x':obj.position+70.32084545389353,'y':0,
+		anchor:obj,anchor_placement:'left',anchor_align:'right',anchor_valign:'center',
+		'x':66.32084545389353,'y':0,
 		font:UI.Font(UI.font_name,72,-50),
 		text:'Pull here',color:UI.current_theme_color}));
 	/*widget*/(W.Label('text_2435',{
-		anchor:'parent',anchor_align:'right',anchor_valign:'center',
-		'x':obj.position+0,'y':0,
-		font:UI.Font(UI.font_name,96,200),
+		anchor:obj,anchor_placement:'left',anchor_align:'right',anchor_valign:'center',
+		'x':1,'y':-4,
+		font:UI.Font(UI.font_name,96,-50),
 		text:'\u2190',color:UI.current_theme_color}));
 	UI.Begin(obj)
 	LandscapePanel()

@@ -143,7 +143,7 @@ UI.Theme_Minimalistic=function(C){
 				active:{
 					text_color:0xffffffff,
 					color:C[0],
-					shadow_color:0xaa000000, 
+					shadow_color:0xaa000000,
 				},
 				inactive:{
 					text_color:0xff444444,
@@ -157,7 +157,7 @@ UI.Theme_Minimalistic=function(C){
 			h_caption:32, h_bar:4, color:0xffbbbbbb, border_color:C[0]
 		},
 		box_document:{
-			border_color:(0xcc000000&C[0]),border_width:2,
+			border_color:(0xcc000000&C[0]),border_width:2,w_snapping_line:2,
 			color:(0x44000000&C[0]),
 		},
 		txtx_editor:{
@@ -272,8 +272,8 @@ UI.DestroyWindow=function(attrs){
 };
 
 UI.SetCaret=function(attrs,x,y,w,h,C,dt){
-	attrs.caret_x=x;
-	attrs.caret_y=y;
+	attrs.caret_x=x+UI.region_offset_x;
+	attrs.caret_y=y+UI.region_offset_y;
 	attrs.caret_w=w;
 	attrs.caret_h=h;
 	attrs.caret_C=C;
@@ -373,10 +373,14 @@ W.Region=function(id,attrs,proto){
 	return W.PureRegion(id,obj)
 }
 
+UI.region_offset_x=0
+UI.region_offset_y=0
 W.PureRegion=function(id,obj){
 	if(obj==UI.nd_focus){
 		UI.context_focus_is_a_region=1
 	}
+	obj.x+=UI.region_offset_x;
+	obj.y+=UI.region_offset_y;
 	UI.context_regions.push(obj);
 	obj.region___hwnd=UI.context_window.__hwnd;
 	return obj;
@@ -685,6 +689,16 @@ W.Edit_prototype={
 	SeekXY:function(x,y){
 		var ed=this.ed
 		var ccnt=ed.SeekXY(x,y)
+		//skip invisible
+		var ccnt_maybe_newline=this.SkipInvisibles(ccnt,-1)
+		if(ccnt_maybe_newline>0&&ed.GetUtf8CharNeighborhood(ccnt_maybe_newline)[0]==10){
+			//it's a newline before
+			var xy=ed.XYFromCcnt(ccnt)
+			if(xy.y>y){
+				//we should have landed on the previous line
+				ccnt=ccnt_maybe_newline-1
+			}
+		}
 		if(ccnt==ed.GetTextSize()){
 			//eof special case for mousing
 			ccnt=ed.SeekXY(x,ed.XYFromCcnt(ccnt).y)
@@ -695,6 +709,7 @@ W.Edit_prototype={
 		var ed=this.ed;
 		this.sel1.ccnt=this.SeekXY(x,y);
 		this.caret_is_wrapped=0;
+		//print("IsAtLineWrap",this.sel1.ccnt,ed.IsAtLineWrap(this.sel1.ccnt),ed.GetUtf8CharNeighborhood(this.sel1.ccnt))
 		if(ed.IsAtLineWrap(this.sel1.ccnt)){
 			var x0=this.GetCaretXY().x;
 			this.caret_is_wrapped=1;
@@ -1498,13 +1513,17 @@ W.Select=function(id,attrs){
 W.AutoHidePanel_prototype={
 	anchor_placement:'right',
 	layout_direction:'inside',layout_align:'left',layout_valign:'up',
-	position:0,velocity:0,max_velocity:6,acceleration:0.2,oob_scale:0.5,oob_limit:20,dt_threshold:0.1,velocity_to_target_threshold:0.5,
+	position:undefined,velocity:0,max_velocity:1000,acceleration:1500,oob_scale:0.5,oob_limit:20,dt_threshold:0.1,velocity_to_target_threshold:0.3,
 	Simulate:function(){
 		var a=this.dragging_samples;
 		var size=(this.anchor_placement=='left'||this.anchor_placement=='right'?this.w:this.h)
+		var tick_last=this.sim_tick;
+		this.sim_tick=Duktape.__ui_get_tick();
+		if(tick_last==undefined){tick_last=this.sim_tick-1/UI.animation_framerate;}
+		var sim_dt=Duktape.__ui_seconds_between_ticks(tick_last,this.sim_tick)
 		if(a){
 			var n=a.length,p0=Math.max(n-3,0);
-			this.position=a[n-1].x-a[0].x+this.initial_position
+			this.position=a[n-1].x-a[0].x+this.anchored_position
 			if(this.position<0){this.position*=this.oob_scale;}
 			if(this.position>=size){this.position=(this.position-size)*this.oob_scale+size;}
 			this.position=Math.max(Math.min(this.position,size+this.oob_limit),-this.oob_limit)
@@ -1517,7 +1536,7 @@ W.AutoHidePanel_prototype={
 			if(dt<=0){
 				this.velocity=0;
 			}else{
-				this.velocity=(a[n-1].x-a[Math.max(n-2,0)].x)/(dt*UI.animation_framerate);
+				this.velocity=(a[n-1].x-a[Math.max(n-2,0)].x)/dt;
 			}
 			if(this.position<size*0.5){
 				this.target_position=0
@@ -1526,17 +1545,17 @@ W.AutoHidePanel_prototype={
 			}
 		}else{
 			if(this.target_position!=undefined){
-				this.position+=this.velocity;
+				this.position+=this.velocity*sim_dt;
 				if(this.position<-this.oob_limit){this.velocity=0;this.position=-this.oob_limit}
 				if(this.position>size+this.oob_limit){this.velocity=0;this.position=size+this.oob_limit}
 				if(this.target_position>this.position){
 					if(this.velocity<0){this.velocity=0}
-					this.velocity+=this.acceleration;
+					this.velocity+=this.acceleration*sim_dt;
 				}else{
 					if(this.velocity>0){this.velocity=0}
-					this.velocity-=this.acceleration;
+					this.velocity-=this.acceleration*sim_dt;
 				}
-				if(Math.abs(this.target_position-this.position)<this.velocity*2){
+				if(Math.abs(this.target_position-this.position)<this.velocity*2*sim_dt){
 					this.velocity=0
 					this.position=this.target_position
 					this.target_position=undefined;
@@ -1554,7 +1573,7 @@ W.AutoHidePanel_knob_prototype={
 			obj.dragging_samples=[];
 		}
 		//anchor like normal widgets
-		obj.initial_position=obj.position
+		obj.anchored_position=obj.position
 		obj.tick0=Duktape.__ui_get_tick()
 		this.OnMouseMove(event);
 		obj.target_position=(obj.position==0?obj.w:0)
@@ -1596,6 +1615,7 @@ var g_inverse_dir={'left':'right','right':'left','up':'down','down':'up','center
 W.AutoHidePanel=function(id,attrs){
 	var obj=UI.Keep(id,attrs,W.AutoHidePanel_prototype)
 	UI.StdStyling(id,obj,attrs,"auto_hide_panel")
+	if(obj.position==undefined){obj.position=obj.initial_position;}
 	if(obj.anchor_placement=='left'||obj.anchor_placement=='right'){
 		obj.x=-obj.position;obj.y=0
 		obj.anchor_align=obj.anchor_placement

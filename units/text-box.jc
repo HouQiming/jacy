@@ -353,6 +353,48 @@ class CLayouter_baseline
 		is_wrapping=(m_wrap_width>0.f)
 		w_space=charWidth(' ')
 		w_hyphen=charWidth('-')
+		inline projectX(i64 x)
+			return fixed2float(x-scroll_x)*scaling+screen_x
+		inline projectY(i64 y)
+			return fixed2float(y-scroll_y)*scaling+screen_y
+		auto testIMEOverlay()
+			if x==m_caret_overlay.x&&y==m_caret_overlay.y:
+				if m_overlay_obj["type"].as(string)=="IME":
+					s_overlay=m_overlay_obj["text"].as(string)
+					yf=projectY(y)
+					if s_overlay:
+						cmap=new iptr[]
+						foreach chj,J in Utf8Chars(s_overlay)
+							cmap.push(J)
+						cmap.push(s_overlay.n)
+						overlay_sel0=m_overlay_obj["start"].as(iptr)
+						overlay_sel1=overlay_sel0+m_overlay_obj["length"].as(iptr)
+						overlay_sel0=min(overlay_sel0,cmap.n-1)
+						overlay_sel1=min(overlay_sel1,cmap.n-1)
+						if uptr(overlay_sel0)<uptr(cmap.n)&&uptr(overlay_sel1)<uptr(cmap.n):
+							x_sel0=GetStringWidth(m_font,s_overlay[:cmap[overlay_sel0]-1])
+							x_sel1=GetStringWidth(m_font,s_overlay[:cmap[overlay_sel1]-1])
+							m_caret_offset=double2fixed(x_sel1)
+							if x_sel0>x_sel1:
+								(x_sel0,x_sel1)=(x_sel1,x_sel0)
+							//selection - pre-draw the highlight
+							if x_sel0<x_sel1:
+								g_renderer.DrawBitmap(0, float((fixed2float(x-scroll_x)+x_sel0)*scaling+screen_x),yf,float((x_sel1-x_sel0)*scaling),fixed2float(hc), m_bgcolor_selection)
+						else
+							assert(0)
+						xo=x
+						foreach chj,J in Utf8Chars(s_overlay)
+							dx_j=charWidth(chj)
+							g_renderer.DrawChar(fnt_scaled, projectX(xo),yf,m_color, chj)
+							xo+=dx_j
+					else
+						assert(0)
+					//draw the underline
+					y_underline=yf+fnt_scaled.h*(fnt_scaled.pfnt.y_baseline_per_height+0.02f)
+					g_renderer.DrawBitmap(0, projectX(x),y_underline,fixed2float(m_caret_overlay.z)*scaling,max(fnt_scaled.h*0.05f,1.f), m_color)
+				else
+					assert(0)
+				x+=m_caret_overlay.z
 		for i=0:line_breaks.n-2
 			got_newline=0
 			//justified wrapping
@@ -398,10 +440,6 @@ class CLayouter_baseline
 				//Writeln(space_padding,' ',nspaces,' ',space_padding)
 			got_newline=0
 			///////////////
-			inline projectX(i64 x)
-				return fixed2float(x-scroll_x)*scaling+screen_x
-			inline projectY(i64 y)
-				return fixed2float(y-scroll_y)*scaling+screen_y
 			for ch,I in Utf8Chars(s[iptr(line_breaks[i]&0x7fffffffffffffffLL):iptr(min(line_breaks[i+1]&0x7fffffffffffffffLL,ofs))-1])
 				if mode==MODE_SEEK:
 					//if y>epsUp(dy)||dy>=epsDown(y)&&dy<epsDown(y+hc)&&x>=dx:
@@ -409,43 +447,7 @@ class CLayouter_baseline
 						return TRenderingInfo(){bb:long2(x,y),seek_ret:iptr((line_breaks[i]&0x7fffffffffffffffLL)+I)}
 				if mode==MODE_RENDER:
 					//if epsEqual(x,m_caret_overlay.x)&&epsEqual(y,m_caret_overlay.y):
-					if x==m_caret_overlay.x&&y==m_caret_overlay.y:
-						if m_overlay_obj["type"].as(string)=="IME":
-							s_overlay=m_overlay_obj["text"].as(string)
-							yf=projectY(y)
-							if s_overlay:
-								cmap=new iptr[]
-								foreach chj,J in Utf8Chars(s_overlay)
-									cmap.push(J)
-								cmap.push(s_overlay.n)
-								overlay_sel0=m_overlay_obj["start"].as(iptr)
-								overlay_sel1=overlay_sel0+m_overlay_obj["length"].as(iptr)
-								overlay_sel0=min(overlay_sel0,cmap.n-1)
-								overlay_sel1=min(overlay_sel1,cmap.n-1)
-								if uptr(overlay_sel0)<uptr(cmap.n)&&uptr(overlay_sel1)<uptr(cmap.n):
-									x_sel0=GetStringWidth(m_font,s_overlay[:cmap[overlay_sel0]-1])
-									x_sel1=GetStringWidth(m_font,s_overlay[:cmap[overlay_sel1]-1])
-									m_caret_offset=double2fixed(x_sel1)
-									if x_sel0>x_sel1:
-										(x_sel0,x_sel1)=(x_sel1,x_sel0)
-									//selection - pre-draw the highlight
-									if x_sel0<x_sel1:
-										g_renderer.DrawBitmap(0, float((fixed2float(x-scroll_x)+x_sel0)*scaling+screen_x),yf,float((x_sel1-x_sel0)*scaling),fixed2float(hc), m_bgcolor_selection)
-								else
-									assert(0)
-								xo=x
-								foreach chj,J in Utf8Chars(s_overlay)
-									dx_j=charWidth(chj)
-									g_renderer.DrawChar(fnt_scaled, projectX(xo),yf,m_color, chj)
-									xo+=dx_j
-							else
-								assert(0)
-							//draw the underline
-							y_underline=yf+fnt_scaled.h*(fnt_scaled.pfnt.y_baseline_per_height+0.02f)
-							g_renderer.DrawBitmap(0, projectX(x),y_underline,fixed2float(m_caret_overlay.z)*scaling,max(fnt_scaled.h*0.05f,1.f), m_color)
-						else
-							assert(0)
-						x+=m_caret_overlay.z
+					testIMEOverlay()
 				if ch=='\r'||ch=='\n':
 					//nothing
 					if ch=='\n':
@@ -479,6 +481,9 @@ class CLayouter_baseline
 				if got_newline||i<line_breaks.n-2:
 					x=0LL
 					y+=hc
+		if mode==MODE_RENDER:
+			//IME at EOF
+			testIMEOverlay()
 		return TRenderingInfo(){bb:long2(x,y),seek_ret:s.n}
 	}
 	RenderText=function(i64 ccnt_base,i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling){
@@ -1269,9 +1274,7 @@ class CEditableText
 		//xy=XYFromCcnt(ccnt0)
 		//return Bisect(hid,[__double_as_longlong(x),__double_as_longlong(xy.y)])
 		ccnt0=Bisect(hid,[x,y])
-		xy=XYFromCcnt(ccnt0)
-		if xy.y>y&&ccnt0>0LL&&GetText(ccnt0-1,1LL)=="\n":
-			ccnt0--
+		//the newline / invisible logic is in JS
 		return ccnt0
 	//////////////////////
 	auto FindNearest(int hid,i64[] b,i64 ccnt0,int direction)
@@ -1423,6 +1426,8 @@ class CEditableText
 					color_ids=u8[].NULL
 				handler.RenderText(ccnt_base,acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s, color_ids, x,y,scr_x,scr_y,scale)
 				handler.Add(acc,nd.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
+				if hid_colorer>=0:
+					handler_colorer.Add(acc_colorer,nd.a[m_state_ofs[hid_colorer]:m_state_ofs[hid_colorer+1]-1])
 			else
 				for(pc=nd.pchild;pc;pc=pc.pnext)
 					p0=max(wnd_ccnt0-ccnt_base,0LL)
@@ -1777,7 +1782,7 @@ class CEditableText
 		else if stype=="word_boundary":
 			fcheck=function(int c0,int c1){return isWordChar(c0)!=isWordChar(c1)}
 		else if stype=="ctrl_lr_stop":
-			fcheck=function(int c0,int c1){return !isWordChar(c0)&&isWordChar(c1)}
+			fcheck=function(int c0,int c1){return !isWordChar(c0)&&isWordChar(c1)||c1=='\n'}
 		else if stype=="invisible_boundary":
 			hid=m_handler_registration["renderer"].as(int)
 			handler=m_handlers[hid]

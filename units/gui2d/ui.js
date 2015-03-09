@@ -1149,6 +1149,12 @@ UI.End=function(){
 //}
 UI.LayoutText=UI._LayoutText
 
+UI.SwitchToSubWindow=function(x,y,w,h){
+	UI._SwitchToSubWindow(x,y,w,h,0)
+	UI.region_offset_x=(x||0)
+	UI.region_offset_y=(y||0)
+};
+
 lerp=function(a,b,t){return a+(b-a)*t;}
 isNumber=function(a){return typeof(a)=='number';}
 
