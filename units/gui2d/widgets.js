@@ -271,16 +271,24 @@ UI.DestroyWindow=function(attrs){
 	UI.SDL_DestroyWindow(attrs.__hwnd)
 };
 
-UI.SetCaret=function(attrs,x,y,w,h,C,dt){
-	attrs.caret_x=x;
-	attrs.caret_y=y;
-	attrs.caret_w=w;
-	attrs.caret_h=h;
-	attrs.caret_C=C;
-	attrs.caret_state=1;
-	attrs.caret_dt=dt;
-	attrs.caret_is_set=1
-	UI.SDL_SetTextInputRect(x*UI.pixels_per_unit,y*UI.pixels_per_unit,w*UI.pixels_per_unit,h*UI.pixels_per_unit)
+UI.SetCaret=function(obj,x,y,w,h,C,dt){
+	UI.InsertJSDrawCall(function(){
+		if(obj.caret_state>0){
+			UI.DrawCaret(obj.caret_x,obj.caret_y,obj.caret_w,obj.caret_h,obj.caret_C)
+		}
+	})
+	obj.caret_x=x;
+	obj.caret_y=y;
+	obj.caret_w=w;
+	obj.caret_h=h;
+	obj.caret_C=C;
+	obj.caret_state=1;
+	obj.caret_dt=dt;
+	obj.caret_is_set=1
+	UI.SDL_SetTextInputRect(
+		(UI.sub_window_offset_x+x)*UI.pixels_per_unit,
+		(UI.sub_window_offset_y+y)*UI.pixels_per_unit,
+		w*UI.pixels_per_unit,h*UI.pixels_per_unit)
 };
 
 UI.ChooseScalingFactor=function(obj){

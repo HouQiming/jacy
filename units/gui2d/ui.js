@@ -1540,11 +1540,7 @@ UI.JSDrawWindow=function(obj){
 	//var tick0=Duktape.__ui_get_tick()
 	UI.GL_Begin(obj.__hwnd)
 	UI.Clear(obj.bgcolor||0xffffffff)
-	if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0&&obj.caret_state>0){
-		UI.DrawWindow(obj.__hwnd,obj.caret_x,obj.caret_y,obj.caret_w,obj.caret_h,obj.caret_C);
-	}else{
-		UI.DrawWindow(obj.__hwnd);
-	}
+	UI.DrawWindow(obj.__hwnd);
 	UI.GL_End(obj.__hwnd)
 	//print('DrawWindow=',(Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())*1000).toFixed(2),'ms')
 }

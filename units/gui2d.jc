@@ -661,29 +661,28 @@ class CRenderer
 				m_tech.SetUniform("trans",float2(-1.f,1.f)+translation*scale_scr)
 				m_tech.SetTexture2D("tex0", m_texid)
 				m_tech.Draw(0u,GL_QUADS,dc.nv)
-	auto DrawCaret(__pointer hwnd_onlydraw, float x,float y,float w,float h,int C)
-		foreach dc in m_drawcalls.ReverseOrder()
-			if dc.hwnd==hwnd_onlydraw||!hwnd_onlydraw:
-				m_caret_tech.SetVarying("vec4 C;")
-				m_caret_tech.SetVertexShader("
-				void main(){
-					vec2 P_scr=P*scale;
-					"+(m_srgb_supported?"C=vec4(pow(C_vert.xyz,vec3("+formatNumber(m_gamma,{frac:7})+")),C_vert.w);":"C=C_vert;")+"
-					gl_Position=vec4(P_scr.x-1.0,1.0-P_scr.y,1.0,1.0);
-				}")
-				mini_vbo=[
-					__float_as_int(x),__float_as_int(y),
-					__float_as_int(x+w),__float_as_int(y),
-					__float_as_int(x+w),__float_as_int(y+h),
-					__float_as_int(x),__float_as_int(y+h),
-					C,C,C,C]
-				m_caret_tech.SetFragmentShader("void main(){gl_FragColor=C;}")
-				m_caret_tech.SetVertexPointer("P", 2,GL_FLOAT,0, 2*sizeof(int),mini_vbo.d)
-				m_caret_tech.SetVertexPointer("C_vert", 4,GL_UNSIGNED_BYTE,1, sizeof(int),mini_vbo.d+8*sizeof(float))
-				m_caret_tech.SetUniform("scale",float2(2.f/dc.window_w,2.f/dc.window_h))
-				m_caret_tech.Draw(0u,GL_QUADS,4)
-				//only draw caret for the last drawcall
-				break
+	auto DrawCaret(float x,float y,float w,float h,int C)
+		m_caret_tech.SetVarying("vec4 C;")
+		m_caret_tech.SetVertexShader("
+		void main(){
+			vec2 P_scr=P*scale;
+			"+(m_srgb_supported?"C=vec4(pow(C_vert.xyz,vec3("+formatNumber(m_gamma,{frac:7})+")),C_vert.w);":"C=C_vert;")+"
+			gl_Position=vec4(P_scr.x-1.0,1.0-P_scr.y,1.0,1.0);
+		}")
+		mini_vbo=[
+			__float_as_int(x),__float_as_int(y),
+			__float_as_int(x+w),__float_as_int(y),
+			__float_as_int(x+w),__float_as_int(y+h),
+			__float_as_int(x),__float_as_int(y+h),
+			C,C,C,C]
+		m_caret_tech.SetFragmentShader("void main(){gl_FragColor=C;}")
+		m_caret_tech.SetVertexPointer("P", 2,GL_FLOAT,0, 2*sizeof(int),mini_vbo.d)
+		m_caret_tech.SetVertexPointer("C_vert", 4,GL_UNSIGNED_BYTE,1, sizeof(int),mini_vbo.d+8*sizeof(float))
+		prev_viewport=new int[4]
+		glGetIntegerv(GL_VIEWPORT,__pointer(prev_viewport.d));
+		m_caret_tech.SetUniform("scale",float2(2.f/f32(prev_viewport[2]),2.f/f32(prev_viewport[3])))
+		m_caret_tech.Draw(0u,GL_QUADS,4)
+		//only draw caret for the last drawcall
 	//////////////
 	//avoid caching the resampled / original bitmaps - batched loadStaticResources
 	auto BeginPaint(__pointer hwnd,float w,float h)
@@ -1481,13 +1480,16 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 		JS_UI["DrawWindow"]=function(JSContext JS){
 			hwnd=JS.Param(0).or(NULL)
 			g_renderer.DrawWindow(hwnd,float2(0.f,0.f),float2(1.f,1.f))
-			x=JS.Param(1).or(0.f)
-			y=JS.Param(2).or(0.f)
-			w=JS.Param(3).or(0.f)
-			h=JS.Param(4).or(0.f)
-			C=JS.Param(5).or(0)
+			return 0
+		}
+		JS_UI["DrawCaret"]=function(JSContext JS){
+			x=JS.Param(0).or(0.f)
+			y=JS.Param(1).or(0.f)
+			w=JS.Param(2).or(0.f)
+			h=JS.Param(3).or(0.f)
+			C=JS.Param(4).or(0)
 			if w&&h&&C:
-				g_renderer.DrawCaret(hwnd,x*g_renderer.m_pixels_per_unit,y*g_renderer.m_pixels_per_unit,w*g_renderer.m_pixels_per_unit,h*g_renderer.m_pixels_per_unit,C)
+				g_renderer.DrawCaret(x*g_renderer.m_pixels_per_unit,y*g_renderer.m_pixels_per_unit,w*g_renderer.m_pixels_per_unit,h*g_renderer.m_pixels_per_unit,C)
 			return 0
 		}
 		JS_UI["ResetRenderer"]=function(JSContext JS){
