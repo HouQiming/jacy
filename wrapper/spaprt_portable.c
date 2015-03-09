@@ -127,6 +127,13 @@ typedef DWORD TLSID;
 	#endif
 #endif
 
+#ifdef LINUX
+//emulate the windows-based custom extensions
+char* SDL_GetInputEventText(SDL_Event* pevent){return pevent->text.text;}
+void SDL_FreeInputEventText(SDL_Event* pevent){}
+
+#endif
+
 #define __cdecl
 #ifdef _M_AMD64
 typedef long long iptr;

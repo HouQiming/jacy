@@ -272,8 +272,8 @@ UI.DestroyWindow=function(attrs){
 };
 
 UI.SetCaret=function(attrs,x,y,w,h,C,dt){
-	attrs.caret_x=x+UI.region_offset_x;
-	attrs.caret_y=y+UI.region_offset_y;
+	attrs.caret_x=x;
+	attrs.caret_y=y;
 	attrs.caret_w=w;
 	attrs.caret_h=h;
 	attrs.caret_C=C;
@@ -373,14 +373,14 @@ W.Region=function(id,attrs,proto){
 	return W.PureRegion(id,obj)
 }
 
-UI.region_offset_x=0
-UI.region_offset_y=0
+UI.sub_window_offset_x=0
+UI.sub_window_offset_y=0
 W.PureRegion=function(id,obj){
 	if(obj==UI.nd_focus){
 		UI.context_focus_is_a_region=1
 	}
-	obj.x+=UI.region_offset_x;
-	obj.y+=UI.region_offset_y;
+	obj.sub_window_offset_x=UI.sub_window_offset_x
+	obj.sub_window_offset_y=UI.sub_window_offset_y
 	UI.context_regions.push(obj);
 	obj.region___hwnd=UI.context_window.__hwnd;
 	return obj;
@@ -1615,7 +1615,7 @@ var g_inverse_dir={'left':'right','right':'left','up':'down','down':'up','center
 W.AutoHidePanel=function(id,attrs){
 	var obj=UI.Keep(id,attrs,W.AutoHidePanel_prototype)
 	UI.StdStyling(id,obj,attrs,"auto_hide_panel")
-	if(obj.position==undefined){obj.position=obj.initial_position;}
+	if(obj.position==undefined){obj.position=(obj.initial_position||0);}
 	if(obj.anchor_placement=='left'||obj.anchor_placement=='right'){
 		obj.x=-obj.position;obj.y=0
 		obj.anchor_align=obj.anchor_placement

@@ -10,6 +10,7 @@ module OS_API
 		__generate_json("ldflags","-lm")
 		if Platform.ARCH=="linux32"||Platform.ARCH=="linux64":
 			__generate_json("cflags","-I/usr/include/SDL2")
+			__generate_json("cflags","-I/usr/local/include/SDL2")
 			__generate_json("ldflags","-lSDL2")
 			__generate_json("ldflags","-lpthread")
 			__generate_json("ldflags","-lm")
@@ -7711,17 +7712,21 @@ module Env
 			ename.resize(idx+1)
 			return ename
 	auto GetStoragePath()
-		if Platform.IS_UNIX:
+		if Platform.IS_MOBILE:
 			if Platform.ARCH=="android":
 				__generate_json("c_files","stdpath_android.c")
 			else if Platform.IS_APPLE:
 				__generate_json("objc_files","stdpath_ios.m")
 			return pcharToString(osal_getStoragePath())
 		else
-			s_userdir=ExpandEnvironmentStrings(string("%USERPROFILE%"))
-			if !s_userdir.n||s_userdir[0]=='%':
-				s_userdir=ExpandEnvironmentStrings(string("%SystemDrive%%HOMEPATH%"))
-			ename=_Win_GetExecutableName()
+			if Platform.IS_WINDOWS:
+				s_userdir=ExpandEnvironmentStrings(string("%USERPROFILE%"))
+				if !s_userdir.n||s_userdir[0]=='%':
+					s_userdir=ExpandEnvironmentStrings(string("%SystemDrive%%HOMEPATH%"))
+				ename=_Win_GetExecutableName()
+			else
+				s_userdir=ExpandEnvironmentStrings(string("${HOME}"))
+				ename=Console.GetCommandLine()[0]
 			idx=ename.LastIndexOf('\\')
 			if idx<0:idx=ename.LastIndexOf('/')
 			ename=ename[idx+1:]

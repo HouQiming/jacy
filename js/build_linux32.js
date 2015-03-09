@@ -22,8 +22,8 @@ g_action_handlers.make=function(){
 	CopyToWorkDir(g_json.c_files,"upload/")
 	CopyToWorkDir(g_json.h_files,"upload/")
 	CopyToWorkDir(g_json.lib_files,"upload/")
-	if(FileExists(g_work_dir+"/res.zip")){
-		UpdateTo(g_work_dir+"/upload/res.zip",g_work_dir+"/res.zip")
+	if(FileExists(g_bin_dir+"/res.zip")){
+		UpdateTo(g_work_dir+"/upload/res.zip",g_bin_dir+"/res.zip")
 	}
 	if(g_json.icon_file){
 		var fn_icon=g_json.icon_file[0];
@@ -32,7 +32,8 @@ g_action_handlers.make=function(){
 	////////////////////////
 	//create a makefile
 	//-ffast-math
-	var smakefile_array=["CC = gcc\nLD = gcc\nCFLAGS0 = -I$(HOME)/pmenv/SDL2-2.0.3/include -I$(HOME)/pmenv/include -DLINUX\nLDFLAGS = -s -L$(HOME)/pmenv/SDL2-2.0.3/build/.libs -L$(HOME)/pmenv/SDL2-2.0.3/build"];
+	//var smakefile_array=["CC = gcc\nLD = gcc\nCFLAGS0 = -I$(HOME)/pmenv/SDL2-2.0.3/include -I$(HOME)/pmenv/include -DLINUX\nLDFLAGS = -s -L$(HOME)/pmenv/SDL2-2.0.3/build/.libs -L$(HOME)/pmenv/SDL2-2.0.3/build"];
+	var smakefile_array=["CC = gcc\nLD = gcc\nCFLAGS0 = -DLINUX\nLDFLAGS = -s "];
 	if(g_build!="debug"){
 		smakefile_array.push('\nCFLAGS1= -O3 -fno-var-tracking-assignments -fno-exceptions -fno-rtti -fno-unwind-tables -fno-strict-aliasing -w -static-libgcc -DPM_RELEASE ');
 	}else{

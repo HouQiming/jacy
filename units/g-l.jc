@@ -2776,7 +2776,8 @@ GL_COMPRESSED_SLUMINANCE_ALPHA=0x8C4B
 ///////
 GL_TEXTURE_2D_MULTISAMPLE=0x9100
 
-IS_OPENGL_ES=(Platform.ARCH=="android"||Platform.ARCH=="ios")
+//use linux32 to cover Raspberry Pi right now
+IS_OPENGL_ES=(Platform.ARCH=="android"||Platform.ARCH=="ios"||Platform.ARCH=="linux32")
 
 auto mygluGetErrorString(GLenum err)
 	switch(err){
@@ -2790,7 +2791,7 @@ auto mygluGetErrorString(GLenum err)
 	}
 	return "error code 0x"+formatNumber(err,{base:16,align:4})
 
-SDL_GL_GetProcAddress=__c_function(iptr,"SDL_GL_GetProcAddress","sdl.h")//iptr is a hack to force the (void*) cast
+SDL_GL_GetProcAddress=__c_function(iptr,"SDL_GL_GetProcAddress","SDL.h")//iptr is a hack to force the (void*) cast
 
 glClearDepthf=inline(float d){
 	if IS_OPENGL_ES:
