@@ -135,11 +135,15 @@ void SDL_FreeInputEventText(SDL_Event* pevent){}
 #endif
 
 #define __cdecl
+typedef intptr_t iptr;
+/*
 #ifdef _M_AMD64
 typedef long long iptr;
 #else
 typedef long iptr;
 #endif
+*/
+
 #define malloc SDL_malloc
 #define free SDL_free
 #define THREADCALL SDLCALL

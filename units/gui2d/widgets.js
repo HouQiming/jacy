@@ -1033,7 +1033,7 @@ W.Edit=function(id,attrs,proto){
 	var scroll_y=obj.scroll_y;
 	var ed=obj.ed;
 	//todo: hint_text for empty box
-	ed.Render({x:scroll_x,y:scroll_y,w:obj.w/scale,h:obj.h/scale, scr_x:obj.x,scr_y:obj.y, scale:scale});
+	ed.Render({x:scroll_x,y:scroll_y,w:obj.w/scale,h:obj.h/scale, scr_x:obj.x,scr_y:obj.y, scale:scale, obj:obj});
 	if(UI.HasFocus(obj)){
 		var ed_caret=obj.GetCaretXY();
 		var x_caret=obj.x+(ed_caret.x-scroll_x+ed.m_caret_offset)*scale;
@@ -1043,7 +1043,11 @@ W.Edit=function(id,attrs,proto){
 			obj.caret_width*scale,obj.GetCharacterHeightAtCaret()*scale,
 			obj.caret_color,obj.caret_flicker);
 	}
-	return W.PureRegion(id,obj);
+	if(obj.read_only){
+		return obj
+	}else{
+		return W.PureRegion(id,obj);
+	}
 };
 
 /////////////////////////////////////////////////////
@@ -1157,8 +1161,9 @@ W.Menu=function(id,attrs){
 			var w_max=0;
 			var h_tot=0;
 			var spacing=(obj.layout_spacing||0);
-			for(var i=0;i<obj.items.length;i++){
-				var item_i=obj[obj.items[i].id];
+			var items=obj.items
+			for(var i=0;i<items.length;i++){
+				var item_i=obj[items[i].id];
 				if(!item_i||item_i.is_hidden){continue;}
 				//todo: left part vs right part
 				var dim_i=UI.MeasureIconText(item_i)
@@ -1495,15 +1500,15 @@ W.Select=function(id,attrs){
 				//combobox - loop-search for numerical value
 				var items2=[];
 				w_max+=obj.combo_box_padding
-				for(var i=0;i<obj.items.length;i++){
-					items2[i]={'text':obj.items[i]};
+				for(var i=0;i<items.length;i++){
+					items2[i]={'text':items[i]};
 				}
 				W.ComboBox("combobox",{
 					x:obj.x+obj.w-w_max,y:obj.y,w:w_max,h:obj.h,
 					items:items2,value:items[obj.value],
 					style:obj.combo_box_style,
 					OnChange:function(value){
-						for(var i=0;i<obj.items.length;i++){
+						for(var i=0;i<items.length;i++){
 							if(items[i]==value){
 								obj.OnChange(i);
 								break
@@ -1646,7 +1651,7 @@ W.AutoHidePanel=function(id,attrs){
 			owner:obj
 		},W.AutoHidePanel_knob_prototype)
 		if(!obj.dragging_samples){obj.Simulate()}
-	UI.End()
+	UI.End("temp")
 	return obj;
 }
 

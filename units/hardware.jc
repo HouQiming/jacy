@@ -1,0 +1,43 @@
+
+module Camera
+	osal_GetCameraImage=__c_function(int*,"osal_GetCameraImage","osal_camera.h")
+	osal_TurnOnCamera=__c_function(int,"osal_TurnOnCamera","osal_camera.h")
+	osal_TurnOffCamera=__c_function(int,"osal_TurnOffCamera","osal_camera.h")
+	osal_GetFrontCameraId=__c_function(int,"osal_GetFrontCameraId","osal_camera.h")
+	osal_GetBackCameraId=__c_function(int,"osal_GetBackCameraId","osal_camera.h")
+	auto osal_GetCameraImageManaged(int cam_id)
+		if Platform.ARCH=="android":
+			__generate_json("c_files","camera_android.c")
+			__generate_json("java_files","camera.java")
+		else if Platform.ARCH=="ios":
+			__generate_json("objc_files","camera_ios.m")
+			__generate_json("ios_frameworks","System/Library/Frameworks/AVFoundation.framework")
+			__generate_json("ios_frameworks","System/Library/Frameworks/CoreMedia.framework")
+			__generate_json("ios_frameworks","System/Library/Frameworks/CoreVideo.framework")
+		else
+			__generate_json("c_files","camera_desktop.c")
+			if Platform.ARCH=="win32":
+				__generate_json("dll_files","opencv/build/x86/vc10/bin/msvcp100.dll")
+				__generate_json("dll_files","opencv/build/x86/vc10/bin/msvcr100.dll")
+				__generate_json("dll_files","opencv/build/x86/vc10/bin/opencv_core249.dll")
+				__generate_json("dll_files","opencv/build/x86/vc10/bin/opencv_highgui249.dll")
+				__generate_json("lib_files","opencv/build/x86/vc10/lib/opencv_core249.lib")
+				__generate_json("lib_files","opencv/build/x86/vc10/lib/opencv_highgui249.lib")
+			else if Platform.ARCH=="win64":
+				__generate_json("dll_files","opencv/build/x64/vc10/bin/msvcp100.dll")
+				__generate_json("dll_files","opencv/build/x64/vc10/bin/msvcr100.dll")
+				__generate_json("dll_files","opencv/build/x64/vc10/bin/opencv_core249.dll")
+				__generate_json("dll_files","opencv/build/x64/vc10/bin/opencv_highgui249.dll")
+				__generate_json("lib_files","opencv/build/x64/vc10/lib/opencv_core249.lib")
+				__generate_json("lib_files","opencv/build/x64/vc10/lib/opencv_highgui249.lib")
+		w=0
+		h=0
+		ret=osal_GetCameraImage(cam_id,&w,&h)
+		if ret:
+			aret=new int[]
+			aret.__bind(1,ret,w*h)
+		else
+			aret=int[].NULL
+			w=0
+			h=0
+		return (aret,w,h)

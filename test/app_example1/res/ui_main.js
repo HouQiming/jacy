@@ -8,7 +8,7 @@ var g_params={a:100,b:50};
 
 var PortraitPanel=function(id,attrs){
 	/*editor: UI.BeginVirtualWindow(id,{w:480,h:300,bgcolor:0xffffffff})//*/
-	W.RoundRect("",{anchor:'parent',anchor_align:'fill',anchor_valign:'fill',x:0,y:0,
+	W.RoundRect("",{anchor:'parent',anchor_align:'fill',anchor_valign:'up',x:0,y:0,h:UI.context_parent.h+UI.context_parent.oob_limit,
 		color:0xcc000000,border_width:0});
 	/*widget*/(W.Label('text_543',{'x':33,'y':19,
 		text:'Param A',color:0xffffffff}));
@@ -55,7 +55,7 @@ var PortraitMode=function(id,attrs){
 
 var LandscapePanel=function(id,attrs){
 	/*editor: UI.BeginVirtualWindow(id,{w:300,h:480,bgcolor:0xffffffff})//*/
-	W.RoundRect("",{anchor:'parent',anchor_align:'fill',anchor_valign:'fill',x:0,y:0,
+	W.RoundRect("",{anchor:'parent',anchor_align:'left',anchor_valign:'fill',x:0,y:0,w:UI.context_parent.h+UI.context_parent.oob_limit,
 		color:0xcc000000,border_width:0});
 	/*widget*/(W.Label('text_543',{'x':13,'y':22,
 		text:'Param A',color:0xffffffff}));

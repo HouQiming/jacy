@@ -5,6 +5,7 @@ import System.Console.*
 
 __generate_json("js_units","gui2d/ui.js")
 __generate_json("js_units","gui2d/widgets.js")
+__generate_json("linux_cc","clang")
 
 (function(){
 	JS=new JSContext

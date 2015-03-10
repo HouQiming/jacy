@@ -1028,8 +1028,10 @@ UI.Keep=function(id,attrs,prototype){
 		}else{
 			ret=attrs;
 		}
+		ret.__id=id
 		parent[id]=ret;
 	}
+	parent.__children.push(ret)
 	if(ret.OnTextInput){
 		if((!UI.context_tentative_focus||(UI.context_tentative_focus.default_focus||0)<(ret.default_focus||0))){
 			UI.context_tentative_focus=ret;
@@ -1094,23 +1096,42 @@ UI.DiscardCaches=function(){
 }
 
 ////////////////////////////////////////
-UI.Begin=function(attrs){
-	attrs.__parent=UI.context_parent;
-	UI.context_parent=attrs;
-	if(attrs.__hwnd){
-		attrs.__window_parent=UI.context_window;
-		UI.context_window=attrs;
+UI.Begin=function(obj){
+	obj.__parent=UI.context_parent;
+	UI.context_parent=obj;
+	if(obj.__hwnd){
+		obj.__window_parent=UI.context_window;
+		UI.context_window=obj;
 		UI.context_topmost_callbacks=[];
 	}
-	if(attrs.property_sheet){
-		attrs.__property_sheet_parent=UI.context_property_sheet;
-		UI.context_property_sheet=attrs.property_sheet;
+	if(obj.property_sheet){
+		obj.__property_sheet_parent=UI.context_property_sheet;
+		UI.context_property_sheet=obj.property_sheet;
 	}
-	return attrs;
+	obj.__prev_children=(obj.__children||[])
+	obj.__children=[]
+	return obj;
 }
 
-UI.End=function(){
+UI.End=function(is_temp){
 	var obj=UI.context_parent;
+	if(!is_temp){
+		var __prev_children=obj.__prev_children;obj.__prev_children=undefined
+		var __children=obj.__children;
+		//wipe out unneeded children
+		for(var i=0;i<__prev_children.length;i++){
+			__prev_children[i].__ditch=1
+		}
+		for(var i=0;i<__children.length;i++){
+			__children[i].__ditch=0
+		}
+		for(var i=0;i<__prev_children.length;i++){
+			var c_i=__prev_children[i];
+			if(c_i.__ditch&&obj[c_i.__id]==c_i){
+				obj[c_i.__id]=undefined
+			}
+		}
+	}
 	if(obj.__hwnd){
 		//topmost widgets...
 		for(var i=0;i<UI.context_topmost_callbacks.length;i++){
@@ -1520,7 +1541,9 @@ UI.DrawFrame=function(){
 	}
 	//var tick0=Duktape.__ui_get_tick()
 	//UI.style_secs=0;UI.style_count=0
+	UI.__children=[]
 	UI.Application("top",{});
+	UI.__children=undefined
 	//print('>>>>>>>>>JS time=',(Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())*1000).toFixed(2),'ms')
 	//print('style time=',(UI.style_secs*1000).toFixed(2),'ms',UI.style_count)
 	if(!UI.context_focus_is_a_region){
@@ -1758,6 +1781,7 @@ UI.Run=function(){
 		}
 		//print(JSON.stringify(event))
 	}
+	UI.SDL_Quit()
 	return UI;
 }
 

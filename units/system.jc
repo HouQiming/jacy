@@ -43,8 +43,8 @@ module OS_API
 		setenv=__c_function(__pointer,"setenv","stdio.h")
 		mmap=__c_function(__pointer,"mmap","sys/mman.h")
 		munmap=__c_function(int,"munmap","sys/mman.h")
-		open=__c_function(int,"open","unistd.h")
-		close=__c_function(int,"close","unistd.h")
+		open=__c_function(int,"open","fcntl.h")
+		close=__c_function(int,"close","fcntl.h")
 		/////////////////
 		osal_GetUnixPathMax=__c_function(iptr,"osal_GetUnixPathMax","spaprt_portable.h")
 		osal_GetFileSize=__c_function(iptr,"osal_GetFileSize","spaprt_portable.h")
@@ -7657,12 +7657,13 @@ module Env
 				pexpand=aa.IndexOf(string('${'))
 				if pexpand>=0:
 					ret.push(aa[:pexpand-1])
-					aa=aa[pexpand:]
+					aa=aa[pexpand+2:]
 					pexpand=aa.IndexOf(string("}"))
-					if pexpand>=2:
-						envz=new(aa[2:pexpand-1])
+					if pexpand>=0:
+						envz=new(aa[:pexpand-1])
 						envz.push(char(0))
 						ret.push(pcharToString(getenv(envz)))
+						envz.discard()
 					else
 						ret.push(aa)
 						break

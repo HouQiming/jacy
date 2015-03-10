@@ -50,10 +50,10 @@ class ITextStateHandler
 	function(i64[] a,string s_context,string s):u8[] ComputeCharColorID
 	//For rendering states, we need a layouter
 	function(JSObject obj) SetTextStyle
-	function() BeginRender
+	function(JSObject obj) BeginRender
 	function(i64 ccnt_base,i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling) RenderText
 	function() EndRender
-	function(i64[] a,i64[] pp,string s,iptr ofs):i64 GetCharacterHeightAt
+	function(i64 ccnt_base,i64[] a,i64[] pp,string s,iptr ofs):i64 GetCharacterHeightAt
 	function():TFont GetDefaultFont
 	function(CEditableText caller,i64 x,i64 y,JSObject obj):i64 SetCaretOverlay
 	function():i64 GetCaretOffset
@@ -489,7 +489,7 @@ class CLayouter_baseline
 	RenderText=function(i64 ccnt_base,i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling){
 		_RenderText(MODE_RENDER,a,pp,s,s.n,scroll_x,scroll_y,screen_x,screen_y,scaling)
 	}
-	GetCharacterHeightAt=function(i64[] a,i64[] pp,string s,iptr ofs){
+	GetCharacterHeightAt=function(i64 ccnt_base,i64[] a,i64[] pp,string s,iptr ofs){
 		return charHeight()
 	}
 	GetDefaultFont=function(){
@@ -838,7 +838,7 @@ class CEditableText
 				n0=m_state_ofs.back()
 				ofspp=nd.a[n0+handler.id]
 				ofspp2=(handler.id==m_handlers.n-1?i64(nd.a.n):nd.a[n0+handler.id+1])
-				return handler.GetCharacterHeightAt(acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s,iptr(ccnt0-ccnt_base))
+				return handler.GetCharacterHeightAt(ccnt_base,acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s,iptr(ccnt0-ccnt_base))
 			assert(!!nd.pchild)
 			nd=nd.pchild
 	auto skipListPromote(TSLList nds_ret0, TSLList nds_child0,TSLList nds_toadd,CSLNode nd_ignore)
@@ -1342,7 +1342,7 @@ class CEditableText
 		acc=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
 		return dfsNearest(m_skiplist,acc,0LL)
 	//////////////////////
-	auto Render(i64 x,i64 y,i64 w,i64 h, float scr_x,float scr_y,float scale)
+	auto Render(JSObject obj,i64 x,i64 y,i64 w,i64 h, float scr_x,float scr_y,float scale)
 		//x,y,w,h refer to the world space window
 		wf=fixed2float(w)
 		hf=fixed2float(h)
@@ -1406,7 +1406,7 @@ class CEditableText
 				g_renderer.DrawBitmap(0, scr_x,xy1.y,max(xy1.x-scr_x,0.f),hc, hl.color)
 		m_highlights.resize(n2)
 		//////////////////////////////
-		if handler.BeginRender:handler.BeginRender()
+		if handler.BeginRender:handler.BeginRender(obj)
 		//////////////////////////////
 		//really draw the blocks
 		acc=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
@@ -1610,7 +1610,9 @@ class CEditableText
 		param_scr_x=params["scr_x"].or(0.f)
 		param_scr_y=params["scr_y"].or(0.f)
 		param_scale=params["scale"].or(1.f)
+		obj=params["obj"].as(JSObject)
 		ed.Render(
+			obj,
 			param_x,
 			param_y,
 			param_w,

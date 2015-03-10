@@ -682,6 +682,7 @@ class CRenderer
 		glGetIntegerv(GL_VIEWPORT,__pointer(prev_viewport.d));
 		m_caret_tech.SetUniform("scale",float2(2.f/f32(prev_viewport[2]),2.f/f32(prev_viewport[3])))
 		m_caret_tech.Draw(0u,GL_QUADS,4)
+		mini_vbo.discard()
 		//only draw caret for the last drawcall
 	//////////////
 	//avoid caching the resampled / original bitmaps - batched loadStaticResources
@@ -727,19 +728,20 @@ class CRenderer
 		y=y0
 		w=w0
 		h=h0
-		if w<0:
+		if w<=0:
 			x=0
 			w=ww
-		if h<0:
+		if h<=0:
 			y=0
 			h=hw
 		InsertNativeDrawCall(function(){
+			//if Platform.ARCH=="linux32"||Platform.ARCH=="linux64":
+			//	glFinish()
 			if is_relative:
 				prev_viewport=new int[4]
 				glGetIntegerv(GL_VIEWPORT,__pointer(prev_viewport.d));
 				glViewport(prev_viewport[0]+x,prev_viewport[1]+prev_viewport[3]-y-h,w,h)
 			else
-				SDL.detail.SDL_GetWindowSize(m_hwnd,&ww,&hw)
 				glViewport(x,hw-y-h,w,h)
 		})
 		m_clip=float4(0.f,0.f,float(w),float(h))
@@ -1488,7 +1490,7 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			w=JS.Param(2).or(0.f)
 			h=JS.Param(3).or(0.f)
 			C=JS.Param(4).or(0)
-			if w&&h&&C:
+			if w>0.f&&h>0.f&&(C&0xff000000):
 				g_renderer.DrawCaret(x*g_renderer.m_pixels_per_unit,y*g_renderer.m_pixels_per_unit,w*g_renderer.m_pixels_per_unit,h*g_renderer.m_pixels_per_unit,C)
 			return 0
 		}

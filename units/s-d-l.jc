@@ -935,6 +935,7 @@ module detail
 	SDL_CreateWindow=__c_function(__pointer,"SDL_CreateWindow","SDL.h")
 	SDL_DestroyWindow=__c_function(int,"SDL_DestroyWindow","SDL.h")
 	SDL_Init=__c_function(__pointer,"SDL_Init","SDL.h")
+	SDL_Quit=__c_function(__pointer,"SDL_Quit","SDL.h")
 	SDL_PollEvent=__c_function(int,"SDL_PollEvent","SDL.h")
 	SDL_WaitEvent=__c_function(int,"SDL_WaitEvent","SDL.h")
 	SDL_GL_SetAttribute=__c_function(int,"SDL_GL_SetAttribute","SDL.h")
@@ -1088,6 +1089,8 @@ module detail
 			hwnd=JS.Param(0).as(__pointer)
 			if !g_is_hwnd[iptr(hwnd)]:hwnd=NULL
 			if !hwnd:return 0
+			if Platform.ARCH=="linux32"||Platform.ARCH=="linux64":
+				glFinish()
 			SDL_GL_SwapWindow(hwnd)
 			SDL_GL_MakeCurrent(hwnd,NULL)
 			return 0
@@ -1171,6 +1174,10 @@ module detail
 				cursor_map[cur]=hcur
 			SDL_SetCursor(hcur)
 			return JS.Return(cur)	
+		}
+		JS_SDL["SDL_Quit"]=function(JSContext JS){
+			SDL_Quit()
+			return 0
 		}
 		return JS_SDL
 	//auto createGLJSObject(JSObject JS_GL)
