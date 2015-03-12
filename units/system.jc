@@ -7699,7 +7699,7 @@ module Env
 		return Algorithm.UnicodeToUtf8(ret)
 	auto GetExecutablePath()
 		if Platform.IS_UNIX:
-			retptr=SDL_GetBasePath()
+			retptr=__C(__pointer,"(char*)@1",SDL_GetBasePath())
 			if !retptr:
 				ret=new string("/")
 			else

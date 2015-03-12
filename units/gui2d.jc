@@ -483,7 +483,7 @@ class CRenderer
 			if hk.EndFrame:hk.EndFrame()
 		//pack m_dynamic_textures and apply the dynamic drawcalls
 		if m_StretchDIBits_calls.n:
-			//tick0=System.Time.tick64()
+			tick0=System.Time.tick64()//todo
 			(m_dynamic_packed_bmp,m_dynamic_packings)=packTextures(m_dynamic_textures,m_texture_width,1)
 			//SavePNG("$dynamic.png",m_dynamic_packed_bmp.rgba,m_dynamic_packed_bmp.w,m_dynamic_packed_bmp.h)
 			foreach scall in m_StretchDIBits_calls
@@ -528,8 +528,10 @@ class CRenderer
 				//Writeln(u0,' ',v0,' ',du,' ',dv,' ',formatNumber(u32(scall.C),{base:16,align:8}))
 			m_dynamic_textures=NULL
 			m_StretchDIBits_calls=NULL
-			//dt=System.Time.tick64()-tick0
-			//Writeln('dyntex=',System.Time.TicksToSeconds(dt))
+			//todo
+			dt=System.Time.tick64()-tick0
+			Writeln('dyntex=',formatNumber(System.Time.TicksToSeconds(dt)*1000.,{frac:2}),'ms')
+			//todo
 		else
 			m_dynamic_packed_bmp=TBitmap()
 			m_dynamic_packings=TTextureSubImage[].NULL

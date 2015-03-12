@@ -28,7 +28,7 @@ int osal_DoFileDialogWin(short* buf, short* filter,short* def_ext,int is_save){
 		ofn.Flags=OFN_NOCHANGEDIR|OFN_PATHMUSTEXIST|OFN_OVERWRITEPROMPT;
 		return GetSaveFileNameW(&ofn);
 	}else{
-		ofn.Flags=OFN_NOCHANGEDIR;
+		ofn.Flags=OFN_NOCHANGEDIR|OFN_FILEMUSTEXIST;
 		return GetOpenFileNameW(&ofn);
 	}
 }
