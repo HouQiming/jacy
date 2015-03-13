@@ -586,7 +586,7 @@ W.Edit_prototype={
 	//////////
 	mouse_cursor:"ibeam",
 	default_style_name:"edit",
-	caret_width:2,
+	caret_width:UI.IS_MOBILE?1:2,
 	caret_color:0xff000000,
 	caret_flicker:500,
 	color:0xff000000,
@@ -1028,7 +1028,7 @@ W.Edit=function(id,attrs,proto){
 		UI.DrawBitmap(0,obj.x,obj.y,obj.w,obj.h,obj.bgcolor);
 	}
 	if(!obj.ed){obj.Init()}
-	var scale=obj.scale;
+	var scale=obj.scale*UI.pixels_per_unit;
 	var scroll_x=obj.scroll_x;
 	var scroll_y=obj.scroll_y;
 	var ed=obj.ed;

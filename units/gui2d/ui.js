@@ -1069,7 +1069,6 @@ UI.core_font_cache={};
 UI.font_cache={};
 UI.rc={};
 UI.Font=function(face,size,embolden){
-	!? //the font virtualization problem - using the same font in a scaled window
 	//absolute fonts are better for documents anyway
 	var pfnt=UI.font_cache[face];
 	if(!pfnt){

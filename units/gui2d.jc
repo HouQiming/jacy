@@ -1655,22 +1655,21 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 		if !pfnt:return 0
 		h=JS.Param(1).as(float)
 		embolden=JS.Param(2).as(int)
-		ret=g_renderer.CreateFont(pfnt,h*g_renderer.m_pixels_per_unit,embolden)
+		ret=g_renderer.CreateFont(pfnt,h,embolden)
 		assert(!!ret.pfnt)
 		return JS.Return(ret)
 	}
 	JS_UI["GetFontHeight"]=function(JSContext JS){
 		fnt=JS.Param(0).as(TFont)
 		if !fnt.pfnt:return 0
-		return JS.Return(fnt.h/g_renderer.m_pixels_per_unit)
+		return JS.Return(fnt.h)
 	}
 	JS_UI["_LayoutText"]=function(JSContext JS){
 		//just separate text creation and draw
 		attrs=JS.Param(0).as(JSObject)
 		if !attrs:return 0
 		fnt=attrs["font"].as(TFont)
-		//fnt=JS.Param(0).as(TFont)
-		//Writeln(fnt)
+		fnt.h*=g_renderer.m_pixels_per_unit
 		if !fnt.pfnt:return 0
 		w=attrs["w"].or(1e18f)*g_renderer.m_pixels_per_unit
 		h=attrs["h"].or(1e18f)*g_renderer.m_pixels_per_unit
@@ -1691,9 +1690,8 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 		C=JS.Param(3).or(u32(-1))
 		layout=attrs["__layout"].as(CTextLayout)
 		if !layout:return 0
-		//boxed_fnt=attrs["font"].as(__Box(TFont))
-		//fnt=boxed_fnt.a
 		fnt=attrs["font"].as(TFont)
+		fnt.h*=g_renderer.m_pixels_per_unit
 		if !fnt.pfnt:return 0
 		foreach li in layout.chars
 			fnt_li=fnt
@@ -1704,6 +1702,7 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 	}
 	JS_UI["DrawChar"]=function(JSContext JS){
 		fnt=JS.Param(0).as(TFont)
+		fnt.h*=g_renderer.m_pixels_per_unit
 		if !fnt.pfnt:return 0
 		x0=JS.Param(1).or(0.f)*g_renderer.m_pixels_per_unit
 		y0=JS.Param(2).or(0.f)*g_renderer.m_pixels_per_unit
@@ -1826,8 +1825,8 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			x+=g_renderer.GetCharacterAdvance(fnt,ch)
 		w=max(w,x)
 		ret=JS.New()
-		ret["w"]=w/Gui2D.detail.g_renderer.m_pixels_per_unit
-		ret["h"]=(y+hc)/Gui2D.detail.g_renderer.m_pixels_per_unit
+		ret["w"]=w
+		ret["h"]=(y+hc)
 		return JS.Return(ret)
 	}
 	///////////////////////////////////
