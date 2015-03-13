@@ -1069,6 +1069,8 @@ UI.core_font_cache={};
 UI.font_cache={};
 UI.rc={};
 UI.Font=function(face,size,embolden){
+	!? //the font virtualization problem - using the same font in a scaled window
+	//absolute fonts are better for documents anyway
 	var pfnt=UI.font_cache[face];
 	if(!pfnt){
 		var fnames=face.split(",");
@@ -1170,10 +1172,26 @@ UI.End=function(is_temp){
 //}
 UI.LayoutText=UI._LayoutText
 
-UI.SwitchToSubWindow=function(x,y,w,h){
-	UI._SwitchToSubWindow(x,y,w,h,0)
-	UI.sub_window_offset_x=(x||0)
-	UI.sub_window_offset_y=(y||0)
+UI.sub_window_stack=[];
+UI.PushSubWindow=function(x,y,w,h, scale){
+	var prev_subwin=UI._GetCurrentSubWindow()
+	prev_subwin.push(UI.pixels_per_unit)
+	UI.sub_window_stack.push(prev_subwin)
+	UI._SwitchToSubWindow(x,y,w,h,1)
+	var cur_subwin=UI._GetCurrentSubWindow()
+	UI.sub_window_offset_x=(cur_subwin.x)
+	UI.sub_window_offset_y=(cur_subwin.y)
+	if(scale!=undefined){
+		UI.pixels_per_unit*=scale
+		UI.SetPixelsPerUnit(UI.pixels_per_unit)
+	}
+	return cur_subwin
+}
+
+UI.PopSubWindow=function(){
+	var last_subwin=UI.sub_window_stack.pop()
+	UI._SwitchToSubWindow(last_subwin[0],last_subwin[1],last_subwin[2],last_subwin[3],0)
+	UI.SetPixelsPerUnit(last_subwin[4])
 }
 
 lerp=function(a,b,t){return a+(b-a)*t;}

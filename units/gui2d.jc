@@ -1501,6 +1501,10 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			g_renderer.m_gamma=JS.Param(1).or(2.2f)
 			return 0
 		}
+		JS_UI["SetPixelsPerUnit"]=function(JSContext JS){
+			g_renderer.m_pixels_per_unit=JS.Param(0).or(g_renderer.m_pixels_per_unit)
+			return 0
+		}
 		JS_UI["BeginFrame"]=function(JSContext JS){
 			g_renderer.BeginFrame()
 			return 0
@@ -1531,6 +1535,24 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			is_relative=JS.Param(4).or(0)
 			g_renderer.SwitchToSubWindow(x,y,w,h,is_relative)
 			return 0
+		}
+		JS_UI["_GetCurrentSubWindow"]=function(JSContext JS){
+			prev_viewport=new int[4]
+			glGetIntegerv(GL_VIEWPORT,__pointer(prev_viewport.d));
+			ww=0
+			hw=0
+			SDL.detail.SDL_GetWindowSize(g_renderer.m_hwnd,&ww,&hw)
+			x=prev_viewport[0]
+			y=prev_viewport[1]
+			w=prev_viewport[2]
+			h=prev_viewport[3]
+			y=hw-y-h
+			ret=JS.NewArray()
+			ret[0]=float(x)/g_renderer.m_pixels_per_unit
+			ret[1]=float(y)/g_renderer.m_pixels_per_unit
+			ret[2]=float(w)/g_renderer.m_pixels_per_unit
+			ret[3]=float(h)/g_renderer.m_pixels_per_unit
+			return JS.Return(ret)
 		}
 		JS_UI["InsertJSDrawCall"]=function(JSContext JS){
 			auto js_callback=JS.Param(0).as(JSObject)
