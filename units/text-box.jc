@@ -300,7 +300,6 @@ class CLayouter_baseline
 	i64 m_caret_offset
 	SetTextStyle=function(JSObject obj){
 		m_font=obj["font"].as(TFont)
-		m_font.h/=g_renderer.m_pixels_per_unit
 		m_color=int(obj["color"].or(u32(m_color)))
 		m_bgcolor_selection=int(obj["bgcolor_selection"].or(u32(m_bgcolor_selection)))
 		m_tab_width=obj["tab_width"].or(8)
@@ -1617,9 +1616,9 @@ class CEditableText
 			param_y,
 			param_w,
 			param_h,
-			param_scr_x*g_renderer.m_pixels_per_unit,
-			param_scr_y*g_renderer.m_pixels_per_unit,
-			param_scale*g_renderer.m_pixels_per_unit)
+			param_scr_x,
+			param_scr_y,
+			param_scale)
 		return 0
 	}
 	JS_CreateLocator=function(JSContext JS){

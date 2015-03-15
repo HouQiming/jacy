@@ -1032,7 +1032,7 @@ UI.Keep=function(id,attrs,prototype){
 		parent[id]=ret;
 	}
 	parent.__children.push(ret)
-	if(ret.OnTextInput){
+	if(ret.OnTextInput||ret.OnKeyDown){
 		if((!UI.context_tentative_focus||(UI.context_tentative_focus.default_focus||0)<(ret.default_focus||0))){
 			UI.context_tentative_focus=ret;
 		}
@@ -1171,26 +1171,35 @@ UI.End=function(is_temp){
 //}
 UI.LayoutText=UI._LayoutText
 
-UI.sub_window_stack=[];
 UI.PushSubWindow=function(x,y,w,h, scale){
-	var prev_subwin=UI._GetCurrentSubWindow()
-	prev_subwin.push(UI.pixels_per_unit)
-	UI.sub_window_stack.push(prev_subwin)
-	UI._SwitchToSubWindow(x,y,w,h,1)
-	var cur_subwin=UI._GetCurrentSubWindow()
-	UI.sub_window_offset_x=(cur_subwin.x)
-	UI.sub_window_offset_y=(cur_subwin.y)
-	if(scale!=undefined){
-		UI.pixels_per_unit*=scale
-		UI.SetPixelsPerUnit(UI.pixels_per_unit)
-	}
-	return cur_subwin
+	x*=UI.pixels_per_unit
+	y*=UI.pixels_per_unit
+	w*=UI.pixels_per_unit
+	h*=UI.pixels_per_unit
+	var prev_subwin=UI.sub_window_stack[UI.sub_window_stack.length-1]
+	//todo: UI.pixels_per_unit on x y w h ?
+	var x0=prev_subwin[0]+Math.max(0,x)
+	var y0=prev_subwin[1]+Math.max(0,y)
+	var w0=Math.max(Math.min(prev_subwin[2]-x,w),0)
+	var h0=Math.max(Math.min(prev_subwin[3]-y,h),0)
+	var new_subwin=[x0,y0,w0,h0,prev_subwin[4]*(scale||1)]
+	UI.sub_window_stack.push(new_subwin)
+	UI._SwitchToSubWindow(new_subwin[0],new_subwin[1],new_subwin[2],new_subwin[3],0)
+	UI.SetPixelsPerUnit(new_subwin[4])
+	UI.pixels_per_unit=new_subwin[4]
+	UI.sub_window_offset_x=(new_subwin[0])
+	UI.sub_window_offset_y=(new_subwin[1])
+	return new_subwin
 }
 
 UI.PopSubWindow=function(){
-	var last_subwin=UI.sub_window_stack.pop()
-	UI._SwitchToSubWindow(last_subwin[0],last_subwin[1],last_subwin[2],last_subwin[3],0)
-	UI.SetPixelsPerUnit(last_subwin[4])
+	UI.sub_window_stack.pop()
+	var prev_subwin=UI.sub_window_stack[UI.sub_window_stack.length-1]
+	UI._SwitchToSubWindow(prev_subwin[0],prev_subwin[1],prev_subwin[2],prev_subwin[3],0)
+	UI.SetPixelsPerUnit(prev_subwin[4])
+	UI.pixels_per_unit=prev_subwin[4]
+	UI.sub_window_offset_x=(prev_subwin[0])
+	UI.sub_window_offset_y=(prev_subwin[1])
 }
 
 lerp=function(a,b,t){return a+(b-a)*t;}
@@ -1386,6 +1395,9 @@ UI.StdAnchoring=function(id,attrs){
 				obj_anchor.y+=obj_anchor.h;obj_anchor.h=0;
 			}else if(anchor_placement=="down"){
 				obj_anchor.h=0;
+			}else{
+				obj_anchor.x-=(UI.context_parent.layout_scroll_x||0)
+				obj_anchor.y-=(UI.context_parent.layout_scroll_y||0)
 			}
 		}
 	}else{
@@ -1478,7 +1490,7 @@ UI.SetFocus=function(obj){
 }
 
 UI.HasFocus=function(attrs){
-	return UI.nd_focus&&UI.nd_focus==attrs;
+	return UI.nd_focus==attrs;
 }
 
 UI.IsKey=function(event,name){
@@ -1719,8 +1731,6 @@ UI.Run=function(){
 				var lg=regions.length;
 				var nd_mouse_receiver=null;
 				var mouse_cursor="arrow";
-				event.x/=UI.pixels_per_unit;
-				event.y/=UI.pixels_per_unit;
 				//print("------------------")
 				//for(var i=lg-1;i>=0;i--){
 				//	var attrs=regions[i];
@@ -1735,8 +1745,9 @@ UI.Run=function(){
 				if(!UI.nd_captured){
 					for(var i=lg-1;i>=0;i--){
 						var attrs=regions[i];
-						var dx=event.x-attrs.x-attrs.sub_window_offset_x;
-						var dy=event.y-attrs.y-attrs.sub_window_offset_y;
+						var dx=(event.x-attrs.sub_window_offset_x)/attrs.sub_window_scale-attrs.x;
+						var dy=(event.y-attrs.sub_window_offset_y)/attrs.sub_window_scale-attrs.y;
+						//print(attrs.sub_window_scale,dx,dy,attrs.sub_window_offset_x,attrs.sub_window_offset_y,attrs.x,attrs.y)
 						if(dx>=0&&dx<attrs.w&&dy>=0&&dy<attrs.h){
 							nd_mouse_receiver=attrs;
 							break;
@@ -1751,6 +1762,8 @@ UI.Run=function(){
 							var xbk=event.x,ybk=event.y;
 							event.x-=UI.nd_mouse_over.sub_window_offset_x;
 							event.y-=UI.nd_mouse_over.sub_window_offset_y;
+							event.x/=UI.nd_mouse_over.sub_window_scale
+							event.y/=UI.nd_mouse_over.sub_window_scale
 							UI.CallIfAvailable(UI.nd_mouse_over,"OnMouseOut",event);
 							event.x=xbk;event.y=ybk;
 							UI.nd_mouse_over=null;
@@ -1762,15 +1775,18 @@ UI.Run=function(){
 					mouse_cursor=(nd_mouse_receiver.mouse_cursor||mouse_cursor);
 					UI.SetSystemCursor(mouse_cursor)
 				}
+				var event_x0=event.x,event_y0=event.y
 				event.x-=nd_mouse_receiver.sub_window_offset_x;
 				event.y-=nd_mouse_receiver.sub_window_offset_y;
+				event.x/=nd_mouse_receiver.sub_window_scale
+				event.y/=nd_mouse_receiver.sub_window_scale
 				if(event.type==UI.SDL_MOUSEMOTION){
 					//nd_mouse_receiver
 					if(!UI.nd_mouse_over||UI.nd_mouse_over!=nd_mouse_receiver){
 						if(UI.nd_mouse_over){
 							var xbk=event.x,ybk=event.y;
-							event.x-=UI.nd_mouse_over.sub_window_offset_x-nd_mouse_receiver.sub_window_offset_x;
-							event.y-=UI.nd_mouse_over.sub_window_offset_y-nd_mouse_receiver.sub_window_offset_y;
+							event.x=(event_x0-UI.nd_mouse_over.sub_window_offset_x)/UI.nd_mouse_over.sub_window_scale;
+							event.y=(event_y0-UI.nd_mouse_over.sub_window_offset_y)/UI.nd_mouse_over.sub_window_scale;
 							UI.CallIfAvailable(UI.nd_mouse_over,"OnMouseOut",event);
 							event.x=xbk;event.y=ybk;
 						}

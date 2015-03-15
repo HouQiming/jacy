@@ -1493,7 +1493,7 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			h=JS.Param(3).or(0.f)
 			C=JS.Param(4).or(0)
 			if w>0.f&&h>0.f&&(C&0xff000000):
-				g_renderer.DrawCaret(x*g_renderer.m_pixels_per_unit,y*g_renderer.m_pixels_per_unit,w*g_renderer.m_pixels_per_unit,h*g_renderer.m_pixels_per_unit,C)
+				g_renderer.DrawCaret(x,y,w,h,C)
 			return 0
 		}
 		JS_UI["ResetRenderer"]=function(JSContext JS){
@@ -1525,18 +1525,21 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			if obj:
 				obj["w"]=f32(w)/g_renderer.m_pixels_per_unit
 				obj["h"]=f32(h)/g_renderer.m_pixels_per_unit
+				obj["w_in_pixels"]=w
+				obj["h_in_pixels"]=h
 			return 0
 		}
 		JS_UI["_SwitchToSubWindow"]=function(JSContext JS){
-			x=int(ceil(JS.Param(0).or(0.f)*g_renderer.m_pixels_per_unit))
-			y=int(ceil(JS.Param(1).or(0.f)*g_renderer.m_pixels_per_unit))
-			w=int(floor(JS.Param(2).or(-1.f)*g_renderer.m_pixels_per_unit))
-			h=int(floor(JS.Param(3).or(-1.f)*g_renderer.m_pixels_per_unit))
+			x=int(ceil(JS.Param(0).or(0.f)))
+			y=int(ceil(JS.Param(1).or(0.f)))
+			w=int(floor(JS.Param(2).or(0.f)))
+			h=int(floor(JS.Param(3).or(0.f)))
 			is_relative=JS.Param(4).or(0)
 			g_renderer.SwitchToSubWindow(x,y,w,h,is_relative)
 			return 0
 		}
-		JS_UI["_GetCurrentSubWindow"]=function(JSContext JS){
+		//can't do that: we're not in GL when calling
+		/*JS_UI["_GetCurrentSubWindow"]=function(JSContext JS){
 			prev_viewport=new int[4]
 			glGetIntegerv(GL_VIEWPORT,__pointer(prev_viewport.d));
 			ww=0
@@ -1553,7 +1556,7 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			ret[2]=float(w)/g_renderer.m_pixels_per_unit
 			ret[3]=float(h)/g_renderer.m_pixels_per_unit
 			return JS.Return(ret)
-		}
+		}*/
 		JS_UI["InsertJSDrawCall"]=function(JSContext JS){
 			auto js_callback=JS.Param(0).as(JSObject)
 			if !js_callback:return 0
