@@ -1109,8 +1109,10 @@ UI.Begin=function(obj){
 		obj.__property_sheet_parent=UI.context_property_sheet;
 		UI.context_property_sheet=obj.property_sheet;
 	}
-	obj.__prev_children=(obj.__children||[])
-	obj.__children=[]
+	if(obj.__prev_children==undefined){
+		obj.__prev_children=(obj.__children||[])
+		obj.__children=[]
+	}
 	return obj;
 }
 
@@ -1177,14 +1179,14 @@ UI.PushSubWindow=function(x,y,w,h, scale){
 	w*=UI.pixels_per_unit
 	h*=UI.pixels_per_unit
 	var prev_subwin=UI.sub_window_stack[UI.sub_window_stack.length-1]
-	//todo: UI.pixels_per_unit on x y w h ?
 	var x0=prev_subwin[0]+Math.max(0,x)
 	var y0=prev_subwin[1]+Math.max(0,y)
-	var w0=Math.max(Math.min(prev_subwin[2]-x,w),0)
-	var h0=Math.max(Math.min(prev_subwin[3]-y,h),0)
+	var w0=Math.max(prev_subwin[0]+Math.min(prev_subwin[2],x+w)-x0,0)
+	var h0=Math.max(prev_subwin[1]+Math.min(prev_subwin[3],y+h)-y0,0)
 	var new_subwin=[x0,y0,w0,h0,prev_subwin[4]*(scale||1)]
 	UI.sub_window_stack.push(new_subwin)
-	UI._SwitchToSubWindow(new_subwin[0],new_subwin[1],new_subwin[2],new_subwin[3],0)
+	UI._SwitchToSubWindow(new_subwin[0],new_subwin[1],new_subwin[2],new_subwin[3],0,0)
+	//todo: clipping-generated translation...
 	UI.SetPixelsPerUnit(new_subwin[4])
 	UI.pixels_per_unit=new_subwin[4]
 	UI.sub_window_offset_x=(new_subwin[0])
@@ -1195,7 +1197,7 @@ UI.PushSubWindow=function(x,y,w,h, scale){
 UI.PopSubWindow=function(){
 	UI.sub_window_stack.pop()
 	var prev_subwin=UI.sub_window_stack[UI.sub_window_stack.length-1]
-	UI._SwitchToSubWindow(prev_subwin[0],prev_subwin[1],prev_subwin[2],prev_subwin[3],0)
+	UI._SwitchToSubWindow(prev_subwin[0],prev_subwin[1],prev_subwin[2],prev_subwin[3],0,1)
 	UI.SetPixelsPerUnit(prev_subwin[4])
 	UI.pixels_per_unit=prev_subwin[4]
 	UI.sub_window_offset_x=(prev_subwin[0])
@@ -1379,7 +1381,7 @@ UI.StdAnchoring=function(id,attrs){
 		anchor_align=(attrs.anchor_align||"left");
 		anchor_valign=(attrs.anchor_valign||"up");
 		anchor_spacing=0;
-	}else if(UI.context_parent.layout_direction){
+	}else if(UI.context_parent.layout_direction&&attrs.anchor_placement!='absolute'){
 		obj_anchor=UI.context_parent.layout_auto_anchor;
 		anchor_placement=(UI.context_parent.layout_direction||"down");
 		anchor_align=(UI.context_parent.layout_align||"fill");
@@ -1395,10 +1397,9 @@ UI.StdAnchoring=function(id,attrs){
 				obj_anchor.y+=obj_anchor.h;obj_anchor.h=0;
 			}else if(anchor_placement=="down"){
 				obj_anchor.h=0;
-			}else{
-				obj_anchor.x-=(UI.context_parent.layout_scroll_x||0)
-				obj_anchor.y-=(UI.context_parent.layout_scroll_y||0)
 			}
+			obj_anchor.x-=(UI.context_parent.layout_scroll_x||0)
+			obj_anchor.y-=(UI.context_parent.layout_scroll_y||0)
 		}
 	}else{
 		//the default handling
@@ -1427,9 +1428,15 @@ UI.StdAnchoring=function(id,attrs){
 		//bad anchor placement - consider as "absolute"
 	}
 	if(UI.context_parent.layout_direction&&UI.context_parent.layout_direction!="inside"){
-		UI.context_parent.layout_auto_anchor={x:attrs.x,y:attrs.y,w:attrs.w,h:attrs.h};
-		if(anchor_placement=="left"||anchor_placement=="right"){UI.context_parent.layout_auto_anchor.h=UI.context_parent.h}else
-		if(anchor_placement=="up"||anchor_placement=="down"){UI.context_parent.layout_auto_anchor.w=UI.context_parent.w}
+		var layout_auto_anchor={x:attrs.x,y:attrs.y,w:attrs.w,h:attrs.h}
+		UI.context_parent.layout_auto_anchor=layout_auto_anchor;
+		if(anchor_placement=="left"||anchor_placement=="right"){
+			layout_auto_anchor.y=UI.context_parent.y
+			layout_auto_anchor.h=UI.context_parent.h
+		}else if(anchor_placement=="up"||anchor_placement=="down"){
+			layout_auto_anchor.x=UI.context_parent.x
+			layout_auto_anchor.w=UI.context_parent.w
+		}
 	}
 	//break the cycle
 	attrs.anchor=null;
@@ -1570,15 +1577,18 @@ UI.DrawFrame=function(){
 			UI.frame_callbacks.push(f)
 		}
 	}
-	//todo
-	var tick0=Duktape.__ui_get_tick()
-	UI.style_secs=0;UI.style_count=0
-	//todo
+	var tick0
+	if(UI.enable_timing){
+		tick0=Duktape.__ui_get_tick()
+		UI.style_secs=0;UI.style_count=0
+	}
 	UI.__children=[]
 	UI.Application("top",{});
 	UI.__children=undefined
-	print('>>>>>>>>>JS time=',(Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())*1000).toFixed(2),'ms')//todo
-	print('style time=',(UI.style_secs*1000).toFixed(2),'ms',UI.style_count)//todo
+	if(UI.enable_timing){
+		print('>>>>>>>>>JS time=',(Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())*1000).toFixed(2),'ms')
+		print('style time=',(UI.style_secs*1000).toFixed(2),'ms',UI.style_count)
+	}
 	if(!UI.context_focus_is_a_region){
 		//if the node is gone, DO NOT CALL OnBlur! just null it out
 		UI.nd_focus=null;
@@ -1589,7 +1599,9 @@ UI.DrawFrame=function(){
 		UI.Refresh();
 	}
 	UI.EndFrame();
-	print('DrawFrame=',(UI.frame_time*1000).toFixed(2),'ms')//todo
+	if(UI.enable_timing){
+		print('DrawFrame=',(UI.frame_time*1000).toFixed(2),'ms')
+	}
 }
 
 UI.JSDrawWindow=function(obj){
@@ -1620,6 +1632,7 @@ UI.OpenFile=function(){};
 UI.Run=function(){
 	if(!UI.is_real){return;}
 	var event=null;
+	var t_kill_mousedown=undefined;
 	for(;;){
 		if(UI.need_to_refresh){
 			UI.DrawFrame();
@@ -1691,11 +1704,15 @@ UI.Run=function(){
 						UI.JSDrawWindow(obj)
 					}
 					break;
+				case UI.SDL_WINDOWEVENT_ENTER:
+					t_kill_mousedown=event.timestamp;
+					break;
 				}
 				break
 			case UI.SDL_KEYDOWN:
 			case UI.SDL_KEYUP:
 				if(UI.inside_IME){break;}
+				event.keymod&=~(UI.KMOD_CAPS|UI.KMOD_NUM)//get rid of the bogus SDL flags
 				if(event.type==UI.SDL_KEYDOWN){
 					var hotkeys=UI.context_hotkeys;
 					var lg=hotkeys.length;
@@ -1722,11 +1739,16 @@ UI.Run=function(){
 				if(UI.nd_focus){
 					UI.CallIfAvailable(UI.nd_focus,"OnTextInput",event);
 				}
+				UI.inside_IME=0
 				break
 			//UI.nd_mouse_over, UI.nd_key_focus, UI.nd_captured
 			case UI.SDL_MOUSEMOTION:
 			case UI.SDL_MOUSEBUTTONDOWN:
 			case UI.SDL_MOUSEBUTTONUP:
+				if(t_kill_mousedown==event.timestamp&&event.type==UI.SDL_MOUSEBUTTONDOWN){
+					//filter out the bogus mousedowns sent by SDL
+					break
+				}
 				var regions=UI.context_regions;
 				var lg=regions.length;
 				var nd_mouse_receiver=null;
@@ -1816,7 +1838,6 @@ UI.Run=function(){
 			event=UI.SDL_PollEvent();
 			if(!event)break;
 		}
-		//print(JSON.stringify(event))
 	}
 	UI.SDL_Quit()
 	return UI;

@@ -483,7 +483,7 @@ class CRenderer
 			if hk.EndFrame:hk.EndFrame()
 		//pack m_dynamic_textures and apply the dynamic drawcalls
 		if m_StretchDIBits_calls.n:
-			tick0=System.Time.tick64()//todo
+			//tick0=System.Time.tick64()
 			(m_dynamic_packed_bmp,m_dynamic_packings)=packTextures(m_dynamic_textures,m_texture_width,1)
 			//SavePNG("$dynamic.png",m_dynamic_packed_bmp.rgba,m_dynamic_packed_bmp.w,m_dynamic_packed_bmp.h)
 			foreach scall in m_StretchDIBits_calls
@@ -528,10 +528,8 @@ class CRenderer
 				//Writeln(u0,' ',v0,' ',du,' ',dv,' ',formatNumber(u32(scall.C),{base:16,align:8}))
 			m_dynamic_textures=NULL
 			m_StretchDIBits_calls=NULL
-			//todo
-			dt=System.Time.tick64()-tick0
-			Writeln('dyntex=',formatNumber(System.Time.TicksToSeconds(dt)*1000.,{frac:2}),'ms')
-			//todo
+			//dt=System.Time.tick64()-tick0
+			//Writeln('dyntex=',formatNumber(System.Time.TicksToSeconds(dt)*1000.,{frac:2}),'ms')
 		else
 			m_dynamic_packed_bmp=TBitmap()
 			m_dynamic_packings=TTextureSubImage[].NULL
@@ -722,7 +720,7 @@ class CRenderer
 	auto InsertNativeDrawCall(function() native_callback)
 		FlushDrawcall()
 		m_drawcalls.push(TDrawCall(){hwnd:m_hwnd,native_callback:native_callback})
-	auto SwitchToSubWindow(int x0,int y0,int w0,int h0,int is_relative)
+	auto SwitchToSubWindow(int x0,int y0,int w0,int h0,int is_relative,int is_pop)
 		ww=0
 		hw=0
 		SDL.detail.SDL_GetWindowSize(m_hwnd,&ww,&hw)
@@ -730,12 +728,12 @@ class CRenderer
 		y=y0
 		w=w0
 		h=h0
-		if w<=0:
-			x=0
-			w=ww
-		if h<=0:
-			y=0
-			h=hw
+		//if w<=0:
+		//	x=0
+		//	w=ww
+		//if h<=0:
+		//	y=0
+		//	h=hw
 		InsertNativeDrawCall(function(){
 			//if Platform.ARCH=="linux32"||Platform.ARCH=="linux64":
 			//	glFinish()
@@ -746,8 +744,12 @@ class CRenderer
 			else
 				glViewport(x,hw-y-h,w,h)
 		})
-		m_clip=float4(0.f,0.f,float(w),float(h))
-		m_clip_stack.clear()
+		if is_pop:
+			m_clip=m_clip_stack.pop()
+		else
+			m_clip_stack.push(m_clip)
+			m_clip=float4(0.f,0.f,float(w),float(h))
+		//m_clip_stack.clear()
 		m_crd16_scale=max(65536/promoteToTextureSize(max(w,h)+1),1)
 		m_drawcall_start=int(m_vbo.n)
 		m_window_w=f32(w)
@@ -803,10 +805,10 @@ class CRenderer
 		inline f2i_uv(float f)
 			//return max(min(int(f*float(m_uv16_scale)),65535),0)
 			return max(min(__float_as_int(f*float(m_uv16_scale)+8388608.f)-0x4b000000,65535),0)
-		assert(x>=m_clip.x&&x<=m_clip.z)
-		assert(x+w>=m_clip.x&&x+w<=m_clip.z)
-		assert(y>=m_clip.y&&y<=m_clip.w)
-		assert(y+h>=m_clip.y&&y+h<=m_clip.w)
+		//assert(x>=m_clip.x&&x<=m_clip.z)
+		//assert(x+w>=m_clip.x&&x+w<=m_clip.z)
+		//assert(y>=m_clip.y&&y<=m_clip.w)
+		//assert(y+h>=m_clip.y&&y+h<=m_clip.w)
 		ix0=f2i_P(x)
 		iy0=f2i_P(y)
 		iu0=f2i_uv(u0)
@@ -871,11 +873,20 @@ class CRenderer
 				m_font_paths.push(('/system/fonts/'))
 				m_std_fallback_fonts.push(('DroidSansFallback'))
 			else if Platform.ARCH==('ios'):
-				m_font_paths.push(('/System/Library/Fonts/'))
-				m_font_paths.push(('/System/Library/Fonts/Cache/'))
-				m_std_fallback_fonts.push(('Helvetica'))
-				m_std_fallback_fonts.push(('STHeiti-Medium'))
-				m_std_fallback_fonts.push(('LastResort'))
+				//there is no longer a default font on iOS, you must provide one
+				m_std_fallback_fonts.push('res/fonts/opensans.ttf')
+				//m_font_paths.push(('/System/Library/Fonts/'))
+				//m_font_paths.push(('/System/Library/Fonts/Cache/'))
+				//foreach spath in m_font_paths
+				//	Writeln('*** searching for iOS fonts at '+spath)
+				//	foreach fnfont in System.IO.EnumFiles(spath+"*",System.IO.ENUM_FILE)
+				//		Writeln(fnfont)
+				//Writeln('*** listing iOS files')
+				//foreach fnfont in System.IO.EnumFiles("/*",System.IO.ENUM_FILE|System.IO.ENUM_RECURSIVE)
+				//	Writeln(fnfont)
+				//m_std_fallback_fonts.push(('Helvetica'))
+				//m_std_fallback_fonts.push(('STHeiti-Medium'))
+				//m_std_fallback_fonts.push(('LastResort'))
 			else if Platform.ARCH==('mac'):
 				m_font_paths.push(('/Library/Fonts/'))
 				m_font_paths.push(('/System/Library/Fonts/'))
@@ -927,11 +938,12 @@ class CRenderer
 		return TFont(){pfnt:pfnt,h:h,embolden:embolden}
 	auto CacheGlyph(TFont fnt, int ch)
 		embolden=float(max(min(fnt.embolden,511),-512))*fnt.h
-		x_aa=1
+		x_aa=3
 		y_aa=3
 		//if fnt.h<32:x_aa=3
 		//no matter how large the font is, x_aa always makes it sharper
-		if fnt.h<128.f:x_aa=3
+		//if fnt.h<128.f:
+		//x_aa=3
 		if fnt.h<16.f:
 			x_aa=5
 			y_aa=5
@@ -1535,7 +1547,8 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			w=int(floor(JS.Param(2).or(0.f)))
 			h=int(floor(JS.Param(3).or(0.f)))
 			is_relative=JS.Param(4).or(0)
-			g_renderer.SwitchToSubWindow(x,y,w,h,is_relative)
+			is_pop=JS.Param(5).or(0)
+			g_renderer.SwitchToSubWindow(x,y,w,h,is_relative,is_pop)
 			return 0
 		}
 		//can't do that: we're not in GL when calling

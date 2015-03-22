@@ -7711,7 +7711,7 @@ module Env
 			idx=ename.LastIndexOf('\\')
 			if idx<0:idx=ename.LastIndexOf('/')
 			ename.resize(idx+1)
-			return ename
+			return ename.Replace(["\\","/"])
 	auto GetStoragePath()
 		if Platform.IS_MOBILE:
 			if Platform.ARCH=="android":

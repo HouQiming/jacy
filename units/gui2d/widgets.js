@@ -127,64 +127,6 @@ UI.Theme_Minimalistic=function(C){
 			font:UI.Font(UI.font_name,24),
 			label_font:UI.Font(UI.font_name,24),
 		},
-		sub_window:{
-			transition_dt:0.1,
-			round:0,border_width:2,
-			padding:4,h_caption:24,
-			/////////////////
-			layout_direction:"inside",layout_align:'left',layout_valign:'up',
-			/////////////////
-			font:UI.Font(UI.font_name,20,100),
-			color:0xffffffff,border_color:C[0],border_width:2,
-			caption_color:C[0],text_color:0xffdddddd,
-			button_style:{
-				transition_dt:0.1,
-				round:0,border_width:2,padding:8,
-				border_width:0,color:0,
-				text_color:0xffdddddd,
-				font:UI.Font(UI.font_name,20,100),
-				$:{
-					out:{
-						text_color:0xffdddddd
-					},
-					over:{
-						text_color:0xffffffff,
-					},
-					down:{
-						text_color:0xffffffff,
-					},
-				}
-			},
-		},
-		tab_label:{
-			transition_dt:0.1,
-			shadow_size:8,
-			font:UI.Font(UI.font_name,24), padding:16,
-			$:{
-				active:{
-					text_color:0xffffffff,
-					color:C[0],
-					shadow_color:0xaa000000,
-				},
-				inactive:{
-					text_color:0xff444444,
-					color:C[0]&0x00ffffff,
-					shadow_color:0x00000000, 
-				},
-			}
-		},
-		tabbed_document:{
-			transition_dt:0.1,
-			h_caption:32, h_bar:4, color:0xffbbbbbb, border_color:C[0]
-		},
-		box_document:{
-			border_color:(0xcc000000&C[0]),border_width:2,w_snapping_line:2,
-			color:(0x44000000&C[0]),
-		},
-		txtx_editor:{
-			border_color:0xff000000,border_width:2,
-			color:0xffffffff,
-		},
 		slider:{
 			transition_dt:0.1,
 			bgcolor:[{x:0,y:0,color:0xffbbbbbb},{x:0,y:1,color:0xffdddddd}],
@@ -203,6 +145,27 @@ UI.Theme_Minimalistic=function(C){
 				color:0xffffffff, border_width:2, border_color:0xff444444,
 			},
 		},
+		scroll_bar:{
+			transition_dt:0.1,
+			bgcolor:0,
+			round:8,
+			padding:0,
+			szbar_min:32,
+			middle_bar:{
+				w:8,h:8,
+				round:4,
+				color:C[0], border_color:0,
+			},
+			$:{
+				out:{},
+				over:{},
+			},
+		},
+		list_view:{
+			color:0,border_color:0,
+			size_scroll_bar:8,
+			has_scroll_bar:!UI.IS_MOBILE,
+		},
 		edit_box:{
 			transition_dt:0.1,
 			round:4,padding:8,
@@ -219,17 +182,6 @@ UI.Theme_Minimalistic=function(C){
 					border_color:C[0],
 				},
 			},
-		},
-		color_picker:{
-			w_text:16,w_slider:128,w_edit:54,
-			h_slider:12,
-			h_edit:32,
-			h_space:24,
-			padding:8,
-			border_width:1.5,
-			border_color:0xff444444,
-			text_color:0xff000000,
-			font:UI.Font(UI.font_name,24),
 		},
 		select:{
 			transition_dt:0.1,
@@ -254,7 +206,7 @@ UI.Theme_Minimalistic=function(C){
 			button_style:{
 				transition_dt:0.1,
 				color:0xffffffff,border_color:C[0],
-				round:16,border_width:2,padding:12,
+				round:8,border_width:1.5,padding:12,
 				$:{
 					out:{
 						text_color:C[0],
@@ -281,38 +233,8 @@ UI.Theme_Minimalistic=function(C){
 				}
 			},
 		},
-		demo_document:{
-			thumbnail_style:{
-				border_color:0xff000000,
-				border_width:2,
-				font:UI.Font(UI.font_name,24),
-				text_padding:4,
-				text_color:C[0],
-			},
-			new_page_button_style:{
-				transition_dt:0.1,
-				round:0,border_width:3,padding:0,color:0,
-				font:UI.Font(UI.font_name,72,-50),
-				$:{
-					out:{
-						border_color:0x80000000,
-						icon_color:0x80000000,
-						text_color:0x80000000,
-					},
-					over:{
-						border_color:0xaa000000,
-						icon_color:0xaa000000,
-						text_color:0xaa000000,
-					},
-					down:{
-						border_color:0xaa000000,
-						icon_color:0xaa000000,
-						text_color:0xaa000000,
-					},
-				},
-			},
-		},
 	};
+	if(UI.Theme_CustomWidget){UI.Theme_CustomWidget(C)}
 };
 
 UI.DestroyWindow=function(attrs){
@@ -498,7 +420,7 @@ W.PureGroup=function(obj,ending_hint){
 		//check for leading $
 		if(key.charCodeAt(0)==0x24){
 			var child=obj[key];
-			if(child.__kept){
+			if(child&&child.__kept){
 				child.__kept=0;
 			}else{
 				delete obj[key];
@@ -1729,6 +1651,7 @@ W.ScrollBar_prototype={
 	OnChange:function(value){this.value=value;}
 }
 W.ScrollBarThingy_prototype={
+	dimension:'y',
 	OnMouseDown:function(event){
 		var owner=this.owner
 		this.anchored_value=owner.value
@@ -1737,14 +1660,16 @@ W.ScrollBarThingy_prototype={
 	},
 	OnMouseUp:function(event){
 		UI.ReleaseMouse(this)
+		this.anchored_value=undefined
 	},
 	OnMouseMove:function(event){
+		if(this.anchored_value==undefined){return;}
 		var owner=this.owner
-		owner.OnChange(this.anchored_value+(event[owner.dimension]-this.anchored_xy)/this.factor)
+		owner.OnChange(Math.min(Math.max(this.anchored_value+(event[owner.dimension]-this.anchored_xy)/this.factor,0),1))
 	},
 }
 W.ScrollBar=function(id,attrs){
-	var obj=UI.StdWidget(id,attrs,"scrollbar",W.ScrollBar_prototype)
+	var obj=UI.StdWidget(id,attrs,"scroll_bar",W.ScrollBar_prototype)
 	W.PureRegion(id,attrs)
 	UI.Begin(obj)
 		var szbar;
@@ -1792,12 +1717,13 @@ W.ScrollBar=function(id,attrs){
 
 //this does not cover multi-sel
 W.ListView_prototype={
-	position:undefined,velocity:0,min_velocity:10,max_velocity:1000,acceleration:1500,oob_scale:0.5,oob_limit:20,dt_threshold:0.1,
+	position:0,velocity:0,min_velocity:10,max_velocity:1000,acceleration:1500,oob_scale:0.5,oob_limit:20,dt_threshold:0.1,
 	damping_rate:0.1,
+	dimension:'y',
 	//just a velocity
 	Simulate:function(){
 		var a=this.dragging_samples;
-		var size=this.dim_tot
+		var size=Math.max(this.dim_tot-(this.dimension=='y'?this.h:this.w),0)
 		var tick_last=this.sim_tick;
 		this.sim_tick=Duktape.__ui_get_tick();
 		if(tick_last==undefined){tick_last=this.sim_tick-1/UI.animation_framerate;}
@@ -1821,6 +1747,7 @@ W.ListView_prototype={
 			}
 		}else{
 			if(this.velocity){
+				var old_pos=this.position;
 				this.position+=this.velocity*sim_dt;
 				if(this.position<-this.oob_limit){this.velocity=0;this.position=-this.oob_limit}
 				if(this.position>size+this.oob_limit){this.velocity=0;this.position=size+this.oob_limit}
@@ -1836,13 +1763,20 @@ W.ListView_prototype={
 						this.velocity=0
 					}
 				}
+				if(old_pos<0&&this.position>=0){
+					this.position=0;
+					this.velocity=0;
+				}else if(old_pos>size&&this.position<=size){
+					this.position=size;
+					this.velocity=0;
+				}
 				UI.AutoRefresh()
 			}
 		}
 		this.velocity=Math.max(Math.min(this.velocity,this.max_velocity),-this.max_velocity)
 	},
 	OnMouseDown:function(event){
-		var obj=this.owner
+		var obj=this
 		if(!obj.dragging_samples){
 			obj.dragging_samples=[];
 		}
@@ -1854,16 +1788,16 @@ W.ListView_prototype={
 		UI.CaptureMouse(this)
 	},
 	OnMouseMove:function(event){
-		var obj=this.owner;
+		var obj=this;
 		if(!obj.dragging_samples){return;}
 		var t=Duktape.__ui_seconds_between_ticks(obj.tick0,Duktape.__ui_get_tick());
-		obj.dragging_samples.push({x:event[obj.dimension],t:t})
+		obj.dragging_samples.push({x:-event[obj.dimension],t:t})
 		obj.Simulate()
 		UI.Refresh()
 	},
 	OnMouseUp:function(event){
 		UI.ReleaseMouse(this)
-		var obj=this.owner;
+		var obj=this;
 		var t=Duktape.__ui_seconds_between_ticks(obj.tick0,Duktape.__ui_get_tick());
 		if(obj.dragging_samples&&obj.dragging_samples.length){
 			var dt=t-obj.dragging_samples[obj.dragging_samples.length-1].t
@@ -1897,11 +1831,11 @@ W.ListView_prototype={
 	OnChange:function(value){this.value=value;}
 }
 W.ListView=function(id,attrs){
-	var obj=UI.StdWidget(id,attrs,"listview",W.ListView_prototype)
+	//todo: autoscroll
+	var obj=UI.StdWidget(id,attrs,"list_view",W.ListView_prototype)
 	var items=obj.items
-	var dim_tot
+	var dim_tot=(obj.layout_spacing+1)*items.length
 	if(obj.dimension=="y"){
-		dim_tot=-obj.h+obj.layout_spacing*Math.max(items.length-1,0)
 		for(var i=0;i<items.length;i++){
 			dim_tot+=items[i].h;
 		}
@@ -1910,7 +1844,6 @@ W.ListView=function(id,attrs){
 		obj.layout_scroll_x=0
 		obj.layout_scroll_y=obj.position
 	}else{
-		dim_tot=-obj.w+obj.layout_spacing*Math.max(items.length-1,0)
 		for(var i=0;i<items.length;i++){
 			dim_tot+=items[i].w;
 		}
@@ -1923,13 +1856,16 @@ W.ListView=function(id,attrs){
 	obj.selection={};obj.selection['$'+obj.value]=1
 	UI.RoundRect(obj);
 	W.PureRegion(id,obj)//region goes before children
-	UI.PushCliprect(obj.x,obj.y,w_value,obj.h)
-		if(!obj.dragging_samples){obj.Simulate()}
-		W.PureGroup(obj,"temp")
-		//forced clicksel
+	UI.PushCliprect(obj.x,obj.y,obj.w,obj.h)
+	if(!obj.dragging_samples){obj.Simulate()}
+	W.PureGroup(obj,"temp")
+	//forced clicksel
+	obj.layout_direction=undefined
+	UI.Begin(obj)
 		for(var i=0;i<items.length;i++){
 			var id_i="$"+i.toString();
 			var obj_item_i=obj[id_i]
+			if(!obj_item_i||obj_item_i.no_click_selection){continue;}
 			var id_click_sel="$C"+i.toString();
 			W.Region(id_click_sel,{x:obj_item_i.x,y:obj_item_i.y,w:obj_item_i.w,h:obj_item_i.h,
 				numerical_id:i,
@@ -1939,36 +1875,35 @@ W.ListView=function(id,attrs){
 				},
 			})
 		}
-	UI.PopCliprect()
-	UI.Begin(obj)
-	if(obj.has_scroll_bar){
-		//associated scrollbar
-		if(obj.dimension=="y"){
-			if(obj.w<dim_tot){
-				W.ScrollBar("scroll_bar",{
-					anchor:'parent',anchor_align:'right',anchor_valign:'fill',
-					dimension:'y',
-					x:0,y:0,w:obj.size_scroll_bar,
-					value:obj.position/(dim_tot-obj.w),page_size:obj.w,total_size:dim_tot,
-					OnChange:function(value){
-						obj.position=value*(obj.dim_tot-obj.w)
-						UI.Refresh()
-					}})
-			}
-		}else{
-			if(obj.w<dim_tot){
-				W.ScrollBar("scroll_bar",{
-					anchor:'parent',anchor_align:'fill',anchor_valign:'down',
-					dimension:'x',
-					x:0,y:0,h:obj.size_scroll_bar,
-					value:obj.position/(dim_tot-obj.h),page_size:obj.h,total_size:dim_tot,
-					OnChange:function(value){
-						obj.position=value*(obj.dim_tot-obj.h)
-						UI.Refresh()
-					}})
+		if(obj.has_scroll_bar){
+			//associated scrollbar
+			if(obj.dimension=="y"){
+				if(obj.h<dim_tot){
+					W.ScrollBar("scroll_bar",{
+						anchor:'parent',anchor_align:'right',anchor_valign:'fill',
+						dimension:'y',
+						x:0,y:0,w:obj.size_scroll_bar,
+						value:obj.position/(dim_tot-obj.h),page_size:obj.h,total_size:dim_tot,
+						OnChange:function(value){
+							obj.position=value*(obj.dim_tot-obj.h)
+							UI.Refresh()
+						}})
+				}
+			}else{
+				if(obj.w<dim_tot){
+					W.ScrollBar("scroll_bar",{
+						anchor:'parent',anchor_align:'fill',anchor_valign:'down',
+						dimension:'x',
+						x:0,y:0,h:obj.size_scroll_bar,
+						value:obj.position/(dim_tot-obj.w),page_size:obj.w,total_size:dim_tot,
+						OnChange:function(value){
+							obj.position=value*(obj.dim_tot-obj.w)
+							UI.Refresh()
+						}})
+				}
 			}
 		}
-	}
 	UI.End()
+	UI.PopCliprect()
 	return obj;
 }

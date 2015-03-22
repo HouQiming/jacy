@@ -22,7 +22,7 @@ And build the build system using:
 
 ## To use
 
-See doc/language.md
+See [doc/language.md](doc/language.md)
 
 ## To do
 

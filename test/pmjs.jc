@@ -224,6 +224,80 @@ auto writeico(auto f,int[] img0,int w,int h)
 			binmask.push(mk)
 	f.Write(binmask.ConvertToAsBinary(char))
 
+stbi_zlib_compress=__c_function(__pointer,"stbi_zlib_compress","stb_image_write.h", "c_files","stb_image_write.c")
+stbiw__crc32=__c_function(u32,"stbiw__crc32","stb_image_write.h", "c_files","stb_image_write.c")
+
+auto zip(string s)
+	out_len=0
+	s_ret=stbi_zlib_compress(s,s.n,&out_len,8)
+	if !s_ret:return string.NULL
+	ret=new string
+	ret.d=iptr(s_ret)
+	ret.n=iptr(out_len)
+	ret.sz=ret.n
+	return ret[2:]//strip the header
+
+//zfiles: an array of objects: name, data, enable_compression
+auto jszip(JSContext JS)
+	fn_archive=JS.Param(0).as(string)
+	if !fn_archive:return JS.ReturnError("invalid file name")
+	zfiles=JS.Param(1).as(JSObject)
+	if !zfiles:return JS.ReturnError("invalid array")
+	fzip=System.IO.CreateFile(fn_archive)
+	sz_written=0L
+	sz_data=0L
+	inline writeZip(string s)
+		sz_data+=s.n
+		sz_written+=fzip.Write(s)
+		if sz_written<sz_data:
+			return 0
+		else
+			return 1
+	s_central=new string
+	nfiles=zfiles.length()
+	for id_obj=0:nfiles-1
+		file_i=zfiles[id_obj].as(JSObject)
+		if !file_i:
+			return JS.ReturnError(FormatAsText('error saving object ',id_obj))
+		fn_zip=file_i["name"].as(string)
+		s_save=file_i["data"].as(string)
+		if !s_save:
+			return JS.ReturnError(FormatAsText('error saving object ',id_obj>>1))
+		sz_original=s_save.n
+		//the compression doesn't work yet
+		enable_compression=file_i["enable_compression"].or(1)
+		crc=int(crc32(s_save))
+		if enable_compression:
+			s_local=new("PK\x03\x04\x0A\x00\x00\x00\x08\x00\x0C\x93\xC8D")
+			fdata=zip(s_save)
+		else
+			s_local=new("PK\x03\x04\x0A\x00\x00\x00\x00\x00\x0C\x93\xC8D")
+			fdata=s_save
+		//CRC-32, size, size, namelen, paddinglen, name, padding
+		s_local.push([crc,int(fdata.n),int(sz_original),int(fn_zip.n)].ConvertToAsBinary(char))
+		s_local.push(fn_zip)
+		plocal=fzip.Position()
+		if !writeZip(s_local):return JS.ReturnError("file write failed")
+		if !writeZip(fdata):return JS.ReturnError("file write failed")
+		//add its central directory
+		if enable_compression:
+			s_central.push("PK\x01\x02\x0A\x00\x0A\x00\x00\x00\x08\x00\x0C\x93\xC8D")
+		else
+			s_central.push("PK\x01\x02\x0A\x00\x0A\x00\x00\x00\x00\x00\x0C\x93\xC8D")
+		s_central.push([crc,int(fdata.n),int(sz_original),int(fn_zip.n),0,0].ConvertToAsBinary(char))
+		s_central.push('\0')
+		s_central.push('\0')
+		s_central.push([int(plocal)].ConvertToAsBinary(char))
+		s_central.push(fn_zip)
+		fdata.discard()
+	//write the new directory
+	p_central=fzip.Position()
+	s_central.push("PK\x05\x06\x00\x00\x00\x00")
+	s_central.push([int(nfiles)*0x00010001,int(s_central.n),int(p_central)].ConvertToAsBinary(char))
+	s_central.push("\x00\x00")
+	if !writeZip(s_central):return JS.ReturnError("file write failed")
+	return 0
+
 (function(){
 	JS=new JSContext
 	args=GetCommandLine()
@@ -463,6 +537,7 @@ auto writeico(auto f,int[] img0,int w,int h)
 		if !scode||!sfile:return 0
 		return JS.Return(JS.debugEval(scode,sfile))
 	}
+	global["zip"]=jszip
 	global["rawzip"]=add_raw_zip
 	//////////////
 	//default js

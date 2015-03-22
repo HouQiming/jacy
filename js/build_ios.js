@@ -146,6 +146,7 @@ g_action_handlers.make=function(){
 		//todo: prompt for pwd instead?
 		sshell.push('security unlock-keychain -p \'\' login.keychain;')
 	}
+	//todo: sudo case
 	if(g_build!="debug"){
 		sshell.push('xcodebuild -sdk iphoneos -configuration Release build OTHER_CFLAGS=\'${inherited} -DNEED_MAIN_WRAPPING -std=c99 -w -I${HOME}/pmenv/include\';')
 	}else{
