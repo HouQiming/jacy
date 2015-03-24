@@ -1629,6 +1629,8 @@ UI.SetSystemCursor=function(mouse_cursor){
 
 UI.OpenFile=function(){};
 
+UI.m_poll_jobs=[]
+UI.NextTick=function(f){UI.m_poll_jobs.push(UI.HackCallback(f))}
 UI.Run=function(){
 	if(!UI.is_real){return;}
 	var event=null;
@@ -1669,7 +1671,12 @@ UI.Run=function(){
 				UI.need_to_refresh=1;
 			}
 		}
-		if(UI.need_to_refresh){
+		if(UI.need_to_refresh||UI.m_poll_jobs.length){
+			var jbs=UI.m_poll_jobs
+			UI.m_poll_jobs=[];
+			for(var i=0;i<jbs.length;i++){
+				jbs[i]();
+			}
 			event=UI.SDL_PollEvent();
 			if(!event){continue;}
 		}else{
@@ -1847,4 +1854,9 @@ if(UI.Platform.ARCH=="android"){
 	print=function(){
 		Duktape.__write_log(Array.prototype.slice.call(arguments,0).join(" "))
 	}
+}
+
+UI.InheritClass=function(proto0,proto1){
+	Object.setPrototypeOf(proto1,proto0)
+	return proto1
 }

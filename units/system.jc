@@ -6119,8 +6119,16 @@ module OS_API
 		GetTempPathW=__c_function(int,"GetTempPathW","windows.h")
 	fread=__c_function(int,"fread","stdio.h")
 	fwrite=__c_function(int,"fwrite","stdio.h")
-	fseek=__c_function(int,"fseek","stdio.h")
-	ftell=__c_function(iptr,"ftell","stdio.h")
+	if iptr==i64:
+		if Platform.IS_WINDOWS:
+			fseek=__c_function(int,"_fseeki64","stdio.h")
+			ftell=__c_function(iptr,"_ftelli64","stdio.h")
+		else
+			fseek=__c_function(int,"fseek64","stdio.h")
+			ftell=__c_function(iptr,"ftell64","stdio.h")
+	else
+		fseek=__c_function(int,"fseek","stdio.h")
+		ftell=__c_function(iptr,"ftell","stdio.h")
 	fflush=__c_function(int,"fflush","stdio.h")
 	feof=__c_function(int,"feof","stdio.h")
 	fclose=__c_function(int,"fclose","stdio.h")

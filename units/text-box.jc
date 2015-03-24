@@ -51,7 +51,7 @@ class ITextStateHandler
 	//For rendering states, we need a layouter
 	function(JSObject obj) SetTextStyle
 	function(JSObject obj) BeginRender
-	function(i64 ccnt_base,i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling) RenderText
+	function(CEditableText ed,i64 ccnt_base,i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling) RenderText
 	function() EndRender
 	function(i64 ccnt_base,i64[] a,i64[] pp,string s,iptr ofs):i64 GetCharacterHeightAt
 	function():TFont GetDefaultFont
@@ -84,6 +84,7 @@ auto combineEditorOffset(long2 bb0,long2 bb1)
 inline CharToUtf8(auto s,T)
 	return {'forEach':inline(fbody){
 		ch0=0;nnxt=0;II=T(0)
+		surrogate_1st=0;surrogate_II=II
 		foreach chc,I in s
 			ch=int(u8(chc))
 			if ch>=128:
@@ -101,6 +102,18 @@ inline CharToUtf8(auto s,T)
 					nnxt--
 				if nnxt:continue
 				ch=ch0
+				if u32(ch-0xd800)<0x800u:
+					//surrogate pair
+					if ch&0x0400:
+						//2nd
+						ch=(surrogate_1st*0x400)+(ch&0x3ff)
+						surrogate_1st=0
+						II=surrogate_II
+					else
+						//1st
+						surrogate_1st=(ch&0x3ff)
+						surrogate_II=II
+						continue
 			else
 				II=I
 			fbody(ch,II,I+T(1))
@@ -109,6 +122,7 @@ inline CharToUtf8(auto s,T)
 inline CharToUtf8Backward(auto s,T)
 	return {'forEach':inline(fbody){
 		ch0=0;nshift=0;II=T(0)
+		surrogate_2nd=0
 		foreach chc,I in s
 			ch=int(u8(chc))
 			if ch>=128:
@@ -125,6 +139,16 @@ inline CharToUtf8Backward(auto s,T)
 					ch0+=(ch&63)<<nshift
 					nshift+=6
 					continue
+				if u32(ch-0xd800)<0x800u:
+					//surrogate pair
+					if ch&0x0400:
+						//2nd
+						surrogate_2nd=(ch&0x3ff)
+						continue
+					else
+						//1st
+						ch=surrogate_2nd+(ch&0x3ff)*0x400
+						surrogate_2nd=0
 			else
 				II=I
 			fbody(ch,II)
@@ -182,13 +206,15 @@ auto MakeCharSet(string e)
 //	return __longlong_as_double(ret)
 
 g_ascii_wordchars=MakeCharSet("0-9A-Za-z_")
+inline isInCharSet(uint4 cset,int ch)
+	slot=(ch>>5)
+	for i in crange(4)
+		if i==slot:return int(cset[i]>>(ch&31))&1
+	return 0
 auto isWordChar(int ch)
 	if ch>=128:
 		return int(g_unicode_wordchars.Bisect(function(int c0){return c0<=ch})&1)
-	slot=(ch>>5)
-	for i in crange(4)
-		if i==slot:return int(g_ascii_wordchars[i]>>(ch&31))&1
-	return 0
+	return isInCharSet(g_ascii_wordchars,ch)
 
 auto GreedyLayoutParagraph(TFont fnt,string s,float w_line, float w_tab)
 	//todo: also replace ComputeTextLayout with this
@@ -226,11 +252,11 @@ auto GreedyLayoutParagraph(TFont fnt,string s,float w_line, float w_tab)
 				x=0.f
 				lbreaks.push(a+I+1)
 	p_last_word=0L
-	foreach ch,I in Utf8Chars(s)
+	foreach ch,I,I2 in Utf8Chars(s)
 		if !isWordChar(ch)||isCJK(ch):
 			if p_last_word<I:
 				addWord(p_last_word,I)
-			p_last_word=I+Utf8Length(ch)
+			p_last_word=I2
 			addWord(I,p_last_word)
 	if p_last_word<s.n:
 		addWord(p_last_word,s.n)
@@ -485,7 +511,7 @@ class CLayouter_baseline
 			testIMEOverlay()
 		return TRenderingInfo(){bb:long2(x,y),seek_ret:s.n}
 	}
-	RenderText=function(i64 ccnt_base,i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling){
+	RenderText=function(CEditableText ed,i64 ccnt_base,i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling){
 		_RenderText(MODE_RENDER,a,pp,s,s.n,scroll_x,scroll_y,screen_x,screen_y,scaling)
 	}
 	GetCharacterHeightAt=function(i64 ccnt_base,i64[] a,i64[] pp,string s,iptr ofs){
@@ -1423,7 +1449,7 @@ class CEditableText
 					color_ids=handler_colorer.ComputeCharColorID(acc_colorer,s_context,nd.s)
 				else
 					color_ids=u8[].NULL
-				handler.RenderText(ccnt_base,acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s, color_ids, x,y,scr_x,scr_y,scale)
+				handler.RenderText(this,ccnt_base,acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s, color_ids, x,y,scr_x,scr_y,scale)
 				handler.Add(acc,nd.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
 				if hid_colorer>=0:
 					handler_colorer.Add(acc_colorer,nd.a[m_state_ofs[hid_colorer]:m_state_ofs[hid_colorer+1]-1])
@@ -1489,6 +1515,7 @@ class CEditableText
 		}}
 	inline enumUtf8Forward(i64 ccnt)
 		return CharToUtf8(enumCharsForward(ccnt),i64)
+	//backward functions are exclusive w.r.t ccnt0
 	inline enumCharsBackward(i64 ccnt0)
 		return {'forEach':inline(fbody){
 			ccnt=ccnt0-1LL

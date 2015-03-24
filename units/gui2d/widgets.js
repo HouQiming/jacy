@@ -554,7 +554,12 @@ W.Button=function(id,attrs){
 	return W.PureRegion(id,obj);
 }
 
+UI.m_editor_plugins=[]
+UI.RegisterEditorPlugin=function(fplugin){
+	UI.m_editor_plugins.push(fplugin)
+}
 W.Edit_prototype={
+	plugin_class:'widget',
 	//////////
 	scale:1,
 	scroll_x:0,
@@ -702,11 +707,37 @@ W.Edit_prototype={
 			this.caret_is_wrapped=(Math.abs(x1-x)<Math.abs(x0-x)?1:0);
 		}
 	},
+	OnChange:function(){},
+	OnSelectionChange:function(){},
+	/////////////////
 	CallOnChange:function(){
 		this.caret_is_wrapped=0;
 		this.AutoScroll('show')
-		if(this.OnChange){this.OnChange(this);}
+		var hk=this.m_on_change_hooks;
+		for(var i=0;i<hk.length;i++){
+			hk[i].call(this)
+		}
+		this.OnChange(this);
+		
 	},
+	CallOnSelectionChange:function(){
+		var hk=this.m_on_selection_change_hooks;
+		for(var i=0;i<hk.length;i++){
+			hk[i].call(this)
+		}
+		this.OnSelectionChange(this);
+	},
+	/////////////////
+	AddEventHandler:function(s_key,faction){
+		if(s_key=="selectionChange"){
+			this.m_on_selection_change_hooks.push(faction)
+		}else if(s_key=="change"){
+			this.m_on_change_hooks.push(faction)
+		}else{
+			this.m_additional_hotkeys.push({'key':s_key,'action':faction})
+		}
+	},
+	/////////////////
 	Copy:function(){
 		var ccnt0=this.sel0.ccnt;
 		var ccnt1=this.sel1.ccnt;
@@ -735,7 +766,7 @@ W.Edit_prototype={
 		if(this.is_single_line){
 			stext=stext.replace("\n"," ");
 		}
-		this.OnTextInput({"text":stext})
+		this.OnTextInput({"text":stext,"is_paste":1})
 	},
 	////////////////////////////
 	HookedEdit:function(ops){this.ed.Edit(ops);},
@@ -748,6 +779,14 @@ W.Edit_prototype={
 	Init:function(){
 		var ed=this.ed;
 		if(!ed){
+			var plugins=UI.m_editor_plugins;
+			//don't allow plugins to extend state_handlers for now
+			this.m_additional_hotkeys=(this.additional_hotkeys||[])
+			this.m_on_change_hooks=[]
+			this.m_on_selection_change_hooks=[]
+			for(var i=0;i<plugins.length;i++){
+				plugins[i].call(this)
+			}
 			ed=UI.CreateEditor(this);
 			if(this.text){ed.Edit([0,0,this.text],1);}
 			this.sel0=ed.CreateLocator(0,-1);this.sel0.undo_tracked=1;
@@ -769,6 +808,19 @@ W.Edit_prototype={
 		var ccnt1=this.sel1.ccnt;
 		if(ccnt0>ccnt1){var tmp=ccnt1;ccnt1=ccnt0;ccnt0=tmp;}
 		var ops=[ccnt0,ccnt1-ccnt0,event.text];
+		if(event.text.length==1&&!event.is_paste){
+			//ASCII key events
+			var hk=this.m_additional_hotkeys;
+			for(var i=0;i<hk.length;i++){
+				var hki=hk[i]
+				if(event.text==hki.key){
+					if(!hki.action.call(this,hki.key)){
+						//0 for cancel
+						return;
+					}
+				}
+			}
+		}
 		this.HookedEdit(ops)
 		//for hooked case, need to recompute those
 		var lg=Duktape.__byte_length(ops[2]);
@@ -796,11 +848,12 @@ W.Edit_prototype={
 			this_outer.AutoScroll("show");
 			UI.Refresh();
 		};
-		if(this.additional_hotkeys){
-			var hk=this.additional_hotkeys;
-			for(var i=0;i<hk.length;i++){
-				if(IsHotkey(event,hk[i].key)){
-					hk[i].action.call(this);
+		var hk=this.m_additional_hotkeys;
+		for(var i=0;i<hk.length;i++){
+			var hki=hk[i]
+			if(IsHotkey(event,hki.key)){
+				if(!hki.action.call(this,hki.key)){
+					//0 for cancel
 					return;
 				}
 			}
@@ -892,6 +945,8 @@ W.Edit_prototype={
 			}else{
 				this.OnTextInput({"text":"\n"})
 			}
+		}else if(IsHotkey(event,"TAB")&&this.tab_is_char&&sel0.ccnt==sel1.ccnt){
+			this.OnTextInput({"text":"\t"})
 		}else if(IsHotkey(event,"HOME SHIFT+HOME")){
 			var ed_caret=this.GetCaretXY();
 			var ccnt_lhome=this.SeekXY(0,ed_caret.y);
@@ -951,7 +1006,7 @@ W.Edit_prototype={
 		}else{
 		}
 		if(sel0_ccnt!=sel0.ccnt||sel1_ccnt!=sel1.ccnt){
-			if(this.OnSelectionChange){this.OnSelectionChange(this);}
+			this.CallOnSelectionChange()
 		}
 	},
 	////////////////////////////
@@ -979,7 +1034,7 @@ W.Edit_prototype={
 		this.sel1.ccnt=ccnt_clicked;
 		UI.SetFocus(this)
 		UI.CaptureMouse(this)
-		if(this.OnSelectionChange){this.OnSelectionChange(this);}
+		this.CallOnSelectionChange()
 		UI.Refresh()
 	},
 	OnMouseMove:function(event){
@@ -987,7 +1042,7 @@ W.Edit_prototype={
 		var x1=event.x-this.x+this.scroll_x
 		var y1=event.y-this.y+this.scroll_y
 		this.sel1.ccnt=this.SeekXY(x1,y1);
-		if(this.OnSelectionChange){this.OnSelectionChange(this);}
+		this.CallOnSelectionChange()
 		UI.Refresh()
 	},
 	OnMouseUp:function(event){
@@ -1353,8 +1408,10 @@ W.EditBox=function(id,attrs){
 				font:obj.font, color:obj.text_color, text:obj.value,
 				hint_text:obj.hint_text,
 				is_single_line:1,
+				obj:obj,
 				additional_hotkeys:[{key:"ESCAPE",action:function(){
 					//cancel the change
+					var obj=this.obj
 					obj.OnChange(obj.bak_value)
 					obj.bak_value=undefined
 					obj.focus_state="blur"
