@@ -58,38 +58,38 @@ UI.Theme_Minimalistic=function(C){
 		},
 		check_button:{
 			transition_dt:0.1,
-			round:0,border_width:3,padding:12,
+			round:0,border_width:2,padding:12,
 			$:{
 				out:{
-					border_color:0x00ffffff,color:0x00ffffff,
-					icon_color:C[0],
-					text_color:C[0],
+					border_color:C[0]&0x00ffffff,color:0x00ffffff,
+					icon_color:0xff000000,
+					text_color:0xff000000,
 				},
 				over:{
-					border_color:C[0],color:C[0],
-					icon_color:0xffffffff,
-					text_color:0xffffffff,
+					border_color:C[0],color:0x00ffffff,
+					icon_color:0xff000000,
+					text_color:0xff000000,
 				},
 				down:{
-					border_color:C_dark,color:C_dark,
-					icon_color:0xffffffff,
-					text_color:0xffffffff,
+					border_color:C_dark,color:0x00ffffff,
+					icon_color:0xff000000,
+					text_color:0xff000000,
 				},
 				////////////////////
 				checked_out:{
-					border_color:0x00ffffff,color:(C[0]&0x55ffffff),
-					icon_color:C[0],
-					text_color:C[0],
+					border_color:C[0]&0x00ffffff,color:C_sel,
+					icon_color:0xff000000,
+					text_color:0xff000000,
 				},
 				checked_over:{
-					border_color:C[0],color:C[0],
-					icon_color:0xffffffff,
-					text_color:0xffffffff,
+					border_color:C[0],color:C_sel,
+					icon_color:0xff000000,
+					text_color:0xff000000,
 				},
 				checked_down:{
-					border_color:C_dark,color:C_dark,
-					icon_color:0xffffffff,
-					text_color:0xffffffff,
+					border_color:C_dark,color:C_sel,
+					icon_color:0xff000000,
+					text_color:0xff000000,
 				},
 			}
 		},
@@ -791,13 +791,19 @@ W.Edit_prototype={
 	Init:function(){
 		var ed=this.ed;
 		if(!ed){
-			var plugins=UI.m_editor_plugins;
 			//don't allow plugins to extend state_handlers for now
 			this.m_additional_hotkeys=(this.additional_hotkeys||[])
 			this.m_on_change_hooks=[]
 			this.m_on_selection_change_hooks=[]
+			var plugins=UI.m_editor_plugins;
 			for(var i=0;i<plugins.length;i++){
 				plugins[i].call(this)
+			}
+			plugins=this.plugins;
+			if(plugins){
+				for(var i=0;i<plugins.length;i++){
+					plugins[i].call(this)
+				}
 			}
 			ed=UI.CreateEditor(this);
 			if(this.text){ed.Edit([0,0,this.text],1);}
