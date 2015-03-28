@@ -1223,6 +1223,11 @@ UI.interpolators.color=function(a,b,t){
 	if(isNumber(a)&&isNumber(b)){
 		//32-bit rgba
 		return UI.lerp_rgba(a,b,t);
+	}else if(!isNumber(a)&&!isNumber(b)){
+		return [
+			{x:a[0].x,y:a[0].y,color:UI.lerp_rgba(a[0].color,b[0].color,t)},
+			{x:a[1].x,y:a[1].y,color:UI.lerp_rgba(a[1].color,b[1].color,t)}
+		];
 	}else{
 		//coulddo: convert both sides to gradient first, then lerp all attrs, including x/y
 	}
@@ -1629,6 +1634,16 @@ UI.SetSystemCursor=function(mouse_cursor){
 
 UI.OpenFile=function(){};
 
+UI.m_window_map={}
+UI.DestroyWindow=function(obj){
+	UI.CallIfAvailable(obj,"OnDestroy");
+	if(obj.is_main_window){
+		UI.SDL_PostQuitEvent();
+	}
+	UI.m_window_map[obj.__hwnd.toString()]=undefined
+	UI.SDL_DestroyWindow(obj.__hwnd)
+};
+
 UI.m_poll_jobs=[]
 UI.NextTick=function(f){UI.m_poll_jobs.push(UI.HackCallback(f))}
 UI.Run=function(){
@@ -1686,6 +1701,16 @@ UI.Run=function(){
 			if(event.type==UI.SDL_QUIT){return UI;}
 			switch(event.type){
 			case UI.SDL_USEREVENT:
+				if(event.code==1){
+					//close
+					var obj=UI.m_window_map[event.windowID.toString()]
+					if(obj){
+						if(!UI.CallIfAvailable(obj,"OnClose")){
+							UI.DestroyWindow(obj)
+						}
+					}
+					break;
+				}
 				if(event.code==2){
 					//timer
 					var fn=UI.getTimerFunction(event.data1);
@@ -1747,6 +1772,11 @@ UI.Run=function(){
 					UI.CallIfAvailable(UI.nd_focus,"OnTextInput",event);
 				}
 				UI.inside_IME=0
+				break
+			case UI.SDL_MOUSEWHEEL:
+				if(UI.nd_focus){
+					UI.CallIfAvailable(UI.nd_focus,"OnMouseWheel",event);
+				}
 				break
 			//UI.nd_mouse_over, UI.nd_key_focus, UI.nd_captured
 			case UI.SDL_MOUSEMOTION:

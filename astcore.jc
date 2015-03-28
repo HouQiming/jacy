@@ -1079,6 +1079,8 @@ auto coreInit()
 					//cast
 					sccpQueueReach(insertCallAt(pecall,~i,function(PExpression pe){return call(g_id_cast,exprctval(t_expected),pe_argi)}))
 					return TSCCPValue(){'tid':g_vtid_UNINIT}
+			else
+				t=0
 			//sccp
 			val_old=readPoolTyped(p_param_values+i*3,TSCCPValue)
 			val_new=getExprValue(pe_argi)
@@ -1092,6 +1094,7 @@ auto coreInit()
 				//it will be passed as a var, so consider it as a var
 				val_new.tid=g_vtid_RTVAR
 				val_new.val=t
+			//Writeln('param slot ',i,' : ',getIdString(val_old.tid),' ',getIdString(val_new.tid))
 			val_final=mergeValues(pecall,val_old,val_new, pecall,pecall)
 			//set param functions as used
 			if Platform.BUILD=="debug":
@@ -8822,6 +8825,7 @@ auto typeMerge(PExpression pe,PCTObject t_old,PCTObject t_new,PExpression pe_old
 			"@1",citeexpr(pe_old),
 			"@2",dumpType(t_old),
 			"@3",dumpType(t_new)]))
+		assert(0)//todo
 	else
 		errorAtExpr(ETYPE_ERROR,pe,"type mismatch between type '@3' operand '@1' and type '@4' operand '@2'".Replace([
 			"@1",citeexpr(pe_old),

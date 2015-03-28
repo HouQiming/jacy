@@ -7719,7 +7719,7 @@ module Env
 			if pdot>=0:ename=ename[:pdot-1]
 			sret=s_userdir+string("\\.")+ename
 			if !System.IO.DirExists(sret):System.IO.CreateDirectory(sret)
-			return sret
+			return sret.Replace(["\\","/"])
 	auto NormalizeFileName(string fn)
 		if !fn:return NULL
 		if !fn.n:return new string

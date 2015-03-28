@@ -6160,7 +6160,319 @@ module detail
 		else
 			sn=Algorithm.Utf8ToUnicode(s);sn.push(i16(0))
 		return sn
-		
+	///////////////////////////
+	REGEX_STR=0
+	REGEX_CSET=1
+	REGEX_SPL=2
+	REGEX_SPL2=3
+	REGEX_NIL=4
+	REGEX_MATCH=5
+	REGEX_CHAR=256
+	//REGEX_SAVE: ~id
+	////////
+	//all chars are str
+	//special ops begin with 0 and one of RB_...
+	RB_SPL=0
+	RB_JMP=1
+	RB_CSET=2
+	RB_SAVE=3
+	RB_MATCH=4
+	//kmp-style limited overlap nfa? trie? not very general, nor is the gain too significant. worth thinking a bit though
+	class RegexOp
+		int op
+		__variant ob//string/u32[]/RegexOp
+		RegexOp x
+		int ofs
+	//todo: parse errors, 2ndary error return 
+	auto parseRegex(string s0)
+		feed=s0.d;feed2=s0.d+s0.n;slotid=0
+		auto atom(iptr feed2)
+			if feed!=feed2:
+				ch=__memory(i8,feed)
+			else
+				ch=0
+			mk=new u32[8]
+			RegexOp ret
+			switch ch{
+			default:
+				//literal / \
+				//use cset in XML
+				ret=new RegexOp
+				ret.op=REGEX_CHAR+int(u8(ch))
+				if feed!=feed2:feed++
+				break
+			case '\\'
+				if feed!=feed2-1:feed++
+				ch=__memory(i8,feed)
+				is_postfix=0
+				switch ch{
+				case 't':{ch='\t';break}
+				case 'n':{ch='\n';break}
+				case 'r':{ch='\r';break}
+				case 'b':{ch='\b';break}
+				case 'x','u':
+					chu=0
+					for j=0:(ch=='u'?3:1)
+						if feed!=feed2:
+							feed++
+							chj=__memory(i8,feed)
+						else
+							chj='0'
+						si=((chj-'0')&0x1f)
+						if si>=0x10:si-=7
+						chu=(chu<<4)+(si&0xf)
+					if chu==0:
+						//0 should be made a string, not a char
+						ret=new RegexOp
+						ret.op=REGEX_STR
+						ret.ob=variant([(char)0])
+						if feed!=feed2:feed++
+						is_postfix=1
+						break
+					else if ch=='x'||chu<128:
+						//ASCII chars can use the char mode
+						ch=char(chu)
+					else
+						//UTF8ify
+						ret=new RegexOp
+						ret.op=REGEX_STR
+						s=new string
+						if chu>=2048:
+							s.push(char(((chu>>12)&0xf)+0xe0))
+							s.push(char(0x80+((chu>>6)&63)))
+							s.push(char(0x80+(chu&63)))
+						else if chu>=128:
+							s.push(char((chu>>6)+0xc0))
+							s.push(char(0x80+(chu&63)))
+						else
+							s.push(char(chu))
+						ret.ob=variant(s)
+						if feed!=feed2:feed++
+						is_postfix=1
+						break
+					break
+				}
+				if is_postfix:
+					break
+				//it's still a literal
+				ret=new RegexOp
+				ret.op=REGEX_CHAR+int(u8(ch))
+				if feed!=feed2:feed++
+				break;
+			case '[','.','\0':
+				if ch=='.':
+					for j in crange(8)
+						mk[j]=-1
+					mk[0]&=~(1u<<int('\n'))
+					//if feed!=feed2-1:
+					feed++
+				else if ch=='\0':
+					mk[0]=-2
+					for j in crange(7)
+						mk[j+1]=-1
+				else
+					feed++
+					isneg=0u
+					if feed!=feed2&&__memory(i8,feed)=='^':
+						isneg=-1u
+						feed++
+					for j in crange(8)
+						mk[j]=0
+					ch_interval=-1
+					while feed!=feed2&&__memory(i8,feed)!=']':
+						chi=int(u8(__memory(i8,feed)))
+						if chi=='\\'&&feed+1!=feed2:
+							feed++
+							chi=int(u8(__memory(i8,feed)))
+							switch chi{
+							case 'w':
+								mk[1]|=u32((1<<10)-1)<<16
+								mk[2]|=u32((2<<26)-2)
+								mk[3]|=u32((2<<26)-2)
+								chi='_'
+								break
+							case 's':
+								chi=' ';mk[chi>>5]|=(1u<<(chi&31))
+								chi='\t';mk[chi>>5]|=(1u<<(chi&31))
+								chi='\n';mk[chi>>5]|=(1u<<(chi&31))
+								chi='\r';//mk[chi>>5]|=(1u<<(chi&31))
+								break
+							case 't':{chi='\t';break}
+							case 'n':{chi='\n';break}
+							case 'r':{chi='\r';break}
+							case 'b':{chi='\b';break}
+							case 'x':
+								chu=0
+								for j=0:1
+									if feed!=feed2:
+										feed++
+										chj=__memory(i8,feed)
+									else
+										chj='0'
+									si=((chj-'0')&0x1f)
+									if si>=0x10:si-=7
+									chu=(chu<<4)+(si&0xf)
+								chi=chu
+								break
+							}
+						if ch_interval>=0:
+							for j=ch_interval:chi
+								mk[j>>5]|=(1u<<(j&31))
+							ch_interval=-1
+						else if iptr(feed2)-iptr(feed)>=3&&__memory(i8,feed+1L)=='-'&&__memory(i8,feed+2L)!=']':
+							ch_interval=chi
+							//ch2=int(u8(feed[2]))
+							//for j=chi:ch2
+							//	mk[j>>5]|=(1u<<(j&31))
+							//feed+=2
+							feed++
+						else
+							mk[chi>>5]|=(1u<<(chi&31))
+						if feed!=feed2:feed++
+					for j in crange(8)
+						mk[j]^=isneg
+					if feed!=feed2:feed++
+				ret=new RegexOp
+				ret.op=REGEX_CSET//REGEX_CHAR+0
+				mka=new u32[8]
+				for j in crange(8)
+					mka[j]=mk[j]
+				ret.ob=variant(mka)
+				break
+			case '(':
+				feed++
+				if feed!=feed2&&__memory(i8,feed)==')':
+					feed++
+					ret=new RegexOp(){op:REGEX_NIL}
+					break
+				ret=expr(feed2,1)
+				if feed!=feed2&&__memory(i8,feed)==')':
+					feed++
+				//todo: specialized save: ()0, ()1 or sth?
+				save0=new RegexOp(){op:~slotid}
+				slotid++
+				save0.x=ret
+				ret_tail=ret
+				while ret_tail.x:
+					ret_tail=ret_tail.x
+				save1=new RegexOp(){op:~slotid}
+				slotid++
+				ret_tail.x=save1
+				ret=save0
+				break
+			case '"':
+				ret=new RegexOp
+				ret.op=REGEX_STR
+				s=new string
+				feed++
+				while feed!=feed2&&__memory(i8,feed)!='"':
+					ch=__memory(i8,feed)
+					if ch=='\\':
+						if feed!=feed2-1:feed++
+						ch=__memory(i8,feed)
+					s.push(ch)
+					feed++
+				if feed!=feed2:feed++
+				ret.ob=variant(s)
+				break
+			}
+			ret_tail=ret
+			while ret_tail.x:
+				ret_tail=ret_tail.x
+			for(;;)
+				if feed!=feed2:
+					ch=__memory(i8,feed)
+				else
+					ch=0
+				//SPL: prioritize ob over x
+				//SPL2: prioritize x over ob
+				switch ch{
+				default:
+					return ret
+				case '*':
+					spl=new RegexOp(){op:REGEX_SPL,ob:variant(ret)}
+					if feed!=feed2-1&&__memory(i8,feed+1L)=='?':
+						spl.op=REGEX_SPL2
+					ret_tail.x=spl
+					ret=spl;ret_tail=spl
+					break
+				case '+':
+					spl=new RegexOp(){op:REGEX_SPL,ob:variant(ret)}
+					if feed!=feed2-1&&__memory(i8,feed+1L)=='?':
+						spl.op=REGEX_SPL2
+					ret_tail.x=spl;ret_tail=spl
+					break
+				case '?':
+					spl=new RegexOp(){op:REGEX_SPL,ob:variant(ret)}
+					nil=new RegexOp(){op:REGEX_NIL}
+					spl.x=nil
+					ret_tail.x=nil
+					ret=spl;ret_tail=nil
+					break
+				}
+				feed++
+		auto expr(iptr feed2,int supportor)
+			a=atom(feed2)
+			a_tail=a
+			while a_tail.x:
+				a_tail=a_tail.x
+			isor=0
+			while feed!=feed2&&__memory(i8,feed)!=')':
+				if feed[0]=='|':
+					if !supportor:break
+					//or
+					feed++
+					isor=1
+				else
+					assert(!isor)
+					if isor:break
+				if isor:
+					b=expr(feed2,0)
+				else
+					b=atom(feed2)
+				b_tail=b
+				while b_tail.x:
+					b_tail=b_tail.x
+				if isor:
+					spl=new RegexOp(){op:REGEX_SPL2,ob:variant(a)}
+					spl.x=b
+					nil=new RegexOp(){op:REGEX_NIL}
+					a_tail.x=nil
+					b_tail.x=nil
+					a=spl;a_tail=nil
+				else
+					a_tail.x=b
+					a_tail=b_tail
+			return a
+		return expr(feed2,1)
+	//class RegexState
+	//	int pc
+	//	int[] sv
+	class RegexNfaState
+		int[] pc
+		iptr[] sv
+	////////////////////
+	inline has(u32[] ok,int c)
+		return ((ok[c>>5]>>(c&31))&1u);
+	inline charset(string e)
+		ok=new u32[8]
+		inv=0
+		s=0
+		if e[0]=='^':
+			inv=1;s++
+		for(;s<e.n;s++)
+			if s+2<=e.n&&e[s+1]=='-':
+				for(i=u32(u8(e[s]));i<=u32(u8(e[s+2]));i++)
+					ok[i>>5]|=(1u<<int(i&31u));
+				s+=2
+			else
+				chu=u32(u8(e[s]))
+				ok[chu>>5]|=(1u<<int(chu&31u));
+		if inv:
+			for i=0:7
+				ok[i]=~ok[i]
+		return ok
+
 module IO
 	import System.OS_API.*
 	import System.detail.*
@@ -6654,11 +6966,1005 @@ module IO
 		return __stderr
 		
 module Algorithm
+	import System.detail.*
 	//////////////////////
 	//>begin_private
 	g_mt=u32[].NULL
 	g_mti=0
 	//>end_private
+	//! \brief A compiled regular expression
+	class Regex
+		//>begin_private
+		//coulddo: length 0 matches?
+		bcode=new u8[]
+		nsave=0
+		dfaified=0//means "have tried to dfaify"
+		int[] g_cst
+		int cset_size
+		int2[] dfa
+		int[] svcalls
+		int max_nsaves
+		//int[] accs
+		auto CreateInitialState(int sv)
+			ret=new RegexNfaState
+			ret.pc=new int[1]
+			ret.pc[0]=0
+			if sv:
+				ret.sv=new iptr[this.nsave]
+			return ret
+		auto stepForward(const REAL_RUN,int[] pcpos,int[] pcpos2,int pstd,RegexNfaState sts,int ch0,iptr pos)
+			auto acc=0
+			auto bcode=this.bcode
+			auto nsave=this.nsave
+			if REAL_RUN:
+				pcs_ret=new int[sts.pc.n]
+				pcs_ret.n=0
+				if sts.sv:
+					svs_ret=new iptr[sts.sv.n]
+					svs_ret.n=0
+			else
+				st2=this.CreateInitialState(0)
+				st2.pc.resize(0)
+				st2.sv=new iptr[]
+				sz_drysave=1+((this.nsave+31)>>5)
+				cur_saves=new iptr[sz_drysave]
+				svs2=new iptr[]
+				accst=iptr[].NULL
+			//bksts_n=sts.pc.n
+			pcs=sts.pc
+			pcs2=new int[]
+			if REAL_RUN:
+				svs=sts.sv
+				if svs:
+					svs2=new iptr[]
+			pcs2_ptr=0L
+			for(I=0;I<pcs.n||pcs2_ptr<pcs2.n;)
+				//Console.Writeln(pcs.n,' ',svs?svs.n:0,' ',nsave)
+				ched=0
+				if REAL_RUN:
+					is_svs2=0
+				if pcs2_ptr<pcs2.n:
+					pc=pcs2[pcs2_ptr]
+					ched=(pc&1)
+					pc>>=1
+					if REAL_RUN:
+						if svs2:
+							psvs=svs2.d+pcs2_ptr*nsave
+						is_svs2=1
+					else
+						//base id + saved-ness flag
+						copy(cur_saves,svs2[pcs2_ptr*sz_drysave:pcs2_ptr*sz_drysave+sz_drysave-1])
+					pcs2_ptr++
+				else
+					if pcs2_ptr:
+						pcs2_ptr=0
+						pcs2.n=0
+						if REAL_RUN:
+							if svs2:svs2.n=0
+						else
+							svs2.n=0
+					pc=pcs[I]
+					if REAL_RUN:
+						if svs:
+							psvs=svs.d+I*nsave
+					else
+						for j=1:cur_saves.n-1
+							cur_saves[j]=0
+						cur_saves[0]=I
+					I++
+				//if I>=bksts_n:
+				if pc<0:continue
+				for(;;)
+					ch=int(bcode[pc]);pc++
+					if ch==0:
+						ch=int(bcode[pc]);pc++
+						pcx=(pc+3)&-4
+						switch ch{
+						default:
+							assert(0)
+							break
+						case RB_SPL:
+							if pcpos2[pc-ched]<pstd:
+								pcpos2[pc-ched]=pstd
+								pc=pcx+4
+								pc2=pc+__memory(int,bcode.d+pcx)
+								//if pcpos[pc]<pstd-1:
+								//deadloop happens for (.*)+
+								//need another array to remove that: higher bits of pcpos? no
+								//explore high priority pc2 first
+								//if pcs2.n<=pcs2_ptr:pcs2.push()
+								//pcs2[pcs2_ptr]=pc*2+ched
+								pcs2.push(pc*2+ched)
+								if REAL_RUN:
+									if svs:
+										//_copy(svs,svs.n-nsave,I*nsave, nsave)
+										//__builtin.memcpy(svs2.d+pcs2_ptr*nsave,psvs,nsave*sizeof(iptr))
+										if is_svs2:
+											svs2.resize(svs2.n+nsave)
+											psvs=svs2.d+pcs2_ptr*nsave
+											__basic_api.memcpy(__pointer(svs2.d+svs2.n-nsave),psvs,nsave*sizeof(iptr))
+										else
+											svs2.push(psvs,nsave)
+								else
+									//record save mapping
+									svs2.push(cur_saves)
+								pc=pc2
+								continue
+							break
+						case RB_JMP:
+							pc=pcx+4
+							pc+=__memory(int,bcode.d+pcx)
+							continue
+						case RB_CSET:
+							if ched:
+								//we already had ch, record pc
+								pc-=2
+								if pcpos[pc]<pstd:
+									if REAL_RUN:
+										//pcs[pst2]=pc
+										//if pst2!=I&&svs:
+										//	_copy(svs,pst2*nsave,I*nsave, nsave)
+										pcs_ret.push(pc)
+										if svs:
+											svs_ret.push(psvs,nsave)
+										//assert(pst2<=I)
+										//pst2++
+									else
+										st2.pc.push(pc)
+										st2.sv.push(cur_saves)
+									pcpos[pc]=pstd
+								break
+							pc=pcx+32
+							if (__memory(u32,bcode.d+pcx))[ch0>>5]&(1u<<(ch0&31)):
+								ched=1
+								continue
+							break
+						case RB_SAVE:
+							pc=pcx+4
+							if REAL_RUN:
+								if svs:
+									assert(__memory(int,bcode.d+pcx)<nsave)
+									psvs[__memory(int,bcode.d+pcx)]=pos+ched
+							else
+								//record the save
+								if ched:
+									svid=__memory(int,bcode.d+pcx)
+									assert(svid<nsave&&svid>=0)
+									cur_saves[1+(svid>>5)]|=1L<<(svid&31)
+							continue
+						case RB_MATCH:
+							if pcpos[bcode.n]<pstd&&ched:
+								//accept
+								acc=1
+								if REAL_RUN:
+									pcs_ret.push(-1)
+									if svs:
+										svs_ret.push(psvs,nsave)
+									//pcs[pst2]=-1
+									//if pst2!=I&&svs:
+									//	_copy(svs,pst2*nsave,I*nsave, nsave)
+									//assert(pst2<=I)
+									//pst2++
+								else
+									if !accst:
+										accst=new(cur_saves)
+										//accst[0]|=0x40000000
+								pcpos[bcode.n]=pstd
+							break
+						}
+					else
+						if ched:
+							//record pc when we have matched a ch
+							pc--
+							if pcpos[pc]<pstd:
+								if REAL_RUN:
+									pcs_ret.push(pc)
+									if svs:
+										svs_ret.push(psvs,nsave)
+									//pcs[pst2]=pc
+									//if pst2!=I&&svs:
+									//	_copy(svs,pst2*nsave,I*nsave, nsave)
+									//assert(pst2<=I)
+									//pst2++
+								else
+									st2.pc.push(pc)
+									st2.sv.push(cur_saves)
+								pcpos[pc]=pstd
+						else if ch==ch0:
+							ched=1
+							continue
+					break
+			if REAL_RUN:
+				//pcs.resize(pst2)
+				//if svs:svs.resize(pst2*nsave)
+				sts.pc=pcs_ret
+				sts.sv=svs_ret
+				return acc
+			else
+				if accst:
+					st2.pc.push(-1)
+					st2.sv.push(accst)
+				//sts.pc.resize(bksts_n)
+				//if sts.sv:sts.sv.resize(bksts_n*nsave)
+				return st2
+		auto dfaify()
+			dfaified=1
+			//RegexState[] stepForward(int[] pcpos,int pstd,RegexState[] sts,int ch0,int pos)
+			repre=new u8[cset_size]
+			for i=255:-1:0
+				repre[g_cst[i]]=i
+			sts=CreateInitialState(0)
+			stmap=new int[int[]]
+			maxid=1
+			stmap[sts.pc]=maxid
+			pcpos=new int[bcode.n+1]
+			pcpos2=new int[bcode.n+1]
+			pstd=0
+			tran=new int2[]
+			//accs=new int[]
+			auto svcalls=new int[]
+			stss=new RegexNfaState[]
+			stss.push(sts)
+			budget=1024+bcode.n*cset_size
+			szsave=1+((nsave+31)>>5)
+			auto max_nsaves=0
+			for(id0=0;id0<maxid;id0++)
+				sts=stss[id0]
+				//Console._write(id0+1)
+				//for j=0:sts.pc.n-1
+				//	Console._write(' ',sts.pc[j])
+				//Console.Writeln()
+				if tran.n<maxid*cset_size:
+					tran.resize(maxid*cset_size)
+				//pc0=sts.pc
+				foreach ch,I in repre
+					pstd++
+					//sts.pc=new(pc0)
+					st2=stepForward(0,pcpos,pcpos2,pstd,sts,int(ch),0)
+					save_calls=st2.sv
+					st2.sv=NULL
+					acc_delta=0
+					if st2.pc.n:
+						//st2.pc.Sort(function(a,b){return (uint)a<(uint)b})
+						if st2.pc.n&&st2.pc.back()<0:
+							//acc=-st2.pc.back()
+							st2.pc.pop()
+							acc_delta=0x3fffffff
+						id2=stmap[st2.pc]
+						if !id2:
+							maxid++
+							stmap[st2.pc]=maxid
+							stss.push(st2)
+							//accs.resize(maxid)
+							//accs[maxid-1]=acc
+							id2=maxid
+					else
+						id2=0
+					//Console.Writeln(id0,' ',ch,' ',I,' ',id2,' ',acc,' ',cset_size)
+					//compress and add terminator
+					assert(save_calls.n%szsave==0)
+					psvcalls=int(svcalls.n)
+					max_nsaves=max(max_nsaves,int(save_calls.n/szsave))
+					svcalls.push(int(save_calls.n/szsave+acc_delta))
+					svcalls.resize(psvcalls+1+save_calls.n)
+					for i=0:save_calls.n-1
+						svcalls[psvcalls+1+i]=int(save_calls[i])
+					tran[id0*cset_size+I]=int2(id2,psvcalls)
+				if maxid>budget:
+					//give up
+					return
+			if tran.n<maxid*cset_size:
+				tran.resize(maxid*cset_size)
+			for i=0:tran.n-1
+				tran[i].x--//=(tran[i]-1)*cset_size
+			dfa=tran
+			this.svcalls=svcalls
+			this.max_nsaves=max_nsaves
+			//Console.Writeln('dfa: ',tran.n/cset_size,' states, ',svcalls.n,' saveops')
+			//for i=0:accs.n-1
+			//	accs[i]--
+			//for i=0:maxid-1
+			//	Console.Writeln(i,' ',accs[i])
+			//	for j=0:cset_size-1
+			//		Console._write(repre[j],':',tran[i*cset_size+j],'  ')
+			//	Console.Writeln()
+			//Console.Writeln()
+			//.accs=accs
+		auto InitRaw(RegexOp op0)
+			//fromop
+			rops=new RegexOp[]
+			auto dfs(RegexOp a)
+				if !a||a.ofs<0:return
+				if a.op==REGEX_SPL2:
+					a.op=REGEX_SPL
+					tmp=a.x
+					a.x=a.ob.as(RegexOp)
+					a.ob=variant(tmp)
+				if a.op==REGEX_SPL:
+					while a.ob&&(a.ob.as(RegexOp)).op==REGEX_NIL:
+						a.ob=variant((a.ob.as(RegexOp)).x)
+				while a.x&&a.x.op==REGEX_NIL:
+					a.x=a.x.x
+				a.ofs=-1
+				rops.push(a)
+				dfs(a.x)
+				if a.op==REGEX_SPL:
+					if !a.ob:
+						//add a virtual dead node to avoid crashing
+						rop_dead=new RegexOp(){op:REGEX_CSET,ob:variant(new u32[8])}
+						a.ob=variant(rop_dead)
+					dfs(RegexOp(a.ob))
+			//nil can only be merge points and shouldn't be head
+			assert(op0.op!=REGEX_NIL)
+			dfs(op0)
+			auto bcode=this.bcode
+			bcode.clear()
+			slots=new int[]
+			jofs=new int[rops.n]
+			auto g_cst=new int[256]
+			csetid=1
+			/*
+			foreach op,I in rops
+				Console.Write(op,': ')
+				//op.op,' ',op.x,' ',op.ob
+				if op.op>=REGEX_CHAR:
+					Console.Write("CHAR '",char(op.op-REGEX_CHAR),"'")
+				else if op.op<0:
+					Console.Write("SAVE sv",~op.op)
+				else
+					switch op.op{
+					default:
+						assert(0)
+						break
+					case REGEX_STR:
+						ops=(string)op.ob
+						Console.Write('STR "',ops,'"')
+						break
+					case REGEX_CSET:
+						Console.Write('CSET')
+						break
+					case REGEX_SPL:
+						//generate a dangling spl
+						Console.Write('SPL ',op.ob)
+						break
+					case REGEX_MATCH:
+						Console.Write('MATCH')
+						break
+					}
+				Console.Writeln(' --> ',op.x)
+			*/
+			foreach op,I in rops
+				n0=bcode.n
+				op.ofs=int(n0)
+				what=op.op
+				//__builtin.printf("%d %d\n",I,what)
+				if what>=REGEX_CHAR:
+					//0 case never happens here
+					ch=what-REGEX_CHAR
+					bcode.push(u8(ch))
+					g_cst[ch]=csetid++
+				else if what<0:
+					//save
+					//leave slot id there
+					bcode.push(u8(0))
+					bcode.push(u8(RB_SAVE))
+					n0x=(bcode.n+3)&-4
+					slots.push(int(n0x))
+					bcode.resize(n0x+4)
+					__memory(int,bcode.d+n0x)=~what
+				else
+					switch what{
+					default:
+						assert(0)
+						break
+					case REGEX_STR:
+						ops=op.ob.as(string)
+						for i=0:ops.n-1
+							ch=ops[i]
+							bcode.push(u8(ch))
+							if !ch:
+								bcode.push(u8(RB_CSET))
+								n0x=(bcode.n+3)&-4
+								bcode.resize(n0x+32)
+								__basic_api.memset(__pointer(bcode.d+n0x),32,0)
+								bcode[n0x]=u8(1)
+							g_cst[int(u8(ch))]=csetid++
+						break
+					case REGEX_CSET:
+						bcode.push(u8(0))
+						bcode.push(u8(RB_CSET))
+						n0x=(bcode.n+3)&-4
+						bcode.resize(n0x+32)
+						__basic_api.memcpy(__pointer(bcode.d+n0x),__pointer(op.ob.as(u32[]).d),32)
+						ob=op.ob.as(u32[])
+						for chi=0:255
+							if ob[chi>>5]&(1u<<(chi&31)):
+								g_cst[chi]+=csetid
+						csetid+=csetid
+						if csetid>=1024:
+							//unique/compact
+							idmap=new int[csetid]
+							csetid=0
+							for chi=0:255
+								setid=g_cst[chi]
+								if idmap[setid]==0:
+									idmap[setid]=++csetid
+								g_cst[chi]=idmap[setid]-1
+						break
+					case REGEX_SPL:
+						//generate a dangling spl
+						bcode.push(u8(0))
+						bcode.push(u8(RB_SPL))
+						n0x=(bcode.n+3)&-4
+						bcode.resize(n0x+4)
+						break
+					case REGEX_MATCH:
+						bcode.push(u8(0))
+						bcode.push(u8(RB_MATCH))
+						//n0x=(bcode.n+3)&-4
+						//bcode.resize(n0x)
+						break
+					}
+				if what!=REGEX_MATCH&&(I==rops.n-1||I<rops.n-1&&op.x!=rops[I+1])&&op.x:
+					//generate a dangling jmp
+					bcode.push(u8(0))
+					bcode.push(u8(RB_JMP))
+					n0x=(bcode.n+3)&-4
+					jofs[I]=int(n0x)
+					bcode.resize(n0x+4)
+					//leave it be for now
+				else
+					jofs[I]=-1
+			foreach op,I in rops
+				n0=op.ofs
+				if op.op==REGEX_SPL:
+					//fill spl target
+					op2=op.ob.as(RegexOp)
+					n0+=2
+					n0x=(n0+3)&-4
+					__memory(i32,bcode.d+n0x)=op2.ofs-(n0x+4)
+				if jofs[I]>=0:
+					//fill jmp target
+					__memory(i32,bcode.d+jofs[I])=op.x.ofs-(jofs[I]+4)
+			auto nsave=-1
+			foreach ps in slots
+				nsave=max(nsave,__memory(i32,bcode.d+ps))
+			nsave++
+			this.nsave=nsave
+			idmap=new int[csetid]
+			csetid=0
+			for chi=0:255
+				setid=g_cst[chi]
+				if idmap[setid]==0:
+					idmap[setid]=++csetid
+				g_cst[chi]=idmap[setid]-1
+			this.g_cst=g_cst
+			cset_size=csetid
+			//get rid of op: break references
+			foreach op in rops
+				op.x=RegexOp.NULL;op.ob=__variant.NULL
+		//>end_private
+		__init__=inline(arg){
+			if typeof(arg)==string:
+				op0=parseRegex(arg)
+			else
+				op0=arg
+			//append returning tail
+			a_tail=op0
+			while a_tail.x:
+				a_tail=a_tail.x
+			a_tail.x=new RegexOp(){op:REGEX_MATCH}
+			InitRaw(op0)
+		}
+		//>begin_private
+		PARSE_SHORT=0
+		PARSE_LONG=1
+		PARSE_EXACT=2
+		PARSE_SEARCH=3
+		auto ParsePrefix(string s,const mode,const IS_EX)
+			if !dfaified:
+				dfaify()
+			best=-1L;bac=-1
+			if dfa:
+				tran=dfa
+				auto svcalls=this.svcalls
+				if IS_EX:
+					bstsv=iptr[].NULL
+					if mode==PARSE_SEARCH:
+						cursv=iptr[].NULL
+					auto nsave=this.nsave
+					szsave=1+((nsave+31)>>5)
+					sv=new iptr[max_nsaves*nsave]
+					sv_next=new iptr[max_nsaves*nsave]
+				//Console.Writeln(s)
+				st=0
+				foreach ch,I in s
+					cid=g_cst[int(u8(ch))]
+					tr=tran[st*cset_size+cid]
+					st=tr.x
+					psvcalls=tr.y
+					nsvmap=svcalls[psvcalls++]
+					acc=(nsvmap&0x40000000)
+					nsvmap&=0x3fffffff
+					if IS_EX:
+						for svid=0:nsvmap-1
+							srcid=svcalls[psvcalls]
+							svidbase=svid*nsave
+							copy(sv_next[svidbase:],sv[srcid*nsave:srcid*nsave+nsave-1])
+							for j=0:nsave-1
+								if svcalls[psvcalls+1+(j>>5)]&(1<<(j&31)):
+									sv_next[svidbase+j]=I+1
+							psvcalls+=szsave
+						swap_tmp=sv
+						sv=sv_next
+						sv_next=swap_tmp
+					else
+						psvcalls+=nsvmap
+					if mode==PARSE_SEARCH:
+						if best>=0L:
+							if !acc:break
+						if acc:
+							curbest=I
+							curbac=1
+							if IS_EX:
+								//sv_next -- we should use the ORIGINAL
+								if !cursv:
+									cursv=new iptr[nsave]
+								srcid=svcalls[psvcalls]
+								copy(cursv,sv_next[srcid*nsave:srcid*nsave+nsave-1])
+								for j=0:nsave-1
+									if svcalls[psvcalls+1+(j>>5)]&(1<<(j&31)):
+										cursv[j]=I+1
+								if best>=0L&&bstsv[2]!=cursv[2]:
+									//we're past the 1st match already
+									break
+							best=curbest
+							bac=curbac
+							if !bstsv:
+								bstsv=new(cursv)
+							else
+								copy(bstsv,cursv)
+					else
+						if acc:
+							best=I
+							bac=1
+							if IS_EX:
+								//sv_next -- we should use the ORIGINAL
+								if !bstsv:
+									bstsv=new iptr[nsave]
+								srcid=svcalls[psvcalls]
+								copy(bstsv,sv_next[srcid*nsave:srcid*nsave+nsave-1])
+								for j=0:nsave-1
+									if svcalls[psvcalls+1+(j>>5)]&(1<<(j&31)):
+										bstsv[j]=I+1
+							if mode==PARSE_SHORT:
+								break
+					if st<0:break
+			else
+				pcpos=new int[bcode.n+1]
+				pcpos2=new int[bcode.n+1]
+				pstd=0
+				sts=CreateInitialState(IS_EX)
+				bstsv=iptr[].NULL
+				foreach ch,I in s
+					//Console._write(ch,' ',I,':')
+					//foreach stx in sts.pc
+					//	Console._write(' ',stx)
+					//Console.Writeln()
+					pstd++
+					stepForward(1,pcpos,pcpos2,pstd,sts,int(u8(ch)),I)
+					if !sts.pc.n:break
+					is_brk=0
+					foreach pc,J in sts.pc
+						if pc<0:
+							best=I
+							bac=-pc
+							if IS_EX:
+								bstsv=new(sts.sv[J*nsave:(J+1)*nsave-1])
+							if mode==PARSE_SHORT:
+								is_brk=1
+								break
+					if is_brk:break
+			if IS_EX:
+				if mode==PARSE_EXACT:
+					if best!=s.n-1:
+						bstsv=NULL
+				if !bstsv:
+					if IS_EX==2:
+						return iptr[].NULL
+					else
+						return string[].NULL
+				else
+					nsave=(nsave>>1)
+					if IS_EX==2:
+						ret=new iptr[(nsave+1)*2]
+						ret[0]=0;ret[1]=best+1;
+						for i=0:nsave-1
+							ret[i*2+2]=bstsv[i*2]
+							ret[i*2+3]=bstsv[i*2+1]
+					else
+						ret=new string[nsave+1]
+						ret[0]=s[0:best]
+						for i=0:nsave-1
+							ret[i+1]=s[bstsv[i*2]:bstsv[i*2+1]-1]
+					return ret
+			if IS_EX:
+				if IS_EX==2:
+					return iptr[].NULL
+				else
+					return string[].NULL
+			else if mode==PARSE_EXACT:
+				if best==s.n-1:
+					return 1
+				else
+					return 0
+			else
+				return s[0:best]
+		//>end_private
+		//! \brief Return the longest prefix of a string that matches the regex
+		auto LongestPrefix(string s)
+			return ParsePrefix(s,PARSE_LONG,0)
+		//! \brief Return the shortest prefix of a string that matches the regex
+		auto ShortestPrefix(string s)
+			return ParsePrefix(s,PARSE_SHORT,0)
+		//! \brief Return whether the string matches the regex
+		auto Match(string s)
+			return ParsePrefix(s,PARSE_EXACT,0)
+		//! \brief Find the longest matching prefix in a string and returns \link regexmatch a list of substring matches \endlink
+		auto LongestPrefixEx(string s)
+			return ParsePrefix(s,PARSE_LONG,1)
+		//! \brief Find the shortest matching prefix in a string and returns \link regexmatch a list of substring matches \endlink
+		auto ShortestPrefixEx(string s)
+			return ParsePrefix(s,PARSE_SHORT,1)
+		//! \brief Match the regex against a string and returns \link regexmatch a list of substring matches \endlink
+		auto MatchEx(string s)
+			return ParsePrefix(s,PARSE_EXACT,1)
+		auto MatchExi(string s)
+			return ParsePrefix(s,PARSE_EXACT,2)
+		///////////////
+		//! \brief Create an incremental matcher from the compiled regular expression
+		auto Matcher()
+			if !dfaified:
+				dfaify()
+			sc=new RegexIncrementalMatcher
+			sc.ex=this
+			sc.pcpos=new int[this.bcode.n+1]
+			sc.pcpos2=new int[this.bcode.n+1]
+			sc.Clear()
+			return sc
+		//todo: tokenizing enumerator
+	/*! \brief An incremental matcher for a regular expression
+	
+	The incremental matcher matches the regex against a virtual string by \link Algorithm.RegexIncrementalMatcher.Add adding characters \endlink incrementally.
+	*/
+	class RegexIncrementalMatcher
+		//>begin_private
+		Regex ex
+		int[] pcpos
+		int[] pcpos2
+		/////////
+		RegexNfaState sts
+		pstd=0
+		/////////
+		int stdfa
+		iptr[] svdfa,svdfa_next
+		/////////
+		best=-1L
+		I=0L
+		iptr[] bstsv
+		iptr[] bmatch
+		//>end_private
+		//! \brief Reset the incremental matcher by clearing the virtual string.
+		auto Clear()
+			this.pcpos=new int[this.ex.bcode.n+1]
+			this.pcpos2=new int[this.ex.bcode.n+1]
+			this.pstd=0
+			this.best=-2
+			this.bstsv=iptr[].NULL
+			this.bmatch=iptr[].NULL
+			this.I=0
+			if this.ex.dfa:
+				this.stdfa=0
+				this.svdfa=new iptr[this.ex.max_nsaves*this.ex.nsave]
+				this.svdfa_next=new iptr[this.ex.max_nsaves*this.ex.nsave]
+			else
+				this.sts=this.ex.CreateInitialState(1)
+			//Console.Writeln('-----------')
+		//! \brief Add a character to the virtual string
+		auto Add(char ch)
+			tran=this.ex.dfa
+			if tran:
+				if this.stdfa<0:return
+				svcalls=this.ex.svcalls
+				cid=this.ex.g_cst[int(u8(ch))]
+				nsave=this.ex.nsave
+				st=this.stdfa
+				tr=tran[st*this.ex.cset_size+cid]
+				st=tr.x
+				this.stdfa=st
+				/////////
+				sv=this.svdfa
+				sv_next=this.svdfa_next
+				///
+				psvcalls=tr.y
+				nsvmap=svcalls[psvcalls++]
+				acc=(nsvmap&0x40000000)
+				nsvmap&=0x3fffffff
+				szsave=1+((nsave+31)>>5)
+				for svid=0:nsvmap-1
+					srcid=svcalls[psvcalls]
+					svidbase=svid*nsave
+					copy(sv_next[svidbase:],sv[srcid*nsave:srcid*nsave+nsave-1])
+					for j=0:nsave-1
+						if svcalls[psvcalls+1+(j>>5)]&(1<<(j&31)):
+							sv_next[svidbase+j]=this.I+1
+					psvcalls+=szsave
+				if acc:
+					this.best=this.I
+					if !this.bstsv:
+						this.bstsv=new iptr[nsave]
+					srcid=svcalls[psvcalls]
+					//here sv is the original, which is fine
+					copy(this.bstsv,sv[srcid*nsave:srcid*nsave+nsave-1])
+					for j=0:nsave-1
+						if svcalls[psvcalls+1+(j>>5)]&(1<<(j&31)):
+							this.bstsv[j]=this.I+1
+					this.bmatch=iptr[].NULL
+				this.svdfa=sv_next
+				this.svdfa_next=sv
+				this.I++
+			else
+				if !this.sts.pc.n:return
+				this.pstd++
+				if this.ex.stepForward(1,this.pcpos,this.pcpos2,this.pstd,this.sts,int(u8(ch)),this.I):
+					nsave=this.ex.nsave
+					stssv=this.sts.sv
+					foreach pc,J in this.sts.pc
+						if pc<0:
+							this.best=this.I
+							this.bstsv=new(stssv[J*nsave:(J+1)*nsave-1])
+							this.bmatch=NULL
+							break
+				this.I++
+				//Console.Write('>>>ADD ',ch)
+				//for i=0:.sts.pc.n-1
+				//	Console.Write(' ',.sts.pc[i])
+				//Console.Writeln()
+		//! \brief Test whether the current virtual string matches the regex
+		//>property
+		inline is_matching(){return this.best==this.I-1}
+		/*! \brief Obtain \link regexmatch a list of substring matches \endlink
+		
+		@return An integer array with an even number of elements. Every pair of integer represents a substring match as a byte offset range in the virtual string. 
+		@note The function returns the longest prefix match. If there is no match, the function returns NULL
+		*/
+		auto GetMatch()
+			if !this.bstsv:return iptr[].NULL
+			if this.bmatch:return this.bmatch
+			best=this.best
+			bstsv=this.bstsv
+			nsave=(this.ex.nsave>>1)
+			ret=new iptr[(nsave+1)*2]
+			ret[0]=0;ret[1]=best+1;
+			for i=0:nsave-1
+				ret[i*2+2]=bstsv[i*2]
+				ret[i*2+3]=bstsv[i*2+1]
+			this.bmatch=ret
+			return ret
+	//! \brief An abstract type representing an uncompiled regular expression
+	RegexOp=detail.RegexOp
+	//typedef Regex RegEx
+	//! \brief Parse a regular expression string
+	auto ParseRegex(string s)
+		return detail.parseRegex(s)
+	//! \brief Produce a regular expression that matches a string exactly
+	auto RegexString(string s)
+		ret=new RegexOp
+		ret.op=REGEX_STR
+		ret.ob=variant(s)
+		return ret
+	////! \brief Produce a regular expression that matches a charset exactly
+	//RegexOp RegexCharset(string s)
+	//	//todo: unicode charseting...
+	//! \brief Concatenate two regular expressions
+	(RegexOp+RegexOp)=function(RegexOp a,RegexOp b){
+		a_tail=a
+		while a_tail.x:
+			a_tail=a_tail.x
+		b_tail=b
+		while b_tail.x:
+			b_tail=b_tail.x
+		a_tail.x=b
+		a_tail=b_tail
+		return a
+	}
+	//! \brief Compute the "or" of two regular expressions
+	(RegexOp|RegexOp)=function(RegexOp a,RegexOp b){
+		a_tail=a
+		while a_tail.x:
+			a_tail=a_tail.x
+		b_tail=b
+		while b_tail.x:
+			b_tail=b_tail.x
+		spl=new RegexOp(){op:REGEX_SPL,ob:variant(a)}
+		spl.x=b
+		nil=new RegexOp(){op:REGEX_NIL}
+		a_tail.x=nil
+		b_tail.x=nil
+		a=spl;a_tail=nil
+		return a
+	}
+	//>begin_private
+	auto regex_dfs(const DO_SPL2,RegexOp[] rops,RegexOp a)
+		if !a||a.ofs<0:return
+		//Console.Writeln('entry ',gcRefCntValue(rops),' ',rops.nBound,' ',rops,' ',a)
+		if DO_SPL2:
+			if a.op==REGEX_SPL2:
+				a.op=REGEX_SPL
+				tmp=a.x
+				a.x=a.ob.as(RegexOp)
+				a.ob=variant(tmp)
+		if a.op==REGEX_SPL:
+			while a.ob&&(a.ob.as(RegexOp)).op==REGEX_NIL:
+				a.ob=variant((a.ob.as(RegexOp)).x)
+		//we can't NULL it: key to | failure
+		while a.x&&a.x.op==REGEX_NIL&&a.x.x:
+			a.x=a.x.x
+		a.ofs=-1
+		//Console.Writeln('dfs ',gcRefCntValue(rops),' ',rops.nBound,' ',gcRefCntValue(a))
+		rops.push(a)
+		//Console.Writeln('add ',gcRefCntValue(rops),' ',rops.nBound,' ',gcRefCntValue(a))
+		regex_dfs(DO_SPL2,rops,a.x)
+		if a.op==REGEX_SPL||a.op==REGEX_SPL2:
+			regex_dfs(DO_SPL2,rops,a.ob.as(RegexOp))
+	//>end_private
+	//! \brief Create a bracket-enclosed version of a regular expression, so that the substring matching it would be \link regexmatch ultimately returned during a match \endlink.
+	auto RegexBracket(RegexOp ret)
+		rops=new RegexOp[]
+		regex_dfs(0,rops,ret)
+		slotid=-1
+		foreach a in rops
+			a.ofs=0
+			if a.op<0:
+				if slotid<~a.op:
+					slotid=~a.op
+		slotid++
+		save0=new RegexOp(){op:~slotid}
+		slotid++
+		save0.x=ret
+		ret_tail=ret
+		while ret_tail.x:
+			ret_tail=ret_tail.x
+		save1=new RegexOp(){op:~slotid}
+		slotid++
+		ret_tail.x=save1
+		ret=save0
+		return ret
+	//! \brief Create the reverse of a regular expression
+	auto RegexReverse(RegexOp ret)
+		a_tail=ret
+		while a_tail.x:
+			a_tail=a_tail.x
+		a_tail.x=new RegexOp(){op:REGEX_MATCH}
+		rops=new RegexOp[]
+		regex_dfs(0,rops,ret)
+		//mirror each node first
+		ropmir=new RegexOp[rops.n]
+		headid=-1
+		foreach a,I in rops
+			a.ofs=int(I)
+			b=new(a)
+			if b.op==REGEX_STR:
+				//reverse
+				s=b.ob.as(string)
+				s2=new string
+				for i=s.n-1:-1:0
+					s2.push(s[i])
+				b.ob=variant(s2)
+			else if b.op==REGEX_MATCH:
+				b.op=REGEX_NIL
+				headid=int(I)
+			else if b.op==REGEX_SPL||b.op==REGEX_SPL2:
+				b.op=REGEX_NIL
+				b.ob=__variant.NULL
+			else if b.op<0:
+				b.op^=1//swap save
+			b.x=NULL
+			ropmir[I]=b
+		if headid<0:return Regex.NULL
+		//reverse connectivity
+		auto connect(int p,int q)
+			b0=ropmir[p]
+			b1=ropmir[q]
+			if !b0.x:
+				b0.x=b1
+				return
+			if b0.op==REGEX_NIL:
+				b0.op=REGEX_SPL
+				b0.ob=variant(b0.x)
+				b0.x=b1
+				return
+			rspl=new RegexOp(){op:REGEX_SPL,ob:variant(b0.x)}
+			b0.x=rspl
+			rspl.x=b1
+		foreach a,I in rops
+			if a.op==REGEX_SPL:
+				ax=a.ob.as(RegexOp)
+				if ax:connect(ax.ofs,a.ofs)
+		foreach a,I in rops
+			ax=a.x
+			if ax:connect(ax.ofs,a.ofs)
+		foreach a,I in rops
+			if a.op==REGEX_SPL2:
+				ax=a.ob.as(RegexOp)
+				if ax:connect(ax.ofs,a.ofs)
+		//restore a
+		foreach a in rops
+			a.ofs=0
+		a_tail.x=NULL
+		ropmir[0].x=new RegexOp(){op:REGEX_MATCH}
+		op0=ropmir[headid]
+		while op0.x&&op0.op==REGEX_NIL:
+			op0=op0.x
+		foreach b in ropmir
+			b.ofs=0
+		rret=new Regex
+		rret.InitRaw(op0)
+		return rret
+	//! \brief Create a case insensitive version of a regular expression
+	auto RegexMakeCaseInsensitive(RegexOp ret)
+		//Console.Writeln(__LINE__,' ','ret: ',ret,' ',gcRefCntValue(ret),' ',ret.op)
+		rops=new RegexOp[]
+		inline cseti(int ch)
+			mk=new u32[8]
+			for j in crange(8)
+				mk[j]=0
+			chi=ch^0x20
+			mk[ch>>5]|=(1u<<(ch&31))
+			if u32(ch-'a')<26u||u32(ch-'A')<26u:
+				mk[chi>>5]|=(1u<<(chi&31))
+			return mk
+		regex_dfs(1,rops,ret)
+		//Console.Writeln(__LINE__,' ','ret: ',ret,' ',gcRefCntValue(ret),' ',ret.op)
+		foreach a in rops
+			a.ofs=0
+			if a.op==REGEX_STR:
+				ax0=a.x
+				b=RegexOp.NULL
+				s=a.ob.as(string)
+				inline addNode(RegexOp a2)
+					if !b:
+						a.ob=a2.ob
+						a.op=a2.op
+						b=a
+					else
+						b.x=a2
+						b=a2
+				plast=0
+				foreach ch,I in s
+					if u32(ch-'a')<26u||u32(ch-'A')<26u:
+						if I-1>=plast:
+							s2=new(s[plast:I-1])
+							addNode(new RegexOp(){op:REGEX_STR,ob:variant(s2)})
+						addNode(new RegexOp(){op:REGEX_CSET,ob:variant(cseti(int(ch)))})
+						plast=int(I+1)
+				if plast<s.n:
+					s2=new(s[plast:s.n-1])
+					addNode(new RegexOp(){op:REGEX_STR,ob:variant(s2)})
+				if !b:b=a//empty string
+				b.x=ax0
+			else if a.op==REGEX_CSET:
+				mk=a.ob.as(u32[])
+				mk23=(mk[2]|mk[3])&u32((2<<26)-2)
+				mk[2]|=mk23
+				mk[3]|=mk23
+			else if a.op>=REGEX_CHAR:
+				ch=a.op-REGEX_CHAR
+				if u32(ch-'a')<26u||u32(ch-'A')<26u:
+					a.ob=variant(cseti(a.op-REGEX_CHAR))
+					a.op=REGEX_CSET
+		//Console.Writeln(__LINE__,' ','ret: ',ret,' ',gcRefCntValue(ret),' ',ret.op)
+		return ret
 	/* initializes mt[N] with a seed */
 	//! \brief Manually initialize the random number generator using a 32-bit seed or a (potentially stronger) array seed
 	InitRandom=function(u32 s){
@@ -7334,26 +8640,6 @@ module XML
 				for i=a:b-1
 					s2[i-a]=xml_text[i]
 				Console.Writeln('line ',l,',',c,': ',s,': "',s2,'"')
-		inline has(u32[] ok,int c)
-			return ((ok[c>>5]>>(c&31))&1u);
-		inline charset(string e)
-			ok=new u32[8]
-			inv=0
-			s=0
-			if e[0]=='^':
-				inv=1;s++
-			for(;s<e.n;s++)
-				if s+2<=e.n&&e[s+1]=='-':
-					for(i=u32(u8(e[s]));i<=u32(u8(e[s+2]));i++)
-						ok[i>>5]|=(1u<<int(i&31u));
-					s+=2
-				else
-					chu=u32(u8(e[s]))
-					ok[chu>>5]|=(1u<<int(chu&31u));
-			if inv:
-				for i=0:7
-					ok[i]=~ok[i]
-			return ok
 		inline skipTo(feed,feed_end,cset)
 			for(;;)
 				if feed!=feed_end:
@@ -7743,7 +9029,7 @@ module Env
 			if pdot>=0:ename=ename[:pdot-1]
 			sret=s_userdir+string("\\.")+ename
 			if !System.IO.DirExists(sret):System.IO.CreateDirectory(sret)
-			return sret
+			return sret.Replace(["\\","/"])
 	auto NormalizeFileName(string fn)
 		if !fn:return string.NULL
 		if !fn.n:return new string

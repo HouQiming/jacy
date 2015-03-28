@@ -51,7 +51,7 @@ class ITextStateHandler
 	//For rendering states, we need a layouter
 	function(JSObject obj) SetTextStyle
 	function(JSObject obj) BeginRender
-	function(CEditableText ed,i64 ccnt_base,i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling) RenderText
+	function(CEditableText ed,i64 ccnt_base,i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,i64 clip_w,i64 clip_h,float screen_x,float screen_y,float scaling) RenderText
 	function() EndRender
 	function(i64 ccnt_base,i64[] a,i64[] pp,string s,iptr ofs):i64 GetCharacterHeightAt
 	function():TFont GetDefaultFont
@@ -62,7 +62,7 @@ class ITextStateHandler
 	function(int ch):int IsCharInvisible
 	//For bisecting states, we need comparison and in-block linear seeking
 	function(i64[] a,i64[] b):int Compare
-	function(i64[] a,i64[] pp,string s,i64[] b):iptr SeekInBlock
+	function(i64 ccnt_base,i64[] a,i64[] pp,string s,i64[] b):iptr SeekInBlock
 	//For search-nearest states, we need or-queries and full-block boolean mapping
 	//apply to pre-char locations
 	function(i64[] a,i64[] da, i64[] b):int hasValidResult
@@ -317,7 +317,7 @@ class CLayouter_baseline
 		if ret==0:ret=__C_compare(a[0],b[0])
 		return ret
 	}
-	SeekInBlock=function(i64[] a,i64[] line_breaks,string s,i64[] b){
+	SeekInBlock=function(i64 ccnt_base,i64[] a,i64[] line_breaks,string s,i64[] b){
 		return iptr(_RenderText(MODE_SEEK,a,line_breaks,s,s.n, b[0],b[1],0.f,0.f,0.f).seek_ret)
 	}
 	/////////////////
@@ -511,7 +511,7 @@ class CLayouter_baseline
 			testIMEOverlay()
 		return TRenderingInfo(){bb:long2(x,y),seek_ret:s.n}
 	}
-	RenderText=function(CEditableText ed,i64 ccnt_base,i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling){
+	RenderText=function(CEditableText ed,i64 ccnt_base,i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,i64 clip_w,i64 clip_h,float screen_x,float screen_y,float scaling){
 		_RenderText(MODE_RENDER,a,pp,s,s.n,scroll_x,scroll_y,screen_x,screen_y,scaling)
 	}
 	GetCharacterHeightAt=function(i64 ccnt_base,i64[] a,i64[] pp,string s,iptr ofs){
@@ -557,11 +557,29 @@ class CLine_handler
 			ret=__C_compare(a[1],b[1])
 		return ret
 	}
-	SeekInBlock=function(i64[] a,i64[] unused,string s,i64[] b){
+	SeekInBlock=function(i64 ccnt_base,i64[] a,i64[] unused,string s,i64[] b){
 		l=a[0]
 		c=a[1]
 		bl=b[0]
 		bc=b[1]
+		if b.n>2:
+			//last-line hint
+			l_last_known=b[2]
+			ccnt_last_known=b[3]
+			if u64(ccnt_last_known-ccnt_base)<u64(s.n):
+				//the hint is valid
+				p=iptr(ccnt_last_known-ccnt_base)
+				l=l_last_known
+				c=0LL
+				foreach ch,I in Utf8Chars(s[p:])
+					if ch=='\n':
+						l++
+						c=0LL
+					else
+						c++
+					if l>bl||l==bl&&c>bc:
+						return iptr(I)+p
+				return s.n
 		foreach ch,I in Utf8Chars(s)
 			if ch=='\n':
 				l++
@@ -652,6 +670,7 @@ class CLocator
 class CHLRange
 	CLocator p0
 	CLocator p1
+	int depth
 	int color
 	i16 category
 	i8 invertible
@@ -666,6 +685,7 @@ class CHLRange
 		proto.ExportProperty(this,"color")
 		proto.ExportProperty(this,"invertible")
 		proto.ExportProperty(this,"category")
+		proto.ExportProperty(this,"depth")
 		proto.ExportMethod(this,"discard",discard)
 
 struct TLocatorUndoItem
@@ -714,9 +734,6 @@ class CEditableText
 				hstate.SetTextStyle(obj_style)
 			if hstate.isLineOnly&&hstate.isLineOnly():
 				m_is_line_only=1
-			//if hstate.RenderText:
-			//	assert(m_hid_renderer==-1L)
-			//	m_hid_renderer=I
 			m_state_ofs.push(ofs)
 			ofs+=hstate.stateSize()
 			///////////
@@ -847,6 +864,52 @@ class CEditableText
 				return acc
 			assert(!!nd.pchild)
 			nd=nd.pchild
+	auto GetStateEnMasse(int hid,i64[] all_ccnt)
+		handler=m_handlers[hid]
+		szacc=m_state_ofs[hid+1]-m_state_ofs[hid]
+		ret=new i64[szacc*all_ccnt.n]
+		auto dfs(i64[] acc0,i64 ccnt_base0,CSLNode nd0,int p0x,int p1)
+			auto ccnt_base=ccnt_base0
+			auto acc=new(acc0)
+			auto p0=p0x
+			auto nd=nd0
+			for(;;)
+				p=p0
+				while p<p1&&all_ccnt[p]<ccnt_base+nd.ccnt:
+					p++
+				if p0<p:
+					if nd.s:
+						pp=GetPrecomputedStates(handler,nd)
+						s_context=GetContextBefore(handler,ccnt_base)
+						s=nd.s
+						acc2=new(acc)
+						ccnt_base2=ccnt_base
+						for i=p0:p-1
+							ofs=iptr(all_ccnt[i]-ccnt_base2)
+							handler.AddString(acc2,pp,s_context,s,ofs)
+							copy(ret[i*szacc:],acc2)
+							if s_context:
+								n0=s_context.n
+								s_context.push(s[:ofs-1])
+								s_context=new(s_context[s_context.n-n0:])
+							s=s[ofs:]
+							ccnt_base2+=i64(ofs)
+					else
+						dfs(acc,ccnt_base,nd.pchild,p0,p)
+				p0=p
+				if p0>=p1:break
+				ccnt_base+=nd.ccnt
+				handler.Add(acc,nd.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
+				nd=nd.pnext
+				if !nd:
+					//out of bound, fill with acc
+					for i=p0:p1-1
+						ofs=iptr(all_ccnt[i]-ccnt_base)
+						copy(ret[i*szacc:],acc)
+					break
+		///////////
+		dfs(new i64[szacc],0LL,m_skiplist,0,int(all_ccnt.n))
+		return ret
 	auto GetCharacterHeightAt(i64 ccnt0)
 		hid=m_handler_registration["renderer"].as(int)
 		handler=m_handlers[hid]
@@ -1277,7 +1340,7 @@ class CEditableText
 			n0=m_state_ofs.back()
 			ofspp=nd.a[n0+handler.id]
 			ofspp2=(handler.id==m_handlers.n-1?i64(nd.a.n):nd.a[n0+handler.id+1])
-			return ccnt_base0+i64(handler.SeekInBlock(acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s,b))
+			return ccnt_base0+i64(handler.SeekInBlock(ccnt_base0,acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s,b))
 		else
 			ccnt_base=ccnt_base0
 			acc2=new(acc)
@@ -1312,7 +1375,7 @@ class CEditableText
 		acc_block=GetStateAt(hid,ccnt_base)
 		cv_block=handler.QueryPerCharValidity(acc_block,GetPrecomputedStates(handler,nd),GetContextBefore(handler,ccnt_base),nd.s,b)
 		if direction<0:
-			for i=iptr(ccnt-ccnt_base):-1:0
+			for i=min(iptr(ccnt-ccnt_base),cv_block.n-1):-1:0
 				if cv_block[i]:
 					return ccnt_base+i64(i)
 			ccnt=ccnt_base
@@ -1324,7 +1387,7 @@ class CEditableText
 		//not in the current block
 		//dfs pass
 		auto dfsNearest(CSLNode nd,i64[] acc0,i64 ccnt_base0)
-			ccnt_base=ccnt_base0
+			auto ccnt_base=ccnt_base0
 			if nd.s:
 				cv_block=handler.QueryPerCharValidity(acc0,GetPrecomputedStates(handler,nd),GetContextBefore(handler,ccnt_base),nd.s,b)
 				if direction<0:
@@ -1336,7 +1399,7 @@ class CEditableText
 						if cv_block[i]:
 							return ccnt_base+i64(i)
 			else
-				acc=new(acc0)
+				auto acc=new(acc0)
 				if direction<0:
 					all_accs=new i64[][]
 					all_ccnts=new i64[]
@@ -1402,6 +1465,7 @@ class CEditableText
 			handler.SetCaretOverlay(this,-1LL,-1LL,JSObject.NULL)
 		//pre-draw the highlights
 		//coulddo: text color inversion for high contrast highlight
+		m_highlights.Sortby(inline(a){return a.depth})
 		n2=0L
 		foreach hl in m_highlights
 			if hl.discarded||hl.p0.discarded||hl.p1.discarded:continue
@@ -1449,7 +1513,7 @@ class CEditableText
 					color_ids=handler_colorer.ComputeCharColorID(acc_colorer,s_context,nd.s)
 				else
 					color_ids=u8[].NULL
-				handler.RenderText(this,ccnt_base,acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s, color_ids, x,y,scr_x,scr_y,scale)
+				handler.RenderText(this,ccnt_base,acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s, color_ids, x,y,w,h,scr_x,scr_y,scale)
 				handler.Add(acc,nd.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
 				if hid_colorer>=0:
 					handler_colorer.Add(acc_colorer,nd.a[m_state_ofs[hid_colorer]:m_state_ofs[hid_colorer+1]-1])
@@ -1476,8 +1540,8 @@ class CEditableText
 		ret=new CLocator(){ccnt:ccnt,side:i8(side)}
 		m_locators.push(ret)
 		return ret
-	auto CreateHighlight(CLocator p0,CLocator p1)
-		ret=new CHLRange(){p0:p0,p1:p1}
+	auto CreateHighlight(CLocator p0,CLocator p1,int depth)
+		ret=new CHLRange(){p0:p0,p1:p1,depth:depth}
 		m_highlights.push(ret)
 		return ret
 	auto XYFromCcnt(i64 ccnt)
@@ -1660,10 +1724,11 @@ class CEditableText
 	JS_CreateHighlight=function(JSContext JS){
 		auto p0=JS.Param(0).as(CLocator)
 		auto p1=JS.Param(1).as(CLocator)
+		auto depth=JS.Param(2).or(0)
 		if !p0||!p1:
 			return 0
 		else
-			return JS.Return(CreateHighlight(p0,p1))
+			return JS.Return(CreateHighlight(p0,p1,depth))
 	}
 	JS_XYFromCcnt=function(JSContext JS){
 		ccnt=JS.Param(0).or(0LL)
@@ -1675,6 +1740,38 @@ class CEditableText
 		ret=JS.New()
 		ret["x"]=fixed2double(xy[0])
 		ret["y"]=fixed2double(xy[1])
+		return JS.Return(ret)
+	}
+	JS_GetXYEnMasse=function(JSContext JS){
+		hid=m_handler_registration["renderer"].as(int)
+		handler=m_handlers[hid]
+		js_ccnts=JS.Param(0).as(JSObject)
+		if !js_ccnts:return JS.ReturnError("invalid ccnt array")
+		//////////
+		range1=GetTextSize()
+		n=js_ccnts.length()
+		ccnts=new i64[n]
+		for i=0:n-1
+			ccnts[i]=js_ccnts[i].as(i64)
+			if i&&ccnts[i]<ccnts[i-1]||u64(ccnts[i])>u64(range1):
+				return JS.ReturnError("invalid location @1".Replace(["@1",string(i)]))
+		a=GetStateEnMasse(hid,ccnts)
+		szacc=m_state_ofs[hid+1]-m_state_ofs[hid]
+		stypes=new char[n*2]
+		reti=new i64[n*2]
+		for i=0:n-1
+			stypes[i*2+0]='d'
+			stypes[i*2+1]='d'
+			if handler.GetXYFromState:
+				xy=handler.GetXYFromState(a[szacc*i:szacc*i+szacc-1])
+				x=xy.x
+				y=xy.y
+			else
+				x=a[0]
+				y=a[1]
+			reti[i*2+0]=x
+			reti[i*2+1]=y
+		ret=DecodeStateArray(JS,reti,stypes)
 		return JS.Return(ret)
 	}
 	//only need to support "l" and "d"
@@ -1743,6 +1840,29 @@ class CEditableText
 		if u64(ccnt0)>u64(range1):return JS.ReturnError("invalid location")
 		stypes=JS.Param(2).as(string)
 		a=GetStateAt(hid,ccnt0)
+		ret=DecodeStateArray(JS,a,stypes)
+		if !ret:
+			return JS.ReturnError("invalid type description '@1'".Replace(["@1",stypes]))
+		else
+			return JS.Return(ret)
+	}
+	JS_GetStateEnMasse=function(JSContext JS){
+		hid=JS.Param(0).as(int)
+		if uptr(hid)>=uptr(m_handlers.n):return JS.ReturnError("invalid handler id")
+		js_ccnts=JS.Param(1).as(JSObject)
+		if !js_ccnts:return JS.ReturnError("invalid ccnt array")
+		stypes0=JS.Param(2).as(string)
+		//////////
+		range1=GetTextSize()
+		n=js_ccnts.length()
+		stypes=new string
+		ccnts=new i64[n]
+		for i=0:n-1
+			ccnts[i]=js_ccnts[i].as(i64)
+			if ccnts[i]<ccnts[i-1]||u64(ccnts[i])>u64(range1):
+				return JS.ReturnError("invalid location @1".Replace(["@1",string(i)]))
+			stypes.push(stypes0)
+		a=GetStateEnMasse(hid,ccnts)
 		ret=DecodeStateArray(JS,a,stypes)
 		if !ret:
 			return JS.ReturnError("invalid type description '@1'".Replace(["@1",stypes]))
@@ -1910,10 +2030,12 @@ class CEditableText
 		proto.ExportMethod(this,"CreateLocator",JS_CreateLocator)
 		proto.ExportMethod(this,"CreateHighlight",JS_CreateHighlight)
 		proto.ExportMethod(this,"XYFromCcnt",JS_XYFromCcnt)
+		proto.ExportMethod(this,"GetXYEnMasse",JS_GetXYEnMasse)
 		proto.ExportMethod(this,"SeekXY",JS_SeekXY)
 		proto.ExportMethod(this,"Bisect",JS_Bisect)
 		proto.ExportMethod(this,"FindNearest",JS_FindNearest)
 		proto.ExportMethod(this,"GetStateAt",JS_GetStateAt)
+		proto.ExportMethod(this,"GetStateEnMasse",JS_GetStateEnMasse)
 		proto.ExportMethod(this,"GetCharacterHeightAt",JS_GetCharacterHeightAt)
 		proto.ExportMethod(this,"GetDefaultFont",JS_GetDefaultFont)
 		proto.ExportMethod(this,"SnapToCharBoundary",JS_SnapToCharBoundary)

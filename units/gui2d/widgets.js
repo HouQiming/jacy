@@ -237,14 +237,6 @@ UI.Theme_Minimalistic=function(C){
 	if(UI.Theme_CustomWidget){UI.Theme_CustomWidget(C)}
 };
 
-UI.DestroyWindow=function(attrs){
-	UI.CallIfAvailable(attrs,"OnDestroy");
-	if(attrs.is_main_window){
-		UI.SDL_PostQuitEvent();
-	}
-	UI.SDL_DestroyWindow(attrs.__hwnd)
-};
-
 UI.SetCaret=function(obj,x,y,w,h,C,dt){
 	//uses absolute coords
 	UI.InsertJSDrawCall(function(){
@@ -291,6 +283,7 @@ W.Window=function(id,attrs){
 	if(!obj.__hwnd){
 		//no default event handler for the window
 		obj.__hwnd=UI.SDL_CreateWindow(obj.title||"untitled",obj.x||UI.SDL_WINDOWPOS_CENTERED,obj.y||UI.SDL_WINDOWPOS_CENTERED,obj.w*UI.pixels_per_unit,obj.h*UI.pixels_per_unit, obj.flags);
+		UI.m_window_map[obj.__hwnd.toString()]=obj
 	}
 	//defer the innards painting to the first OnPaint - need the GL context
 	UI.context_paint_queue.push(obj);
@@ -562,6 +555,7 @@ W.Edit_prototype={
 	plugin_class:'widget',
 	//////////
 	scale:1,
+	mouse_wheel_speed:4,
 	scroll_x:0,
 	scroll_y:0,
 	x_updown:0,
@@ -597,6 +591,7 @@ W.Edit_prototype={
 		var hc=this.GetCharacterHeightAtCaret();
 		var page_height=this.h;
 		if(mode!='show'){
+			//print(ed_caret,this.sel1.ccnt,this.ed.GetTextSize())
 			if(this.scroll_y>ed_caret.y||this.scroll_y<=ed_caret.y-page_height||mode=='center'){
 				//mode 'center_if_hidden': only center when the thing was invisible
 				this.scroll_y=ed_caret.y-(page_height-hc)/2;
@@ -628,12 +623,21 @@ W.Edit_prototype={
 			}
 		}
 		this.scroll_x=Math.max(this.scroll_x,0);
-		this.scroll_y=Math.max(Math.min(this.scroll_y,ytot-(page_height-hc)),0);
+		this.scroll_y=Math.max(Math.min(this.scroll_y,ytot-page_height),0);
 		this.x_updown=ed_caret.x
 		if(this.disable_scrolling_x){this.scroll_x=0;}
 		if(this.disable_scrolling_y){this.scroll_y=0;}
 		//TestTrigger(KEYCODE_ANY_MOVE)
 		//todo: ui animation?
+	},
+	OnMouseWheel:function(event){
+		var ed=this.ed;
+		var ccnt_tot=ed.GetTextSize();
+		var ytot=ed.XYFromCcnt(ccnt_tot).y+ed.GetCharacterHeightAt(ccnt_tot);
+		var hc=this.GetCharacterHeightAtCaret();
+		var page_height=this.h;
+		this.scroll_y=Math.max(Math.min(this.scroll_y-hc*event.y*this.mouse_wheel_speed,ytot-page_height),0);
+		UI.Refresh()
 	},
 	SkipInvisibles:function(ccnt,side){
 		return this.ed.MoveToBoundary(ccnt,side,"invisible_boundary")
@@ -655,6 +659,14 @@ W.Edit_prototype={
 	GetLC:function(ccnt){
 		var ed=this.ed;
 		return ed.GetStateAt(ed.m_handler_registration["line_column"],ccnt,"ll");
+	},
+	SeekAllLinesBetween:function(line0,line1_exclusive){
+		var ed=this.ed;
+		var ret=[this.SeekLC(line0,0)]
+		for(var i=line0+1;i<line1_exclusive;i++){
+			ret.push(ed.Bisect(ed.m_handler_registration["line_column"],[i,0, i-1,ret[ret.length-1]],"llll"))
+		}
+		return ret;
 	},
 	GetEnhancedHome:function(ccnt){
 		var ccnt_lhome=this.SeekLC(this.GetLC(ccnt)[0],0);
@@ -974,10 +986,14 @@ W.Edit_prototype={
 		}else if(IsHotkey(event,"PGUP SHIFT+PGUP")){
 			var ed_caret=this.GetCaretXY();
 			this.MoveCursorToXY(ed_caret.x,ed_caret.y-this.h);
+			var ed_caret2=this.GetCaretXY();
+			this.scroll_y+=ed_caret2.y-ed_caret.y
 			epilog();
 		}else if(IsHotkey(event,"PGDN SHIFT+PGDN")){
 			var ed_caret=this.GetCaretXY();
 			this.MoveCursorToXY(ed_caret.x,ed_caret.y+this.h);
+			var ed_caret2=this.GetCaretXY();
+			this.scroll_y+=ed_caret2.y-ed_caret.y
 			epilog();
 		}else if(IsHotkey(event,"CTRL+C")||IsHotkey(event,"CTRL+INSERT")){
 			this.Copy()
@@ -1718,6 +1734,7 @@ W.ScrollBarThingy_prototype={
 	OnMouseUp:function(event){
 		UI.ReleaseMouse(this)
 		this.anchored_value=undefined
+		UI.Refresh()
 	},
 	OnMouseMove:function(event){
 		if(this.anchored_value==undefined){return;}
@@ -1748,7 +1765,7 @@ W.ScrollBar=function(id,attrs){
 				rect={
 					x:obj.x+(obj.w-obj.middle_bar.w)*0.5,
 					y:obj.y+(obj.h-szbar)*obj.value, 
-					w:obj.middle_bar.w, h:szbar, 
+					w:obj.middle_bar.w, h:szbar,
 					factor:obj.h-szbar,
 					round:obj.middle_bar.round,
 					color:obj.middle_bar.color, 
