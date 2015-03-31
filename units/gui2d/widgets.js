@@ -96,6 +96,7 @@ UI.Theme_Minimalistic=function(C){
 		edit:{
 			//animating edit would ruin a lot of object properties
 			transition_dt:0,
+			scroll_transition_dt:0.1,
 			bgcolor_selection:C_sel,
 		},
 		menu_item:{
@@ -233,6 +234,7 @@ UI.Theme_Minimalistic=function(C){
 				}
 			},
 		},
+		animation_node:{transition_dt:0.1},
 	};
 	if(UI.Theme_CustomWidget){UI.Theme_CustomWidget(C)}
 };
@@ -1086,6 +1088,17 @@ W.Edit=function(id,attrs,proto){
 	var scroll_x=obj.scroll_x;
 	var scroll_y=obj.scroll_y;
 	var ed=obj.ed;
+	if(obj.scroll_transition_dt>0){
+		UI.Begin(obj)
+			var anim=W.AnimationNode("scrolling_animation",{transition_dt:obj.scroll_transition_dt,
+				scroll_x:scroll_x,
+				scroll_y:scroll_y})
+		UI.End()
+		scroll_x=anim.scroll_x
+		scroll_y=anim.scroll_y
+	}
+	obj.visible_scroll_x=scroll_x
+	obj.visible_scroll_y=scroll_y
 	//todo: hint_text for empty box
 	//Render takes absolute coords
 	var bkcolor
@@ -1986,4 +1999,8 @@ W.ListView=function(id,attrs){
 	UI.End()
 	UI.PopCliprect()
 	return obj;
+}
+
+W.AnimationNode=function(id,attrs){
+	return UI.StdWidget(id,attrs,"animation_node",W.AnimationNode_prototype)
 }

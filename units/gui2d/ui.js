@@ -1247,52 +1247,76 @@ UI.non_animated_values={
 
 UI.style_secs=0//todo
 UI.style_count=0//todo
-UI.StdStyling=function(id,attrs,attrs0,s_default_style_name,child_style){
+UI.StdStyling=function(id,obj,attrs,s_default_style_name,child_style){
 	var tick0=Duktape.__ui_get_tick()//todo
 	//styling
-	var style=attrs.style||UI.default_styles[s_default_style_name||"-"];
+	var style=obj.style||UI.default_styles[s_default_style_name||"-"];
 	if(style){
 		//mover / mout / mdown stuff - child styles
 		for(var key in style){
-			if(key!="$"&&!attrs0[key]){
-				attrs[key]=style[key];
+			if(key!="$"&&!attrs[key]){
+				obj[key]=style[key];
 			}
 		}
 		if(child_style&&style.$){
 			var cstyle=style.$[child_style];
 			if(cstyle){
 				for(var key in cstyle){
-					if(!attrs0[key]){
-						attrs[key]=cstyle[key];
+					if(!attrs[key]){
+						obj[key]=cstyle[key];
 					}
 				}
 			}
 		}
 	}
 	//transition
-	if(attrs.transition_dt){
-		var state=attrs;
+	if(obj.transition_dt){
 		//test whether we need a new transition
-		var ref_frame=state.transition_frame1||state.transition_current_frame;
+		var testTransition=function(){
+			if(obj.transition_frame1){
+				var dt=obj.transition_dt;
+				var fcurve=obj.transition_curve||UI.curve_linear;
+				var t=Duktape.__ui_seconds_between_ticks(obj.transition_t0,UI.m_frame_tick)/dt;
+				if(!(t>=0&&t<1)){
+					//t out of range... assume we reached the goal
+					obj.transition_current_frame=obj.transition_frame1;
+					obj.transition_frame0=undefined;
+					obj.transition_frame1=undefined;
+				}else{
+					//interpolate the frame
+					t=fcurve(t);
+					var fc={};
+					var f0=obj.transition_frame0;
+					var f1=obj.transition_frame1;
+					obj.transition_current_frame=fc;
+					for(var key in obj.transition_frame0){
+						fc[key]=(UI.interpolators[key]||UI.default_interpolator)(f0[key],f1[key],t);
+					}
+				}
+				UI.AutoRefresh();
+			}
+		}
+		testTransition()
+		var ref_frame=obj.transition_frame1||obj.transition_current_frame;
 		if(!ref_frame){
 			ref_frame={};
 			for(var key in UI.interpolators){
-				if(attrs[key]){
-					ref_frame[key]=attrs[key];
+				if(obj[key]){
+					ref_frame[key]=obj[key];
 				}
 			}
-			for(var key in attrs){
-				if(isNumber(attrs[key])&&!UI.non_animated_values[key]){
-					ref_frame[key]=attrs[key];
+			for(var key in obj){
+				if(isNumber(obj[key])&&!UI.non_animated_values[key]){
+					ref_frame[key]=obj[key];
 				}
 			}
-			state.transition_current_frame=ref_frame;
+			obj.transition_current_frame=ref_frame;
 		}else{
 			var need_transition=0;
 			for(var key in ref_frame){
-				if(ref_frame[key]!=attrs[key]){
+				if(ref_frame[key]!=obj[key]){
 					//gradient comparison
-					if(typeof ref_frame[key]=='object'||typeof attrs[key]=='object'){
+					if((typeof ref_frame[key])=='object'||(typeof obj[key])=='object'){
 						continue;
 					}
 					need_transition=1;
@@ -1300,42 +1324,21 @@ UI.StdStyling=function(id,attrs,attrs0,s_default_style_name,child_style){
 				}
 			}
 			if(need_transition){
-				state.transition_frame0=state.transition_current_frame;
-				state.transition_frame1={};
+				obj.transition_frame0=obj.transition_current_frame;
+				obj.transition_frame1={};
 				for(var key in ref_frame){
-					state.transition_frame1[key]=attrs[key];
+					obj.transition_frame1[key]=obj[key];
 				}
-				state.transition_t0=Duktape.__ui_get_tick();
+				obj.transition_t0=UI.m_frame_tick;
 			}
 		}
 		////////////////
 		//test the running transition
-		if(state.transition_frame1){
-			var dt=attrs.transition_dt;
-			var fcurve=attrs.transition_curve||UI.curve_linear;
-			var t=Duktape.__ui_seconds_between_ticks(state.transition_t0,Duktape.__ui_get_tick())/dt;
-			if(!(t>=0&&t<1)){
-				//t out of range... assume we reached the goal
-				state.transition_current_frame=state.transition_frame1;
-				state.transition_frame0=null;
-				state.transition_frame1=null;
-			}else{
-				//interpolate the frame
-				t=fcurve(t);
-				var fc={};
-				var f0=state.transition_frame0;
-				var f1=state.transition_frame1;
-				state.transition_current_frame=fc;
-				for(var key in state.transition_frame0){
-					fc[key]=(UI.interpolators[key]||UI.default_interpolator)(f0[key],f1[key],t);
-				}
-			}
-			UI.AutoRefresh();
-		}
-		if(state.transition_current_frame){
-			var fc=state.transition_current_frame;
+		testTransition()
+		if(obj.transition_current_frame){
+			var fc=obj.transition_current_frame;
 			for(var key in fc){
-				attrs[key]=fc[key];
+				obj[key]=fc[key];
 			}
 		}
 	}
@@ -1567,6 +1570,7 @@ UI.DrawFrame=function(){
 	//the main painting loop
 	UI.need_to_refresh=0;
 	UI.BeginFrame();
+	UI.m_frame_tick=Duktape.__ui_get_tick()
 	UI.context_focus_is_a_region=0;
 	UI.context_paint_queue=[];
 	UI.context_hotkeys=[];

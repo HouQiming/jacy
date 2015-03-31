@@ -1937,14 +1937,68 @@ static void stbtt_Embolden(stbtt_vertex *vertices,int n,float lg){
 	int curve_base=-1;
 	float* Ns;
 	float* Ps;
+	float x_min=1e17f,y_min=1e17f;
+	double A=0.0;
 	//char* is_midpoint;
 	if(lg==0.f)return;
 	Ns=(float*)STBTT_malloc(sizeof(float)*8*n,NULL);
 	Ps=Ns+n*4;
-	//is_midpoint=(char*)(Ps+n*2);
 	for(i=0;i<n;i++){
 		if(vertices[i].type==STBTT_vmove){
-			int i2=n,j;
+			int i2=n,j=0;
+			int p=0,np=0;
+			for(i2=i;i2<n;i2++){
+				if(i2>i&&vertices[i2].type==STBTT_vmove){
+					break;
+				}
+				if(vertices[i2].type==STBTT_vcurve){
+					Ps[p*2+0]=(float)vertices[i2].cx;
+					Ps[p*2+1]=(float)vertices[i2].cy;
+					p++;
+				}
+				Ps[p*2+0]=(float)vertices[i2].x;
+				Ps[p*2+1]=(float)vertices[i2].y;
+				p++;
+			}
+			np=p;
+			p=1;
+			for(j=1;j<np;j++){
+				if(Ps[j*2+0]==Ps[p*2-2]&&Ps[j*2+1]==Ps[p*2-1]){
+					//nothing
+				}else{
+					Ps[p*2+0]=Ps[j*2+0];
+					Ps[p*2+1]=Ps[j*2+1];
+					p++;
+				}
+			}
+			np=p;
+			np--;
+			for(j=0;j<np;j++){
+				float x=Ps[j*2+0];
+				float y=Ps[j*2+1];
+				if(y<y_min||y==y_min&&x<x_min){
+					int j_prev=(j==0?np-1:j-1);
+					int j_next=(j==np-1?0:j+1);
+					double dx_next=(float)Ps[j_next*2+0]-(float)Ps[j*2+0];
+					double dy_next=(float)Ps[j_next*2+1]-(float)Ps[j*2+1];
+					double dx_prev=(float)Ps[j*2+0]-(float)Ps[j_prev*2+0];
+					double dy_prev=(float)Ps[j*2+1]-(float)Ps[j_prev*2+1];
+					double A_j=dx_next*dy_prev-dx_prev*dy_next;
+					double eps=(dx_prev*dx_prev+dy_prev*dy_prev+dx_next*dx_next+dy_next*dy_next)*(1.0/1048576.0);
+					double A_j_abs=(A_j<0.0?-A_j:A_j);
+					if(A_j_abs>eps){
+						y_min=y;
+						x_min=x;
+						A=A_j;
+					}
+				}
+			}
+		}
+	}
+	if(A<0.0){lg=-lg;}
+	for(i=0;i<n;i++){
+		if(vertices[i].type==STBTT_vmove){
+			int i2=n,j=0;
 			int p=0,np=0;
 			for(i2=i;i2<n;i2++){
 				if(i2>i&&vertices[i2].type==STBTT_vmove){
@@ -2062,9 +2116,9 @@ float embolden, int ch,float* ret){
 	int ascent=0,descent=0,lineGap=0;
 	int y0_pixel=0,y1_pixel=0;
 	int wimg,himg;
-	if(ft->is_winding_order_retarded){
+	/*if(ft->is_winding_order_retarded){
 		emboldenf=-emboldenf;
-	}
+	}*/
 	stbtt_GetFontVMetrics(ft, &ascent, &descent, &lineGap);
 	ch&=0xffffff;
 	stbtt_GetCodepointHMetrics(ft, ch, &advance, &lsb);
