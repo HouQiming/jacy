@@ -62,34 +62,34 @@ UI.Theme_Minimalistic=function(C){
 			$:{
 				out:{
 					border_color:C[0]&0x00ffffff,color:0x00ffffff,
-					icon_color:0xff000000,
-					text_color:0xff000000,
+					icon_color:0xff444444,
+					text_color:0xff444444,
 				},
 				over:{
 					border_color:C[0],color:0x00ffffff,
-					icon_color:0xff000000,
-					text_color:0xff000000,
+					icon_color:0xff444444,
+					text_color:0xff444444,
 				},
 				down:{
 					border_color:C_dark,color:0x00ffffff,
-					icon_color:0xff000000,
-					text_color:0xff000000,
+					icon_color:0xff444444,
+					text_color:0xff444444,
 				},
 				////////////////////
 				checked_out:{
 					border_color:C[0]&0x00ffffff,color:C_sel,
-					icon_color:0xff000000,
-					text_color:0xff000000,
+					icon_color:0xff444444,
+					text_color:0xff444444,
 				},
 				checked_over:{
 					border_color:C[0],color:C_sel,
-					icon_color:0xff000000,
-					text_color:0xff000000,
+					icon_color:0xff444444,
+					text_color:0xff444444,
 				},
 				checked_down:{
 					border_color:C_dark,color:C_sel,
-					icon_color:0xff000000,
-					text_color:0xff000000,
+					icon_color:0xff444444,
+					text_color:0xff444444,
 				},
 			}
 		},

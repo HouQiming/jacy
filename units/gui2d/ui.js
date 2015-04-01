@@ -5,6 +5,7 @@ var UI=exports;
 Duktape.__ui_native_hack(UI);
 
 UI.IS_MOBILE=(UI.Platform.ARCH=="android"||UI.Platform.ARCH=="ios");
+UI.IS_APPLE=(UI.Platform.ARCH=="mac"||UI.Platform.ARCH=="ios");
 
 UI.SDL_ICONV_ERROR=-1
 UI.SDL_ICONV_E2BIG=-2
@@ -931,6 +932,10 @@ UI.KMOD_CTRL=UI.KMOD_LCTRL|UI.KMOD_RCTRL
 UI.KMOD_SHIFT=UI.KMOD_LSHIFT|UI.KMOD_RSHIFT
 UI.KMOD_GUI=UI.KMOD_LGUI|UI.KMOD_RGUI
 UI.KMOD_WIN=UI.KMOD_LWIN|UI.KMOD_RWIN
+UI["KMOD_⇧"]=UI.KMOD_SHIFT
+UI["KMOD_＾"]=UI.KMOD_CTRL
+UI["KMOD_⌥"]=UI.KMOD_ALT
+UI["KMOD_⌘"]=UI.KMOD_WIN
 UI.SDLK_ESC=UI.SDLK_ESCAPE
 UI.SDLK_PGDN=UI.SDLK_PAGEDOWN
 UI.SDLK_PGUP=UI.SDLK_PAGEUP
@@ -1472,6 +1477,7 @@ UI.need_to_refresh=1;
 UI.inside_IME=0;
 UI.nd_mouse_down=[];
 UI.Refresh=function(){UI.need_to_refresh=1;}
+UI.InvalidateCurrentFrame=function(){UI.m_frame_is_invalid=1;}
 
 UI.CaptureMouse=function(attrs){
 	UI.nd_captured=attrs;
@@ -1539,11 +1545,14 @@ UI.IsModifier=function(event,name){
 	return UI.IsKey(event,name)==undefined;
 };
 
+var g_re_mac_symbols=new RegExp("[⇧＾⌥⌘]","g")
+var g_faddplus=function(smatch){return smatch+"+"}
+
 UI.hotkey_mapping={};
 UI.IsHotkey=function(event,hotkey_name){
 	var names=UI.hotkey_mapping[hotkey_name];
 	if(!names){
-		names=hotkey_name.split(" ").map(function(a){return a.split("+")});
+		names=hotkey_name.split(" ").map(function(a){return a.replace(g_re_mac_symbols,g_faddplus).split("+")});
 		UI.hotkey_mapping[hotkey_name]=names;
 	}
 	for(var i=0;i<names.length;i++){
@@ -1656,9 +1665,13 @@ UI.Run=function(){
 	var t_kill_mousedown=undefined;
 	for(;;){
 		if(UI.need_to_refresh){
+			UI.m_frame_is_invalid=0;
 			UI.DrawFrame();
 			if(UI.is_real&&UI.GetSRGBStatus().srgb_supported==-1){
 				UI.need_to_refresh=1
+			}
+			if(UI.m_frame_is_invalid){
+				continue;
 			}
 			for(var i=0;i<UI.context_paint_queue.length;i++){
 				var obj=UI.context_paint_queue[i];
@@ -1893,4 +1906,20 @@ if(UI.Platform.ARCH=="android"){
 UI.InheritClass=function(proto0,proto1){
 	Object.setPrototypeOf(proto1,proto0)
 	return proto1
+}
+
+UI.m_translation={}
+UI.m_mac_key_names={
+	"SHIFT":"\u21E7",
+	"CTRL":"\uFF3E",
+	"ALT":"\u2325",
+	"WIN":"\u2318",
+};
+UI._=function(s){return UI.m_translation[s]||s;}
+UI.LocalizeKeyName=function(s){
+	if(UI.IS_APPLE||1){//todo
+		return s.split("+").map(function(a){return UI.m_mac_key_names[a]||a}).join("");
+	}else{
+		return s;
+	}
 }

@@ -1465,6 +1465,7 @@ class CEditableText
 			handler.SetCaretOverlay(this,-1LL,-1LL,JSObject.NULL)
 		//pre-draw the highlights
 		//coulddo: text color inversion for high contrast highlight
+		SortLocators()
 		m_highlights.Sortby(inline(a){return a.depth})
 		n2=0L
 		foreach hl in m_highlights

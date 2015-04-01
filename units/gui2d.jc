@@ -313,6 +313,8 @@ struct TPositionedText
 
 class CTextLayout
 	TPositionedText[] chars
+	//x0, y, w, h
+	float4[] underlines
 	float2 dims
 
 class CSandboxWindow
@@ -1069,7 +1071,7 @@ class CRenderer
 	EDT_END_ELLIPSIS=1
 	EDT_EXPANDTABS=2
 	EDT_WORDBREAK=4
-	//EDT_PREFIX_TO_UNDERLINE=8
+	EDT_PREFIX_TO_UNDERLINE=8
 	auto GetCharacterHeight(TFont fnt)
 		pfnt=fnt.pfnt
 		delta_y=0.f
@@ -1114,24 +1116,22 @@ class CRenderer
 		wspace=GetCharacterAdvance(fnt,int(' '))
 		wtab=wspace*8.f
 		hc=GetCharacterHeight(fnt)
+		y_baseline=GetFontBaseline(fnt)
 		poses=new float2[s32.n]
 		x=0.f;y=0.f
 		xmax=0.f
 		ndrawn=s32.n
-		//is_underlining=0
-		//if flags&EDT_PREFIX_TO_UNDERLINE:
-		//	underlines=new iptr[]
+		is_underlining=0
+		if flags&EDT_PREFIX_TO_UNDERLINE:
+			underlines=new float4[]
 		for ch,I in s32
 			ch=s32[I]
 			if ch=='\r':continue
-			//if flags&EDT_PREFIX_TO_UNDERLINE:
-			//	if ch=='&'&&!is_underlining:
-			//		is_underlining=1
-			//		s32[I]=32
-			//		continue
-			//	if is_underlining:
-			//		underlines.push(I)
-			//	is_underlining=0
+			if flags&EDT_PREFIX_TO_UNDERLINE:
+				if ch=='&'&&!is_underlining:
+					is_underlining=1
+					s32[I]=32
+					continue
 			if ch=='\t':
 				if flags&EDT_EXPANDTABS:
 					dx=min((floor(x/wtab)+1.f)*wtab,w0)-x
@@ -1181,6 +1181,9 @@ class CRenderer
 					if flags&EDT_EXPANDTABS:
 						dx=min((floor(x/wtab)+1.f)*wtab,w0)-x
 				xmax=w0
+			if is_underlining:
+				underlines.push(float4(x,y+y_baseline,dx,y_baseline*(1.f/16.f)))
+				is_underlining=0
 			poses[I]=float2(x,y)
 			x+=dx
 			xmax=max(xmax,x)
@@ -1211,7 +1214,7 @@ class CRenderer
 			foreach ch,I in s_elli
 				ret.push(TPositionedText(){pos:poses_elli[I],ch:ch})
 		//return (ret,float2(min(xmax,w0),min(y+(x?hc:0.f),h0)))
-		return new CTextLayout(){chars:ret,dims:float2(min(xmax,w0),min(y+(x?hc:0.f),h0))}
+		return new CTextLayout(){chars:ret,underlines:underlines,dims:float2(min(xmax,w0),min(y+(x?hc:0.f),h0))}
 	////////////////
 	auto LoadImage(string data)
 		w=0
@@ -1714,6 +1717,9 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			if g_renderer.m_srgb_supported:
 				fnt_li.SmartEmbolden(li.ch)
 			g_renderer.DrawChar(fnt_li,x0+li.pos.x,y0+li.pos.y,int(C),li.ch)
+		if layout.underlines:
+			foreach ul in layout.underlines
+				g_renderer.DrawBitmap(0, x0+ul.x,y0+ul.y,ul.z,ul.w, int(C))
 		return 0
 	}
 	JS_UI["DrawChar"]=function(JSContext JS){
