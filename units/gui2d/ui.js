@@ -1121,14 +1121,23 @@ UI.Begin=function(obj){
 	return obj;
 }
 
+UI.RecordTopMostContext=function(){
+	return UI.context_topmost_callbacks.length;
+}
+UI.FlushTopMostContext=function(n){
+	if(n==undefined){n=0}
+	for(var i=n;i<UI.context_topmost_callbacks.length;i++){
+		UI.context_topmost_callbacks[i]()
+	}
+	UI.context_topmost_callbacks.length=n;
+}
+
 UI.End=function(is_temp){
 	var obj=UI.context_parent;
 	if(obj.__hwnd){
 		//topmost widgets...
-		for(var i=0;i<UI.context_topmost_callbacks.length;i++){
-			UI.context_topmost_callbacks[i]()
-		}
-		UI.context_topmost_callbacks=undefined;
+		UI.FlushTopMostContext();
+		UI.context_topmost_callbacks=undefined
 	}
 	if(!is_temp){
 		var __prev_children=obj.__prev_children;obj.__prev_children=undefined
@@ -1748,7 +1757,7 @@ UI.Run=function(){
 					break
 				case UI.SDL_WINDOWEVENT_SHOWN:
 				case UI.SDL_WINDOWEVENT_EXPOSED:
-					var obj=event.windowID;
+					var obj=UI.m_window_map[event.windowID.toString()];
 					if(obj){
 						UI.JSDrawWindow(obj)
 					}
@@ -1756,12 +1765,34 @@ UI.Run=function(){
 				case UI.SDL_WINDOWEVENT_ENTER:
 					t_kill_mousedown=event.timestamp;
 					break;
+				case UI.SDL_WINDOWEVENT_FOCUS_LOST:
+					var obj_window=UI.m_window_map[event.windowID.toString()];
+					if(obj_window.OnWindowBlur){obj_window.OnWindowBlur()};
+					UI.SetFocus(null)
+					break;
 				}
 				break
 			case UI.SDL_KEYDOWN:
 			case UI.SDL_KEYUP:
 				if(UI.inside_IME){break;}
+				var obj_window=UI.m_window_map[event.windowID.toString()];
 				event.keymod&=~(UI.KMOD_CAPS|UI.KMOD_NUM)//get rid of the bogus SDL flags
+				if(event.keysym==UI.SDLK_LALT||event.keysym==UI.SDLK_RALT){
+					//alt-menu case
+					//print("ALT",event.type==UI.SDL_KEYDOWN?"DOWN":"UP")
+					if(event.type==UI.SDL_KEYDOWN){
+						obj_window.m_just_alted=1;
+					}else{
+						if(obj_window.m_just_alted){
+							if(obj_window.OnMenu){
+								obj_window.OnMenu();
+							}
+						}
+						obj_window.m_just_alted=0;
+					}
+				}else{
+					obj_window.m_just_alted=0;
+				}
 				if(event.type==UI.SDL_KEYDOWN){
 					var hotkeys=UI.context_hotkeys;
 					var lg=hotkeys.length;

@@ -546,6 +546,47 @@ W.Button=function(id,attrs){
 	var obj=UI.Keep(id,attrs,W.Button_prototype);
 	UI.StdStyling(id,obj,attrs, "button",(obj.value?"checked_":"")+(obj.mouse_state||"out"));
 	W.DrawIconText(id,obj,attrs)
+	if(obj.tooltip&&(obj.mouse_state||'out')!='out'){UI.TopMostWidget(function(){
+		var tstyle=(obj.tooltip_style||UI.default_styles.tooltip)
+		var dim=UI.MeasureText(tstyle.font,obj.tooltip)
+		dim.w+=tstyle.padding*2
+		dim.h+=tstyle.padding*2
+		var x=obj.x+(obj.w-dim.w)*0.5,y;
+		if(obj.tooltip_placement=='up'){
+			y=obj.y-dim.h-tstyle.spacing
+		}else{
+			y=obj.y+obj.h+tstyle.spacing
+		}
+		x=Math.max(x,Math.min(x,UI.context_window.w-dim.w),0)
+		UI.RoundRect({
+			x:x,y:y,w:dim.w+tstyle.shadow_size,h:dim.h+tstyle.shadow_size,
+			color:tstyle.shadow_color,
+			round:tstyle.shadow_size,
+			border_width:-tstyle.shadow_size,
+		})
+		var dim_triangle
+		if(tstyle.triangle_font){
+			dim_triangle=UI.MeasureText(tstyle.triangle_font,"\u25B2")
+		}
+		if(tstyle.triangle_font2){
+			UI.DrawChar(tstyle.triangle_font2,obj.x+(obj.w-dim_triangle.w)*0.5,
+				y-dim_triangle.h*0.5,
+				tstyle.border_color,0x25B2)
+		}
+		UI.RoundRect({
+			x:x,y:y,w:dim.w,h:dim.h,
+			color:tstyle.color,
+			round:tstyle.round,
+			border_color:tstyle.border_color,
+			border_width:tstyle.border_width,
+		})
+		if(tstyle.triangle_font){
+			UI.DrawChar(tstyle.triangle_font,obj.x+(obj.w-dim_triangle.w)*0.5,
+				y-dim_triangle.h*0.5,
+				tstyle.color,0x25B2)
+		}
+		W.Text("",{x:x+tstyle.padding,y:y+tstyle.padding,font:tstyle.font,text:obj.tooltip,color:tstyle.text_color,flags:14})
+	})}
 	return W.PureRegion(id,obj);
 }
 
@@ -1907,7 +1948,7 @@ W.ListView_prototype={
 		UI.Refresh()
 	},
 	OnKeyDown:function(event){
-		var n=this.items.n
+		var n=this.items.length
 		var value=this.value
 		if(UI.IsHotkey(event,this.dimension=="y"?"UP":"LEFT")){
 			if(value>0){this.OnChange(value-1);}
@@ -1923,6 +1964,7 @@ W.ListView_prototype={
 	value:0,
 	OnChange:function(value){
 		this.value=value;
+		UI.Refresh();
 	}
 }
 W.ListView=function(id,attrs){
@@ -1964,8 +2006,11 @@ W.ListView=function(id,attrs){
 			var id_click_sel="$C"+i.toString();
 			W.Region(id_click_sel,{x:obj_item_i.x,y:obj_item_i.y,w:obj_item_i.w,h:obj_item_i.h,
 				numerical_id:i,
-				OnClick:function(){
+				OnClick:function(event){
 					obj.OnChange(this.numerical_id)
+					if(obj.is_single_click_mode||event.clicks>1){
+						obj["$"+this.numerical_id.toString()].OnDblClick();
+					}
 					UI.Refresh()
 				},
 			})
