@@ -1921,7 +1921,9 @@ W.ListView_prototype={
 	},
 	///////////////
 	value:0,
-	OnChange:function(value){this.value=value;}
+	OnChange:function(value){
+		this.value=value;
+	}
 }
 W.ListView=function(id,attrs){
 	//todo: autoscroll

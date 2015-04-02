@@ -1117,6 +1117,8 @@ class CRenderer
 		wtab=wspace*8.f
 		hc=GetCharacterHeight(fnt)
 		y_baseline=GetFontBaseline(fnt)
+		y_underline=y_baseline*1.05f
+		h_underline=y_baseline*0.05f
 		poses=new float2[s32.n]
 		x=0.f;y=0.f
 		xmax=0.f
@@ -1182,7 +1184,7 @@ class CRenderer
 						dx=min((floor(x/wtab)+1.f)*wtab,w0)-x
 				xmax=w0
 			if is_underlining:
-				underlines.push(float4(x,y+y_baseline,dx,y_baseline*(1.f/16.f)))
+				underlines.push(float4(x,y+y_underline,dx,h_underline))
 				is_underlining=0
 			poses[I]=float2(x,y)
 			x+=dx

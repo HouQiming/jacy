@@ -1123,6 +1123,13 @@ UI.Begin=function(obj){
 
 UI.End=function(is_temp){
 	var obj=UI.context_parent;
+	if(obj.__hwnd){
+		//topmost widgets...
+		for(var i=0;i<UI.context_topmost_callbacks.length;i++){
+			UI.context_topmost_callbacks[i]()
+		}
+		UI.context_topmost_callbacks=undefined;
+	}
 	if(!is_temp){
 		var __prev_children=obj.__prev_children;obj.__prev_children=undefined
 		var __children=obj.__children;
@@ -1139,13 +1146,6 @@ UI.End=function(is_temp){
 				obj[c_i.__id]=undefined
 			}
 		}
-	}
-	if(obj.__hwnd){
-		//topmost widgets...
-		for(var i=0;i<UI.context_topmost_callbacks.length;i++){
-			UI.context_topmost_callbacks[i]()
-		}
-		UI.context_topmost_callbacks=undefined;
 	}
 	UI.context_parent=obj.__parent;
 	obj.__parent=null;
@@ -1917,7 +1917,7 @@ UI.m_mac_key_names={
 };
 UI._=function(s){return UI.m_translation[s]||s;}
 UI.LocalizeKeyName=function(s){
-	if(UI.IS_APPLE||1){//todo
+	if(UI.IS_APPLE){
 		return s.split("+").map(function(a){return UI.m_mac_key_names[a]||a}).join("");
 	}else{
 		return s;
