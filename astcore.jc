@@ -1598,7 +1598,6 @@ auto coreInit()
 				sbk2=g_code_buffer
 				g_code_buffer=g_global_strings_code
 				genClassName(pobjfn)
-				g_code_buffer=sbk2
 				g_global_strings_code.push(' s7_CS1[]={')
 				pobj_var_d=lookupFunctionVariable(pobjfn,getid("d"))
 				pobj_var_n=lookupFunctionVariable(pobjfn,getid("n"))
@@ -1631,6 +1630,7 @@ auto coreInit()
 						SWrite(g_global_strings_code,'//s7_CS1+',I,' "',genString(getIdString(citem.id)),'"')
 					g_global_strings_code.push('\n')
 				g_global_strings_code.push('};\n')
+				g_code_buffer=sbk2
 			//need a dep sort later
 			g_struct_code_per_type[pobjfn]=g_code_buffer
 			g_all_struct_types.push(pobjfn)
@@ -1896,7 +1896,11 @@ auto coreInit()
 		val=getExprValue(pe_var)
 		if val.tid==g_vtid_CNS||val.tid==g_vtid_CTVAL||val.tid==g_vtid_STR:
 			//const-folded
-			return TSCCPValue(){'tid':g_vtid_UNINIT}
+			if isExpr(peexpr,EFLAG_FCALL)&&!isBuiltin(peexpr,g_id_function):
+				//we do need to generate it -- impure function returning constant
+			else
+				//Writeln('!!!BAD ASS!!! ',dumpExpr(pecall,fcolor_abbrv_blocks))
+				return TSCCPValue(){'tid':g_vtid_UNINIT}
 		//can't really update a parameter
 		pobj_var=getVariable(pe_var)
 		if pobj_var&&testUserFlag(pobj_var,VAR_FLAG_PARAM):
@@ -4825,7 +4829,7 @@ auto coreInit()
 		if val_a.tid==g_vtid_CNS:
 			ca=Util.ctNumber(val_a.val)
 			ta=getBuiltinType(ca.type)
-			if (ca.type&CTYPE_MASK)!=CTYPE_INT:
+			if (ca.type&CTYPE_MASK)!=CTYPE_INT&&(ca.type&CTYPE_MASK)!=CTYPE_UINT:
 				errorAtExpr(ETYPE_ERROR,pecall,"invalid operation ~@1 in expression '@2': the operator can only be applied to integers".Replace([
 					"@1",dumpType(ta),
 					"@2",citeexpr(pecall)]))
@@ -8825,7 +8829,6 @@ auto typeMerge(PExpression pe,PCTObject t_old,PCTObject t_new,PExpression pe_old
 			"@1",citeexpr(pe_old),
 			"@2",dumpType(t_old),
 			"@3",dumpType(t_new)]))
-		assert(0)//todo
 	else
 		errorAtExpr(ETYPE_ERROR,pe,"type mismatch between type '@3' operand '@1' and type '@4' operand '@2'".Replace([
 			"@1",citeexpr(pe_old),
@@ -11272,6 +11275,9 @@ auto genFunctionName(PCTObject pobjfn)
 	else
 		g_code_buffer.push("s7_f")
 		g_code_buffer.push(toBase32(pobjfn))
+		//if toBase32(pobjfn)=='1EQ6DM'&&g_code_buffer.d==g_structs_slots_buffer.d:
+		//	Writeln(dumpFunction(pobjfn))
+		//	assert(0)
 		if id_name&&g_readable_c_code:
 			g_code_buffer.push('_')
 			genCommentName(id_name)

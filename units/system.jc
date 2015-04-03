@@ -6190,7 +6190,7 @@ module detail
 			if feed!=feed2:
 				ch=__memory(i8,feed)
 			else
-				ch=0
+				ch=char(0)
 			mk=new u32[8]
 			RegexOp ret
 			switch ch{
@@ -6223,9 +6223,9 @@ module detail
 						chu=(chu<<4)+(si&0xf)
 					if chu==0:
 						//0 should be made a string, not a char
-						ret=new RegexOp
+						ret=new RegexOp()
 						ret.op=REGEX_STR
-						ret.ob=variant([(char)0])
+						ret.ob=variant([char(0)])
 						if feed!=feed2:feed++
 						is_postfix=1
 						break
@@ -6289,18 +6289,18 @@ module detail
 								mk[1]|=u32((1<<10)-1)<<16
 								mk[2]|=u32((2<<26)-2)
 								mk[3]|=u32((2<<26)-2)
-								chi='_'
+								chi=int('_')
 								break
 							case 's':
-								chi=' ';mk[chi>>5]|=(1u<<(chi&31))
-								chi='\t';mk[chi>>5]|=(1u<<(chi&31))
-								chi='\n';mk[chi>>5]|=(1u<<(chi&31))
-								chi='\r';//mk[chi>>5]|=(1u<<(chi&31))
+								chi=int(' ');mk[chi>>5]|=(1u<<(chi&31))
+								chi=int('\t');mk[chi>>5]|=(1u<<(chi&31))
+								chi=int('\n');mk[chi>>5]|=(1u<<(chi&31))
+								chi=int('\r');//mk[chi>>5]|=(1u<<(chi&31))
 								break
-							case 't':{chi='\t';break}
-							case 'n':{chi='\n';break}
-							case 'r':{chi='\r';break}
-							case 'b':{chi='\b';break}
+							case 't':{chi=int('\t');break}
+							case 'n':{chi=int('\n');break}
+							case 'r':{chi=int('\r');break}
+							case 'b':{chi=int('\b');break}
 							case 'x':
 								chu=0
 								for j=0:1
@@ -6383,7 +6383,7 @@ module detail
 				if feed!=feed2:
 					ch=__memory(i8,feed)
 				else
-					ch=0
+					ch=char(0)
 				//SPL: prioritize ob over x
 				//SPL2: prioritize x over ob
 				switch ch{
@@ -6418,7 +6418,7 @@ module detail
 				a_tail=a_tail.x
 			isor=0
 			while feed!=feed2&&__memory(i8,feed)!=')':
-				if feed[0]=='|':
+				if __memory(i8,feed)=='|':
 					if !supportor:break
 					//or
 					feed++
@@ -7033,7 +7033,9 @@ module Algorithm
 						is_svs2=1
 					else
 						//base id + saved-ness flag
-						copy(cur_saves,svs2[pcs2_ptr*sz_drysave:pcs2_ptr*sz_drysave+sz_drysave-1])
+						slice=svs2[pcs2_ptr*sz_drysave:pcs2_ptr*sz_drysave+sz_drysave-1]
+						copy(cur_saves,slice)
+						slice.discard()
 					pcs2_ptr++
 				else
 					if pcs2_ptr:
@@ -7115,7 +7117,7 @@ module Algorithm
 									pcpos[pc]=pstd
 								break
 							pc=pcx+32
-							if (__memory(u32,bcode.d+pcx))[ch0>>5]&(1u<<(ch0&31)):
+							if (__memory(u32,bcode.d+pcx+(ch0>>5)*4))&(1u<<(ch0&31)):
 								ched=1
 								continue
 							break
@@ -7124,7 +7126,7 @@ module Algorithm
 							if REAL_RUN:
 								if svs:
 									assert(__memory(int,bcode.d+pcx)<nsave)
-									psvs[__memory(int,bcode.d+pcx)]=pos+ched
+									__memory(iptr,psvs+__memory(int,bcode.d+pcx)*sizeof(iptr))=pos+ched
 							else
 								//record the save
 								if ched:
@@ -7293,7 +7295,7 @@ module Algorithm
 						//add a virtual dead node to avoid crashing
 						rop_dead=new RegexOp(){op:REGEX_CSET,ob:variant(new u32[8])}
 						a.ob=variant(rop_dead)
-					dfs(RegexOp(a.ob))
+					dfs(a.ob.as(RegexOp))
 			//nil can only be merge points and shouldn't be head
 			assert(op0.op!=REGEX_NIL)
 			dfs(op0)
@@ -7360,7 +7362,7 @@ module Algorithm
 					case REGEX_STR:
 						ops=op.ob.as(string)
 						for i=0:ops.n-1
-							ch=ops[i]
+							auto ch=ops[i]
 							bcode.push(u8(ch))
 							if !ch:
 								bcode.push(u8(RB_CSET))
@@ -7405,7 +7407,7 @@ module Algorithm
 						//bcode.resize(n0x)
 						break
 					}
-				if what!=REGEX_MATCH&&(I==rops.n-1||I<rops.n-1&&op.x!=rops[I+1])&&op.x:
+				if what!=REGEX_MATCH&&(I==rops.n-1||I<rops.n-1&&iptr(op.x)!=iptr(rops[I+1]))&&op.x:
 					//generate a dangling jmp
 					bcode.push(u8(0))
 					bcode.push(u8(RB_JMP))

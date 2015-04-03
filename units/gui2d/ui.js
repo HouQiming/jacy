@@ -6,6 +6,15 @@ Duktape.__ui_native_hack(UI);
 
 UI.IS_MOBILE=(UI.Platform.ARCH=="android"||UI.Platform.ARCH=="ios");
 UI.IS_APPLE=(UI.Platform.ARCH=="mac"||UI.Platform.ARCH=="ios");
+if(UI.Platform.BUILD=="debug"){
+	UI.assert=function(cond,message){
+		if(!cond){
+			throw new Error(message)
+		}
+	}
+}else{
+	UI.assert=function(){}
+}
 
 UI.SDL_ICONV_ERROR=-1
 UI.SDL_ICONV_E2BIG=-2
@@ -1765,9 +1774,14 @@ UI.Run=function(){
 				case UI.SDL_WINDOWEVENT_ENTER:
 					t_kill_mousedown=event.timestamp;
 					break;
+				case UI.SDL_WINDOWEVENT_FOCUS_GAINED:
+					var obj_window=UI.m_window_map[event.windowID.toString()];
+					obj.m_window_has_focus=1
+					break;
 				case UI.SDL_WINDOWEVENT_FOCUS_LOST:
 					var obj_window=UI.m_window_map[event.windowID.toString()];
 					if(obj_window.OnWindowBlur){obj_window.OnWindowBlur()};
+					obj.m_window_has_focus=0
 					UI.SetFocus(null)
 					break;
 				}
