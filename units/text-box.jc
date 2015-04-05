@@ -667,14 +667,18 @@ class CLocator
 		proto.ExportProperty(this,"undo_tracked")
 		proto.ExportMethod(this,"discard",discard)
 
+HL_DISPLAY_MODE_RECT=0
+HL_DISPLAY_MODE_EMBOLDEN=1
+HL_DISPLAY_MODE_TILDE=2
 class CHLRange
 	CLocator p0
 	CLocator p1
-	int depth
 	int color
 	i16 category
 	i8 invertible
 	i8 discarded
+	i16 depth
+	i8 display_mode
 	discard=function(JSContext JS){
 		discarded=i8(1)
 		return 0
@@ -686,6 +690,7 @@ class CHLRange
 		proto.ExportProperty(this,"invertible")
 		proto.ExportProperty(this,"category")
 		proto.ExportProperty(this,"depth")
+		proto.ExportProperty(this,"display_mode")
 		proto.ExportMethod(this,"discard",discard)
 
 struct TLocatorUndoItem
@@ -910,6 +915,24 @@ class CEditableText
 		///////////
 		dfs(new i64[szacc],0LL,m_skiplist,0,int(all_ccnt.n))
 		return ret
+	auto GetXYEnMasse(i64[] ccnts)
+		hid=m_handler_registration["renderer"].as(int)
+		handler=m_handlers[hid]
+		a=GetStateEnMasse(hid,ccnts)
+		szacc=m_state_ofs[hid+1]-m_state_ofs[hid]
+		n=ccnts.n
+		reti=new i64[n*2]
+		for i=0:n-1
+			if handler.GetXYFromState:
+				xy=handler.GetXYFromState(a[szacc*i:szacc*i+szacc-1])
+				x=xy.x
+				y=xy.y
+			else
+				x=a[0]
+				y=a[1]
+			reti[i*2+0]=x
+			reti[i*2+1]=y
+		return reti
 	auto GetCharacterHeightAt(i64 ccnt0)
 		hid=m_handler_registration["renderer"].as(int)
 		handler=m_handlers[hid]
@@ -1443,30 +1466,26 @@ class CEditableText
 		wnd_ccnt0=SeekXY(x,y)
 		wnd_ccnt1=SeekXY(x+w,y+h)
 		rendering_started=0
+		////////////////////////
+		fnt_bold_scaled=obj["font_emboldened"].as(TFont)
+		fnt_bold_scaled.h*=scale
 		//scaled=double(scale)
 		//dx=double(scr_x)-x*scaled
 		//dy=double(scr_y)-y*scaled
 		//////////////////////////////
 		//prepare the achint
 		caret_overlay=long3(-1LL,-1LL,0LL)
-		inline projectDocumentPosition(i64 ccnt)
-			auto xy=XYFromCcnt(ccnt)
-			auto ret
-			if xy.y==caret_overlay.y&&xy.x>=caret_overlay.x:
-				ret=xy+long2(caret_overlay.z,0LL)
-			else
-				ret=xy
-			return float2(fixed2float(ret.x-x)*scale+scr_x,fixed2float(ret.y-y)*scale+scr_y)
 		if m_IME_overlay:
 			m_IME_overlay["type"]="IME"
 			xy_overlay=XYFromCcnt(m_caret_locator.ccnt)
 			caret_overlay=long3(xy_overlay.x,xy_overlay.y,handler.SetCaretOverlay(this,xy_overlay.x,xy_overlay.y,m_IME_overlay))
 		else
 			handler.SetCaretOverlay(this,-1LL,-1LL,JSObject.NULL)
-		//pre-draw the highlights
+		//pre-draw the rect highlights
 		//coulddo: text color inversion for high contrast highlight
 		SortLocators()
 		m_highlights.Sortby(inline(a){return a.depth})
+		hl_to_seek=new i64[]
 		n2=0L
 		foreach hl in m_highlights
 			if hl.discarded||hl.p0.discarded||hl.p1.discarded:continue
@@ -1478,6 +1497,32 @@ class CEditableText
 				if !hl.invertible:continue
 				(ccnt0,ccnt1)=(ccnt1,ccnt0)
 			if ccnt1<=wnd_ccnt0||ccnt0>=wnd_ccnt1:continue
+			hl_to_seek.push(ccnt0)
+			hl_to_seek.push(ccnt1)
+		m_highlights.resize(n2)
+		if hl_to_seek.n:
+			hl_to_seek.Sort()
+			hl_xys=GetXYEnMasse(hl_to_seek)
+			hl_xy_map=new long2[i64]
+			for i=0:hl_to_seek.n-1
+				hl_xy_map[hl_to_seek[i]]=long2(hl_xys[i*2+0],hl_xys[i*2+1])
+		inline projectDocumentPosition(i64 ccnt)
+			auto xy=hl_xy_map[ccnt]//XYFromCcnt(ccnt)
+			auto ret
+			if xy.y==caret_overlay.y&&xy.x>=caret_overlay.x:
+				ret=xy+long2(caret_overlay.z,0LL)
+			else
+				ret=xy
+			return float2(fixed2float(ret.x-x)*scale+scr_x,fixed2float(ret.y-y)*scale+scr_y)
+		foreach hl in m_highlights
+			ccnt0=hl.p0.ccnt
+			ccnt1=hl.p1.ccnt
+			if ccnt1==ccnt0:continue
+			if ccnt1<ccnt0:
+				if !hl.invertible:continue
+				(ccnt0,ccnt1)=(ccnt1,ccnt0)
+			if ccnt1<=wnd_ccnt0||ccnt0>=wnd_ccnt1:continue
+			if int(hl.display_mode)!=HL_DISPLAY_MODE_RECT:continue
 			xy0=projectDocumentPosition(ccnt0)
 			xy1=projectDocumentPosition(ccnt1)
 			//Writeln(xy0,' ',xy1,' ',ccnt0,' ',ccnt1)
@@ -1494,7 +1539,6 @@ class CEditableText
 				g_renderer.DrawBitmap(0, scr_x,xy0.y+hc,wf*scale,max(xy1.y-(xy0.y+hc),0.f), hl.color)
 				hc=fixed2float(GetCharacterHeightAt(ccnt1))*scale
 				g_renderer.DrawBitmap(0, scr_x,xy1.y,max(xy1.x-scr_x,0.f),hc, hl.color)
-		m_highlights.resize(n2)
 		//////////////////////////////
 		if handler.BeginRender:handler.BeginRender(obj)
 		//////////////////////////////
@@ -1533,6 +1577,35 @@ class CEditableText
 		//////////////////////////////
 		if handler.EndRender:handler.EndRender()
 		//////////////////////////////
+		//draw the emboldening / tilde highlights
+		foreach hl in m_highlights
+			ccnt0=hl.p0.ccnt
+			ccnt1=hl.p1.ccnt
+			if ccnt1==ccnt0:continue
+			if ccnt1<ccnt0:
+				if !hl.invertible:continue
+				(ccnt0,ccnt1)=(ccnt1,ccnt0)
+			if ccnt1<=wnd_ccnt0||ccnt0>=wnd_ccnt1:continue
+			mode=int(hl.display_mode)
+			if mode!=HL_DISPLAY_MODE_EMBOLDEN&&mode!=HL_DISPLAY_MODE_TILDE:continue
+			xy0=projectDocumentPosition(ccnt0)
+			if mode==HL_DISPLAY_MODE_EMBOLDEN:
+				//only embolden a single char
+				(ch0,ch1)=GetUtf8CharNeighborhood(ccnt0)
+				g_renderer.DrawChar(fnt_bold_scaled, xy0.x,xy0.y,hl.color, ch1)
+			else
+				xy1=projectDocumentPosition(ccnt1)
+				//todo: tilde for spell checks, GetCharacterHeightAt en masse
+				//if xy0.y==xy1.y:
+				//	hc=fixed2float(GetCharacterHeightAt(ccnt1))*scale
+				//	g_renderer.DrawBitmap(0, xy0.x,xy0.y,xy1.x-xy0.x,hc, hl.color)
+				//else
+				//	//draw 3 rects, we have a cliprect, don't worry
+				//	hc=fixed2float(GetCharacterHeightAt(ccnt0))*scale
+				//	g_renderer.DrawBitmap(0, xy0.x,xy0.y,max(scr_x+wf*scale-xy0.x,0.f),hc, hl.color)
+				//	g_renderer.DrawBitmap(0, scr_x,xy0.y+hc,wf*scale,max(xy1.y-(xy0.y+hc),0.f), hl.color)
+				//	hc=fixed2float(GetCharacterHeightAt(ccnt1))*scale
+				//	g_renderer.DrawBitmap(0, scr_x,xy1.y,max(xy1.x-scr_x,0.f),hc, hl.color)
 		g_renderer.PopCliprect()
 		m_caret_offset=fixed2double(handler.GetCaretOffset())
 	/////////////////////////////////////////////////
@@ -1542,7 +1615,7 @@ class CEditableText
 		m_locators.push(ret)
 		return ret
 	auto CreateHighlight(CLocator p0,CLocator p1,int depth)
-		ret=new CHLRange(){p0:p0,p1:p1,depth:depth}
+		ret=new CHLRange(){p0:p0,p1:p1,depth:i16(depth)}
 		m_highlights.push(ret)
 		return ret
 	auto XYFromCcnt(i64 ccnt)
@@ -1744,8 +1817,6 @@ class CEditableText
 		return JS.Return(ret)
 	}
 	JS_GetXYEnMasse=function(JSContext JS){
-		hid=m_handler_registration["renderer"].as(int)
-		handler=m_handlers[hid]
 		js_ccnts=JS.Param(0).as(JSObject)
 		if !js_ccnts:return JS.ReturnError("invalid ccnt array")
 		//////////
@@ -1756,22 +1827,8 @@ class CEditableText
 			ccnts[i]=js_ccnts[i].as(i64)
 			if i&&ccnts[i]<ccnts[i-1]||u64(ccnts[i])>u64(range1):
 				return JS.ReturnError("invalid location @1".Replace(["@1",string(i)]))
-		a=GetStateEnMasse(hid,ccnts)
-		szacc=m_state_ofs[hid+1]-m_state_ofs[hid]
-		stypes=new char[n*2]
-		reti=new i64[n*2]
-		for i=0:n-1
-			stypes[i*2+0]='d'
-			stypes[i*2+1]='d'
-			if handler.GetXYFromState:
-				xy=handler.GetXYFromState(a[szacc*i:szacc*i+szacc-1])
-				x=xy.x
-				y=xy.y
-			else
-				x=a[0]
-				y=a[1]
-			reti[i*2+0]=x
-			reti[i*2+1]=y
+		reti=GetXYEnMasse(ccnts)
+		stypes=['d' for i=0:reti.n-1]
 		ret=DecodeStateArray(JS,reti,stypes)
 		return JS.Return(ret)
 	}
@@ -1787,6 +1844,8 @@ class CEditableText
 				l=i64(d)
 			else if stypes[i]=='d':
 				l=double2fixed(d)
+			else if stypes[i]=='i':
+				l=i64(i32(d))
 			else
 				return i64[].NULL
 			ret[i]=l
@@ -1802,6 +1861,8 @@ class CEditableText
 			ch_type=stypes[min(i,stypes.n-1)]
 			if ch_type=='l':
 				d=double(l)
+			else if ch_type=='i':
+				d=double(i32(l))
 			else if ch_type=='d':
 				d=fixed2double(l)
 			else
@@ -1930,6 +1991,10 @@ class CEditableText
 				fcheck=function(int c0,int c1){return c1!=' '&&c1!='\t'}
 		else if stype=="word_boundary":
 			fcheck=function(int c0,int c1){return isWordChar(c0)!=isWordChar(c1)}
+		else if stype=="word_boundary_left":
+			fcheck=function(int c0,int c1){return !isWordChar(c0)&&isWordChar(c1)}
+		else if stype=="word_boundary_right":
+			fcheck=function(int c0,int c1){return isWordChar(c0)&&!isWordChar(c1)}
 		else if stype=="ctrl_lr_stop":
 			fcheck=function(int c0,int c1){return !isWordChar(c0)&&isWordChar(c1)||c1=='\n'}
 		else if stype=="invisible_boundary":

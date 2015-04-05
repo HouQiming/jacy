@@ -7084,7 +7084,7 @@ module Algorithm
 										if is_svs2:
 											svs2.resize(svs2.n+nsave)
 											psvs=svs2.d+pcs2_ptr*nsave
-											__basic_api.memcpy(__pointer(svs2.d+svs2.n-nsave),psvs,nsave*sizeof(iptr))
+											__basic_api.memcpy(__pointer(svs2.d+svs2.n-nsave),__pointer(psvs),nsave*sizeof(iptr))
 										else
 											svs2.push(psvs,nsave)
 								else
@@ -8958,7 +8958,7 @@ module Env
 					if pexpand>=0:
 						envz=new(aa[:pexpand-1])
 						envz.push(char(0))
-						ret.push(pcharToString(getenv(envz)))
+						ret.push(pcharToString(__pointer(iptr(getenv(envz)))))
 						envz.discard()
 					else
 						ret.push(aa)

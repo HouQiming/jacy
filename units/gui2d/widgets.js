@@ -594,6 +594,9 @@ UI.m_editor_plugins=[]
 UI.RegisterEditorPlugin=function(fplugin){
 	UI.m_editor_plugins.push(fplugin)
 }
+UI.HL_DISPLAY_MODE_RECT=0
+UI.HL_DISPLAY_MODE_EMBOLDEN=1
+UI.HL_DISPLAY_MODE_TILDE=2
 W.Edit_prototype={
 	plugin_class:'widget',
 	//////////
@@ -765,29 +768,26 @@ W.Edit_prototype={
 	OnChange:function(){},
 	OnSelectionChange:function(){},
 	/////////////////
+	CallHooks:function(name){
+		var hk=this.m_event_hooks[name];
+		for(var i=0;i<hk.length;i++){
+			hk[i].call(this)
+		}
+	},
 	CallOnChange:function(){
 		this.caret_is_wrapped=0;
 		this.AutoScroll('show')
-		var hk=this.m_on_change_hooks;
-		for(var i=0;i<hk.length;i++){
-			hk[i].call(this)
-		}
+		this.CallHooks('change')
 		this.OnChange(this);
-		
 	},
 	CallOnSelectionChange:function(){
-		var hk=this.m_on_selection_change_hooks;
-		for(var i=0;i<hk.length;i++){
-			hk[i].call(this)
-		}
+		this.CallHooks('selectionChange')
 		this.OnSelectionChange(this);
 	},
 	/////////////////
 	AddEventHandler:function(s_key,faction){
-		if(s_key=="selectionChange"){
-			this.m_on_selection_change_hooks.push(faction)
-		}else if(s_key=="change"){
-			this.m_on_change_hooks.push(faction)
+		if(this.m_event_hooks[s_key]){
+			this.m_event_hooks[s_key].push(faction)
 		}else{
 			this.m_additional_hotkeys.push({'key':s_key,'action':faction})
 		}
@@ -831,13 +831,22 @@ W.Edit_prototype={
 		if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
 		return [ccnt0,ccnt1];
 	},
+	CreateTransientHighlight:function(attrs){
+		var ed=this.ed
+		var p0=ed.CreateLocator(0,-1);p0.undo_tracked=0;
+		var p1=ed.CreateLocator(0,-1);p1.undo_tracked=0;
+		var hl=ed.CreateHighlight(p0,p1);
+		for(var key in attrs){
+			hl[key]=attrs[key]
+		}
+		return [p0,p1,hl]
+	},
 	Init:function(){
 		var ed=this.ed;
 		if(!ed){
 			//don't allow plugins to extend state_handlers for now
 			this.m_additional_hotkeys=(this.additional_hotkeys||[])
-			this.m_on_change_hooks=[]
-			this.m_on_selection_change_hooks=[]
+			this.m_event_hooks={'selectionChange':[],'change':[],'editorCreate':[],'afterRender':[]}
 			var plugins=UI.m_editor_plugins;
 			for(var i=0;i<plugins.length;i++){
 				plugins[i].call(this)
@@ -857,6 +866,7 @@ W.Edit_prototype={
 			this.sel_hl.color=this.bgcolor_selection;
 			this.sel_hl.invertible=1;
 			ed.m_caret_locator=this.sel1;
+			this.CallHooks('editorCreate')
 		}
 	},
 	OnTextEdit:function(event){
@@ -914,7 +924,11 @@ W.Edit_prototype={
 			var hki=hk[i]
 			if(IsHotkey(event,hki.key)){
 				if(!hki.action.call(this,hki.key)){
-					//0 for cancel
+					//return 0 for "cancel default"
+					if(sel0_ccnt!=sel0.ccnt||sel1_ccnt!=sel1.ccnt){
+						this.CallOnSelectionChange()
+					}
+					UI.Refresh()
 					return;
 				}
 			}
@@ -1081,8 +1095,8 @@ W.Edit_prototype={
 		var ccnt_clicked=this.SeekXY(x0,y0);
 		if(event.clicks==2){
 			//double-click
-			this.sel0.ccnt=this.SnapToValidLocation(this.ed.MoveToBoundary(this.ed.SnapToCharBoundary(Math.max(this.SkipInvisibles(ccnt_clicked,-1)-1,0),-1),-1,"word_boundary"),-1)
-			this.sel1.ccnt=this.SnapToValidLocation(this.ed.MoveToBoundary(this.ed.SnapToCharBoundary(Math.min(this.SkipInvisibles(ccnt_clicked,1)+1,this.ed.GetTextSize()),1),1,"word_boundary"),1)
+			this.sel0.ccnt=this.SnapToValidLocation(this.ed.MoveToBoundary(this.ed.SnapToCharBoundary(Math.max(this.SkipInvisibles(ccnt_clicked,-1),0),-1),-1,"word_boundary_left"),-1)
+			this.sel1.ccnt=this.SnapToValidLocation(this.ed.MoveToBoundary(this.ed.SnapToCharBoundary(Math.min(this.SkipInvisibles(ccnt_clicked,1),this.ed.GetTextSize()),1),1,"word_boundary_right"),1)
 			UI.Refresh()
 			return
 		}
@@ -1148,6 +1162,7 @@ W.Edit=function(id,attrs,proto){
 		obj.sel_hl.color=0
 	}
 	ed.Render({x:scroll_x,y:scroll_y,w:obj.w/obj.scale,h:obj.h/obj.scale, scr_x:obj.x*UI.pixels_per_unit,scr_y:obj.y*UI.pixels_per_unit, scale:scale, obj:obj});
+	obj.CallHooks('afterRender')
 	if(obj.read_only){
 		obj.sel_hl.color=bkcolor
 		return obj

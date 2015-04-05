@@ -1509,7 +1509,7 @@ UI.ReleaseMouse=function(attrs){
 	}
 }
 
-UI.SetFocus=function(obj){
+UI.SetFocus=function(obj,is_own_call){
 	if(UI.nd_focus!=obj){
 		var old_focus=UI.nd_focus;
 		if(UI.nd_focus){
@@ -1518,6 +1518,9 @@ UI.SetFocus=function(obj){
 		UI.nd_focus=obj;
 		if(obj){
 			UI.CallIfAvailable(obj,"OnFocus",old_focus)
+			if(!is_own_call){
+				UI.context_focus_is_a_region=1;
+			}//if it's set explicitly, assume it's valid for the current frame
 		}
 	}
 	if(obj&&obj.OnTextInput){
@@ -1598,6 +1601,7 @@ UI.DrawFrame=function(){
 	UI.need_to_refresh=0;
 	UI.BeginFrame();
 	UI.m_frame_tick=Duktape.__ui_get_tick()
+	//print("UI.context_focus_is_a_region=0")
 	UI.context_focus_is_a_region=0;
 	UI.context_paint_queue=[];
 	UI.context_hotkeys=[];
@@ -1631,7 +1635,7 @@ UI.DrawFrame=function(){
 		UI.SDL_StopTextInput()
 	}
 	if(!UI.nd_focus&&UI.context_tentative_focus){
-		UI.SetFocus(UI.context_tentative_focus);
+		UI.SetFocus(UI.context_tentative_focus,1);
 		UI.Refresh();
 	}
 	UI.EndFrame();
