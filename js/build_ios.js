@@ -143,10 +143,10 @@ g_action_handlers.make=function(){
 	if(g_build!="debug"||g_config.IOS_USE_REAL_PHONE){
 		//sshell.push('security list-keychains -s login.keychain;')
 		//sshell.push('security default-keychain -s login.keychain;')
-		//todo: prompt for pwd instead?
+		//todo: prompt for pwd instead? could find a local-only solution
 		sshell.push('security unlock-keychain -p \'\' login.keychain;')
 	}
-	//todo: sudo case
+	//todo: sudo case - add that for the first local run?
 	if(g_build!="debug"){
 		sshell.push('xcodebuild -sdk iphoneos -configuration Release build OTHER_CFLAGS=\'${inherited} -DNEED_MAIN_WRAPPING -std=c99 -w -I${HOME}/pmenv/include\';')
 	}else{

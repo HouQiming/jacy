@@ -2139,6 +2139,9 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 		else
 			return JS.Return(ret)
 	}
+	JS_UI["IsWordChar"]=function(JSContext JS){
+		return JS.Return(isWordChar(JS.Param(0).as(int)))
+	}
 })
 
 registerStateHandler("renderer_baseline",CLayouter_baseline)

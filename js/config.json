@@ -12,6 +12,7 @@ return {
 	"ADK_PATH":g_root+"/osslib/android",
 	"SDL_PATH":g_root+"/osslib",
 	"IOS_SKELETON_PATH":g_root+"/osslib/ios/skeleton_project",
+	"MAC_SKELETON_PATH":g_root+"/osslib/mac/skeleton_project",
 	"MKL_PATH":"C:/Program Files (x86)/Intel/Composer XE/mkl",
 	"IOS_USE_REAL_PHONE":1,
 	"BULLET_PATH":"C:/tp/osslib/bullet-2.82-r2704",

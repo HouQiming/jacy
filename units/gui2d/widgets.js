@@ -276,6 +276,14 @@ UI.ChooseScalingFactor=function(obj){
 	//UI.LoadStaticImages=null;
 };
 
+UI.ReportSDLResolutionLies=function(lying_by){
+	UI.SDL_bad_coordinate_corrector=lying_by
+	UI.pixels_per_unit*=lying_by
+	UI.ResetRenderer(UI.pixels_per_unit);
+	UI.LoadStaticImages(UI.rc);
+	return 0;
+}
+
 W.Window=function(id,attrs){
 	var obj=UI.Keep(id,attrs);
 	//the dpi is not per-inch,
@@ -702,6 +710,10 @@ W.Edit_prototype={
 		var ed=this.ed;
 		return ed.Bisect(ed.m_handler_registration["line_column"],[line,column],"ll");
 	},
+	SeekLineBelowKnownPosition:function(ccnt_known,line_known,line_new){
+		var ed=this.ed;
+		return ed.Bisect(ed.m_handler_registration["line_column"],[line_new,0, line_known,ccnt_known],"llll");
+	},
 	GetLC:function(ccnt){
 		var ed=this.ed;
 		return ed.GetStateAt(ed.m_handler_registration["line_column"],ccnt,"ll");
@@ -770,7 +782,7 @@ W.Edit_prototype={
 	/////////////////
 	CallHooks:function(name){
 		var hk=this.m_event_hooks[name];
-		for(var i=0;i<hk.length;i++){
+		for(var i=hk.length-1;i>=0;i--){
 			hk[i].call(this)
 		}
 	},
@@ -779,10 +791,12 @@ W.Edit_prototype={
 		this.AutoScroll('show')
 		this.CallHooks('change')
 		this.OnChange(this);
+		this.m_user_just_typed_char=0
 	},
 	CallOnSelectionChange:function(){
 		this.CallHooks('selectionChange')
 		this.OnSelectionChange(this);
+		this.m_user_just_typed_char=0
 	},
 	/////////////////
 	AddEventHandler:function(s_key,faction){
@@ -875,18 +889,22 @@ W.Edit_prototype={
 	},
 	OnTextInput:function(event){
 		var ed=this.ed;
-		var ccnt0=this.sel0.ccnt;
-		var ccnt1=this.sel1.ccnt;
+		var ccnt0=this.sel0.ccnt;var sel0_ccnt=ccnt0
+		var ccnt1=this.sel1.ccnt;var sel1_ccnt=ccnt1
 		if(ccnt0>ccnt1){var tmp=ccnt1;ccnt1=ccnt0;ccnt0=tmp;}
 		var ops=[ccnt0,ccnt1-ccnt0,event.text];
 		if(event.text.length==1&&!event.is_paste){
 			//ASCII key events
 			var hk=this.m_additional_hotkeys;
-			for(var i=0;i<hk.length;i++){
+			for(var i=hk.length-1;i>=0;i--){
 				var hki=hk[i]
 				if(event.text==hki.key){
 					if(!hki.action.call(this,hki.key)){
 						//0 for cancel
+						if(sel0_ccnt!=this.sel0.ccnt||sel1_ccnt!=this.sel1.ccnt){
+							this.CallOnSelectionChange()
+						}
+						UI.Refresh()
 						return;
 					}
 				}
@@ -899,6 +917,7 @@ W.Edit_prototype={
 		this.sel1.ccnt=ops[0]+lg;
 		this.AutoScroll("show");
 		this.CallOnChange();
+		this.m_user_just_typed_char=1;
 		UI.Refresh()
 	},
 	OnKeyDown:function(event){
@@ -920,9 +939,9 @@ W.Edit_prototype={
 			UI.Refresh();
 		};
 		var hk=this.m_additional_hotkeys;
-		for(var i=0;i<hk.length;i++){
+		for(var i=hk.length-1;i>=0;i--){
 			var hki=hk[i]
-			if(IsHotkey(event,hki.key)){
+			if(hki.key.length!=1&&IsHotkey(event,hki.key)){
 				if(!hki.action.call(this,hki.key)){
 					//return 0 for "cancel default"
 					if(sel0_ccnt!=sel0.ccnt||sel1_ccnt!=sel1.ccnt){
@@ -2007,7 +2026,7 @@ W.ListView=function(id,attrs){
 	obj.dim_tot=dim_tot
 	obj.selection={};obj.selection['$'+obj.value]=1
 	UI.RoundRect(obj);
-	W.PureRegion(id,obj)//region goes before children
+	if(!obj.no_region){W.PureRegion(id,obj)}//region goes before children
 	UI.PushCliprect(obj.x,obj.y,obj.w,obj.h)
 	if(!obj.dragging_samples){obj.Simulate()}
 	W.PureGroup(obj,"temp")
@@ -2019,16 +2038,18 @@ W.ListView=function(id,attrs){
 			var obj_item_i=obj[id_i]
 			if(!obj_item_i||obj_item_i.no_click_selection){continue;}
 			var id_click_sel="$C"+i.toString();
-			W.Region(id_click_sel,{x:obj_item_i.x,y:obj_item_i.y,w:obj_item_i.w,h:obj_item_i.h,
-				numerical_id:i,
-				OnClick:function(event){
-					obj.OnChange(this.numerical_id)
-					if(obj.is_single_click_mode||event.clicks>1){
-						obj["$"+this.numerical_id.toString()].OnDblClick();
-					}
-					UI.Refresh()
-				},
-			})
+			if(!obj.no_region){
+				W.Region(id_click_sel,{x:obj_item_i.x,y:obj_item_i.y,w:obj_item_i.w,h:obj_item_i.h,
+					numerical_id:i,
+					OnClick:function(event){
+						obj.OnChange(this.numerical_id)
+						if(obj.is_single_click_mode||event.clicks>1){
+							obj["$"+this.numerical_id.toString()].OnDblClick();
+						}
+						UI.Refresh()
+					},
+				})
+			}
 		}
 		if(obj.has_scroll_bar){
 			//associated scrollbar

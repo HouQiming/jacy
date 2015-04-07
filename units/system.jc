@@ -6123,6 +6123,9 @@ module OS_API
 		if Platform.IS_WINDOWS:
 			fseek=__c_function(int,"_fseeki64","stdio.h")
 			ftell=__c_function(iptr,"_ftelli64","stdio.h")
+		else if Platform.IS_APPLE:
+			fseek=__c_function(int,"fseek","stdio.h")
+			ftell=__c_function(iptr,"ftell","stdio.h")
 		else
 			fseek=__c_function(int,"fseek64","stdio.h")
 			ftell=__c_function(iptr,"ftell64","stdio.h")

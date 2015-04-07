@@ -1681,6 +1681,7 @@ UI.DestroyWindow=function(obj){
 
 UI.m_poll_jobs=[]
 UI.NextTick=function(f){UI.m_poll_jobs.push(UI.HackCallback(f))}
+UI.SDL_bad_coordinate_corrector=1;
 UI.Run=function(){
 	if(!UI.is_real){return;}
 	var event=null;
@@ -1848,6 +1849,8 @@ UI.Run=function(){
 			case UI.SDL_MOUSEMOTION:
 			case UI.SDL_MOUSEBUTTONDOWN:
 			case UI.SDL_MOUSEBUTTONUP:
+				event.x*=UI.SDL_bad_coordinate_corrector
+				event.y*=UI.SDL_bad_coordinate_corrector
 				if(t_kill_mousedown==event.timestamp&&event.type==UI.SDL_MOUSEBUTTONDOWN){
 					//filter out the bogus mousedowns sent by SDL
 					break

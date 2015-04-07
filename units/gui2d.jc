@@ -725,7 +725,7 @@ class CRenderer
 	auto SwitchToSubWindow(int x0,int y0,int w0,int h0,int is_relative,int is_pop)
 		ww=0
 		hw=0
-		SDL.detail.SDL_GetWindowSize(m_hwnd,&ww,&hw)
+		SDL.detail.SDL_GL_GetDrawableSize(m_hwnd,&ww,&hw)
 		x=x0
 		y=y0
 		w=w0
@@ -1515,7 +1515,7 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 		}
 		JS_UI["ResetRenderer"]=function(JSContext JS){
 			g_renderer.SetScalingFactor(JS.Param(0).or(1.f))
-			g_renderer.m_gamma=JS.Param(1).or(2.2f)
+			g_renderer.m_gamma=JS.Param(1).or(g_renderer.m_gamma)
 			return 0
 		}
 		JS_UI["SetPixelsPerUnit"]=function(JSContext JS){
@@ -1535,7 +1535,7 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			auto hwnd=JS.Param(0).or(NULL)
 			w=0
 			h=0
-			SDL.detail.SDL_GetWindowSize(hwnd,&w,&h)
+			SDL.detail.SDL_GL_GetDrawableSize(hwnd,&w,&h)
 			if !w||!h:return 0
 			g_renderer.BeginPaint(hwnd,f32(w),f32(h))
 			obj=JS.Param(1).as(JSObject)
@@ -1562,7 +1562,7 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			glGetIntegerv(GL_VIEWPORT,__pointer(prev_viewport.d));
 			ww=0
 			hw=0
-			SDL.detail.SDL_GetWindowSize(g_renderer.m_hwnd,&ww,&hw)
+			SDL.detail.SDL_GL_GetDrawableSize(g_renderer.m_hwnd,&ww,&hw)
 			x=prev_viewport[0]
 			y=prev_viewport[1]
 			w=prev_viewport[2]
