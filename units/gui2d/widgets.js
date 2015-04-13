@@ -2027,7 +2027,7 @@ W.ListView=function(id,attrs){
 	obj.selection={};obj.selection['$'+obj.value]=1
 	UI.RoundRect(obj);
 	if(!obj.no_region){W.PureRegion(id,obj)}//region goes before children
-	UI.PushCliprect(obj.x,obj.y,obj.w,obj.h)
+	if(!obj.no_clipping){UI.PushCliprect(obj.x,obj.y,obj.w,obj.h)}
 	if(!obj.dragging_samples){obj.Simulate()}
 	W.PureGroup(obj,"temp")
 	//forced clicksel
@@ -2080,7 +2080,7 @@ W.ListView=function(id,attrs){
 			}
 		}
 	UI.End()
-	UI.PopCliprect()
+	if(!obj.no_clipping){UI.PopCliprect()}
 	return obj;
 }
 

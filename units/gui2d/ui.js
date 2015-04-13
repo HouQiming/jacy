@@ -1596,10 +1596,12 @@ if(!UI.is_real){
 
 UI.frame_callbacks=[];
 UI.CallNextFrame=function(f){UI.frame_callbacks.push(f)}
+UI.m_frame_tick=Duktape.__ui_get_tick();
 UI.DrawFrame=function(){
 	//the main painting loop
 	UI.need_to_refresh=0;
 	UI.BeginFrame();
+	UI.m_last_frame_tick=UI.m_frame_tick
 	UI.m_frame_tick=Duktape.__ui_get_tick()
 	//print("UI.context_focus_is_a_region=0")
 	UI.context_focus_is_a_region=0;

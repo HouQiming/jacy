@@ -1535,9 +1535,16 @@ class CEditableText
 		return (ch0,ch1)
 	/////////////////
 	JS_Edit=function(JSContext JS){
+		is_raw=JS.Param(1).or(0)
+		native_ops=JS.Param(0).as(TEditop[])
+		if native_ops:
+			if is_raw:
+				RawEdit(native_ops)
+			else
+				Edit(native_ops)
+			return 0
 		js_ops=JS.Param(0).as(JSObject)
 		if !js_ops:return 0
-		is_raw=JS.Param(1).or(0)
 		n=iptr(js_ops["length"].as(double))
 		if !(n>0)||(n%3):
 			return JS.ReturnError("bad operation array length @1".Replace(["@1",string(n)]))
