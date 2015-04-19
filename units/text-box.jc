@@ -1190,7 +1190,7 @@ class CEditableText
 			if bop_current.sz||bop_current.ss:
 				bops.push(bop_current)
 				bop_current=TBlockOp()
-				Writeln('after push: ',iptr(bop_current.ss))//todo
+				//Writeln('after push: ',iptr(bop_current.ss))
 			s_pool=new string
 			s_pool_last_newline=0L
 		foreach op in ops
