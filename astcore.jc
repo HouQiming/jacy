@@ -14,6 +14,7 @@ ENABLE_DEADELIM=1
 DEBUG_MONITOR_REACH=0
 DEBUG_REACH_LOG=0
 DEBUG_EVAL_LOG=0
+DEBUG_DUMP_LAMBDA=1//todo: 0
 DEBUG_DUMP_RC=0
 DEBUG_DUMP_FLATTEN=0
 DEBUG_DUMP_USER_FLAGS=0
@@ -2477,6 +2478,19 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_C_get_struct_slot,__zero(fcompiler_callback),__zero(fcompiler_callback),fget_struct_slot_cgen,FFLAG_SPECIAL)
+	frezero_struct_slot_cgen=function(PExpression pecall,int expr_oplevel){
+		pe_target=readPool(pecall+EXPR_OFS_ARGS+0)
+		t=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
+		assert(!expr_oplevel)
+		g_code_buffer.push('memset(')
+		genCode(pe_target,LEVEL_ASSIGNMENT)
+		g_code_buffer.push(',0,sizeof(')
+		genType(t)
+		g_code_buffer.pop()
+		g_code_buffer.push('))')
+		return TSCCPValue(){'tid':g_vtid_UNINIT}
+	}
+	registerPrimitive(g_id_C_rezero_struct_slot,__zero(fcompiler_callback),__zero(fcompiler_callback),frezero_struct_slot_cgen,FFLAG_SPECIAL)
 	//create a tuple type and new it
 	registerPrimitive(g_id_uninit,__zero(fcompiler_callback),fdummy_callback,__zero(fcompiler_callback),FFLAG_SPECIAL)
 	ftuple_oneval=function(PExpression pecall,int expr_oplevel){
@@ -9463,6 +9477,8 @@ auto translateLambdas()
 							if isValueZero(val_value)||isBuiltin(pe_value,g_id_uninit):
 								//another empty struct ctor case -- deadelim handled it?
 								//first zero assignment, remove it
+								if DEBUG_DUMP_LAMBDA:
+									Writeln('first zero nop: ',dumpExpr(pecaller,__zero(fcolorer_callback)))
 								setnop(pecaller)
 								return
 					if isBuiltin(pe_value,g_id_ldparam):
@@ -9505,6 +9521,9 @@ auto translateLambdas()
 			//		writePool(pobj_var+VAR_OFS_USER_FLAGS,readPool(pobj_var+VAR_OFS_USER_FLAGS)&~VAR_USER_FLAG_STORED)
 			//	store_flagged_vars.resize(class_cleanup_to)
 	dfs_replace_lambdaed(g_pe_top,0,0)
+	if DEBUG_DUMP_LAMBDA:
+		Writeln('>>> after dfs_replace_lambdaed')
+		Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
 	//Writeln('--- 4')
 	//generate the context classes
 	szptr=Util.bitSize()>>3
@@ -9684,10 +9703,15 @@ auto translateLambdas()
 				writePool(pe_new+EXPR_OFS_VALUE,readPool(pe+EXPR_OFS_VALUE))
 				writePool(pe_new+EXPR_OFS_VALUE+1,readPool(pe+EXPR_OFS_VALUE+1))
 				//Writeln('SHIT! ',dumpExpr(pe_new,__zero(fcolorer_callback)),' ',pobjfn?string(tisstruct(pobjfn))+" "+string(tisstruct(pobjfn)&&isCtorEmpty(pobjfn)):"")
-				if pobjfn&&tisstruct(pobjfn)&&isCtorEmpty(pobjfn,1):
-					//remove empty ctors
-					//Writeln('ctor removed ',dumpExpr(pe_new,__zero(fcolorer_callback)))
-					setnop_jobs.push(pe_new)
+				if pobjfn&&tisstruct(pobjfn):
+					if isCtorEmpty(pobjfn,1):
+						//remove empty ctors
+						//Writeln('ctor removed ',dumpExpr(pe_new,__zero(fcolorer_callback)))
+						setnop_jobs.push(pe_new)
+					if replace_caller:
+						//if we replace the caller with a ctor call, we need to zero it as well
+						pe_target_zeroing=cloneExpr(pe_target)
+						pe_new=call(g_id_block,call(g_id_C_rezero_struct_slot,pe_target_zeroing,exprctval(pobjfn)),pe_new)
 				//else
 				//	Writeln('ctor kept ',dumpExpr(pe_new,__zero(fcolorer_callback)))
 				//Write('>>> ');Writeln(dumpExpr(pe_new,fcolor_abbrv_blocks))
@@ -10207,6 +10231,8 @@ auto translateLambdas()
 				implementMemcpy(t)
 				pecaller=readPool(pe+EXPR_OFS_CALLER)
 				sccpQueueReach(insertCallAt(pecaller,pe,function(PExpression pe){return vcall(g_id_block,as_memcpy)}))
+				if DEBUG_DUMP_LAMBDA:
+					Writeln('gen memcpy: ',dumpExpr(pe,__zero(fcolorer_callback)))
 				setnop(pe)
 				return
 			n_args=(flags&~EFLAG_MASK)

@@ -1190,6 +1190,7 @@ class CEditableText
 			if bop_current.sz||bop_current.ss:
 				bops.push(bop_current)
 				bop_current=TBlockOp()
+				Writeln('after push: ',iptr(bop_current.ss))//todo
 			s_pool=new string
 			s_pool_last_newline=0L
 		foreach op in ops
@@ -1235,8 +1236,10 @@ class CEditableText
 			if op.s:poolString(op.s)
 		flush()
 		//Writeln(ops)
-		//Writeln('---------------------------------------------------------')
 		//Writeln(bops)
+		//Writeln('---------------------------------------------------------')
+		//foreach bop in bops
+		//	Writeln(bop.ccnt,' ',bop.sz,' ',iptr(bop.ss))
 		//block replace -> skiplist edit
 		if m_skiplist.ccnt:
 			nds_pc=BlockEdit(0,m_skiplist,0LL,bops)
@@ -1982,13 +1985,30 @@ class CEditableText
 		if u64(ccnt)>u64(range1):return 0
 		return JS.Return(IsAtLineWrap(ccnt))
 	}
-	JS_MoveToBoundary=function(JSContext JS){
-		ccnt=JS.Param(0).or(0LL)
-		range1=GetTextSize()
-		if u64(ccnt)>u64(range1):return 0
-		direction=JS.Param(1).or(1)
-		stype=JS.Param(2).or("space")
-		limit=JS.Param(3).or(65536)
+	auto MoveToBoundary(i64 ccnt,int direction,function(int,int):int fcheck,int limit0)
+		limit=limit0
+		(ch0,ch1)=GetUtf8CharNeighborhood(ccnt)
+		if direction<0:
+			ch0=ch1
+			ccnti_previous=ccnt
+			foreach ch,ccnti in enumUtf8Backward(ccnt)
+				ch1=ch0
+				ch0=ch
+				if fcheck(ch0,ch1):return (ccnti_previous)
+				limit--
+				if limit<=0:return (ccnti_previous)
+				ccnti_previous=ccnti
+			return (0LL)
+		else
+			ch1=ch0
+			foreach ch,ccnti in enumUtf8Forward(ccnt)
+				ch0=ch1
+				ch1=ch
+				if fcheck(ch0,ch1):return (ccnti)
+				limit--
+				if limit<=0:return (ccnti)
+			return (GetTextSize())
+	auto GetStockFCheck(string stype,int direction)
 		if stype=="space":
 			if direction<0:
 				fcheck=function(int c0,int c1){return c0!=' '&&c0!='\t'}
@@ -2006,35 +2026,26 @@ class CEditableText
 			hid=m_handler_registration["renderer"].as(int)
 			handler=m_handlers[hid]
 			if !handler.IsCharInvisible:
-				return JS.Return(ccnt)
-			if direction<0:
+				fcheck=function(int c0,int c1){return 1}
+				//return JS.Return(ccnt)
+			else if direction<0:
 				fcheck=function(int c0,int c1){return !handler.IsCharInvisible(c0)}
 			else
 				fcheck=function(int c0,int c1){return !handler.IsCharInvisible(c1)}
 		else
-			return 0
+			fcheck=function(int c0,int c1){return 1}
+		return fcheck
+	JS_MoveToBoundary=function(JSContext JS){
+		ccnt=JS.Param(0).or(0LL)
+		range1=GetTextSize()
+		if u64(ccnt)>u64(range1):return 0
+		direction=JS.Param(1).or(1)
+		stype=JS.Param(2).or("space")
+		limit=JS.Param(3).or(65536)
+		fcheck=GetStockFCheck(stype,direction)
+		if !fcheck:return 0
 		//boundary types: word, space, ctrl-lr
-		(ch0,ch1)=GetUtf8CharNeighborhood(ccnt)
-		if direction<0:
-			ch0=ch1
-			ccnti_previous=ccnt
-			foreach ch,ccnti in enumUtf8Backward(ccnt)
-				ch1=ch0
-				ch0=ch
-				if fcheck(ch0,ch1):return JS.Return(ccnti_previous)
-				limit--
-				if limit<=0:return JS.Return(ccnti_previous)
-				ccnti_previous=ccnti
-			return JS.Return(0LL)
-		else
-			ch1=ch0
-			foreach ch,ccnti in enumUtf8Forward(ccnt)
-				ch0=ch1
-				ch1=ch
-				if fcheck(ch0,ch1):return JS.Return(ccnti)
-				limit--
-				if limit<=0:return JS.Return(ccnti)
-			return JS.Return(GetTextSize())
+		return JS.Return(MoveToBoundary(ccnt,direction,fcheck,limit))
 	}
 	JS_GetUtf8CharNeighborhood=function(JSContext JS){
 		ccnt=JS.Param(0).or(0LL)

@@ -860,7 +860,11 @@ W.Edit_prototype={
 		if(!ed){
 			//don't allow plugins to extend state_handlers for now
 			this.m_additional_hotkeys=(this.additional_hotkeys||[])
-			this.m_event_hooks={'selectionChange':[],'change':[],'editorCreate':[],'afterRender':[]}
+			if(!this.m_event_hooks){this.m_event_hooks={}}
+			this.m_event_hooks['selectionChange']=[]
+			this.m_event_hooks['change']=[]
+			this.m_event_hooks['editorCreate']=[]
+			this.m_event_hooks['afterRender']=[]
 			var plugins=UI.m_editor_plugins;
 			for(var i=0;i<plugins.length;i++){
 				plugins[i].call(this)

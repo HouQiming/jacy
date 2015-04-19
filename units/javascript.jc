@@ -619,20 +619,22 @@ module duktape
 		inline ExportGetterSetter(self,sname,fgetter,fsetter)
 			T_class=typeof(self)
 			prop=m_jsctx.New()
-			prop["get"]=function(JSContext JS){
-				js_this=JS.GetThis();
-				if !js_this:return 0
-				native_this=js_this.as(T_class)
-				if !native_this:return 0
-				return fgetter.Bind(native_this)(JS)
-			}
-			prop["set"]=function(JSContext JS){
-				js_this=JS.GetThis();
-				if !js_this:return 0
-				native_this=js_this.as(T_class)
-				if !native_this:return 0
-				return fsetter.Bind(native_this)(JS)
-			}
+			if fgetter:
+				prop["get"]=function(JSContext JS){
+					js_this=JS.GetThis();
+					if !js_this:return 0
+					native_this=js_this.as(T_class)
+					if !native_this:return 0
+					return fgetter.Bind(native_this)(JS)
+				}
+			if fsetter:
+				prop["set"]=function(JSContext JS){
+					js_this=JS.GetThis();
+					if !js_this:return 0
+					native_this=js_this.as(T_class)
+					if !native_this:return 0
+					return fsetter.Bind(native_this)(JS)
+				}
 			m_jsctx.GetGlobal()["Object"]["defineProperty"].Call(JSObject,this,sname,prop)
 		
 JSContext=duktape.JSContext

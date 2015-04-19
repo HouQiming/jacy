@@ -1149,6 +1149,7 @@ g_id_module=getid("module")
 g_id_C_union=getid("__C_union")
 g_id_C_declare_struct_slots=getid("__C_declare_struct_slots")
 g_id_C_get_struct_slot=getid("__C_get_struct_slot")
+g_id_C_rezero_struct_slot=getid("__C_rezero_struct_slot")
 /////////////////////
 //rc
 g_id_addref=getid("__rc_addref")

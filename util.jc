@@ -3,6 +3,23 @@ import System.Algorithm.*
 import System.Console.*
 DEBUG_ANSI_COLOR_IN_OUTPUT=0
 
+//note: this is NOT memory efficient!
+//linked list of sorted pair arrays... slow lookup
+//simple abandoned hashes + freelist
+//and the freelist could be put in the same array...
+//it's too much, better do an int-heap "mode" or something
+CSharedMemberHash=new int[int2]
+
+/////////////////////////////
+g_bit_size=32
+inline bitSize(){return g_bit_size}
+
+//////////////////////////////////////
+//global object id
+//g_oid_counter=0
+//inline int OID()
+//	return ++g_oid_counter
+
 /////////////////////////////
 //various specialized hashes
 class CUniqueIDProvider(TTraits)
@@ -74,23 +91,6 @@ class CUniqueIDProvider(TTraits)
 		this.a[slot]=traits.createNew(key,h)
 		this.n++
 		return this.a[slot]
-
-//note: this is NOT memory efficient!
-//linked list of sorted pair arrays... slow lookup
-//simple abandoned hashes + freelist
-//and the freelist could be put in the same array...
-//it's too much, better do an int-heap "mode" or something
-CSharedMemberHash=new int[int2]
-
-/////////////////////////////
-g_bit_size=32
-inline bitSize(){return g_bit_size}
-
-//////////////////////////////////////
-//global object id
-//g_oid_counter=0
-//inline int OID()
-//	return ++g_oid_counter
 
 //////////////////////////////////////
 //symbol table

@@ -23,7 +23,6 @@ class ITextStateHandler
 	//The "add" function must be associative
 	//The result should be written to "a"
 	//if AddBlock returns anything... it's considered as a per-block cache
-	//todo: request context, eof block detection
 	function(CEditableText caller,i64[] a,string s):i64[] PreprocessBlock
 	function(i64[] a,i64[] pp,string s,iptr ofs) AddString
 	function(i64[] a,i64[] b) Add
