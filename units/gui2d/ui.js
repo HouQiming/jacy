@@ -1817,13 +1817,16 @@ UI.Run=function(){
 				if(event.type==UI.SDL_KEYDOWN){
 					var hotkeys=UI.context_hotkeys;
 					var lg=hotkeys.length;
+					var hotkeyed=0;
 					for(var i=lg-1;i>=0;i--){
 						var attrs=hotkeys[i];
-						if(UI.IsHotkey(event,attrs.key)){
+						if(attrs.key&&UI.IsHotkey(event,attrs.key)){
 							attrs.action();
+							hotkeyed=1
 							break;
 						}
 					}
+					if(hotkeyed){break;}
 				}
 				//keyboard focus
 				if(UI.nd_focus){
@@ -1837,6 +1840,19 @@ UI.Run=function(){
 				UI.inside_IME=(event.text.length>0)
 				break
 			case UI.SDL_TEXTINPUT:
+				var hotkeys=UI.context_hotkeys;
+				var lg=hotkeys.length;
+				var hotkeyed=0;
+				for(var i=lg-1;i>=0;i--){
+					var attrs=hotkeys[i];
+					if(attrs.text&&event.text==attrs.text){
+						attrs.action();
+						hotkeyed=1
+						break;
+					}
+				}
+				if(hotkeyed){break;}
+				////////
 				if(UI.nd_focus){
 					UI.CallIfAvailable(UI.nd_focus,"OnTextInput",event);
 				}

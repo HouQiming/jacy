@@ -782,8 +782,10 @@ W.Edit_prototype={
 	/////////////////
 	CallHooks:function(name){
 		var hk=this.m_event_hooks[name];
-		for(var i=hk.length-1;i>=0;i--){
-			hk[i].call(this)
+		if(hk){
+			for(var i=hk.length-1;i>=0;i--){
+				hk[i].call(this)
+			}
 		}
 	},
 	CallOnChange:function(){
@@ -888,7 +890,11 @@ W.Edit_prototype={
 		}
 	},
 	OnTextEdit:function(event){
-		this.ed.m_IME_overlay=event;
+		if(event.text.length){
+			this.ed.m_IME_overlay=event;
+		}else{
+			this.ed.m_IME_overlay=undefined;
+		}
 		UI.Refresh()
 	},
 	OnTextInput:function(event){

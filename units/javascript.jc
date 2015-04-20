@@ -165,7 +165,10 @@ module duktape
 		inline _push_value(value)
 			T=typeof(value)
 			if T==string:
-				duk_push_lstring(_ctx(),value,value.n)
+				if !value:
+					duk_push_undefined(_ctx())
+				else
+					duk_push_lstring(_ctx(),value,value.n)
 			else if __is_type("int",T)||__is_type("float",T)://&&T!=i64&&T!=u64
 				duk_push_number(_ctx(),double(value))
 			else if T==JSNativeCallback:

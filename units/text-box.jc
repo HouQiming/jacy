@@ -53,6 +53,7 @@ class ITextStateHandler
 	function(JSObject obj) BeginRender
 	function(CEditableText ed,i64 ccnt_base,i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,i64 clip_w,i64 clip_h,float screen_x,float screen_y,float scaling) RenderText
 	function() EndRender
+	function(JSObject obj,CEditableText ed,CHLRange hl, i64 scroll_x,i64 scroll_y,i64 clip_w,i64 clip_h,float screen_x,float screen_y,float scale) DrawEnhancedHighlight
 	function(i64 ccnt_base,i64[] a,i64[] pp,string s,iptr ofs):i64 GetCharacterHeightAt
 	function():TFont GetDefaultFont
 	function(CEditableText caller,i64 x,i64 y,JSObject obj):i64 SetCaretOverlay
@@ -356,17 +357,17 @@ class CLayouter_baseline
 	charHeight=inline(){
 		return float2fixed(g_renderer.GetCharacterHeight(m_font))
 	}
-	_RenderText=function(int mode,i64[] a,i64[] line_breaks,string s,iptr ofs, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scaling){
+	_RenderText=function(int mode,i64[] a,i64[] line_breaks,string s,iptr ofs, i64 scroll_x,i64 scroll_y,float screen_x,float screen_y,float scale){
 		if mode==MODE_RENDER:
-			//Writeln('before fnt_scaled ',m_font.h,' ',scaling)
+			//Writeln('before fnt_scaled ',m_font.h,' ',scale)
 			fnt_scaled=m_font
-			fnt_scaled.h*=scaling
+			fnt_scaled.h*=scale
 			//smart emboldening for SRGB
 			if g_renderer.m_srgb_supported:
 				//fnt_scaled.embolden+=int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*3000.f/fnt_scaled.h)
 				fnt_scaled.SmartEmbolden(m_color)
 			//Writeln('after fnt_scaled ',m_font.h)
-			//scalingd=double(scaling)
+			//scaled=double(scale)
 		w_tab=i64(m_tab_width)*charWidth(' ')
 		hc=charHeight()
 		x=a[0]
@@ -379,9 +380,9 @@ class CLayouter_baseline
 		w_space=charWidth(' ')
 		w_hyphen=charWidth('-')
 		inline projectX(i64 x)
-			return fixed2float(x-scroll_x)*scaling+screen_x
+			return fixed2float(x-scroll_x)*scale+screen_x
 		inline projectY(i64 y)
-			return fixed2float(y-scroll_y)*scaling+screen_y
+			return fixed2float(y-scroll_y)*scale+screen_y
 		auto testIMEOverlay()
 			if x==m_caret_overlay.x&&y==m_caret_overlay.y:
 				if m_overlay_obj["type"].as(string)=="IME":
@@ -404,7 +405,7 @@ class CLayouter_baseline
 								(x_sel0,x_sel1)=(x_sel1,x_sel0)
 							//selection - pre-draw the highlight
 							if x_sel0<x_sel1:
-								g_renderer.DrawBitmap(0, float((fixed2float(x-scroll_x)+x_sel0)*scaling+screen_x),yf,float((x_sel1-x_sel0)*scaling),fixed2float(hc), m_bgcolor_selection)
+								g_renderer.DrawBitmap(0, float((fixed2float(x-scroll_x)+x_sel0)*scale+screen_x),yf,float((x_sel1-x_sel0)*scale),fixed2float(hc), m_bgcolor_selection)
 						else
 							assert(0)
 						xo=x
@@ -416,7 +417,7 @@ class CLayouter_baseline
 						assert(0)
 					//draw the underline
 					y_underline=yf+fnt_scaled.h*(fnt_scaled.pfnt.y_baseline_per_height+0.02f)
-					g_renderer.DrawBitmap(0, projectX(x),y_underline,fixed2float(m_caret_overlay.z)*scaling,max(fnt_scaled.h*0.05f,1.f), m_color)
+					g_renderer.DrawBitmap(0, projectX(x),y_underline,fixed2float(m_caret_overlay.z)*scale,max(fnt_scaled.h*0.05f,1.f), m_color)
 				else
 					assert(0)
 				x+=m_caret_overlay.z
@@ -511,8 +512,8 @@ class CLayouter_baseline
 			testIMEOverlay()
 		return TRenderingInfo(){bb:long2(x,y),seek_ret:s.n}
 	}
-	RenderText=function(CEditableText ed,i64 ccnt_base,i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,i64 clip_w,i64 clip_h,float screen_x,float screen_y,float scaling){
-		_RenderText(MODE_RENDER,a,pp,s,s.n,scroll_x,scroll_y,screen_x,screen_y,scaling)
+	RenderText=function(CEditableText ed,i64 ccnt_base,i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,i64 clip_w,i64 clip_h,float screen_x,float screen_y,float scale){
+		_RenderText(MODE_RENDER,a,pp,s,s.n,scroll_x,scroll_y,screen_x,screen_y,scale)
 	}
 	GetCharacterHeightAt=function(i64 ccnt_base,i64[] a,i64[] pp,string s,iptr ofs){
 		return charHeight()
@@ -668,8 +669,6 @@ class CLocator
 		proto.ExportMethod(this,"discard",discard)
 
 HL_DISPLAY_MODE_RECT=0
-HL_DISPLAY_MODE_EMBOLDEN=1
-HL_DISPLAY_MODE_TILDE=2
 class CHLRange
 	CLocator p0
 	CLocator p1
@@ -723,6 +722,7 @@ class CEditableText
 	//////////
 	m_caret_locator=CLocator.NULL
 	m_IME_overlay=JSObject.NULL
+	m_other_overlay=JSObject.NULL
 	m_caret_offset=0.
 	//////////
 	//m_ascii_wordchars=uint4()
@@ -1475,8 +1475,8 @@ class CEditableText
 		wnd_ccnt1=SeekXY(x+w,y+h)
 		rendering_started=0
 		////////////////////////
-		fnt_bold_scaled=obj["font_emboldened"].as(TFont)
-		fnt_bold_scaled.h*=scale
+		//fnt_bold_scaled=obj["font_emboldened"].as(TFont)
+		//fnt_bold_scaled.h*=scale
 		//scaled=double(scale)
 		//dx=double(scr_x)-x*scaled
 		//dy=double(scr_y)-y*scaled
@@ -1487,6 +1487,9 @@ class CEditableText
 			m_IME_overlay["type"]="IME"
 			xy_overlay=XYFromCcnt(m_caret_locator.ccnt)
 			caret_overlay=long3(xy_overlay.x,xy_overlay.y,handler.SetCaretOverlay(this,xy_overlay.x,xy_overlay.y,m_IME_overlay))
+		else if m_other_overlay:
+			xy_overlay=XYFromCcnt(m_caret_locator.ccnt)
+			caret_overlay=long3(xy_overlay.x,xy_overlay.y,handler.SetCaretOverlay(this,xy_overlay.x,xy_overlay.y,m_other_overlay))
 		else
 			handler.SetCaretOverlay(this,-1LL,-1LL,JSObject.NULL)
 		//pre-draw the rect highlights
@@ -1585,35 +1588,19 @@ class CEditableText
 		//////////////////////////////
 		if handler.EndRender:handler.EndRender()
 		//////////////////////////////
-		//draw the emboldening / tilde highlights
-		foreach hl in m_highlights
-			ccnt0=hl.p0.ccnt
-			ccnt1=hl.p1.ccnt
-			if ccnt1==ccnt0:continue
-			if ccnt1<ccnt0:
-				if !hl.invertible:continue
-				(ccnt0,ccnt1)=(ccnt1,ccnt0)
-			if ccnt1<=wnd_ccnt0||ccnt0>=wnd_ccnt1:continue
-			mode=int(hl.display_mode)
-			if mode!=HL_DISPLAY_MODE_EMBOLDEN&&mode!=HL_DISPLAY_MODE_TILDE:continue
-			xy0=projectDocumentPosition(ccnt0)
-			if mode==HL_DISPLAY_MODE_EMBOLDEN:
-				//only embolden a single char
-				(ch0,ch1)=GetUtf8CharNeighborhood(ccnt0)
-				g_renderer.DrawChar(fnt_bold_scaled, xy0.x,xy0.y,hl.color, ch1)
-			else
-				xy1=projectDocumentPosition(ccnt1)
-				//todo: tilde for spell checks, GetCharacterHeightAt en masse
-				//if xy0.y==xy1.y:
-				//	hc=fixed2float(GetCharacterHeightAt(ccnt1))*scale
-				//	g_renderer.DrawBitmap(0, xy0.x,xy0.y,xy1.x-xy0.x,hc, hl.color)
-				//else
-				//	//draw 3 rects, we have a cliprect, don't worry
-				//	hc=fixed2float(GetCharacterHeightAt(ccnt0))*scale
-				//	g_renderer.DrawBitmap(0, xy0.x,xy0.y,max(scr_x+wf*scale-xy0.x,0.f),hc, hl.color)
-				//	g_renderer.DrawBitmap(0, scr_x,xy0.y+hc,wf*scale,max(xy1.y-(xy0.y+hc),0.f), hl.color)
-				//	hc=fixed2float(GetCharacterHeightAt(ccnt1))*scale
-				//	g_renderer.DrawBitmap(0, scr_x,xy1.y,max(xy1.x-scr_x,0.f),hc, hl.color)
+		//draw the advanced highlights
+		if handler.DrawEnhancedHighlight:
+			foreach hl in m_highlights
+				ccnt0=hl.p0.ccnt
+				ccnt1=hl.p1.ccnt
+				if ccnt1==ccnt0:continue
+				if ccnt1<ccnt0:
+					if !hl.invertible:continue
+					(ccnt0,ccnt1)=(ccnt1,ccnt0)
+				if ccnt1<=wnd_ccnt0||ccnt0>=wnd_ccnt1:continue
+				mode=int(hl.display_mode)
+				if mode==HL_DISPLAY_MODE_RECT:continue
+				handler.DrawEnhancedHighlight(obj,this,hl, x,y,w,h,scr_x,scr_y,scale)
 		g_renderer.PopCliprect()
 		m_caret_offset=fixed2double(handler.GetCaretOffset())
 	/////////////////////////////////////////////////
@@ -2103,6 +2090,7 @@ class CEditableText
 		proto.ExportProperty(this,"m_handler_registration")
 		proto.ExportProperty(this,"m_caret_locator")
 		proto.ExportProperty(this,"m_IME_overlay")
+		proto.ExportProperty(this,"m_other_overlay")
 		proto.ExportProperty(this,"m_caret_offset")
 		proto.ExportMethod(this,"Edit",JS_Edit)
 		proto.ExportMethod(this,"GetText",JS_GetText)
