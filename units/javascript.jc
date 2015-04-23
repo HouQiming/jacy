@@ -284,22 +284,27 @@ module duktape
 			else if T==__pointer:
 				ret=duk_get_pointer(_ctx(),-1)
 			else if __has_member(__zero(T),"__JS_prototype")
-				duk_get_prop_index(_ctx(),-1,0)
-				duk_to_primitive(_ctx(),-1,0)
-				vptr=duk_get_pointer(_ctx(),-1)
-				if !vptr:
+				if duk_is_null_or_undefined(_ctx(),-1):
 					ret=__zero(T)
 				else
-					ret=__cast(__variant,vptr).as(T)
-				duk_pop(_ctx())
+					duk_get_prop_index(_ctx(),-1,0)
+					duk_to_primitive(_ctx(),-1,0)
+					vptr=duk_get_pointer(_ctx(),-1)
+					if !vptr:
+						ret=__zero(T)
+					else
+						ret=__cast(__variant,vptr).as(T)
+					duk_pop(_ctx())
 			else
-				//duk_to_pointer(_ctx(),-1)
-				duk_to_primitive(_ctx(),-1,0)
-				vptr=duk_get_pointer(_ctx(),-1)
-				if !vptr:
+				if duk_is_null_or_undefined(_ctx(),-1):
 					ret=__zero(T)
 				else
-					ret=__cast(__variant,vptr).as(T)
+					duk_to_primitive(_ctx(),-1,0)
+					vptr=duk_get_pointer(_ctx(),-1)
+					if !vptr:
+						ret=__zero(T)
+					else
+						ret=__cast(__variant,vptr).as(T)
 			if count==1:
 				duk_pop(_ctx())
 			else

@@ -627,7 +627,7 @@ W.Edit_prototype={
 	},
 	GetCharacterHeightAtCaret:function(){
 		var ccnt1=this.sel1.ccnt;
-		if(this.caret_is_wrapped){
+		if(this.caret_is_wrapped>0){
 			ccnt1=this.ed.SnapToCharBoundary(ccnt1+1,1)
 		}
 		return this.ed.GetCharacterHeightAt(ccnt1);
@@ -739,10 +739,14 @@ W.Edit_prototype={
 	GetCaretXY:function(){
 		var ed=this.ed;
 		var xy0=ed.XYFromCcnt(this.sel1.ccnt)
-		if(this.caret_is_wrapped){
+		if(this.caret_is_wrapped>0){
 			//chicken-egg: no this.GetCharacterHeightAtCaret() here
 			xy0.x=0
 			xy0.y+=ed.GetCharacterHeightAt(this.sel1.ccnt);
+		}else if(this.caret_is_wrapped<0){
+			//the *other* mode
+			xy0.y-=ed.GetCharacterHeightAt(this.sel1.ccnt);
+			xy0.x=this.displayed_wrap_width
 		}
 		return xy0;
 	},
@@ -770,11 +774,12 @@ W.Edit_prototype={
 		this.sel1.ccnt=this.SeekXY(x,y);
 		this.caret_is_wrapped=0;
 		//print("IsAtLineWrap",this.sel1.ccnt,ed.IsAtLineWrap(this.sel1.ccnt),ed.GetUtf8CharNeighborhood(this.sel1.ccnt))
-		if(ed.IsAtLineWrap(this.sel1.ccnt)){
+		var lwmode=ed.IsAtLineWrap(this.sel1.ccnt)
+		if(lwmode){
 			var x0=this.GetCaretXY().x;
-			this.caret_is_wrapped=1;
+			this.caret_is_wrapped=lwmode;
 			var x1=this.GetCaretXY().x;
-			this.caret_is_wrapped=(Math.abs(x1-x)<Math.abs(x0-x)?1:0);
+			this.caret_is_wrapped=(Math.abs(x1-x)<Math.abs(x0-x)?lwmode:0);
 		}
 	},
 	OnChange:function(){},
@@ -978,32 +983,43 @@ W.Edit_prototype={
 			this.x_updown=bk;
 		}else if(IsHotkey(event,"LEFT SHIFT+LEFT")){
 			var ccnt=this.SkipInvisibles(sel1.ccnt,-1);
-			if(this.caret_is_wrapped){
+			var lwmode=ed.IsAtLineWrap(ccnt);
+			if(this.caret_is_wrapped>0){
 				this.caret_is_wrapped=0;
+				epilog();
+			}else if(this.caret_is_wrapped>lwmode){
+				this.caret_is_wrapped=lwmode;
 				epilog();
 			}else{
 				if(ccnt>0){
 					sel1.ccnt=this.SnapToValidLocation(ccnt-1,-1);
 					epilog();
 				}
+				lwmode=ed.IsAtLineWrap(sel1.ccnt);
+				this.caret_is_wrapped=Math.max(lwmode,0);
 			}
 		}else if(IsHotkey(event,"RIGHT SHIFT+RIGHT")){
 			var ccnt=this.SkipInvisibles(sel1.ccnt,1);
-			if(!this.caret_is_wrapped&&ed.IsAtLineWrap(ccnt)){
-				this.caret_is_wrapped=1;
+			var lwmode=ed.IsAtLineWrap(ccnt);
+			if(this.caret_is_wrapped<0){
+				this.caret_is_wrapped=0;
+				epilog();
+			}else if(this.caret_is_wrapped<lwmode){
+				this.caret_is_wrapped=lwmode;
 				epilog();
 			}else{
 				if(ccnt<ed.GetTextSize()){
 					sel1.ccnt=this.SnapToValidLocation(ccnt+1,1);
 					epilog();
 				}
-				this.caret_is_wrapped=0;
+				lwmode=ed.IsAtLineWrap(sel1.ccnt);
+				this.caret_is_wrapped=Math.min(lwmode,0);
 			}
 		}else if(IsHotkey(event,"CTRL+LEFT CTRL+SHIFT+LEFT")){
 			var ccnt=this.SkipInvisibles(sel1.ccnt,-1);
 			if(ccnt>0){
 				sel1.ccnt=this.SnapToValidLocation(ed.MoveToBoundary(ed.SnapToCharBoundary(ccnt-1,-1),-1,"ctrl_lr_stop"),-1)
-				this.caret_is_wrapped=(ed.IsAtLineWrap(sel1.ccnt)?1:0);
+				this.caret_is_wrapped=ed.IsAtLineWrap(sel1.ccnt);
 				epilog();
 			}
 		}else if(IsHotkey(event,"CTRL+RIGHT CTRL+SHIFT+RIGHT")){
@@ -1057,7 +1073,7 @@ W.Edit_prototype={
 			var ccnt_ehome=Math.max(this.GetEnhancedHome(sel1_ccnt),ccnt_lhome);
 			if(sel1.ccnt==ccnt_ehome||ccnt_lhome==ccnt_ehome){
 				sel1.ccnt=ccnt_lhome;
-				this.caret_is_wrapped=(ed.IsAtLineWrap(this.sel1.ccnt)?1:0);
+				this.caret_is_wrapped=Math.max(ed.IsAtLineWrap(this.sel1.ccnt),0);
 			}else{
 				sel1.ccnt=ccnt_ehome;
 				this.caret_is_wrapped=0;
@@ -1069,7 +1085,7 @@ W.Edit_prototype={
 			var ccnt_eend=Math.min(this.GetEnhancedEnd(sel1_ccnt),ccnt_lend);
 			if(sel1.ccnt==ccnt_eend||ccnt_lend==ccnt_eend){
 				sel1.ccnt=ccnt_lend;
-				this.caret_is_wrapped=0;
+				this.caret_is_wrapped=Math.min(ed.IsAtLineWrap(this.sel1.ccnt),0);
 			}else{
 				sel1.ccnt=ccnt_eend;
 				this.caret_is_wrapped=0;

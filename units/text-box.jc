@@ -891,18 +891,27 @@ class CEditableText
 						pp=GetPrecomputedStates(handler,nd)
 						s_context=GetContextBefore(handler,ccnt_base)
 						s=nd.s
-						acc2=new(acc)
-						ccnt_base2=ccnt_base
-						for i=p0:p-1
-							ofs=iptr(all_ccnt[i]-ccnt_base2)
-							handler.AddString(acc2,pp,s_context,s,ofs)
-							copy(ret[i*szacc:],acc2)
-							if s_context:
-								n0=s_context.n
-								s_context.push(s[:ofs-1])
-								s_context=new(s_context[s_context.n-n0:])
-							s=s[ofs:]
-							ccnt_base2+=i64(ofs)
+						if handler.isLineOnly():
+							//line only renderers need to preprocess the input, and you can't partition the string
+							//for the fancier renderers, it could even be algorithmically impossible
+							for i=p0:p-1
+								acc2=new(acc)
+								ofs=iptr(all_ccnt[i]-ccnt_base)
+								handler.AddString(acc2,pp,s_context,s,ofs)
+								copy(ret[i*szacc:],acc2)
+						else
+							acc2=new(acc)
+							ccnt_base2=ccnt_base
+							for i=p0:p-1
+								ofs=iptr(all_ccnt[i]-ccnt_base2)
+								handler.AddString(acc2,pp,s_context,s,ofs)
+								copy(ret[i*szacc:],acc2)
+								if s_context:
+									n0=s_context.n
+									s_context.push(s[:ofs-1])
+									s_context=new(s_context[s_context.n-n0:])
+								s=s[ofs:]
+								ccnt_base2+=i64(ofs)
 					else
 						dfs(acc,ccnt_base,nd.pchild,p0,p)
 				p0=p

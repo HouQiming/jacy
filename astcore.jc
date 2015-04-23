@@ -1208,19 +1208,19 @@ auto coreInit()
 					writePool(pedecl_insted+EXPR_OFS_ARGS+1+n2*2,pe_atype_new);writePool(pe_atype_new+EXPR_OFS_CALLER,pedecl_insted)
 					writePool(pedecl_insted+EXPR_OFS_ARGS+2+n2*2,readPool(pedecl_insted+EXPR_OFS_ARGS+2+i*2))
 					n2++
-					if g_readable_c_code:
-						if sname.back()!='<':
-							sname.push(',')
-						sname.push(dumpType(template_desc2[i]))
+					//if g_readable_c_code:
+					if sname.back()!='<':
+						sname.push(',')
+					sname.push(dumpType(template_desc2[i]))
 				else if eflag_sid==EFLAG_STRING+g_id_const:
 					//nothing
-					if g_readable_c_code:
-						if sname.back()!='<':
-							sname.push(',')
-						if (template_desc2[i]&EFLAG_MASK)==EFLAG_CTVAL&&objistype(template_desc2[i]&~EFLAG_MASK):
-							sname.push(dumpType(template_desc2[i]&~EFLAG_MASK))
-						else
-							sname.push(dumpExpr(poolCode(TCnsExpression(){'flags_cid':template_desc2[i]}),__zero(fcolorer_callback)))
+					//if g_readable_c_code:
+					if sname.back()!='<':
+						sname.push(',')
+					if (template_desc2[i]&EFLAG_MASK)==EFLAG_CTVAL&&objistype(template_desc2[i]&~EFLAG_MASK):
+						sname.push(dumpType(template_desc2[i]&~EFLAG_MASK))
+					else
+						sname.push(dumpExpr(poolCode(TCnsExpression(){'flags_cid':template_desc2[i]}),__zero(fcolorer_callback)))
 				else
 					//don't touch the arg
 					assert(arg_mapping[i]==n2)
