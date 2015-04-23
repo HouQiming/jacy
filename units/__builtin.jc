@@ -281,6 +281,9 @@ class Array(T)
 		//checks are ignored...
 		if T2==__variant:
 			__force_alive(variant(__zero(T)))
+		//need RTTI from both sides to make the types compatible
+		__force_alive(__get_rtti(Array(T)))
+		__force_alive(__get_rtti(Array(T2)))
 		nbytes=sizeof(T)*n
 		szbytes=sizeof(T)*sz
 		esz2=sizeof(T2)
@@ -290,6 +293,7 @@ class Array(T)
 			if Platform.BUILD=="debug":
 				__basic_api.spapReportError("in Array.ConvertToAsBinary, the input dat size isn't a multiply of the output element size\0")
 			return Array(T2).NULL
+		//if destructor_nbound_or_slice_reference&1:
 		ret=new Array(T2)
 		ret.d=d
 		ret.n=n2

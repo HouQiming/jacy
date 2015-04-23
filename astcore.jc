@@ -9710,8 +9710,30 @@ auto translateLambdas()
 						setnop_jobs.push(pe_new)
 					if replace_caller:
 						//if we replace the caller with a ctor call, we need to zero it as well
+						//150423: we also need to zero out the class members
 						pe_target_zeroing=cloneExpr(pe_target)
-						pe_new=call(g_id_block,call(g_id_C_rezero_struct_slot,pe_target_zeroing,exprctval(pobjfn)),pe_new)
+						str_member_list=new PCTObject[]
+						as_rezero=new PExpression[]
+						auto implementRezero(PCTObject t)
+							p_members=readPool(t+FUNCTION_OFS_PLAMBDA_VARS)
+							n_members=readPool(t+FUNCTION_OFS_NLAMBDA_VARS)
+							for i=0:n_members-1
+								pv_member=readPool(p_members+i)
+								if readPool(pv_member)!=g_vtid_RTVAR:continue
+								t_member=readPool(pv_member+1)
+								if tisstruct(t_member):
+									str_member_list.push(pv_member)
+									implementRezero(t_member)
+									str_member_list.pop()
+								else if tisrealclass(t_member):
+									pe_tar=cloneExpr(pe_target)
+									foreach pv_str_member in str_member_list
+										pe_tar=call(g_id_ldlambda,pe_tar,exprctval(pv_str_member))
+									as_rezero.push(call(g_id_stlambda,pe_tar,exprctval(pv_member),exprcns(getid_const(CTYPE_TYPED_NULL,i64(t_member)))))
+						implementRezero(pobjfn)
+						as_rezero.push(call(g_id_C_rezero_struct_slot,pe_target_zeroing,exprctval(pobjfn)))
+						as_rezero.push(pe_new)
+						pe_new=vcall(g_id_block,as_rezero)
 				//else
 				//	Writeln('ctor kept ',dumpExpr(pe_new,__zero(fcolorer_callback)))
 				//Write('>>> ');Writeln(dumpExpr(pe_new,fcolor_abbrv_blocks))

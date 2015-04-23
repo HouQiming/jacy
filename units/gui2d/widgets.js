@@ -1070,8 +1070,12 @@ W.Edit_prototype={
 		}else if(IsHotkey(event,"HOME SHIFT+HOME")){
 			var ed_caret=this.GetCaretXY();
 			var ccnt_lhome=this.SeekXY(0,ed_caret.y);
-			var ccnt_ehome=Math.max(this.GetEnhancedHome(sel1_ccnt),ccnt_lhome);
-			if(sel1.ccnt==ccnt_ehome||ccnt_lhome==ccnt_ehome){
+			var ccnt_rehome=this.GetEnhancedHome(sel1_ccnt)
+			var ccnt_ehome=Math.max(ccnt_rehome,ccnt_lhome);
+			if(sel1.ccnt==ccnt_ehome&&ccnt_lhome==ccnt_ehome){
+				sel1.ccnt=ccnt_rehome;
+				this.caret_is_wrapped=0;
+			}else if(sel1.ccnt==ccnt_ehome||ccnt_lhome==ccnt_ehome){
 				sel1.ccnt=ccnt_lhome;
 				this.caret_is_wrapped=Math.max(ed.IsAtLineWrap(this.sel1.ccnt),0);
 			}else{
@@ -1082,8 +1086,12 @@ W.Edit_prototype={
 		}else if(IsHotkey(event,"END SHIFT+END")){
 			var ed_caret=this.GetCaretXY();
 			var ccnt_lend=this.SeekXY(1e17,ed_caret.y);
-			var ccnt_eend=Math.min(this.GetEnhancedEnd(sel1_ccnt),ccnt_lend);
-			if(sel1.ccnt==ccnt_eend||ccnt_lend==ccnt_eend){
+			var ccnt_reend=this.GetEnhancedEnd(sel1_ccnt)
+			var ccnt_eend=Math.min(ccnt_reend,ccnt_lend);
+			if(sel1.ccnt==ccnt_eend&&ccnt_lend==ccnt_eend){
+				sel1.ccnt=ccnt_reend;
+				this.caret_is_wrapped=0;
+			}else if(sel1.ccnt==ccnt_eend||ccnt_lend==ccnt_eend){
 				sel1.ccnt=ccnt_lend;
 				this.caret_is_wrapped=Math.min(ed.IsAtLineWrap(this.sel1.ccnt),0);
 			}else{
@@ -1132,6 +1140,17 @@ W.Edit_prototype={
 		if(sel0_ccnt!=sel0.ccnt||sel1_ccnt!=sel1.ccnt){
 			this.CallOnSelectionChange()
 		}
+	},
+	SetSelection:function(ccnt0,ccnt1){
+		this.sel0.ccnt=ccnt0
+		this.sel1.ccnt=ccnt1
+		this.AutoScroll("center_if_hidden");
+		this.caret_is_wrapped=0
+		UI.Refresh()
+		//this.CallOnSelectionChange()
+	},
+	SetCaretTo:function(ccnt){
+		this.SetSelection(ccnt,ccnt)
 	},
 	////////////////////////////
 	OnMouseDown:function(event){

@@ -1637,6 +1637,7 @@ class CEditableText
 		hid=m_handler_registration["renderer"].as(int)
 		handler=m_handlers[hid]
 		if !handler.IsAtLineWrap:return 0
+		if GetUtf8CharNeighborhood(ccnt)[0]=='\n':return 0
 		(nd,ofs)=BlockFromCcnt(ccnt)
 		return handler.IsAtLineWrap(nd.a,GetPrecomputedStates(handler,nd),nd.s,iptr(ofs))
 	/////////////////

@@ -1798,21 +1798,23 @@ UI.Run=function(){
 				if(UI.inside_IME){break;}
 				var obj_window=UI.m_window_map[event.windowID.toString()];
 				event.keymod&=~(UI.KMOD_CAPS|UI.KMOD_NUM)//get rid of the bogus SDL flags
-				if(event.keysym==UI.SDLK_LALT||event.keysym==UI.SDLK_RALT){
-					//alt-menu case
-					//print("ALT",event.type==UI.SDL_KEYDOWN?"DOWN":"UP")
-					if(event.type==UI.SDL_KEYDOWN){
-						obj_window.m_just_alted=1;
-					}else{
-						if(obj_window.m_just_alted){
-							if(obj_window.OnMenu){
-								obj_window.OnMenu();
+				if(obj_window){
+					if(event.keysym==UI.SDLK_LALT||event.keysym==UI.SDLK_RALT){
+						//alt-menu case
+						//print("ALT",event.type==UI.SDL_KEYDOWN?"DOWN":"UP")
+						if(event.type==UI.SDL_KEYDOWN){
+							obj_window.m_just_alted=1;
+						}else{
+							if(obj_window.m_just_alted){
+								if(obj_window.OnMenu){
+									obj_window.OnMenu();
+								}
 							}
+							obj_window.m_just_alted=0;
 						}
+					}else{
 						obj_window.m_just_alted=0;
 					}
-				}else{
-					obj_window.m_just_alted=0;
 				}
 				if(event.type==UI.SDL_KEYDOWN){
 					var hotkeys=UI.context_hotkeys;
