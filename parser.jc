@@ -263,7 +263,7 @@ auto tokenize(iptr ptr_start,int g_ignore_indents)
 					val=feed[efeed0:ptr-1].ConvertToAsBinary(char).as(i64)
 				//actually parse the number, as double
 				t=const_type(CTYPE_INT,32)
-				if ch=='u':
+				if ch=='u'||ch=='U':
 					ptr++
 					ch=int(feed[ptr])
 					t=(t&~CTYPE_MASK)|CTYPE_UINT
@@ -276,7 +276,7 @@ auto tokenize(iptr ptr_start,int g_ignore_indents)
 						t=const_type(t&CTYPE_MASK,64)
 					else
 						t=const_type(t&CTYPE_MASK,Util.bitSize())
-				if ch=='u':
+				if ch=='u'||ch=='U':
 					ptr++
 					ch=int(feed[ptr])
 					t=(t&~CTYPE_MASK)|CTYPE_UINT

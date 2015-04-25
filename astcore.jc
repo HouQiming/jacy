@@ -9381,7 +9381,10 @@ auto translateLambdas()
 				else
 					//g_id_ldlambda
 					faddldlambda=function(PExpression pe){
-						return call(g_id_ldlambda, pecontext, exprctval(pobj_var))
+						pe_ldlambda_var=call(g_id_ldlambda, pecontext, exprctval(pobj_var))
+						writePool(pe_ldlambda_var+EXPR_OFS_VALUE+0,readPool(pobj_var+0))
+						writePool(pe_ldlambda_var+EXPR_OFS_VALUE+1,readPool(pobj_var+1))
+						return pe_ldlambda_var
 					}
 					sccpQueueReach(insertCallAt(pecaller,pe,faddldlambda))
 				return 0
@@ -9499,7 +9502,10 @@ auto translateLambdas()
 				else
 					//g_id_ldlambda
 					faddldlambda=function(PExpression pe){
-						return call(g_id_ldlambda, pecontext, exprctval(pobj_var))
+						pe_ldlambda_var=call(g_id_ldlambda, pecontext, exprctval(pobj_var))
+						writePool(pe_ldlambda_var+EXPR_OFS_VALUE+0,readPool(pobj_var+0))
+						writePool(pe_ldlambda_var+EXPR_OFS_VALUE+1,readPool(pobj_var+1))
+						return pe_ldlambda_var
 					}
 					sccpQueueReach(insertCallAt(pecaller,pe,faddldlambda))
 				return

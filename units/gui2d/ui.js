@@ -1494,7 +1494,9 @@ UI.DeleteTemps=function(attrs){
 UI.need_to_refresh=1;
 UI.inside_IME=0;
 UI.nd_mouse_down=[];
-UI.Refresh=function(){UI.need_to_refresh=1;}
+UI.Refresh=function(){
+	UI.need_to_refresh=1;
+}
 UI.InvalidateCurrentFrame=function(){UI.m_frame_is_invalid=1;}
 
 UI.CaptureMouse=function(attrs){
@@ -1993,5 +1995,13 @@ UI.LocalizeKeyName=function(s){
 		return s.split("+").map(function(a){return UI.m_mac_key_names[a]||a}).join("");
 	}else{
 		return s;
+	}
+}
+
+UI.DumpCallStack=function(){
+	try{
+		throw new Error("call stack")
+	}catch(error){
+		print(error.stack)
 	}
 }

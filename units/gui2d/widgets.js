@@ -1959,6 +1959,21 @@ W.ListView_prototype={
 				this.velocity=(a[n-1].x-a[Math.max(n-2,0)].x)/dt;
 			}
 		}else{
+			if(this.m_autoscroll_goal!=undefined){
+				if(!this.velocity){this.velocity=0;}
+				if(this.position<this.m_autoscroll_goal){
+					this.velocity=this.max_velocity;
+				}else{
+					this.velocity=-this.max_velocity;
+				}
+				var delta_snap=Math.abs(this.velocity*sim_dt)
+				if(Math.abs(this.position-this.m_autoscroll_goal)<delta_snap){
+					this.position=this.m_autoscroll_goal
+					this.velocity=0
+					this.m_autoscroll_goal=undefined
+					UI.AutoRefresh()
+				}
+			}
 			if(this.velocity){
 				var old_pos=this.position;
 				this.position+=this.velocity*sim_dt;
@@ -1987,6 +2002,21 @@ W.ListView_prototype={
 			}
 		}
 		this.velocity=Math.max(Math.min(this.velocity,this.max_velocity),-this.max_velocity)
+	},
+	AutoScroll:function(){
+		var sel=this.value
+		var dim=this.dimension
+		var wh_dim=(dim=='y'?'h':'w')
+		var item_sel=this["$"+sel]
+		var pos_sel=item_sel[dim]-this[dim]+this.position
+		var pos_goal=Math.max(Math.min(this.position,pos_sel),pos_sel+item_sel[wh_dim]-this[wh_dim])
+		pos_goal=Math.max(Math.min(pos_goal,this.dim_tot-this[wh_dim]),0)
+		if(pos_goal!=this.position){
+			this.m_autoscroll_goal=pos_goal
+		}else{
+			this.m_autoscroll_goal=undefined
+		}
+		UI.Refresh()
 	},
 	OnMouseDown:function(event){
 		var obj=this
@@ -2047,9 +2077,41 @@ W.ListView_prototype={
 	}
 }
 W.ListView=function(id,attrs){
-	//todo: autoscroll
 	var obj=UI.StdWidget(id,attrs,"list_view",W.ListView_prototype)
 	var items=obj.items
+	var item_template=(obj.item_template||{});
+	if(obj.OnDemand){
+		var y0=-obj.position;
+		var items_new=[]
+		var wh_dim=(obj.dimension=='y'?'h':'w')
+		for(var i=0;i<items.length;i++){
+			if(y0>obj[wh_dim]){
+				for(var j=i;j<items.length;j++){
+					items_new.push(items[i])
+				}
+				break
+			}
+			var item_i=items[i]
+			if(!item_i){continue;}
+			var expanded=obj.OnDemand.call(item_i)
+			if((typeof(expanded))=="string"){
+				if(expanded=="drop"){
+					//do nothing
+				}else{
+					UI.assert(expanded=="keep","you must return 'drop' or 'keep' or an array of offsprings")
+					items_new.push(item_i)
+					y0+=(item_i[wh_dim]||item_template[wh_dim]||0)+(obj.layout_spacing||0)
+				}
+			}else{
+				for(var j=0;j<expanded.length;j++){
+					items_new.push(expanded[j])
+					y0+=(expanded[j][wh_dim]||item_template[wh_dim]||0)+(obj.layout_spacing||0)
+				}
+			}
+		}
+		items=items_new
+		obj.items=items
+	}
 	var dim_tot=(obj.layout_spacing+1)*items.length
 	if(obj.dimension=="y"){
 		for(var i=0;i<items.length;i++){

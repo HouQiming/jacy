@@ -66,9 +66,9 @@ module OS_API
 		remove=__c_function(int,"remove","stdio.h")
 		mkdir=__c_function(int,"mkdir","sys/stat.h")
 		chdir=__c_function(int,"chdir","unistd.h")
-		time=__c_function(i64,"time","time.h")
-		localtime=__c_function(__pointer,"localtime","time.h")
 		sleep=__c_function(int,"sleep","time.h")
+	time=__c_function(i64,"time","time.h")
+	localtime=__c_function(__pointer,"localtime","time.h")
 	//win consts
 	if Platform.IS_WINDOWS:
 		SecurityAnonymous=0
@@ -6692,6 +6692,131 @@ module IO
 		inline is_dir()
 			return attr&FILE_ATTRIBUTE_DIRECTORY
 	/**
+	 * \brief Search for files at your own pace.
+	 *
+	 * Create a context that searches for a file or directory matching a specific name (possibly with wildcards) in a directory or recursively in a directory and all its subdirectories.
+	 * @param fn is the path and the file name to be searched, in UTF-8 encoding. The file name can include wild cards like '*' and '?'
+	 * @param flags is a bitmask specifying search options, which is a combination of the following values:
+	 * Value | Meaning
+	 * ----- | -------
+	 * ENUM_FILE | Search for files
+	 * ENUM_DIR | Search for directories
+	 * ENUM_RECURSIVE | Enable recursive search
+	 * ENUM_DOT | Include ".." in the search result
+	 * If flags is zero, it defaults to ENUM_FILE.
+	 * @return This function returns another function that returns (file name, TFileInfo) when called.
+	 * When there's no more files, it returns a string.NULL for the file name
+	*/
+	auto CreateEnumFileContext(string fn,int flags)
+		is_rec=!!(flags&ENUM_RECURSIVE)
+		has_dir=!!(flags&ENUM_DIR)
+		has_dd=(has_dir&&(flags&ENUM_DOT))
+		has_file=(!has_dir||(flags&ENUM_FILE))
+		s2=System.Env.ExpandEnvironmentStrings(fn).Replace(["\\","/"])
+		pslash=s2.LastIndexOf('/')
+		if pslash<0:
+			path=new string("./")
+			name=s2
+		else
+			path=s2[0:pslash]
+			name=s2[pslash+1:]
+		if Platform.IS_WINDOWS:
+			path=path.Replace(["/","\\"])
+		has_dir+=has_dd
+		paths=new string[]
+		paths.push(path)
+		if Platform.IS_UNIX:
+			fnbuf=new char[260]
+			handle=NULL
+			return function(){
+				fibuf0=__C(__pointer,"@decl:OSAL_TFileInfo @1={0}")
+				fnret=string.NULL
+				firet=TFileInfo()
+				for(;;)
+					if !handle||!osal_FindNext(handle, fnbuf,__C(__pointer,"((OSAL_TFileInfo*)@1)",fibuf0)):
+						if paths.n:
+							path=paths.pop()
+						else
+							break
+						fname=path+name
+						fname.push(char(0))
+						if handle:
+							osal_EndFind(handle)
+						handle=osal_BeginFind(fname)
+						continue
+					fibuf=TFileInfo(){
+						created_time:__C(u64,"((OSAL_TFileInfo*)@1)->created_time",fibuf0),
+						last_modified_time:__C(u64,"((OSAL_TFileInfo*)@1)->last_modified_time",fibuf0),
+						size:__C(u64,"((OSAL_TFileInfo*)@1)->size",fibuf0),
+						attr:__C(int,"((OSAL_TFileInfo*)@1)->attr",fibuf0),
+					}
+					pzero=fnbuf.IndexOf(char(0))
+					if pzero<0:pzero=fnbuf.n
+					iname=new(fnbuf[0:pzero-1])
+					doit=0
+					if !fibuf.is_dir():
+						if has_file:
+							doit=1
+					else
+						if (iname.EndsWith("/.")||iname==".")||(iname.EndsWith("/..")||iname==".."&&has_dir!=2):
+							continue
+						if has_dir:
+							doit=1
+						if is_rec:
+							paths.push(iname+"/")
+					if doit:
+						fnret=iname
+						firet=fibuf
+						break
+				return (fnret,firet)
+			}
+		else
+			handle=NULL
+			return function(){
+				fd=__C(__pointer,"@decl:WIN32_FIND_DATAW @1={0}")
+				fnret=string.NULL
+				firet=TFileInfo()
+				for(;;)
+					if handle==INVALID_HANDLE_VALUE||!handle||!FindNextFileW(handle,fd):
+						if paths.n:
+							path=paths.pop()
+						else
+							break
+						fname=path+name
+						fnameu=toNativeString(fname.Replace(["/","\\"]))
+						if handle!=INVALID_HANDLE_VALUE&&handle:
+							FindClose(handle)
+						handle=FindFirstFileW(fnameu,__C(__pointer,"(WIN32_FIND_DATAW*)@1",fd))
+						if handle==INVALID_HANDLE_VALUE||!handle:
+							continue
+					fdname=pwcharToString(__C(__pointer,"(void*)((WIN32_FIND_DATAW*)@1)->cFileName",fd),260)
+					iname=path+Algorithm.UnicodeToUtf8(fdname)
+					doit=0
+					if !(__C(int,"((WIN32_FIND_DATAW*)@1)->dwFileAttributes",fd)&FILE_ATTRIBUTE_DIRECTORY):
+						if has_file:
+							doit=1
+					else
+						if fdname.n>0&&fdname[0]==i16('.'):
+							if fdname.n==1||fdname[1]==i16('.')&&fdname.n==2&&has_dir!=2:
+								if !FindNextFileW(handle,fd):break
+								continue
+						if has_dir:
+							doit=1
+						if is_rec:
+							paths.push(iname+"\\")
+					if doit:
+						fi=TFileInfo(){
+							attr:__C(int,"(int)((WIN32_FIND_DATAW*)@1)->dwFileAttributes",fd),
+							created_time:__C(u64,"*(unsigned long long*)&((WIN32_FIND_DATAW*)@1)->ftCreationTime",fd)/10000000ULL-11644473600ULL,
+							last_modified_time:__C(u64,"*(unsigned long long*)&((WIN32_FIND_DATAW*)@1)->ftLastWriteTime",fd)/10000000ULL-11644473600ULL,
+							size:(u64(u32(__C(int,"(int)((WIN32_FIND_DATAW*)@1)->nFileSizeHigh",fd)))<<32)+u64(u32(__C(int,"(int)((WIN32_FIND_DATAW*)@1)->nFileSizeLow",fd)))
+						}
+						fnret=iname
+						firet=fi
+						break
+				return (fnret,firet)
+			}
+	/**
 	 * \brief Search for files.
 	 *
 	 * Searches for a file or directory matching a specific name (possibly with wildcards) in a directory or recursively in a directory and all its subdirectories
@@ -6713,92 +6838,14 @@ module IO
 	 * @see TFileInfo
 	*/
 	inline EnumFiles(string fn,int flags)
+		ffindnext=CreateEnumFileContext(fn,flags)
 		return {forEach:inline(fbody){
-		is_rec=!!(flags&ENUM_RECURSIVE)
-		has_dir=!!(flags&ENUM_DIR)
-		has_dd=(has_dir&&(flags&ENUM_DOT))
-		has_file=(!has_dir||(flags&ENUM_FILE))
-		s2=System.Env.ExpandEnvironmentStrings(fn).Replace(["\\","/"])
-		pslash=s2.LastIndexOf('/')
-		if pslash<0:
-			path=new string("./")
-			name=s2
-		else
-			path=s2[0:pslash]
-			name=s2[pslash+1:]
-		if Platform.IS_WINDOWS:
-			path=path.Replace(["/","\\"])
-		has_dir+=has_dd
-		if is_rec:
-			paths=new string[]
-			paths.push(path)
-		if Platform.IS_UNIX:
-			fnbuf=new char[260]
-			fibuf0=__C(__pointer,"@decl:OSAL_TFileInfo @1={0}")
-		while !is_rec||paths.n:
-			if is_rec:path=paths.pop()
-			fname=path+name
-			if Platform.IS_UNIX:
-				fname.push(char(0))
-				handle=osal_BeginFind(fname)
-				if handle:
-					for(;;)
-						if !osal_FindNext(handle, fnbuf,__C(__pointer,"((OSAL_TFileInfo*)@1)",fibuf0)):break
-						fibuf=TFileInfo(){
-							created_time:__C(u64,"((OSAL_TFileInfo*)@1)->created_time",fibuf0),
-							last_modified_time:__C(u64,"((OSAL_TFileInfo*)@1)->last_modified_time",fibuf0),
-							size:__C(u64,"((OSAL_TFileInfo*)@1)->size",fibuf0),
-							attr:__C(int,"((OSAL_TFileInfo*)@1)->attr",fibuf0),
-						}
-						pzero=fnbuf.IndexOf(char(0))
-						if pzero<0:pzero=fnbuf.n
-						iname=new(fnbuf[0:pzero-1])
-						doit=0
-						if !fibuf.is_dir():
-							if has_file:
-								doit=1
-						else
-							if (iname.EndsWith("/.")||iname==".")||(iname.EndsWith("/..")||iname==".."&&has_dir!=2):
-								continue
-							if has_dir:
-								doit=1
-							if is_rec:
-								paths.push(iname+"/")
-						if doit:
-							fbody(iname,fibuf)
-					osal_EndFind(handle)
-			else
-				fnameu=toNativeString(fname.Replace(["/","\\"]))
-				fd=__C(__pointer,"@decl:WIN32_FIND_DATAW @1={0}")
-				h=FindFirstFileW(fnameu,__C(__pointer,"(WIN32_FIND_DATAW*)@1",fd))
-				if h!=INVALID_HANDLE_VALUE&&h:
-					for(;;)
-						fdname=pwcharToString(__C(__pointer,"(void*)((WIN32_FIND_DATAW*)@1)->cFileName",fd),260)
-						iname=path+Algorithm.UnicodeToUtf8(fdname)
-						doit=0
-						if !(__C(int,"((WIN32_FIND_DATAW*)@1)->dwFileAttributes",fd)&FILE_ATTRIBUTE_DIRECTORY):
-							if has_file:
-								doit=1
-						else
-							if fdname.n>0&&fdname[0]==i16('.'):
-								if fdname.n==1||fdname[1]==i16('.')&&fdname.n==2&&has_dir!=2:
-									if !FindNextFileW(h,fd):break
-									continue
-							if has_dir:
-								doit=1
-							if is_rec:
-								paths.push(iname+"\\")
-						if doit:
-							fi=TFileInfo(){
-								attr:__C(int,"(int)((WIN32_FIND_DATAW*)@1)->dwFileAttributes",fd),
-								created_time:__C(u64,"*(unsigned long long*)&((WIN32_FIND_DATAW*)@1)->ftCreationTime",fd),
-								last_modified_time:__C(u64,"*(unsigned long long*)&((WIN32_FIND_DATAW*)@1)->ftLastWriteTime",fd),
-								size:(u64(u32(__C(int,"(int)((WIN32_FIND_DATAW*)@1)->nFileSizeHigh",fd)))<<32)+u64(u32(__C(int,"(int)((WIN32_FIND_DATAW*)@1)->nFileSizeLow",fd)))
-							}
-							fbody(iname,fi)
-						if !FindNextFileW(h,fd):break
-					FindClose(h)
-			if !is_rec:break
+			for(;;)
+				(fn,fi)=ffindnext()
+				if fn:
+					fbody(fn,fi)
+				else
+					break
 		}}
 	/**
 	 * \brief Query the current directory.
@@ -9111,8 +9158,9 @@ module Time
 	auto WallClockTime()
 		return i64(time(0))
 	auto ToLocalTime(i64 t0)
-		t=__C(i64,"(time_t)@1",t0)
+		auto t=__C(i64,"(time_t)@1",t0)
 		p_localtime=localtime(&t)
+		if !p_localtime:return int[].NULL
 		return [__C(int,"((struct tm*)@1)->tm_year",p_localtime)+1900,
 			__C(int,"((struct tm*)@1)->tm_mon",p_localtime),
 			__C(int,"((struct tm*)@1)->tm_mday",p_localtime)-1,
