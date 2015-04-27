@@ -1959,21 +1959,21 @@ W.ListView_prototype={
 				this.velocity=(a[n-1].x-a[Math.max(n-2,0)].x)/dt;
 			}
 		}else{
-			if(this.m_autoscroll_goal!=undefined){
-				if(!this.velocity){this.velocity=0;}
-				if(this.position<this.m_autoscroll_goal){
-					this.velocity=this.max_velocity;
-				}else{
-					this.velocity=-this.max_velocity;
-				}
-				var delta_snap=Math.abs(this.velocity*sim_dt)
-				if(Math.abs(this.position-this.m_autoscroll_goal)<delta_snap){
-					this.position=this.m_autoscroll_goal
-					this.velocity=0
-					this.m_autoscroll_goal=undefined
-					UI.AutoRefresh()
-				}
-			}
+			//if(this.m_autoscroll_goal!=undefined){
+			//	if(!this.velocity){this.velocity=0;}
+			//	if(this.position<this.m_autoscroll_goal){
+			//		this.velocity=this.max_velocity;
+			//	}else{
+			//		this.velocity=-this.max_velocity;
+			//	}
+			//	var delta_snap=Math.abs(this.velocity*sim_dt)
+			//	if(Math.abs(this.position-this.m_autoscroll_goal)<delta_snap){
+			//		this.position=this.m_autoscroll_goal
+			//		this.velocity=0
+			//		this.m_autoscroll_goal=undefined
+			//		UI.AutoRefresh()
+			//	}
+			//}
 			if(this.velocity){
 				var old_pos=this.position;
 				this.position+=this.velocity*sim_dt;
@@ -2011,11 +2011,12 @@ W.ListView_prototype={
 		var pos_sel=item_sel[dim]-this[dim]+this.position
 		var pos_goal=Math.max(Math.min(this.position,pos_sel),pos_sel+item_sel[wh_dim]-this[wh_dim])
 		pos_goal=Math.max(Math.min(pos_goal,this.dim_tot-this[wh_dim]),0)
-		if(pos_goal!=this.position){
-			this.m_autoscroll_goal=pos_goal
-		}else{
-			this.m_autoscroll_goal=undefined
-		}
+		//if(pos_goal!=this.position){
+		//	this.m_autoscroll_goal=pos_goal
+		//}else{
+		//	this.m_autoscroll_goal=undefined
+		//}
+		this.position=pos_goal
 		UI.Refresh()
 	},
 	OnMouseDown:function(event){
@@ -2063,18 +2064,27 @@ W.ListView_prototype={
 			if(value>0){this.OnChange(value-1);}
 		}else if(UI.IsHotkey(event,this.dimension=="y"?"DOWN":"RIGHT")){
 			if(value<n-1){this.OnChange(value+1);}
-		}else if(UI.IsHotkey(event,"RETURN")){
-			if(n>0&&this.items[value].OnDblClick){
-				this.items[value].OnDblClick();
+		}else if(UI.IsHotkey(event,"RETURN RETURN2")){
+			var obj_sel=this["$"+value]
+			if(obj_sel&&obj_sel.OnDblClick){
+				obj_sel.OnDblClick();
 			}
 		}
 	},
 	///////////////
 	value:0,
+	mouse_wheel_speed:80,
 	OnChange:function(value){
 		this.value=value;
+		this.AutoScroll()
 		UI.Refresh();
-	}
+	},
+	OnMouseWheel:function(event){
+		var dim=this.dimension
+		var wh_dim=(dim=='y'?'h':'w')
+		this.position=Math.max(Math.min(this.position-event.y*this.mouse_wheel_speed,this.dim_tot-this[wh_dim]),0)
+		UI.Refresh()
+	},
 }
 W.ListView=function(id,attrs){
 	var obj=UI.StdWidget(id,attrs,"list_view",W.ListView_prototype)
@@ -2152,6 +2162,8 @@ W.ListView=function(id,attrs){
 						obj.OnChange(this.numerical_id)
 						if(obj.is_single_click_mode||event.clicks>1){
 							obj["$"+this.numerical_id.toString()].OnDblClick();
+						}else{
+							UI.SetFocus(obj)
 						}
 						UI.Refresh()
 					},

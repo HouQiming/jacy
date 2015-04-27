@@ -1983,13 +1983,33 @@ UI.InheritClass=function(proto0,proto1){
 }
 
 UI.m_translation={}
+UI._=function(s){
+	return UI.m_translation[s]||s;
+}
+var g_regex_format=new RegExp("@([0-9]+)","g")
+UI.Format=function(s){
+	var args0=arguments
+	return UI._(s).replace(g_regex_format,function(smatch,sid){
+		var value=args0[sid];
+		if(!value){
+			throw new Error("insufficient number of parameters")
+		}
+		return value;
+	});
+}
+
+//to translate it, overload the function, not the names array
+var g_english_month_names=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+UI.MonthDay=function(month,day){
+	return g_english_month_names[month]+" "+(day+1).toString()
+}
+
 UI.m_mac_key_names={
 	"SHIFT":"\u21E7",
 	"CTRL":"\uFF3E",
 	"ALT":"\u2325",
 	"WIN":"\u2318",
 };
-UI._=function(s){return UI.m_translation[s]||s;}
 UI.LocalizeKeyName=function(s){
 	if(UI.IS_APPLE){
 		return s.split("+").map(function(a){return UI.m_mac_key_names[a]||a}).join("");

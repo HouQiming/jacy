@@ -6811,7 +6811,7 @@ module IO
 							last_modified_time:__C(u64,"*(unsigned long long*)&((WIN32_FIND_DATAW*)@1)->ftLastWriteTime",fd)/10000000ULL-11644473600ULL,
 							size:(u64(u32(__C(int,"(int)((WIN32_FIND_DATAW*)@1)->nFileSizeHigh",fd)))<<32)+u64(u32(__C(int,"(int)((WIN32_FIND_DATAW*)@1)->nFileSizeLow",fd)))
 						}
-						fnret=iname
+						fnret=iname.Replace(["\\","/"])
 						firet=fi
 						break
 				return (fnret,firet)
