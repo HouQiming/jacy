@@ -73,7 +73,7 @@ g_config={};
 g_arch=g_current_arch;
 g_build="debug";
 g_regexp_chopdir=new RegExp("(.*)[/\\\\]([^/\\\\]*)");
-g_regexp_chopext=new RegExp("(.*)\\.([^.]*)");
+g_regexp_chopext=new RegExp("(.*)\\.([^/\\\\.]*)");
 g_is64=0;
 g_search_paths=[g_root+"/js"];
 
@@ -175,6 +175,7 @@ g_action_handlers.runjs=function(){
 (function(){
 	var fn_config=g_root+"/js/config.json";
 	g_config=eval("(function(){"+ReadFile(fn_config)+"})()");
+	g_config.ROOT=g_root
 	//handle utilities
 	if(g_action_handlers[g_action]){
 		//it's a utility, g_json_file is actually a hack arch
@@ -184,6 +185,9 @@ g_action_handlers.runjs=function(){
 	//parse the json
 	var s_json=ReadFile(g_json_file);
 	g_json=JSON.parse(s_json);
+	if(g_json.delete_json_file){
+		shell(["rm",g_json_file])
+	}
 	if(g_json.include_json){
 		//the length may CHANGE every iteration
 		for(var i=0;i<g_json.include_json.length;i++){
@@ -223,8 +227,12 @@ g_action_handlers.runjs=function(){
 	};
 	for(var name in g_json){
 		var arr=g_json[name];
-		for(var i=0;i<arr.length;i++){
-			arr[i]=arr[i].replace(re_envvar,ftranslate_envvar)
+		if(Array.isArray(arr)){
+			for(var i=0;i<arr.length;i++){
+				if(typeof arr[i]=='string'){
+					arr[i]=arr[i].replace(re_envvar,ftranslate_envvar)
+				}
+			}
 		}
 	}
 	//create the necessary globals
@@ -269,10 +277,11 @@ g_action_handlers.runjs=function(){
 		}
 	}
 	//locate the per-arch script and eval that
-	var s_jssrc=ReadFile(g_root+"/js/build_"+g_arch+".js")
-	if(!s_jssrc){die("I don't know how to build for platform '@1'".replace("@1",g_arch));}
-	eval(s_jssrc);
-	if(!g_action_handlers[g_action]){die("I don't know how to perform action '@1'".replace("@1",g_action));}
+	if(g_json.c_files){
+		var s_jssrc=ReadFile(g_root+"/js/build_"+g_arch+".js")
+		if(!s_jssrc){die("I don't know how to build for platform '@1'".replace("@1",g_arch));}
+		eval(s_jssrc);
+	}
 	//run the js files first
 	var include_js=g_json.include_js;
 	if(include_js){
@@ -283,6 +292,7 @@ g_action_handlers.runjs=function(){
 			debugEval(scode,fn);
 		}
 	}
+	if(!g_action_handlers[g_action]){die("I don't know how to perform action '@1'".replace("@1",g_action));}
 	(g_action_handlers[g_action])();
 	return {};
 })();

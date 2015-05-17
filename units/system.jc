@@ -6145,7 +6145,8 @@ module OS_API
 	spapUnblockYielding=__c_function(int,"spapUnblockYielding","spaprt_portable.h", "c_files","spaprt_portable.c")
 
 module detail
-	inline pcharToString(__pointer p)
+	inline pcharToString(__pointer p0)
+		p=__C(__pointer,"(void*)(@1)",p0)
 		return __ptrToString(p,System.OS_API.strlen(p))
 	inline pwcharToString(__pointer p,lg_max)
 		//lg=System.OS_API.wstrlen_s(__C(__pointer,"(short*)@1",p),lg_max)
@@ -6670,7 +6671,10 @@ module IO
 	 * @see OpenFile
 	*/
 	inline OpenFile(string fn)
-		return fopen(fn,OPEN_READ)
+		if arguments.length>1:
+			return fopen(fn,arguments[1])
+		else
+			return fopen(fn,OPEN_READ)
 	/**
 	 * \brief Create a new file
 	 *
@@ -6936,7 +6940,7 @@ module IO
 				NULL)
 			if hf&&hf!=INVALID_HANDLE_VALUE:
 				sz=-1LL
-				GetFileSizeEx(hf,&sz)
+				GetFileSizeEx(hf,__C(__pointer,"(LARGE_INTEGER*)@1",&sz))
 				CloseHandle(hf)
 				if sz!=-1LL:return sz
 		return -1LL
@@ -9043,6 +9047,11 @@ module Env
 		ret.resize(lg)
 		if lg&&ret[lg-1]==0:ret.resize(lg-1)
 		return Algorithm.UnicodeToUtf8(ret)
+	auto GetExecutableName()
+		if Platform.IS_UNIX:
+			return Console.GetCommandLine()[0]
+		else
+			return _Win_GetExecutableName().Replace(["\\","/"])
 	auto GetExecutablePath()
 		if Platform.IS_UNIX:
 			retptr=__C(__pointer,"(char*)@1",SDL_GetBasePath())
@@ -9113,7 +9122,7 @@ module Env
 			QueryPerformanceCounter(__C(__pointer,"(LARGE_INTEGER*)@1",&tick))
 			bpath=new i16[MAX_PATH+4]
 			GetTempPathW(MAX_PATH,bpath)
-			spath=Algorithm.UnicodeToUtf8(pwcharToString(__pointer(bpath.d),MAX_PATH))
+			spath=Algorithm.UnicodeToUtf8(pwcharToString(__pointer(bpath.d),MAX_PATH)).Replace(["\\","/"])
 		else
 			spath="/tmp"
 		for(;;)

@@ -1630,7 +1630,7 @@ UI.DrawFrame=function(){
 	UI.Application("top",{});
 	UI.__children=undefined
 	if(UI.enable_timing){
-		print('>>>>>>>>>JS time=',(Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())*1000).toFixed(2),'ms')
+		print('JS time=',(Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())*1000).toFixed(2),'ms')
 		print('style time=',(UI.style_secs*1000).toFixed(2),'ms',UI.style_count)
 	}
 	if(!UI.context_focus_is_a_region){
@@ -1645,6 +1645,8 @@ UI.DrawFrame=function(){
 	UI.EndFrame();
 	if(UI.enable_timing){
 		print('DrawFrame=',(UI.frame_time*1000).toFixed(2),'ms')
+		if(!UI.frame_id){UI.frame_id=1}else{UI.frame_id++}
+		print('============= Frame #',UI.frame_id)
 	}
 }
 

@@ -117,11 +117,11 @@ auto makeCaseTable(int2[] src)
 	//System.IO.CreateFile("test/wordchars.txt").Write(Unicode32ToUtf8(sret))
 	//Writeln(to_lower)
 	//Writeln(to_upper)
-	System.IO.CreateFile("test/to_upper.txt").Write(makeCaseTable(to_upper))
-	System.IO.CreateFile("test/to_lower.txt").Write(makeCaseTable(to_lower))
-	System.IO.CreateFile("test/wordchars.txt").Write(coderet)
-	System.IO.CreateFile("test/misc_chars.txt").Write(FormatAsText(opening_brackets,'\n',closing_brackets,'\n',no_breaks,'\n',spaces,'\n',arabic_table,'n',generic_symbols))
-	System.IO.CreateFile("test/ligatures.txt").Write(s_ligatures)
+	System.IO.CreateFile("to_upper.txt").Write(makeCaseTable(to_upper))
+	System.IO.CreateFile("to_lower.txt").Write(makeCaseTable(to_lower))
+	System.IO.CreateFile("wordchars.txt").Write(coderet)
+	System.IO.CreateFile("misc_chars.txt").Write(FormatAsText(opening_brackets,'\n',closing_brackets,'\n',no_breaks,'\n',spaces,'\n',arabic_table,'n',generic_symbols))
+	System.IO.CreateFile("ligatures.txt").Write(s_ligatures)
 	//charflag.bin
 	FLAG_HYPHENATE_AFTER=0x40000000//can also appear in the intermediate "words"
 	FLAG_BAD_BOL=0x20000000
@@ -131,9 +131,11 @@ auto makeCaseTable(int2[] src)
 	FLAG_CAN_PAD_AFTER_WEAK=0x08000000
 	FLAG_RUBBER=0x04000000
 	ret=new int[65536]
-	//generic_symbols
 	foreach ch in spaces
 		ret[ch]=FLAG_BAD_BOL
+	foreach ch in generic_symbols
+		if ch<65536:
+			ret[ch]=FLAG_BAD_BOL
 	//opening parenthesis / quotation
 	foreach ch in opening_brackets
 		ret[ch]=FLAG_BAD_EOL
@@ -147,5 +149,5 @@ auto makeCaseTable(int2[] src)
 	//spaces
 	foreach ch in spaces
 		ret[ch]=FLAG_IS_SPACE|FLAG_CAN_PAD_AFTER
-	System.IO.CreateFile("test/charflag.bin").Write(ret[0:].ConvertToAsBinary(char))
+	System.IO.CreateFile("charflag.bin").Write(ret[0:].ConvertToAsBinary(char))
 })()

@@ -307,6 +307,10 @@ class CGlyphCacheItem
 	float dx
 	float x_draw,y_draw,w_draw
 
+struct TFastGlyphCacheItem
+	CGlyphCacheItem gcitem
+	float y_final
+
 struct TPositionedText
 	pos=float2()
 	ch=0
@@ -471,6 +475,7 @@ class CRenderer
 			m_glyph_cache_prev.discard()
 			m_glyph_cache_invalidated=0
 		m_glyph_cache=new CGlyphCacheItem[int3]
+		m_fast_glyph_cache_font=TFont()
 		m_has_new_glyph_cache_entry=0
 		m_dynamic_textures=new TBitmap[]
 		m_dynamic_packings=TTextureSubImage[].NULL
@@ -961,14 +966,14 @@ class CRenderer
 				if ret:
 					delta_y=(pfnt.y_baseline_per_height-pfnt_i.y_baseline_per_height)*fnt.h+delta_y_original
 					break
-		else if FTW_GetGlyphId(pfnt.hfnt,ch):
+		else
 			//it doesn't have the glyph, fallback
 			//need this to avoid re-renders
 			key=int3(pfnt.id*1024+max(min(fnt.embolden+512,1023),0),__float_as_int(fnt.h),ch)
 			//Writeln('above ret=m_glyph_cache[key]')
 			ret=m_glyph_cache[key]
 			//Writeln('below ret=m_glyph_cache[key]')
-			if !ret:
+			if !ret&&FTW_GetGlyphId(pfnt.hfnt,ch):
 				ret=m_glyph_cache_prev[key]
 				if !ret:
 					m_has_new_glyph_cache_entry=1
@@ -1064,6 +1069,42 @@ class CRenderer
 			return
 		if !gcitem.bmp.w||!gcitem.bmp.h:return
 		y_final=y+gcitem.y_draw+delta_y
+		if m_text_y_snap:y_final=floor(y_final+0.5f)
+		_DrawBitmap(gcitem.tex_id, x+gcitem.x_draw,y_final,gcitem.w_draw,float(gcitem.bmp.h-2), C, 0)
+		//Writeln(x,' ',y,' ',char(ch))
+	////////////////
+	TFont m_fast_glyph_cache_font
+	TFastGlyphCacheItem[int] m_fast_glyph_cache
+	TFastGlyphCacheItem[] m_fast_glyph_cache_ascii
+	auto SetFastDrawCharFont(TFont fnt)
+		if m_fast_glyph_cache_font.h!=fnt.h||m_fast_glyph_cache_font.embolden!=fnt.embolden||iptr(m_fast_glyph_cache_font.pfnt)!=iptr(fnt.pfnt):
+			m_fast_glyph_cache=new TFastGlyphCacheItem[int]
+			m_fast_glyph_cache_ascii=new TFastGlyphCacheItem[256]
+		m_fast_glyph_cache_font=fnt
+	auto FastDrawChar(float x,float y,int C, int ch)
+		if u32(ch)<256u:
+			ret=m_fast_glyph_cache_ascii[ch]
+		else
+			ret=m_fast_glyph_cache[ch]
+		if !ret.gcitem&&!ret.y_final:
+			(gcitem,delta_y)=CacheGlyph(m_fast_glyph_cache_font,ch)
+			ret.y_final=1.f
+			if gcitem:
+				if !gcitem.bmp.w||!gcitem.bmp.h:
+					gcitem=CGlyphCacheItem.NULL
+				else
+					ret.y_final=gcitem.y_draw+delta_y
+			ret.gcitem=gcitem
+			if u32(ch)<256u:
+				m_fast_glyph_cache_ascii[ch]=ret
+			else
+				m_fast_glyph_cache[ch]=ret
+		///////////
+		gcitem=ret.gcitem
+		if !gcitem:
+			//we don't know what it looks like, don't draw
+			return
+		y_final=y+ret.y_final
 		if m_text_y_snap:y_final=floor(y_final+0.5f)
 		_DrawBitmap(gcitem.tex_id, x+gcitem.x_draw,y_final,gcitem.w_draw,float(gcitem.bmp.h-2), C, 0)
 		//Writeln(x,' ',y,' ',char(ch))

@@ -1117,7 +1117,7 @@ inline __int_range(a0,b0,c0)
 			if d<0:
 				n=-n
 				d=-d
-			return (n+1)/d
+			return max(n/d+1,T(0))
 		},
 		forEach:inline(fbody){
 			for(i=a;b<0?(i>=c):(i<=c);i+=b){

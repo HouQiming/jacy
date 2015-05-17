@@ -601,6 +601,7 @@ W.Button=function(id,attrs){
 UI.m_editor_plugins=[]
 UI.RegisterEditorPlugin=function(fplugin){
 	UI.m_editor_plugins.push(fplugin)
+	return fplugin
 }
 UI.HL_DISPLAY_MODE_RECT=0
 UI.HL_DISPLAY_MODE_EMBOLDEN=1
@@ -732,13 +733,28 @@ W.Edit_prototype={
 	},
 	GetEnhancedEnd:function(ccnt){
 		var ccnt_lend=this.SeekLC(this.GetLC(ccnt)[0],1e17);
-		if(ccnt_lend>0&&this.ed.GetText(ccnt_lend-1,1)=="\n"){ccnt_lend--;}
+		if(ccnt_lend>ccnt&&this.ed.GetText(ccnt_lend-1,1)=="\n"){ccnt_lend--;}
 		return this.SnapToValidLocation(this.ed.MoveToBoundary(ccnt_lend,-1,"space"),-1)
 	},
 	////////////////////////////
 	GetCaretXY:function(){
 		var ed=this.ed;
 		var xy0=ed.XYFromCcnt(this.sel1.ccnt)
+		if(this.caret_is_wrapped>0){
+			//chicken-egg: no this.GetCharacterHeightAtCaret() here
+			xy0.x=0
+			xy0.y+=ed.GetCharacterHeightAt(this.sel1.ccnt);
+		}else if(this.caret_is_wrapped<0){
+			//the *other* mode
+			xy0.y-=ed.GetCharacterHeightAt(this.sel1.ccnt);
+			xy0.x=this.displayed_wrap_width
+		}
+		return xy0;
+	},
+	GetIMECaretXY:function(){
+		var ed=this.ed;
+		var xy0=ed.XYFromCcnt(this.sel1.ccnt)
+		xy0.x+=ed.m_caret_offset
 		if(this.caret_is_wrapped>0){
 			//chicken-egg: no this.GetCharacterHeightAtCaret() here
 			xy0.x=0
@@ -812,6 +828,9 @@ W.Edit_prototype={
 		}else{
 			this.m_additional_hotkeys.push({'key':s_key,'action':faction})
 		}
+	},
+	AddTransientHotkey:function(s_key,faction){
+		this.m_transient_hotkeys.push({'key':s_key,'action':UI.HackCallback(faction)})
 	},
 	/////////////////
 	Copy:function(){
@@ -902,6 +921,24 @@ W.Edit_prototype={
 		}
 		UI.Refresh()
 	},
+	ProcessHotkeysInput:function(hk,event){
+		var sel0_ccnt=this.sel0.ccnt;
+		var sel1_ccnt=this.sel1.ccnt;
+		for(var i=hk.length-1;i>=0;i--){
+			var hki=hk[i]
+			if(event.text==hki.key){
+				if(!hki.action.call(this,hki.key)){
+					//0 for cancel
+					if(sel0_ccnt!=this.sel0.ccnt||sel1_ccnt!=this.sel1.ccnt){
+						this.CallOnSelectionChange()
+					}
+					UI.Refresh()
+					return 1
+				}
+			}
+		}
+		return 0
+	},
 	OnTextInput:function(event){
 		var ed=this.ed;
 		var ccnt0=this.sel0.ccnt;var sel0_ccnt=ccnt0
@@ -910,20 +947,8 @@ W.Edit_prototype={
 		var ops=[ccnt0,ccnt1-ccnt0,event.text];
 		if(event.text.length==1&&!event.is_paste){
 			//ASCII key events
-			var hk=this.m_additional_hotkeys;
-			for(var i=hk.length-1;i>=0;i--){
-				var hki=hk[i]
-				if(event.text==hki.key){
-					if(!hki.action.call(this,hki.key)){
-						//0 for cancel
-						if(sel0_ccnt!=this.sel0.ccnt||sel1_ccnt!=this.sel1.ccnt){
-							this.CallOnSelectionChange()
-						}
-						UI.Refresh()
-						return;
-					}
-				}
-			}
+			if(this.ProcessHotkeysInput(this.m_transient_hotkeys,event)){return;}
+			if(this.ProcessHotkeysInput(this.m_additional_hotkeys,event)){return;}
 		}
 		this.HookedEdit(ops)
 		//for hooked case, need to recompute those
@@ -934,6 +959,25 @@ W.Edit_prototype={
 		this.CallOnChange();
 		this.m_user_just_typed_char=1;
 		UI.Refresh()
+	},
+	ProcessHotkeysKeyDown:function(hk,event){
+		var sel0_ccnt=this.sel0.ccnt;
+		var sel1_ccnt=this.sel1.ccnt;
+		var IsHotkey=UI.IsHotkey
+		for(var i=hk.length-1;i>=0;i--){
+			var hki=hk[i]
+			if(hki.key.length!=1&&IsHotkey(event,hki.key)){
+				if(!hki.action.call(this,hki.key,event)){
+					//return 0 for "cancel default"
+					if(sel0_ccnt!=this.sel0.ccnt||sel1_ccnt!=this.sel1.ccnt){
+						this.CallOnSelectionChange()
+					}
+					UI.Refresh()
+					return 1;
+				}
+			}
+		}
+		return 0
 	},
 	OnKeyDown:function(event){
 		//allow multiple keys
@@ -953,20 +997,8 @@ W.Edit_prototype={
 			this_outer.AutoScroll("show");
 			UI.Refresh();
 		};
-		var hk=this.m_additional_hotkeys;
-		for(var i=hk.length-1;i>=0;i--){
-			var hki=hk[i]
-			if(hki.key.length!=1&&IsHotkey(event,hki.key)){
-				if(!hki.action.call(this,hki.key)){
-					//return 0 for "cancel default"
-					if(sel0_ccnt!=sel0.ccnt||sel1_ccnt!=sel1.ccnt){
-						this.CallOnSelectionChange()
-					}
-					UI.Refresh()
-					return;
-				}
-			}
-		}
+		if(this.ProcessHotkeysKeyDown(this.m_transient_hotkeys,event)){return;}
+		if(this.ProcessHotkeysKeyDown(this.m_additional_hotkeys,event)){return;}
 		if(0){
 		}else if(IsHotkey(event,"UP SHIFT+UP")){
 			var ed_caret=this.GetCaretXY();
@@ -1141,16 +1173,16 @@ W.Edit_prototype={
 			this.CallOnSelectionChange()
 		}
 	},
-	SetSelection:function(ccnt0,ccnt1){
+	SetSelection:function(ccnt0,ccnt1,mode){
 		this.sel0.ccnt=ccnt0
 		this.sel1.ccnt=ccnt1
-		this.AutoScroll("center_if_hidden");
+		this.AutoScroll(mode&&this.sel0.ccnt==ccnt0&&this.sel1.ccnt==ccnt1?"center":"center_if_hidden");
 		this.caret_is_wrapped=0
 		UI.Refresh()
 		//this.CallOnSelectionChange()
 	},
-	SetCaretTo:function(ccnt){
-		this.SetSelection(ccnt,ccnt)
+	SetCaretTo:function(ccnt,mode){
+		this.SetSelection(ccnt,ccnt,mode)
 	},
 	////////////////////////////
 	OnMouseDown:function(event){
@@ -1203,6 +1235,7 @@ W.Edit=function(id,attrs,proto){
 		UI.DrawBitmap(0,obj.x,obj.y,obj.w,obj.h,obj.bgcolor);
 	}
 	if(!obj.ed){obj.Init()}
+	obj.m_transient_hotkeys=[]
 	var scale=obj.scale*UI.pixels_per_unit;
 	var scroll_x=obj.scroll_x;
 	var scroll_y=obj.scroll_y;
@@ -1232,8 +1265,8 @@ W.Edit=function(id,attrs,proto){
 		return obj
 	}else{
 		if(UI.HasFocus(obj)){
-			var ed_caret=obj.GetCaretXY();
-			var x_caret=obj.x*UI.pixels_per_unit+(ed_caret.x-scroll_x+ed.m_caret_offset)*scale;
+			var ed_caret=obj.GetIMECaretXY();
+			var x_caret=obj.x*UI.pixels_per_unit+(ed_caret.x-scroll_x)*scale;
 			var y_caret=obj.y*UI.pixels_per_unit+(ed_caret.y-scroll_y)*scale;
 			UI.SetCaret(UI.context_window,
 				x_caret,y_caret,
@@ -2064,6 +2097,34 @@ W.ListView_prototype={
 			if(value>0){this.OnChange(value-1);}
 		}else if(UI.IsHotkey(event,this.dimension=="y"?"DOWN":"RIGHT")){
 			if(value<n-1){this.OnChange(value+1);}
+		}else if(UI.IsHotkey(event,"PGUP")&&this.items.length){
+			var obj_sel=this["$"+value]
+			var dim=this.dimension
+			var wh_dim=(dim=='y'?'h':'w')
+			var delta=this[wh_dim]
+			var p_goal=0
+			for(var p=value-1;p>=0;p--){
+				delta-=this["$"+p][wh_dim]
+				if(delta<=0){
+					p_goal=p
+					break;
+				}
+			}
+			if(p_goal!=value){this.OnChange(p_goal)}
+		}else if(UI.IsHotkey(event,"PGDN")&&this.items.length){
+			var obj_sel=this["$"+value]
+			var dim=this.dimension
+			var wh_dim=(dim=='y'?'h':'w')
+			var delta=this[wh_dim]
+			var p_goal=this.items.length-1
+			for(var p=value;p<this.items.length;p++){
+				delta-=this["$"+p][wh_dim]
+				if(delta<=0){
+					p_goal=p
+					break;
+				}
+			}
+			if(p_goal!=value){this.OnChange(p_goal)}
 		}else if(UI.IsHotkey(event,"RETURN RETURN2")){
 			var obj_sel=this["$"+value]
 			if(obj_sel&&obj_sel.OnDblClick){
@@ -2091,16 +2152,17 @@ W.ListView=function(id,attrs){
 	var items=obj.items
 	var item_template=(obj.item_template||{});
 	if(obj.OnDemand){
+		if(obj.real_items){items=obj.real_items}
 		var y0=-obj.position;
 		var items_new=[]
 		var wh_dim=(obj.dimension=='y'?'h':'w')
 		for(var i=0;i<items.length;i++){
-			if(y0>obj[wh_dim]){
-				for(var j=i;j<items.length;j++){
-					items_new.push(items[i])
-				}
-				break
-			}
+			//if(y0>obj[wh_dim]){
+			//	for(var j=i;j<items.length;j++){
+			//		items_new.push(items[i])
+			//	}
+			//	break
+			//}
 			var item_i=items[i]
 			if(!item_i){continue;}
 			var expanded=obj.OnDemand.call(item_i)
@@ -2121,6 +2183,7 @@ W.ListView=function(id,attrs){
 		}
 		items=items_new
 		obj.items=items
+		obj.real_items=items
 	}
 	var dim_tot=(obj.layout_spacing+1)*items.length
 	if(obj.dimension=="y"){

@@ -343,7 +343,11 @@ module duktape
 				as:inline(T){
 					if u32(id)<u32(duk_get_top(_ctx())):
 						duk_dup(_ctx(),id)
-						return _pop_typed(T,1);
+						if !duk_is_null_or_undefined(_ctx(),-1):
+							return _pop_typed(T,1);
+						else
+							duk_pop(_ctx())
+							return T.NULL
 					else
 						return T.NULL
 				},
@@ -351,7 +355,11 @@ module duktape
 					auto T=typeof(dflt)
 					if u32(id)<u32(duk_get_top(_ctx())):
 						duk_dup(_ctx(),id)
-						return _pop_typed(T,1);
+						if !duk_is_null_or_undefined(_ctx(),-1):
+							return _pop_typed(T,1);
+						else
+							duk_pop(_ctx())
+							return dflt
 					else
 						return dflt
 				},

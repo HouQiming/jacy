@@ -51,19 +51,20 @@ class ITextStateHandler
 	//For rendering states, we need a layouter
 	function(JSObject obj) SetTextStyle
 	function(JSObject obj) BeginRender
+	function(CEditableText ed,i64 ccnt0,i64 ccnt1):int IsRangeHidden
 	function(CEditableText ed,i64 ccnt_base,i64[] a,i64[] pp,string s, u8[] color_ids, i64 scroll_x,i64 scroll_y,i64 clip_w,i64 clip_h,float screen_x,float screen_y,float scaling) RenderText
-	function() EndRender
+	function(JSObject obj,CEditableText ed, i64 scroll_x,i64 scroll_y,i64 clip_w,i64 clip_h,float screen_x,float screen_y,float scale) EndRender
 	function(JSObject obj,CEditableText ed,CHLRange hl, i64 scroll_x,i64 scroll_y,i64 clip_w,i64 clip_h,float screen_x,float screen_y,float scale) DrawEnhancedHighlight
 	function(i64 ccnt_base,i64[] a,i64[] pp,string s,iptr ofs):i64 GetCharacterHeightAt
 	function():TFont GetDefaultFont
 	function(CEditableText caller,i64 x,i64 y,JSObject obj):i64 SetCaretOverlay
 	function():i64 GetCaretOffset
-	function(i64[] a):long2 GetXYFromState
+	function(CEditableText ed,i64[] a):long2 GetXYFromState
 	function(i64[] a,i64[] pp,string s,iptr ofs):int IsAtLineWrap
 	function(int ch):int IsCharInvisible
 	//For bisecting states, we need comparison and in-block linear seeking
-	function(i64[] a,i64[] b):int Compare
-	function(i64 ccnt_base,i64[] a,i64[] pp,string s,i64[] b):iptr SeekInBlock
+	function(CEditableText ed,i64[] a,i64[] b):int Compare
+	function(CEditableText ed,i64 ccnt_base,i64[] a,i64[] pp,string s,i64[] b):iptr SeekInBlock
 	//For search-nearest states, we need or-queries and full-block boolean mapping
 	//apply to pre-char locations
 	function(i64[] a,i64[] da, i64[] b):int hasValidResult
@@ -85,7 +86,7 @@ auto combineEditorOffset(long2 bb0,long2 bb1)
 inline CharToUtf8(auto s,T)
 	return {'forEach':inline(fbody){
 		ch0=0;nnxt=0;II=T(0)
-		surrogate_1st=0;surrogate_II=II
+		surrogate_1st=-1;surrogate_II=II
 		foreach chc,I in s
 			ch=int(u8(chc))
 			if ch>=128:
@@ -105,16 +106,22 @@ inline CharToUtf8(auto s,T)
 				ch=ch0
 				if u32(ch-0xd800)<0x800u:
 					//surrogate pair
-					if ch&0x0400:
+					if (ch&0x0400):
 						//2nd
-						ch=(surrogate_1st*0x400)+(ch&0x3ff)
-						surrogate_1st=0
-						II=surrogate_II
+						if surrogate_1st>=0:
+							ch=(surrogate_1st*0x400)+(ch&0x3ff)
+							surrogate_1st=-1
+							II=surrogate_II
+						else
+							surrogate_1st=-1
 					else
-						//1st
-						surrogate_1st=(ch&0x3ff)
-						surrogate_II=II
-						continue
+						if surrogate_1st<0:
+							//1st
+							surrogate_1st=(ch&0x3ff)
+							surrogate_II=II
+							continue
+						else
+							surrogate_1st=-1
 			else
 				II=I
 			fbody(ch,II,I+T(1))
@@ -313,12 +320,12 @@ class CLayouter_baseline
 		a[1]=bb.y
 	}
 	/////////////////
-	Compare=function(i64[] a,i64[] b){
+	Compare=function(CEditableText ed,i64[] a,i64[] b){
 		ret=__C_compare(a[1],b[1])
 		if ret==0:ret=__C_compare(a[0],b[0])
 		return ret
 	}
-	SeekInBlock=function(i64 ccnt_base,i64[] a,i64[] line_breaks,string s,i64[] b){
+	SeekInBlock=function(CEditableText ed,i64 ccnt_base,i64[] a,i64[] line_breaks,string s,i64[] b){
 		return iptr(_RenderText(MODE_SEEK,a,line_breaks,s,s.n, b[0],b[1],0.f,0.f,0.f).seek_ret)
 	}
 	/////////////////
@@ -552,13 +559,13 @@ class CLine_handler
 	}
 	/////////////////
 	//compare known-positive doubles as ints
-	Compare=function(i64[] a,i64[] b){
+	Compare=function(CEditableText ed,i64[] a,i64[] b){
 		ret=__C_compare(a[0],b[0])
 		if !ret:
 			ret=__C_compare(a[1],b[1])
 		return ret
 	}
-	SeekInBlock=function(i64 ccnt_base,i64[] a,i64[] unused,string s,i64[] b){
+	SeekInBlock=function(CEditableText ed,i64 ccnt_base,i64[] a,i64[] unused,string s,i64[] b){
 		l=a[0]
 		c=a[1]
 		bl=b[0]
@@ -822,7 +829,7 @@ class CEditableText
 				s_context=s_context0[s_context0.n-context_size:]
 			else
 				s_context=string.NULL
-			t0=System.Time.tick64()//todo
+			//t0=System.Time.tick64()
 			hstate.AddString(a_slice,block_state,s_context,s,s.n)
 			//g_states_time_leaf[I]+=System.Time.TicksToSeconds(System.Time.tick64()-t0)*1000.0
 			a_slice.discard()
@@ -937,12 +944,12 @@ class CEditableText
 		reti=new i64[n*2]
 		for i=0:n-1
 			if handler.GetXYFromState:
-				xy=handler.GetXYFromState(a[szacc*i:szacc*i+szacc-1])
+				xy=handler.GetXYFromState(this,a[szacc*i:szacc*i+szacc-1])
 				x=xy.x
 				y=xy.y
 			else
-				x=a[0]
-				y=a[1]
+				x=a[szacc*i+0]
+				y=a[szacc*i+1]
 			reti[i*2+0]=x
 			reti[i*2+1]=y
 		return reti
@@ -1380,14 +1387,14 @@ class CEditableText
 			n0=m_state_ofs.back()
 			ofspp=nd.a[n0+handler.id]
 			ofspp2=(handler.id==m_handlers.n-1?i64(nd.a.n):nd.a[n0+handler.id+1])
-			return ccnt_base0+i64(handler.SeekInBlock(ccnt_base0,acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s,b))
+			return ccnt_base0+i64(handler.SeekInBlock(this,ccnt_base0,acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s,b))
 		else
 			ccnt_base=ccnt_base0
 			acc2=new(acc)
 			for(pc=nd.pchild;pc;pc=pc.pnext)
 				copy(acc2,acc)
 				handler.Add(acc2,pc.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
-				if handler.Compare(acc2,b)>0:
+				if handler.Compare(this,acc2,b)>0:
 					acc2=i64[].NULL
 					return _Bisect(acc, hid,ccnt_base,pc,b)
 				copy(acc,acc2)
@@ -1545,7 +1552,7 @@ class CEditableText
 			if int(hl.display_mode)!=HL_DISPLAY_MODE_RECT:continue
 			xy0=projectDocumentPosition(ccnt0)
 			xy1=projectDocumentPosition(ccnt1)
-			//Writeln(xy0,' ',xy1,' ',ccnt0,' ',ccnt1)
+			//Writeln(xy0,' ',xy1,' ',ccnt0,' ',ccnt1,' ',formatNumber(u32(hl.color),{base:16,align:8}))
 			//Writeln(__double_as_longlong(xy0.y)-__double_as_longlong(xy1.y))
 			//Writeln(abs(__double_as_longlong(xy0.y)-__double_as_longlong(xy1.y)))
 			//Writeln('epsEqual')
@@ -1566,8 +1573,16 @@ class CEditableText
 		acc=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
 		if hid_colorer>=0:
 			acc_colorer=new i64[m_state_ofs[hid_colorer+1]-m_state_ofs[hid_colorer]]
+		//auto timer_t0=System.Time.tick64()
+		//Writeln('------------------------------')
 		auto dfsRender(CSLNode nd,i64 ccnt_base0)
 			ccnt_base=ccnt_base0
+			if handler.IsRangeHidden:
+				if handler.IsRangeHidden(this,ccnt_base,ccnt_base+nd.ccnt):
+					handler.Add(acc,nd.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
+					if hid_colorer>=0:
+						handler_colorer.Add(acc_colorer,nd.a[m_state_ofs[hid_colorer]:m_state_ofs[hid_colorer+1]-1])
+					return
 			if nd.s:
 				rendering_started=1
 				n0=m_state_ofs.back()
@@ -1578,7 +1593,9 @@ class CEditableText
 					color_ids=handler_colorer.ComputeCharColorID(acc_colorer,s_context,nd.s)
 				else
 					color_ids=u8[].NULL
+				//auto t0=System.Time.tick64()
 				handler.RenderText(this,ccnt_base,acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s, color_ids, x,y,w,h,scr_x,scr_y,scale)
+				//Writeln('render a block: ',System.Time.TicksToSeconds(System.Time.tick64()-t0)*1000.0,'ms')
 				handler.Add(acc,nd.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
 				if hid_colorer>=0:
 					handler_colorer.Add(acc_colorer,nd.a[m_state_ofs[hid_colorer]:m_state_ofs[hid_colorer+1]-1])
@@ -1594,8 +1611,9 @@ class CEditableText
 							handler_colorer.Add(acc_colorer,pc.a[m_state_ofs[hid_colorer]:m_state_ofs[hid_colorer+1]-1])
 					ccnt_base+=pc.ccnt
 		dfsRender(m_skiplist,0LL)
+		//Writeln('>>>>> total: ',System.Time.TicksToSeconds(System.Time.tick64()-timer_t0)*1000.0,'ms')
 		//////////////////////////////
-		if handler.EndRender:handler.EndRender()
+		if handler.EndRender:handler.EndRender(obj,this, x,y,w,h,scr_x,scr_y,scale)
 		//////////////////////////////
 		//draw the advanced highlights
 		if handler.DrawEnhancedHighlight:
@@ -1627,7 +1645,7 @@ class CEditableText
 		handler=m_handlers[hid]
 		a=GetStateAt(hid,ccnt)
 		if handler.GetXYFromState:
-			return handler.GetXYFromState(a)
+			return handler.GetXYFromState(this,a)
 		else
 			return long2(a[0],a[1])
 	//todo: style changing
@@ -2018,7 +2036,7 @@ class CEditableText
 		else if stype=="word_boundary_right":
 			fcheck=function(int c0,int c1){return isWordChar(c0)&&!isWordChar(c1)}
 		else if stype=="ctrl_lr_stop":
-			fcheck=function(int c0,int c1){return !isWordChar(c0)&&isWordChar(c1)||c1=='\n'}
+			fcheck=function(int c0,int c1){return !isWordChar(c0)&&isWordChar(c1)||isCJK(c0)&&!isCJK(c1)&&isWordChar(c1)||c1=='\n'}
 		else if stype=="invisible_boundary":
 			hid=m_handler_registration["renderer"].as(int)
 			handler=m_handlers[hid]

@@ -194,7 +194,7 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 	u32* pback=(u32*)cam->m_image_back;
 	//int w3=w*3;
 	SDL_UnlockMutex(cam->m_cam_mutex);
-	//BGRA to BGR
+	//BGRA to RGBA
 	//printf("%08x %d %d %08x\n",cam->m_image_back,w,h,pimg);
 	for(int i=0;i<h;i++){
 		int* tar=pback+w*i;
