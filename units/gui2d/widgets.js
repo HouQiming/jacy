@@ -645,6 +645,7 @@ W.Edit_prototype={
 		var wc=UI.GetCharacterAdvance(ed.GetDefaultFont(),' ');
 		var hc=this.GetCharacterHeightAtCaret();
 		var page_height=this.h;
+		var h_top_hint=(this.h_top_hint||0);
 		if(mode!='show'){
 			//print(ed_caret,this.sel1.ccnt,this.ed.GetTextSize())
 			if(this.scroll_y>ed_caret.y||this.scroll_y<=ed_caret.y-page_height||mode=='center'){
@@ -652,7 +653,7 @@ W.Edit_prototype={
 				this.scroll_y=ed_caret.y-(page_height-hc)/2;
 			}
 		}
-		this.scroll_y=Math.min(this.scroll_y,ed_caret.y)
+		this.scroll_y=Math.min(this.scroll_y,ed_caret.y-h_top_hint)
 		if(ed_caret.y-this.scroll_y>=page_height-hc){
 			this.scroll_y=(ed_caret.y-(page_height-hc));
 		}
@@ -1151,7 +1152,7 @@ W.Edit_prototype={
 			this.Paste()
 		}else if(IsHotkey(event,"CTRL+Z")||IsHotkey(event,"ALT+BACKSPACE")){
 			var ret=ed.Undo()
-			if(ret&&ret.sz){
+			if(ret&&ret.sz>=0){
 				sel0.ccnt=ret.ccnt;
 				sel1.ccnt=ret.ccnt+ret.sz;
 				this.AutoScroll("center_if_hidden");
@@ -1160,7 +1161,7 @@ W.Edit_prototype={
 			UI.Refresh();
 		}else if(IsHotkey(event,"CTRL+SHIFT+Z")||IsHotkey(event,"CTRL+Y")){
 			var ret=ed.Undo("redo")
-			if(ret&&ret.sz){
+			if(ret&&ret.sz>=0){
 				sel0.ccnt=ret.ccnt;
 				sel1.ccnt=ret.ccnt+ret.sz;
 				this.AutoScroll("center_if_hidden");
@@ -2049,7 +2050,7 @@ W.ListView_prototype={
 		//}else{
 		//	this.m_autoscroll_goal=undefined
 		//}
-		this.position=pos_goal
+		this.position=(pos_goal||0)
 		UI.Refresh()
 	},
 	OnMouseDown:function(event){

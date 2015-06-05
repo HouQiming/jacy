@@ -6,6 +6,7 @@ Duktape.__ui_native_hack(UI);
 
 UI.IS_MOBILE=(UI.Platform.ARCH=="android"||UI.Platform.ARCH=="ios");
 UI.IS_APPLE=(UI.Platform.ARCH=="mac"||UI.Platform.ARCH=="ios");
+UI.IS_LINUX=(UI.Platform.ARCH=="linux32"||UI.Platform.ARCH=="linux64");
 if(UI.Platform.BUILD=="debug"){
 	UI.assert=function(cond,message){
 		if(!cond){
@@ -1860,6 +1861,9 @@ UI.Run=function(){
 				if(hotkeyed){break;}
 				////////
 				if(UI.nd_focus){
+					if(UI.IS_LINUX&&(UI.IsPressed("LALT")||UI.IsPressed("RALT")||UI.IsPressed("LCTRL")||UI.IsPressed("RCTRL")||UI.IsPressed("LWIN")||UI.IsPressed("RWIN"))){
+						break
+					}
 					UI.CallIfAvailable(UI.nd_focus,"OnTextInput",event);
 				}
 				UI.inside_IME=0

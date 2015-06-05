@@ -2776,8 +2776,7 @@ GL_COMPRESSED_SLUMINANCE_ALPHA=0x8C4B
 ///////
 GL_TEXTURE_2D_MULTISAMPLE=0x9100
 
-//use linux32 to cover Raspberry Pi right now
-IS_OPENGL_ES=(Platform.ARCH=="android"||Platform.ARCH=="ios"||Platform.ARCH=="linux32")
+IS_OPENGL_ES=(Platform.ARCH=="android"||Platform.ARCH=="ios"||Platform.ARCH=="rasppi"||Platform.ARCH=="linux32")
 
 auto mygluGetErrorString(GLenum err)
 	switch(err){

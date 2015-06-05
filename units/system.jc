@@ -8,7 +8,7 @@ module OS_API
 	FILE_ATTRIBUTE_DIRECTORY=0x00000010
 	if Platform.IS_UNIX:
 		__generate_json("ldflags","-lm")
-		if Platform.ARCH=="linux32"||Platform.ARCH=="linux64":
+		if Platform.ARCH=="rasppi"||Platform.ARCH=="linux32"||Platform.ARCH=="linux64":
 			__generate_json("cflags","-I/usr/include/SDL2")
 			__generate_json("cflags","-I/usr/local/include/SDL2")
 			__generate_json("ldflags","-lSDL2")
@@ -6127,8 +6127,8 @@ module OS_API
 			fseek=__c_function(int,"fseek","stdio.h")
 			ftell=__c_function(iptr,"ftell","stdio.h")
 		else
-			fseek=__c_function(int,"fseek64","stdio.h")
-			ftell=__c_function(iptr,"ftell64","stdio.h")
+			fseek=__c_function(int,"fseeko","stdio.h")
+			ftell=__c_function(iptr,"ftello","stdio.h")
 	else
 		fseek=__c_function(int,"fseek","stdio.h")
 		ftell=__c_function(iptr,"ftell","stdio.h")
@@ -9014,6 +9014,7 @@ module Env
 						envz.push(char(0))
 						ret.push(pcharToString(__pointer(iptr(getenv(envz)))))
 						envz.discard()
+						aa=aa[pexpand+1:]
 					else
 						ret.push(aa)
 						break
@@ -9079,18 +9080,17 @@ module Env
 				s_userdir=ExpandEnvironmentStrings(string("%USERPROFILE%"))
 				if !s_userdir.n||s_userdir[0]=='%':
 					s_userdir=ExpandEnvironmentStrings(string("%SystemDrive%%HOMEPATH%"))
-				ename=_Win_GetExecutableName()
+				ename=_Win_GetExecutableName().Replace(["\\","/"])
 			else
 				s_userdir=ExpandEnvironmentStrings(string("${HOME}"))
 				ename=Console.GetCommandLine()[0]
-			idx=ename.LastIndexOf('\\')
-			if idx<0:idx=ename.LastIndexOf('/')
+			idx=ename.LastIndexOf('/')
 			ename=ename[idx+1:]
 			pdot=ename.LastIndexOf('.')
 			if pdot>=0:ename=ename[:pdot-1]
-			sret=s_userdir+string("\\.")+ename
+			sret=s_userdir+string("/.")+ename
 			if !System.IO.DirExists(sret):System.IO.CreateDirectory(sret)
-			return sret.Replace(["\\","/"])
+			return sret
 	auto NormalizeFileName(string fn)
 		if !fn:return string.NULL
 		if !fn.n:return new string
@@ -9118,13 +9118,12 @@ module Env
 			return Algorithm.UnicodeToUtf8(ret).Replace(["\\","/"]).ToLower()
 	auto GetTempFileName(string sext)
 		if Platform.IS_WINDOWS:
-			tick=0LL
-			QueryPerformanceCounter(__C(__pointer,"(LARGE_INTEGER*)@1",&tick))
 			bpath=new i16[MAX_PATH+4]
 			GetTempPathW(MAX_PATH,bpath)
 			spath=Algorithm.UnicodeToUtf8(pwcharToString(__pointer(bpath.d),MAX_PATH)).Replace(["\\","/"])
 		else
 			spath="/tmp"
+		tick=System.Time.tick64()
 		for(;;)
 			idrand=(Algorithm.Random(u64)^u64(tick))
 			sfile=spath+string("/s7tmp")+string(idrand)+"."+sext

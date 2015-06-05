@@ -656,9 +656,9 @@ class CRenderer
 						gl_Position=vec4(P_scr.x+trans.x,P_scr.y+trans.y,1.0,1.0);
 					}")
 					if m_srgb_supported&&!m_tex_is_srgb:
-						m_tech.SetFragmentShader("void main(){vec4 C_tex=texture2D(tex0,uv);gl_FragColor=vec4(pow(C_tex.xyz,vec3("+formatNumber(m_gamma,{frac:7})+")),C_tex.w)*C;}")
+						m_tech.SetFragmentShader("void main(){vec4 C_tex=texture2D(tex0,uv).aaaa;gl_FragColor=vec4(pow(C_tex.xyz,vec3("+formatNumber(m_gamma,{frac:7})+")),C_tex.w)*C;}")
 					else
-						m_tech.SetFragmentShader("void main(){gl_FragColor=texture2D(tex0,uv)*C;}")
+						m_tech.SetFragmentShader("void main(){gl_FragColor=texture2D(tex0,uv).aaaa*C;}")
 				pslice=m_vbo[dc.pv:]
 				m_tech.SetVertexPointer("P", 2,GL_UNSIGNED_SHORT,0, VERTEX_SIZE*sizeof(int),pslice.d)
 				m_tech.SetVertexPointer("uv_vert", 2,GL_UNSIGNED_SHORT,0, VERTEX_SIZE*sizeof(int),pslice.d+1*sizeof(int))

@@ -1358,10 +1358,12 @@ class CEditableText
 		foreach loci in uitem.locs
 			loci.loc.ccnt=loci.ccnt
 		//single-insert special case: return the info in the API, select it in js code
-		ret=long2(0LL,0LL)
-		if uitem.ops.n==1:
-			if !uitem.ops[0].sz&&uitem.ops[0].s&&uitem.ops[0].s.n:
+		ret=long2(-1LL,-1LL)
+		if uitem.ops.n>=1:
+			if uitem.ops[0].s&&uitem.ops[0].s.n:
 				ret=long2(uitem.ops[0].ccnt,i64(uitem.ops[0].s.n))
+			else
+				ret=long2(uitem.ops[0].ccnt,0LL)
 		return ret
 	inline Undo()
 		return RawUndo(m_undo_queue,m_redo_queue)
