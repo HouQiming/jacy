@@ -161,7 +161,6 @@ struct TStretchDIBits
 	hwnd=NULL
 	bmpid=0
 	C=int4()
-	pos=0
 
 struct TDrawCall
 	hwnd=NULL
@@ -500,9 +499,10 @@ class CRenderer
 		if m_StretchDIBits_calls.n:
 			//tick0=System.Time.tick64()
 			(m_dynamic_packed_bmp,m_dynamic_packings)=packTextures(m_dynamic_textures,m_texture_width,1)
-			foreach scall in m_StretchDIBits_calls
+			m_vbo.resize(m_StretchDIBits_calls.n*(VERTEX_SIZE*4))
+			foreach scall,I in m_StretchDIBits_calls
 				packed=m_dynamic_packings[scall.bmpid]
-				n0=scall.pos
+				n0=I*(VERTEX_SIZE*4)
 				vdata=scall.vdata
 				u0=__int_as_float(0x4b000000+1+packed.x)-8388608.f
 				v0=__int_as_float(0x4b000000+1+packed.y)-8388608.f
@@ -711,20 +711,20 @@ class CRenderer
 		m_clip=float4(0.f,0.f,w,h)
 		m_clip_stack.clear()
 		m_crd16_scale=max(65536/promoteToTextureSize(int(ceil(max(w,h)))+1),1)
-		m_drawcall_start=int(m_vbo.n)
+		m_drawcall_start=int(m_StretchDIBits_calls.n)
 		m_window_w=w
 		m_window_h=h
 	auto FlushDrawcall()
 		//create a drawcall
-		if m_window_w&&m_window_h&&m_drawcall_start<int(m_vbo.n):
+		if m_window_w&&m_window_h&&m_drawcall_start<int(m_StretchDIBits_calls.n):
 			m_drawcalls.push(TDrawCall(){
 				hwnd:m_hwnd,
-				pv:m_drawcall_start,
-				nv:(int(m_vbo.n)-m_drawcall_start)/VERTEX_SIZE,
+				pv:m_drawcall_start*(VERTEX_SIZE*4),
+				nv:(int(m_StretchDIBits_calls.n)-m_drawcall_start)*4,
 				crd16_scale:m_crd16_scale,
 				window_w:m_window_w,
 				window_h:m_window_h})
-		m_drawcall_start=int(m_vbo.n)
+		m_drawcall_start=int(m_StretchDIBits_calls.n)
 	auto EndPaint()
 		FlushDrawcall()
 		//and to allow caret / progress overlay - videos
@@ -769,7 +769,7 @@ class CRenderer
 			m_clip=float4(0.f,0.f,float(w),float(h))
 		//m_clip_stack.clear()
 		m_crd16_scale=max(65536/promoteToTextureSize(max(w,h)+1),1)
-		m_drawcall_start=int(m_vbo.n)
+		m_drawcall_start=int(m_StretchDIBits_calls.n)
 		m_window_w=f32(w)
 		m_window_h=f32(h)
 	inline PushCliprect(float x,float y,float w,float h)
@@ -790,8 +790,8 @@ class CRenderer
 		//packed=m_dynamic_packings[hbmp]
 		u0=0.f
 		v0=0.f
-		cu=f32(m_texture_width)
-		cv=f32(m_texture_width)
+		cu=1.f//f32(m_texture_width)
+		cv=1.f//f32(m_texture_width)
 		x=x0;y=y0;w=w0;h=h0
 		if x<m_clip.x:
 			dx=m_clip.x-x
@@ -823,7 +823,8 @@ class CRenderer
 			return max(min(__float_as_int(f*float(m_crd16_scale)+8388608.f)-0x4b000000,65535),0)
 		inline f2i_uv(float f)
 			//return max(min(int(f*float(m_uv16_scale)),65535),0)
-			return max(min(__float_as_int(f*float(m_uv16_scale)+8388608.f)-0x4b000000,65535),0)
+			//return max(min(__float_as_int(f*float(m_uv16_scale)+8388608.f)-0x4b000000,65535),0)
+			return max(min(__float_as_int(f*32768.f+8388608.f)-0x4b000000,65535),0)
 		//assert(x>=m_clip.x&&x<=m_clip.z)
 		//assert(x+w>=m_clip.x&&x+w<=m_clip.z)
 		//assert(y>=m_clip.y&&y<=m_clip.w)
@@ -853,9 +854,7 @@ class CRenderer
 		//	m_vbo[n0+(VERTEX_SIZE*3+2)]=C
 		//else
 		vdata=int4(((iy0)<<16)+(ix0),((iy1)<<16)+(ix1),((iv0)<<16)+(iu0),((iv1)<<16)+(iu1))
-		n0=m_vbo.n
-		m_vbo.resize(n0+VERTEX_SIZE*4)
-		m_StretchDIBits_calls.push(TStretchDIBits(){vdata:vdata,hwnd:m_hwnd,bmpid:hbmp,C:int4(C,C,C,C),pos:int(n0)})
+		m_StretchDIBits_calls.push(TStretchDIBits(){vdata:vdata,hwnd:m_hwnd,bmpid:hbmp,C:int4(C,C,C,C)})
 		//Writeln(x,' ',y,' ',w,' ',h,' ',m_vbo.n)
 	inline DrawRectangle(float x0,float y0,float w0,float h0, int C)
 		_DrawBitmap(0,x0,y0,w0,h0,C)
@@ -1490,8 +1489,6 @@ class CRenderer
 					dv=(v1-v0)*t
 					v1+=dv
 				if !(y1>y0):continue
-				n0=m_vbo.n
-				m_vbo.resize(n0+VERTEX_SIZE*4)
 				ix0=f2i_P(x0)
 				iy0=f2i_P(y0)
 				iu0=f2i_uv(u0)
@@ -1516,7 +1513,7 @@ class CRenderer
 				//	m_vbo[n0+(VERTEX_SIZE*3+2)]=C3
 				//else
 				vdata=int4(((iy0)<<16)+(ix0),((iy1)<<16)+(ix1),((iv0)<<16)+(iu0),((iv1)<<16)+(iu1))
-				m_StretchDIBits_calls.push(TStretchDIBits(){vdata:vdata,hwnd:m_hwnd,bmpid:bmpid_xy,C:int4(C0,C1,C2,C3),pos:int(n0)})
+				m_StretchDIBits_calls.push(TStretchDIBits(){vdata:vdata,hwnd:m_hwnd,bmpid:bmpid_xy,C:int4(C0,C1,C2,C3)})
 g_renderer=new CRenderer
 
 ////////////////////////////////////////////
