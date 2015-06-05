@@ -3375,6 +3375,10 @@ auto glCreateTexture(int format,int w,int h, int filter,int wraps,int wrapt,__po
 		channels=GL_RGB
 		t=GL_UNSIGNED_BYTE
 		break
+	case GL_ALPHA8:
+		channels=GL_ALPHA
+		t=GL_UNSIGNED_BYTE
+		break
 	case GL_SRGB_EXT:
 		if IS_OPENGL_ES:
 			channels=GL_SRGB_EXT

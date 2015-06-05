@@ -412,7 +412,7 @@ class CLayouter_baseline
 								(x_sel0,x_sel1)=(x_sel1,x_sel0)
 							//selection - pre-draw the highlight
 							if x_sel0<x_sel1:
-								g_renderer.DrawBitmap(0, float((fixed2float(x-scroll_x)+x_sel0)*scale+screen_x),yf,float((x_sel1-x_sel0)*scale),fixed2float(hc), m_bgcolor_selection)
+								g_renderer.DrawRectangle(float((fixed2float(x-scroll_x)+x_sel0)*scale+screen_x),yf,float((x_sel1-x_sel0)*scale),fixed2float(hc), m_bgcolor_selection)
 						else
 							assert(0)
 						xo=x
@@ -424,7 +424,7 @@ class CLayouter_baseline
 						assert(0)
 					//draw the underline
 					y_underline=yf+fnt_scaled.h*(fnt_scaled.pfnt.y_baseline_per_height+0.02f)
-					g_renderer.DrawBitmap(0, projectX(x),y_underline,fixed2float(m_caret_overlay.z)*scale,max(fnt_scaled.h*0.05f,1.f), m_color)
+					g_renderer.DrawRectangle(projectX(x),y_underline,fixed2float(m_caret_overlay.z)*scale,max(fnt_scaled.h*0.05f,1.f), m_color)
 				else
 					assert(0)
 				x+=m_caret_overlay.z
@@ -1560,14 +1560,14 @@ class CEditableText
 			//Writeln('epsEqual')
 			if xy0.y==xy1.y:
 				hc=fixed2float(GetCharacterHeightAt(ccnt1))*scale
-				g_renderer.DrawBitmap(0, xy0.x,xy0.y,xy1.x-xy0.x,hc, hl.color)
+				g_renderer.DrawRectangle(xy0.x,xy0.y,xy1.x-xy0.x,hc, hl.color)
 			else
 				//draw 3 rects, we have a cliprect, don't worry
 				hc=fixed2float(GetCharacterHeightAt(ccnt0))*scale
-				g_renderer.DrawBitmap(0, xy0.x,xy0.y,max(scr_x+wf*scale-xy0.x,0.f),hc, hl.color)
-				g_renderer.DrawBitmap(0, scr_x,xy0.y+hc,wf*scale,max(xy1.y-(xy0.y+hc),0.f), hl.color)
+				g_renderer.DrawRectangle(xy0.x,xy0.y,max(scr_x+wf*scale-xy0.x,0.f),hc, hl.color)
+				g_renderer.DrawRectangle(scr_x,xy0.y+hc,wf*scale,max(xy1.y-(xy0.y+hc),0.f), hl.color)
 				hc=fixed2float(GetCharacterHeightAt(ccnt1))*scale
-				g_renderer.DrawBitmap(0, scr_x,xy1.y,max(xy1.x-scr_x,0.f),hc, hl.color)
+				g_renderer.DrawRectangle(scr_x,xy1.y,max(xy1.x-scr_x,0.f),hc, hl.color)
 		//////////////////////////////
 		if handler.BeginRender:handler.BeginRender(obj)
 		//////////////////////////////

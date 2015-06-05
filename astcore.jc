@@ -44,7 +44,7 @@ fdummy_callback=function(PExpression pecall,int expr_oplevel){return TSCCPValue(
 auto citeexpr(PExpression pe)
 	epos0=readPool(pe+1)
 	epos1=readPool(pe+2)
-	if !epos0:
+	if !epos0||!epos1:
 		return dumpExpr(pe,__zero(fcolorer_callback))
 	if epos1<0:
 		paepos=epos0
@@ -8831,12 +8831,14 @@ auto typeMerge(PExpression pe,PCTObject t_old,PCTObject t_new,PExpression pe_old
 			foreach pe_old_2 in all_pe_olds.ReverseOrder()
 				if s_pe_olds.n:s_pe_olds.push(';')
 				s_pe_olds.push(citeexpr(pe_old_2))
+		//Writeln(dumpExpr(pe_new,fcolor_abbrv_blocks))
+		//Writeln(readPool(pe_new+1),' ',readPool(pe_new+2))
 		errorAtExpr(ETYPE_ERROR,pe,"variable '@1' was of type '@2' in previous statements '@3', but it becomes '@4' in '@5'".Replace([
 			"@1",getIdString(readPool(pobj_var+VAR_OFS_ID)),
 			"@2",s_t_olds,
 			"@3",s_pe_olds,
 			"@4",dumpType(t_new),
-			"@5",citeexpr(pe)]))
+			"@5",citeexpr(pe_new)]))
 	else if pe_old==pe_new:
 		//panic
 		errorAtExpr(ETYPE_ERROR,pe,"panic: the same expression '@1' evaluated into different types '@2' and '@3'".Replace([

@@ -270,7 +270,7 @@ UI.ChooseScalingFactor=function(obj){
 	var screen_dim=Math.min(display_mode.w,display_mode.h);
 	UI.pixels_per_unit=screen_dim/design_screen_dim;
 	UI.ResetRenderer(UI.pixels_per_unit,obj.gamma||2.2);
-	UI.LoadStaticImages(UI.rc);
+	//UI.LoadStaticImages(UI.rc);
 	////wipe out initialization routines for security
 	//UI.LoadPackedTexture=null;
 	//UI.LoadStaticImages=null;
