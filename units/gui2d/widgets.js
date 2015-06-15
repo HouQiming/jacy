@@ -720,11 +720,33 @@ W.Edit_prototype={
 		var ed=this.ed;
 		return ed.GetStateAt(ed.m_handler_registration["line_column"],ccnt,"ll");
 	},
-	SeekAllLinesBetween:function(line0,line1_exclusive){
+	SeekAllLinesBetween:function(line0,line1_exclusive,is_valid_only){
 		var ed=this.ed;
 		var ret=[this.SeekLC(line0,0)]
+		var ccnt=ret[0];
 		for(var i=line0+1;i<line1_exclusive;i++){
-			ret.push(ed.Bisect(ed.m_handler_registration["line_column"],[i,0, i-1,ret[ret.length-1]],"llll"))
+			ccnt=ed.Bisect(ed.m_handler_registration["line_column"],[i,0, i-1,ccnt],"llll")
+			if(is_valid_only){
+				var ccnt2=this.SnapToValidLocation(ccnt,1)
+				if(ccnt2>ccnt&&this.SnapToValidLocation(ccnt,-1)<ccnt){
+					var ln_real=this.GetLC(ccnt2)[0]
+					if(ln_real>i){
+						//some lines are hidden
+						if(ln_real>line1_exclusive){
+							ln_real=line1_exclusive
+						}
+						ccnt2=ed.Bisect(ed.m_handler_registration["line_column"],[ln_real,0, i,ccnt],"llll")
+						while(i<ln_real){
+							ret.push(-1)
+							i++;
+						}
+						ret.push(-1)
+						ccnt=ccnt2
+						continue;
+					}
+				}
+			}
+			ret.push(ccnt)
 		}
 		return ret;
 	},
@@ -1133,14 +1155,16 @@ W.Edit_prototype={
 			}
 			epilog();
 		}else if(IsHotkey(event,"PGUP SHIFT+PGUP")){
+			var hc=this.GetCharacterHeightAtCaret();
 			var ed_caret=this.GetCaretXY();
-			this.MoveCursorToXY(ed_caret.x,ed_caret.y-this.h);
+			this.MoveCursorToXY(ed_caret.x,ed_caret.y-Math.floor(this.h/hc)*hc);
 			var ed_caret2=this.GetCaretXY();
 			this.scroll_y+=ed_caret2.y-ed_caret.y
 			epilog();
 		}else if(IsHotkey(event,"PGDN SHIFT+PGDN")){
+			var hc=this.GetCharacterHeightAtCaret();
 			var ed_caret=this.GetCaretXY();
-			this.MoveCursorToXY(ed_caret.x,ed_caret.y+this.h);
+			this.MoveCursorToXY(ed_caret.x,ed_caret.y+Math.floor(this.h/hc)*hc);
 			var ed_caret2=this.GetCaretXY();
 			this.scroll_y+=ed_caret2.y-ed_caret.y
 			epilog();
@@ -2152,6 +2176,7 @@ W.ListView=function(id,attrs){
 	var obj=UI.StdWidget(id,attrs,"list_view",W.ListView_prototype)
 	var items=obj.items
 	var item_template=(obj.item_template||{});
+	var id_changed=0
 	if(obj.OnDemand){
 		if(obj.real_items){items=obj.real_items}
 		var y0=-obj.position;
@@ -2170,12 +2195,20 @@ W.ListView=function(id,attrs){
 			if((typeof(expanded))=="string"){
 				if(expanded=="drop"){
 					//do nothing
+					delete obj[item_i.id]
+					id_changed=1
 				}else{
 					UI.assert(expanded=="keep","you must return 'drop' or 'keep' or an array of offsprings")
+					if(id_changed){
+						delete obj[item_i.id]
+						delete item_i.id;
+					}
 					items_new.push(item_i)
 					y0+=(item_i[wh_dim]||item_template[wh_dim]||0)+(obj.layout_spacing||0)
 				}
 			}else{
+				delete obj[item_i.id]
+				if(expanded.length!=1){id_changed=1;}
 				for(var j=0;j<expanded.length;j++){
 					items_new.push(expanded[j])
 					y0+=(expanded[j][wh_dim]||item_template[wh_dim]||0)+(obj.layout_spacing||0)
@@ -2264,6 +2297,9 @@ W.ListView=function(id,attrs){
 		}
 	UI.End()
 	if(!obj.no_clipping){UI.PopCliprect()}
+	if(id_changed&&items.length>0){
+		obj.OnChange(obj.value)
+	}
 	return obj;
 }
 

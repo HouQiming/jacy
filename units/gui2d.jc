@@ -43,6 +43,7 @@ auto promoteToTextureSize(int w0)
 	w++
 	return w
 
+//g_pack_counter=0
 class CBinPacker
 	m_wbig=0
 	m_hbig=0
@@ -61,12 +62,14 @@ class CBinPacker
 		foreach sitem,I in skyline
 			while sups.n>p0&&skyline[sups.back()].z<=sitem.z:
 				sups.pop()
+				//g_pack_counter++
 			sups.push(int(I))
 			if p0>0:
 				ximin=skyline[sups[p0-1]].x+skyline[sups[p0-1]].y
 			else
 				ximin=0
 			while pa0<I&&skyline[pa0].x+skyline[pa0].y<=sitem.x+sitem.y-w:
+				/*g_pack_counter++*/
 				xi=skyline[pa0].x
 				if xi>=ximin:
 					while p0<sups.n&&sups[p0]<pa0:
@@ -80,12 +83,14 @@ class CBinPacker
 			xi=skyline[pa0].x
 			if xi+w<=sitem.x+sitem.y://.wbig:
 				while p0<sups.n&&sups[p0]<pa0:
+					/*g_pack_counter++*/
 					p0++
 				hbase=skyline[sups[p0]].z
 				assert(!cands.n||cands.back().x<=xi)
 				if !cands.n||cands.back().y>hbase:
 					cands.push(int2(xi,hbase))
 			while p0<sups.n-1&&skyline[sups[p0]].x+skyline[sups[p0]].y<=sitem.x+sitem.y-w:
+				/*g_pack_counter++*/
 				p0++
 			hbase=skyline[sups[p0]].z
 			xi=sitem.x+sitem.y-w
@@ -93,6 +98,7 @@ class CBinPacker
 				assert(!cands.n||cands.back().x<=xi)
 				if !cands.n||cands.back().y>hbase:
 					cands.push(int2(xi,hbase))
+			/*g_pack_counter++*/
 		xbest=-1
 		ybest=-1
 		if cands.n:
@@ -498,7 +504,9 @@ class CRenderer
 		//pack m_dynamic_textures and apply the dynamic drawcalls
 		if m_StretchDIBits_calls.n:
 			//tick0=System.Time.tick64()
+			//g_pack_counter=0
 			(m_dynamic_packed_bmp,m_dynamic_packings)=packTextures(m_dynamic_textures,m_texture_width,1)
+			//Writeln('g_pack_counter=',g_pack_counter)
 			m_vbo.resize(m_StretchDIBits_calls.n*(VERTEX_SIZE*4))
 			foreach scall,I in m_StretchDIBits_calls
 				packed=m_dynamic_packings[scall.bmpid]
@@ -2073,6 +2081,9 @@ auto setupModuleSystem(JSContext JS,int is_real)
 	return sbox
 
 }//module
+
+inline setMSAA(int rate)
+	SDL.g_msaa_rate=rate
 
 setupModuleSystem=Gui2D.detail.setupModuleSystem
 registerUIExtension=Gui2D.detail.registerUIExtension

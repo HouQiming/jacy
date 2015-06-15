@@ -1850,6 +1850,8 @@ class CEditableText
 		ccnts=new i64[n]
 		for i=0:n-1
 			ccnts[i]=js_ccnts[i].as(i64)
+			if ccnts[i]==-1LL:
+				ccnts[i]=(i?ccnts[i-1]:0LL)
 			if i&&ccnts[i]<ccnts[i-1]||u64(ccnts[i])>u64(range1):
 				return JS.ReturnError("invalid location @1".Replace(["@1",string(i)]))
 		reti=GetXYEnMasse(ccnts)

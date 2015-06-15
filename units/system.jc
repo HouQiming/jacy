@@ -1997,6 +1997,7 @@ module OS_API
 		CREATE_SHARED_WOW_VDM= 0x00001000
 		CREATE_FORCEDOS= 0x00002000
 		CREATE_NO_WINDOW= 0x08000000
+		CREATE_BREAKAWAY_FROM_JOB=0x01000000
 		CONSOLE_TEXTMODE_BUFFER= 1
 		CREATE_NEW= 1
 		CREATE_ALWAYS= 2
@@ -6089,6 +6090,7 @@ module OS_API
 	if Platform.IS_WINDOWS:
 		INVALID_HANDLE_VALUE=__pointer(-1)
 		_wfopen=__c_function(__pointer,"_wfopen","stdio.h")
+		CreateNamedPipeW=__c_function(__pointer,"CreateNamedPipeW","windows.h")
 		CreateFileW=__c_function(__pointer,"CreateFileW","windows.h")
 		CreateFileMappingW=__c_function(__pointer,"CreateFileMappingW","windows.h")
 		CloseHandle=__c_function(__pointer,"CloseHandle","windows.h")
@@ -6117,6 +6119,25 @@ module OS_API
 		sleep=__c_function(int,"Sleep","windows.h")
 		GetFullPathNameW=__c_function(int,"GetFullPathNameW","windows.h")
 		GetTempPathW=__c_function(int,"GetTempPathW","windows.h")
+		PeekNamedPipe=__c_function(int,"PeekNamedPipe","windows.h")
+		WriteFile=__c_function(int,"WriteFile","windows.h")
+		ReadFile=__c_function(int,"ReadFile","windows.h")
+		FlushFileBuffers=__c_function(int,"FlushFileBuffers","windows.h")
+		GetExitCodeProcess=__c_function(int,"GetExitCodeProcess","windows.h")
+		WaitForSingleObject=__c_function(int,"WaitForSingleObject","windows.h")
+		TerminateJobObject=__c_function(int,"TerminateJobObject","windows.h")
+		TerminateProcess=__c_function(int,"TerminateProcess","windows.h")
+		OpenProcess=__c_function(__pointer,"OpenProcess","windows.h")
+		DuplicateHandle=__c_function(int,"DuplicateHandle","windows.h")
+		GetCurrentProcess=__c_function(__pointer,"GetCurrentProcess","windows.h")
+		GetCurrentProcessId=__c_function(int,"GetCurrentProcessId","windows.h")
+		GetStartupInfoW=__c_function(int,"GetStartupInfoW","windows.h")
+		GetStdHandle=__c_function(__pointer,"GetStdHandle","windows.h")
+		CreateProcessW=__c_function(int,"CreateProcessW","windows.h")
+		CreateJobObjectW=__c_function(__pointer,"CreateJobObjectW","windows.h")
+		AssignProcessToJobObject=__c_function(int,"AssignProcessToJobObject","windows.h")
+		ResumeThread=__c_function(int,"ResumeThread","windows.h")
+
 	fread=__c_function(int,"fread","stdio.h")
 	fwrite=__c_function(int,"fwrite","stdio.h")
 	if iptr==i64:
@@ -9242,3 +9263,245 @@ module Math
 		return float3(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x)
 	};
 	cross=(crossf|crossd)
+
+module Processes
+	import System.OS_API.*
+	if Platform.IS_WINDOWS:
+		//W32F_NORMAL=0
+		//W32F_PIPE=1
+		//W32F_STDIO=2
+		HANDLE=__pointer
+		/**
+		 * \brief A class for Win32 HANDLE-based files
+		 *
+		*/
+		class Win32File
+			HANDLE hf
+			auto __done__()
+				Close()
+			auto Read(iptr n)
+				a=new char[n]
+				ret=0
+				ReadFile(hf,__pointer(a.d),int(a.n),&ret,NULL)
+				a.resize(ret)
+				return a
+			auto Write(char[] a)
+				if !hf:return 0
+				ret=0
+				WriteFile(hf,__pointer(a.d),int(a.n),&ret,NULL)
+				return iptr(ret)
+			auto WouldBlock()
+				if !hf:return 0
+				//if what==W32F_PIPE:
+				avail=0
+				succ=PeekNamedPipe(hf,NULL,0,NULL,&avail,NULL)
+				return succ&&avail==0
+			auto Flush()
+				if !hf:return 0
+				return FlushFileBuffers(hf)
+			auto Close()
+				if !hf:return 0
+				CloseHandle(hf)
+				hf=NULL
+				return 1
+			auto Eof()
+				if !hf:return 1
+				ret=0
+				return !ReadFile(hf,&0,0,&ret,NULL)
+			auto __init__(HANDLE handle)
+				if handle==INVALID_HANDLE_VALUE:
+					hf=NULL
+				else
+					hf=handle
+		STILL_ACTIVE=259
+		class CProcess
+			Win32File pipe
+			Win32File pipe_2nd
+			HANDLE hjob
+			HANDLE hProcess
+			int pid,tid
+			int auto_terminate
+			auto exit_code()
+				val=0
+				succ=GetExitCodeProcess(hProcess,&val)
+				if !succ:
+					return -1//STILL_ACTIVE
+				else
+					return val
+			auto isRunning()
+				return exit_code()==STILL_ACTIVE
+			auto Wait(int t)
+				return WaitForSingleObject(hProcess,t)!=WAIT_TIMEOUT
+			auto WaitForever()
+				return WaitForSingleObject(hProcess,INFINITE)!=WAIT_TIMEOUT
+			auto Terminate()
+				if hjob:
+					return TerminateJobObject(hjob,1)
+				else
+					return TerminateProcess(hProcess,1)
+			//int CtrlBreak()
+			//	return GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT,.pid)
+			auto __done__()
+				if auto_terminate&&exit_code==STILL_ACTIVE:
+					Terminate()
+				if hjob:
+					CloseHandle(hjob)
+					hjob=NULL
+				if hProcess:
+					CloseHandle(hProcess)
+					hProcess=NULL
+		//auto OpenProcess(int id)
+		//	hproc=OpenProcess(PROCESS_ALL_ACCESS,0,id)
+		//	if !hproc:return NULL
+		//	return new CProcess(){hProcess:hproc,pid:id}
+		//>begin_private
+		auto __dup_handle(HANDLE a)
+			pipe2=NULL
+			ret=DuplicateHandle(GetCurrentProcess(),
+				a,
+				GetCurrentProcess(),
+				&pipe2,
+				0,
+				1,
+				DUPLICATE_SAME_ACCESS)
+			if !ret:
+				return NULL
+			else
+				return pipe2
+		//>begin_private
+		__idpipe=0
+		//>end_private
+		auto CreatePipe()
+			/*HANDLE a,b
+			CreatePipe(&a,&b,NULL,0)*/
+			__idpipe++
+			name=detail.toNativeString("\\\\.\\Pipe\\AnonymousPipe."+\
+				string(GetCurrentProcessId())+"."+string(__idpipe));
+			a=CreateNamedPipeW(name,
+				PIPE_ACCESS_INBOUND,
+				PIPE_TYPE_BYTE | PIPE_WAIT,
+				1,4096,4096,0,
+				NULL);
+			if !a:return Win32File[].NULL
+			b=CreateFileW(
+				name,GENERIC_WRITE,
+				0,NULL,OPEN_EXISTING,
+				FILE_ATTRIBUTE_NORMAL,NULL);
+			//gcKeepHere(name)
+			if b==INVALID_HANDLE_VALUE:
+				CloseHandle(a)
+			//a is read, b is write
+			if a:fa=new Win32File(a);else fa=Win32File.NULL
+			if b:fb=new Win32File(b);else fb=Win32File.NULL
+			return [fa,fb]
+		auto _RunPiped(const IS_PIPED,string cmd,string path,int show,string mode)
+			sinfo=__C(__pointer,"@decl:STARTUPINFOW @1={0}")
+			__C(int,"((STARTUPINFOW*)@1)->cb=sizeof(STARTUPINFOW)",sinfo)
+			__C(int,"((STARTUPINFOW*)@1)->dwFlags=@2",sinfo,STARTF_USESHOWWINDOW|STARTF_USESTDHANDLES)
+			GetStartupInfoW(sinfo)
+			__C(int,"((STARTUPINFOW*)@1)->dwFlags=@2",sinfo,STARTF_USESHOWWINDOW|STARTF_USESTDHANDLES)
+			__C(int,"((STARTUPINFOW*)@1)->wShowWindow=@2",sinfo,show?SW_SHOWNORMAL:SW_HIDE)
+			flags=0
+			new_job=0
+			inherit_handles=0
+			if IS_PIPED:
+				bind_pipe_input=0
+				bind_pipe_error=0
+				bind_pipe_output=0
+			foreach smode in mode.Tokenize(string(","))
+				ssmode=smode
+				if ssmode=="new_job":
+					new_job=1
+				else if ssmode=="suspended":
+					flags|=CREATE_SUSPENDED
+				else if ssmode=="force_off_feedback":
+					__C(int,"((STARTUPINFOW*)@1)->dwFlags|=@2",sinfo,STARTF_FORCEOFFFEEDBACK)
+				else if ssmode=="inherit_handles":
+					inherit_handles=1
+				if !IS_PIPED:
+					if ssmode=="new_console":
+						flags|=CREATE_NEW_CONSOLE
+				else
+					if ssmode=="input":
+						bind_pipe_input=1
+					else if ssmode=="output":
+						bind_pipe_output=1
+					else if ssmode=="error":
+						bind_pipe_error=1
+				//gcKeepHere(smode)
+			if !IS_PIPED:
+				if inherit_handles:
+					flags|=CREATE_NEW_PROCESS_GROUP
+					__C(int,"((STARTUPINFOW*)@1)->hStdInput=@2",sinfo,__dup_handle(__C(__pointer,"((STARTUPINFOW*)@1)->hStdInput",sinfo)))
+					__C(int,"((STARTUPINFOW*)@1)->hStdOutput=@2",sinfo,__dup_handle(__C(__pointer,"((STARTUPINFOW*)@1)->hStdOutput",sinfo)))
+					__C(int,"((STARTUPINFOW*)@1)->hStdError=@2",sinfo,__dup_handle(__C(__pointer,"((STARTUPINFOW*)@1)->hStdError",sinfo)))
+				else
+					__C(int,"((STARTUPINFOW*)@1)->dwFlags&=@2",sinfo,~STARTF_USESTDHANDLES)
+			else
+				flags|=CREATE_NEW_PROCESS_GROUP
+				//setup the pipe
+				pipes=CreatePipe()
+				isout=!bind_pipe_input
+				pipe2=__dup_handle(pipes[isout].hf)
+				if !pipe2:return CProcess.NULL
+				pipe_out=Win32File.NULL
+				hpipe_out=NULL
+				if bind_pipe_input:
+					__C(int,"((STARTUPINFOW*)@1)->hStdInput=@2",sinfo,pipe2)
+					if bind_pipe_error||bind_pipe_output:
+						pipes_out=CreatePipe()
+						hpipe_out=__dup_handle(pipes_out[1].hf)
+						pipes_out[1].Close()
+						if bind_pipe_error:
+							__C(int,"((STARTUPINFOW*)@1)->hStdError=@2",sinfo,hpipe_out)
+						if bind_pipe_output:
+							__C(int,"((STARTUPINFOW*)@1)->hStdOutput=@2",sinfo,hpipe_out)
+						pipe_out=pipes_out[0]
+					else
+						__C(int,"((STARTUPINFOW*)@1)->hStdError=@2",sinfo,__dup_handle(GetStdHandle(STD_OUTPUT_HANDLE)))
+						__C(int,"((STARTUPINFOW*)@1)->hStdOutput=@2",sinfo,__dup_handle(GetStdHandle(STD_ERROR_HANDLE)))
+				else
+					__C(int,"((STARTUPINFOW*)@1)->hStdInput=@2",sinfo,__dup_handle(GetStdHandle(STD_INPUT_HANDLE)))
+					if bind_pipe_error:
+						__C(int,"((STARTUPINFOW*)@1)->hStdError=@2",sinfo,pipe2)
+					if bind_pipe_output:
+						__C(int,"((STARTUPINFOW*)@1)->hStdOutput=@2",sinfo,pipe2)
+				pipes[isout].Close()
+			//call the process
+			if path:
+				pathu=detail.toNativeString(path)
+			pinfo=__C(__pointer,"@decl:PROCESS_INFORMATION @1={0}")
+			if new_job:
+				flags|=CREATE_SUSPENDED|CREATE_BREAKAWAY_FROM_JOB
+			cmdu=detail.toNativeString(cmd)
+			ret=CreateProcessW(NULL,cmdu,NULL,NULL,IS_PIPED||inherit_handles,flags,NULL,pathu?__pointer(pathu.d):NULL,sinfo,pinfo)
+			if ret&&new_job:
+				hjob=CreateJobObjectW(NULL,NULL)
+				AssignProcessToJobObject(hjob,__C(__pointer,"((PROCESS_INFORMATION*)@1)->hProcess",pinfo))
+				ResumeThread(__C(__pointer,"((PROCESS_INFORMATION*)@1)->hThread",pinfo))
+			//gcKeepHere(cmdu)
+			//gcKeepHere(pathu)
+			CloseHandle(__C(__pointer,"((PROCESS_INFORMATION*)@1)->hThread",pinfo))
+			if !IS_PIPED:
+				if !ret:return CProcess.NULL
+				return new CProcess(){hjob:hjob,pipe:NULL,hProcess:__C(__pointer,"((PROCESS_INFORMATION*)@1)->hProcess",pinfo),pid:pinfo.dwProcessId,tid:pinfo.dwThreadId}
+			else
+				CloseHandle(pipe2)
+				if hpipe_out:CloseHandle(hpipe_out)
+				if !ret:return CProcess.NULL
+				//Console.Writeln(pipes[!isout],' ',pipe_out)
+				return new CProcess(){
+					hjob:hjob,
+					pipe:pipes[!isout],
+					pipe_2nd:pipe_out?pipe_out:Win32File.NULL,
+					hProcess:__C(__pointer,"((PROCESS_INFORMATION*)@1)->hProcess",pinfo),
+					pid:__C(int,"((PROCESS_INFORMATION*)@1)->dwProcessId",pinfo),
+					tid:__C(int,"((PROCESS_INFORMATION*)@1)->dwThreadId",pinfo),
+				}
+		//>end_private
+		auto Run(string cmd,string path,int show,string mode)
+			return _RunPiped(0,cmd,path,show,mode)
+		auto RunPiped(string cmd,string path,int show,string mode)
+			return _RunPiped(1,cmd,path,show,mode)
+	else
+		//todo: popen
