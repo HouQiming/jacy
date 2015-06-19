@@ -195,12 +195,19 @@ auto resample(int[] img,int w0,int h0,int w,int h)
 					A=wcell*hcell
 					C4=img[abase+sx]
 					for j in crange(4)
-						C[j]+=A*float((C4>>(j*8))&255)
+						C_xy_j=float((C4>>(j*8))&255)*(1.f/255.f)
+						if j<3:
+							C_xy_j=pow(C_xy_j,2.2f)
+						C[j]+=A*C_xy_j
 					Atot+=A
 			C/=Atot
 			C4=0
 			for j in crange(4)
-				C4|=max(min(int(C[j]),255),0)<<(j*8)
+				if j<3:
+					C_j=pow(C[j],1.f/2.2f)
+				else
+					C_j=C[j]
+				C4|=max(min(int(C_j*255.f),255),0)<<(j*8)
 			img_out.push(C4)
 	return img_out
 
@@ -445,14 +452,21 @@ auto jszip(JSContext JS)
 		if !f:return 0
 		if !w_goal:
 			//ico
-			ico_header="\x00\x00\x01\x00\x03\x00\x10\x10\x00\x00\x00\x00 \x00h\x04\x00\x006\x00\x00\x00  \x00\x00\x00\x00 \x00\xA8\x10\x00\x00\x9E\x04\x00\x0000\x00\x00\x00\x00 \x00\xA8%\x00\x00F\x15\x00\x00"
+			//\x10\x10\x00\x00\x00\x00 \x00h\x04\x00\x006\x00\x00\x00  \x00\x00\x00\x00 \x00\xA8\x10\x00\x00\x9E\x04\x00\x0000\x00\x00\x00\x00 \x00\xA8%\x00\x00F\x15\x00\x00
+			sizes=[16,20,32,48]
+			ico_header=new("\x00\x00\x01\x00\x05\x00")
+			ofsimg=6+sizes.n*16
+			foreach sz in sizes
+				ico_header.push(char(sz))
+				ico_header.push(char(sz))
+				ico_header.push('\x00\x00\x00\x00 \x00')
+				szimg=40+(sz*sz+sz*((sz+31)>>5))*4
+				ico_header.push([szimg,ofsimg].ConvertToAsBinary(char))
+				ofsimg+=szimg
 			f.Write(ico_header)
-			img_out=resample(img,w0,h0,16,16)
-			writeico(f,img_out,16,16)
-			img_out=resample(img,w0,h0,32,32)
-			writeico(f,img_out,32,32)
-			img_out=resample(img,w0,h0,48,48)
-			writeico(f,img_out,48,48)
+			foreach sz in sizes
+				img_out=resample(img,w0,h0,sz,sz)
+				writeico(f,img_out,sz,sz)
 		else
 			//just create a png
 			w=w_goal

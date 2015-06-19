@@ -964,6 +964,9 @@ module detail
 	SDL_GetKeyboardState=__c_function(__pointer,"SDL_GetKeyboardState","SDL.h")
 	SDL_CreateSystemCursor=__c_function(__pointer,"SDL_CreateSystemCursor","SDL.h")
 	SDL_SetCursor=__c_function(int,"SDL_SetCursor","SDL.h")
+	SDL_CreateRGBSurfaceFrom=__c_function(__pointer,"SDL_CreateRGBSurfaceFrom","SDL.h")
+	SDL_SetWindowIcon=__c_function(int,"SDL_SetWindowIcon","SDL.h")
+	SDL_FreeSurface=__c_function(int,"SDL_FreeSurface","SDL.h")
 	//////
 	g_sdl_gl_context=NULL
 	g_is_hwnd=new int[iptr]

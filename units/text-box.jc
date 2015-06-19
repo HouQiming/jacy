@@ -534,12 +534,15 @@ class CLayouter_baseline
 	}
 
 class CLine_handler
+	//add char count and word count
 	name=function(){return "line_column"}
-	stateSize=function(){return 2}
+	stateSize=function(){return 4}
 	/////////////////
 	AddString=function(i64[] a,i64[] pp,string s_context,string s,iptr ofs){
 		l=a[0]
 		c=a[1]
+		wc_c=a[2]
+		wc_w=a[3]
 		foreach ch,I in Utf8Chars(s)
 			if I>=ofs:break
 			if ch=='\n':
@@ -547,8 +550,16 @@ class CLine_handler
 				c=0LL
 			else
 				c++
+			wc_c++
+			if ch<=' ':
+				wc_w&=~1LL
+			else
+				if !(wc_w&1LL):
+					wc_w+=3LL
 		a[0]=l
 		a[1]=c
+		a[2]=wc_c
+		a[3]=wc_w
 	}
 	Add=function(i64[] a,i64[] b){
 		if b[0]:
@@ -556,6 +567,8 @@ class CLine_handler
 			a[1]=b[1]
 		else
 			a[1]+=b[1]
+		a[2]+=b[2]
+		a[3]=(a[3]&~1L)+b[3]
 	}
 	/////////////////
 	//compare known-positive doubles as ints

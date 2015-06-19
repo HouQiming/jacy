@@ -1634,12 +1634,28 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			g_renderer.InsertJSDrawCall(js_callback)
 			return 0
 		}
+		JS_UI["SDL_SetWindowIcon"]=function(JSContext JS){
+			hwnd=JS.Param(0).as(__pointer)
+			sname=JS.Param(1).as(string)
+			if !SDL.detail.g_is_hwnd[iptr(hwnd)]:return 0
+			sdata=sbox.UIReadAll(sname)
+			if !sdata:return 0
+			bmp=g_renderer.LoadImage(sdata)
+			if !bmp.w||!bmp.h:return 0
+			surface_icon=SDL.detail.SDL_CreateRGBSurfaceFrom(bmp.rgba,bmp.w,bmp.h,32,int(bmp.w*sizeof(int)),0x0000ff,0x00ff00,0xff0000,0xff000000)
+			SDL.detail.SDL_SetWindowIcon(hwnd,surface_icon)
+			SDL.detail.SDL_FreeSurface(surface_icon)
+			return JS.Return(1)
+		}
 	else
 		//virtualized SDL_CreateWindow and BeginPaint
 		JS_UI["SDL_CreateWindow"]=function(JSContext JS){
 			w=JS.Param(3).or(1024)
 			h=JS.Param(4).or(768)
 			return JS.Return(new CSandboxWindow(){w:w,h:h})
+		}
+		JS_UI["SDL_SetWindowIcon"]=function(JSContext JS){
+			return 0
 		}
 		JS_UI["BeginPaint"]=function(JSContext JS){
 			auto hwnd=JS.Param(0).as(CSandboxWindow)
