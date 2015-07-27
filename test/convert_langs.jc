@@ -1,0 +1,23 @@
+import "system.jc"
+import System.Console.*
+import System.Algorithm.*
+
+(function(){
+	xml=System.XML.Parse(System.IO.ReadAll("c:/tp/kara/ide/res/config.xml"))
+	for nd in xml.Children('config')
+		mp=new string[][string]
+		for ndk in nd.Children('keywords')
+			for attr in ndk.attrs
+				if !mp[attr.value]:
+					mp[attr.value]=new string[]
+				mp[attr.value].push("'"+attr.name+"'")
+		//todo: <config name="&amp;C/Java family>&amp;C/C++" category="C/C++ files" extensions=".c;.cpp;.cxx;.h;.hpp;.cc" compiler="VC" other_compilers="gcc">
+		Writeln('Language.Register({')
+		sname=nd.Attr('name','')
+		sexts=nd.Attr('extensions','')
+		all_exts=["'"+s+"'" for s in sexts.Tokenize(".;,")]
+		Writeln("\tname:'",sname[sname.IndexOf('>')+1:].Replace(["&",""]),"',extensions:",all_exts,",")
+		for d,k in mp
+			Writeln("\t'",k,"':",d,',')
+		Writeln('});')
+})()

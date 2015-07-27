@@ -1,0 +1,14 @@
+import System.Console.*
+
+(function(){
+	x='__builtin'
+	(i,p) = __builtin.__detail.maxSuf(x, 0);
+	(j,q) = __builtin.__detail.maxSuf(x, -1);
+	if (i > j)
+		ell = i;
+		per = p;
+	else
+		ell = j;
+		per = q;
+	Writeln(ell,' ',per)
+})()

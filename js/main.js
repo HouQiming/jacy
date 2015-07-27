@@ -50,7 +50,8 @@ rsync=function(src,tar,port){
 		sopt='';
 		sopt0='-q';
 	}
-	shell(["rsync","-rtpzuv","--chmod=ug=rwX,o=rX",sopt0,'-e','ssh -p'+(port||22)+' ',sopt,src+'/',tar]);
+	//shell(["rsync","-rtpzuv","--chmod=ug=rwX,o=rX",sopt0,'-e','ssh -p'+(port||22)+' ',sopt,src+'/',tar]);
+	shell(["rsync","-rtzuv","--chmod=ug=rwX,o=rX",sopt0,'-e','ssh -p'+(port||22)+' ',sopt,src+'/',tar]);
 };
 
 envssh=function(server,cmd){

@@ -565,8 +565,9 @@ class Array(T)
 			if !b:return 1
 		n_min=n
 		if n_min>b.n:n_min=b.n
-		if T==i8||T==u8:
-			ret=__basic_api.memcmp(__pointer(d),__pointer(b.d),n_min)
+		//if T==i8||T==u8:
+		if __is_type("int",T):
+			ret=__basic_api.memcmp(__pointer(d),__pointer(b.d),n_min*sizeof(T))
 			if !ret:
 				if n<b.n:
 					return -1
@@ -843,6 +844,11 @@ inline __define_comparisons(T)
 	(T<=T)=inline(a,b){return a.__compare__(b)<=0}
 	(T>=T)=inline(a,b){return a.__compare__(b)>=0}
 __define_comparisons(string)
+__define_comparisons(i16[])
+__define_comparisons(i32[])
+__define_comparisons(u8[])
+__define_comparisons(u16[])
+__define_comparisons(u32[])
 
 __FArrayDtor=function(iptr p,iptr sz):int
 __all_array_dtors=__FArrayDtor[2]

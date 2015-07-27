@@ -1,0 +1,24 @@
+import 'system.jc'
+import System.Console.*
+import System.Algorithm.*
+import System.Math.*
+
+(function(){
+	fname="test/*"
+	Writeln(System.Time.ToLocalTime(System.Time.WallClockTime()))
+	Writeln('-------------')
+	foreach fn,fi in System.IO.EnumFiles("test/test_enumfile.jc",0)
+		Writeln(fn,' ',fi.attr,' ',fi.size,' ',System.Time.ToLocalTime(i64(fi.latest_time())))
+	Writeln('-------------')
+	foreach fn,fi in System.IO.EnumFiles(fname,0)
+		Writeln(fn,' ',fi.attr,' ',fi.size,' ',System.Time.ToLocalTime(i64(fi.latest_time())))
+	Writeln('-------------')
+	foreach fn,fi in System.IO.EnumFiles(fname,System.IO.ENUM_DIR|System.IO.ENUM_FILE|System.IO.ENUM_DOT)
+		Writeln(fn,' ',fi.attr,' ',fi.size,' ',System.Time.ToLocalTime(i64(fi.latest_time())))
+	Writeln('-------------')
+	foreach fn,fi in System.IO.EnumFiles(fname,System.IO.ENUM_DIR|System.IO.ENUM_FILE|System.IO.ENUM_RECURSIVE)
+		Writeln(fn,' ',fi.attr,' ',fi.size,' ',System.Time.ToLocalTime(i64(fi.latest_time())))
+	Writeln('-------------')
+	foreach fn,fi in System.IO.EnumFiles(fname,System.IO.ENUM_FILE|System.IO.ENUM_RECURSIVE)
+		Writeln(fn,' ',fi.attr,' ',fi.size,' ',System.Time.ToLocalTime(i64(fi.latest_time())))
+})()

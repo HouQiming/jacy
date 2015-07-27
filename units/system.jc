@@ -6614,8 +6614,15 @@ module IO
 		 * @param s is the content to write
 		 * @return An integer representing the number of bytes written
 		*/
-		inline Write(string s)
-			return fwrite(s,1,s.n,_gethf())
+		auto Write(string s)
+			BLOCK_SIZE=iptr(128<<20)
+			ret_all=0L
+			for i=0:BLOCK_SIZE:s.n-1
+				sz=min(s.n-i,BLOCK_SIZE)
+				ret=fwrite(__pointer(iptr(s.d)+i),1,sz,_gethf())
+				ret_all+=ret
+				if ret!=sz:break
+			return ret_all
 		/**
 		 * \brief Set the file pointer to an absolute location
 		 *
@@ -6647,6 +6654,8 @@ module IO
 		*/
 		inline SeekFromEnd(iptr p)
 			return !fseek(_gethf(),p,SEEK_END)
+		inline Flush()
+			fflush(_gethf())
 	/**
 	 * \brief Open a file
 	 *
@@ -7039,6 +7048,11 @@ module IO
 		if !__stderr:
 			__stderr=CFile(){m_hf:iptr(__C_pure(__pointer,'stderr'))}
 		return __stderr
+	__stdout=CFile.NULL
+	auto stdout()
+		if !__stdout:
+			__stdout=CFile(){m_hf:iptr(__C_pure(__pointer,'stdout'))}
+		return __stdout
 		
 module Algorithm
 	import System.detail.*

@@ -1,0 +1,18 @@
+import "system.jc"
+import System.Math.*
+import System.Algorithm.*
+import System.Console.*
+
+(function(){
+	arrrrrrr=new float2[10]
+	for i=0:9
+		arrrrrrr[i]=float2(Random(f32),Random(f32))
+	Writeln(arrrrrrr)
+	aaaaaadelta=float2(10000.f,10000.f)
+	for i=0:9
+		aaaaaadelta+=arrrrrrr[i]
+	aaaaaadelta/=-1000.f
+	for i=0:9
+		arrrrrrr[i]-=aaaaaadelta
+	Writeln(arrrrrrr)
+})()

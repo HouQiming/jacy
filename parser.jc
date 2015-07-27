@@ -1089,19 +1089,20 @@ auto parseC0(int id_fn_current,TToken[] toks)
 				return call(g_id_block,code_update,pe_var)
 		else if isvar(pe_var)||(readPool(pe_var)&EFLAG_MASK)==EFLAG_FCALL:
 			vtemp=gettempid(0)
+			vtemp1=gettempid(0)
 			//todo: modify should only clone the topmost level
 			pe_clone=cloneExpr(pe_var)
 			if is_before==2:
 				return call(g_id_block,
 					call(g_id_store,exprvar(vtemp),pe_clone),
-					call(g_id_store,exprvar(vtemp),fupdater(exprvar(vtemp))),
-					call(g_id_store,pe_var,exprvar(vtemp)))
+					call(g_id_store,exprvar(vtemp1),fupdater(exprvar(vtemp))),
+					call(g_id_store,pe_var,exprvar(vtemp1)))
 			else if is_before:
 				return call(g_id_block,
 					call(g_id_store,exprvar(vtemp),pe_clone),
-					call(g_id_store,exprvar(vtemp),fupdater(exprvar(vtemp))),
-					call(g_id_store,pe_var,exprvar(vtemp)),
-					exprvar(vtemp))
+					call(g_id_store,exprvar(vtemp1),fupdater(exprvar(vtemp))),
+					call(g_id_store,pe_var,exprvar(vtemp1)),
+					exprvar(vtemp1))
 			else
 				return call(g_id_block,
 					call(g_id_store,exprvar(vtemp),pe_clone),

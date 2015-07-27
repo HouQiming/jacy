@@ -154,8 +154,16 @@ auto main()
 				g_bit_size=32
 			else if s_arch.EndsWith("64"):
 				g_bit_size=64
+		else if s.StartsWith("-a"):
+			s_arch=new(s[2:])
+			if s_arch.EndsWith("32"):
+				g_bit_size=32
+			else if s_arch.EndsWith("64"):
+				g_bit_size=64
 		else if s.StartsWith("--build="):
 			s_mode=new(s[8:])
+		else if s.StartsWith("-b"):
+			s_mode=new(s[2:])
 		else if s.StartsWith("--32"):
 			g_bit_size=32
 		else if s.StartsWith("--64"):

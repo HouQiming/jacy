@@ -6,7 +6,18 @@ VC.Detect=function(){
 		if(FileExists(spath+"/vsvars32.bat"))return spath;
 		return 0;
 	}
-	VC.compiler_path=(testbat("%VS110COMNTOOLS%")||testbat("%VS100COMNTOOLS%")||testbat("%VS90COMNTOOLS%")||testbat("%VS80COMNTOOLS%"));
+	if(g_json.vc_versions){
+		for(var i=0;i<g_json.vc_versions.length;i++){
+			var s_version=g_json.vc_versions[i];
+			VC.compiler_path=testbat("%VS"+s_version+"0COMNTOOLS%");
+			if(VC.compiler_path){
+				break;
+			}
+		}
+	}
+	if(!VC.compiler_path){
+		VC.compiler_path=(testbat("%VS110COMNTOOLS%")||testbat("%VS100COMNTOOLS%")||testbat("%VS90COMNTOOLS%")||testbat("%VS80COMNTOOLS%"));
+	}
 	if(!VC.compiler_path){return 0;}
 	var compiler_path=VC.compiler_path;
 	var sbatname=compiler_path+'vsvars32.bat';
@@ -57,7 +68,7 @@ VC.Compile=function(fnsrc,soutput){
 	}
 	/////////////////
 	sopt0=sopt0+' /Fo"'+soutput+'"';
-	var scmd='@echo off\ncall "'+sbatname+'"\ncl /nologo '+sopt0+' "'+fnsrc+'"\n';
+	var scmd='@echo off\ncall "'+sbatname+'" >NUL\ncl /nologo '+sopt0+' "'+fnsrc+'"\n';
 	var scallcl=g_work_dir+"/callcl.bat";
 	if(!CreateFile(scallcl,scmd)){
 		throw new Error("can't create callcl.bat");
@@ -88,7 +99,7 @@ VC.Link=function(fnlist,soutput){
 			sopt1=sopt1+(" "+smain);
 		}
 	}
-	var scmd='@echo off\ncall "'+sbatname+'"\nlink /DEBUG /OUT:"'+soutput+'" /NOLOGO /OPT:REF /OPT:ICF /DYNAMICBASE /NXCOMPAT /ERRORREPORT:PROMPT /LARGEADDRESSAWARE '+sopt1+' '+fnlist;
+	var scmd='@echo off\ncall "'+sbatname+'" >NUL\nlink /DEBUG /OUT:"'+soutput+'" /NOLOGO /OPT:REF /OPT:ICF /DYNAMICBASE /NXCOMPAT /ERRORREPORT:PROMPT /LARGEADDRESSAWARE '+sopt1+' '+fnlist;
 	var scallcl=g_work_dir+"/calllink.bat";
 	if(!CreateFile(scallcl,scmd)){
 		throw new Error("can't create calllink.bat");
@@ -96,6 +107,18 @@ VC.Link=function(fnlist,soutput){
 	var ret=shell([scallcl]);
 	if(!!ret){
 		throw new Error("link returned an error code '@1'".replace("@1",ret.toString()));
+	}
+}
+
+var NVCCCompile=function(fnc,fnobj,s_cuda_options){
+	var scmd='@echo off\ncall "'+VC.sbatname+'" >NUL\nnvcc '+s_cuda_options+' -o "'+fnobj+'" "'+fnc+'"\n';
+	var scallcl=g_work_dir+"/callnvcc.bat";
+	if(!CreateFile(scallcl,scmd)){
+		throw new Error("can't create callnvcc.bat");
+	}
+	var ret=shell([scallcl]);
+	if(!!ret){
+		throw new Error("nvcc returned an error code '@1'".replace("@1",ret.toString()));
 	}
 }
 
@@ -116,7 +139,7 @@ g_action_handlers.make=function(){
 		UpdateTo(fnh,fn);
 	}
 	//sync and compile the C/C++ files
-	var sopt1='';
+	var sopt1=[];
 	var need_link=0;
 	for(var i=0;i<c_files.length;i++){
 		//VC.Compile checks date
@@ -128,7 +151,32 @@ g_action_handlers.make=function(){
 		if(ret>0||IsNewerThan(fnobj,s_final_output)){
 			need_link=1;
 		}
-		sopt1=sopt1+' "'+fnobj+'"';
+		sopt1.push(' "'+fnobj+'"')
+	}
+	//sync and compile CUDA files
+	if(g_json.cu_files){
+		var s_cuda_options="";
+		if(g_json.cuda_options){
+			s_cuda_options=g_json.cuda_options.join(" ");
+		}
+		var s_cuda_options0=""
+		if(FileExists(g_work_dir+"/cudaopt.txt")){
+			s_cuda_options0=ReadFile(g_work_dir+"/cudaopt.txt")
+		}
+		CreateIfDifferent(g_work_dir+"/cudaopt.txt",s_cuda_options)
+		for(var i=0;i<g_json.cu_files.length;i++){
+			var fn=SearchForFile(g_json.cu_files[i]);
+			var fnc=g_work_dir+"/"+RemovePath(fn)
+			UpdateTo(fnc,fn);
+			var fnobj=g_work_dir+"/"+GetMainFileName(fn)+".obj"
+			if(IsNewerThan(fnc,fnobj)||s_cuda_options0!=s_cuda_options){
+				NVCCCompile(fnc,fnobj,s_cuda_options)
+				if(IsNewerThan(fnobj,s_final_output)){
+					need_link=1;
+				}
+			}
+			sopt1.push(' "'+fnobj+'"');
+		}
 	}
 	//icon and application name
 	if(g_json.icon_file){
@@ -137,7 +185,7 @@ g_action_handlers.make=function(){
 		if(!IsNewerThan(fn_res,fn_icon)){
 			CreateFile(g_work_dir+"/a.rc",'1 ICON "a.ico"\n')
 			ResampleImage(fn_icon,g_work_dir+'/a.ico','ico');
-			var scmd='@echo off\ncall "'+VC.sbatname+'"\nrc /fo "'+fn_res+'" "'+g_work_dir+"/a.rc"+'"'
+			var scmd='@echo off\ncall "'+VC.sbatname+'" >NUL\nrc /fo "'+fn_res+'" "'+g_work_dir+"/a.rc"+'"'
 			var scallrc=g_work_dir+"/callrc.bat";
 			if(!CreateFile(scallrc,scmd)){
 				throw new Error("can't create callrc.bat")
@@ -147,15 +195,15 @@ g_action_handlers.make=function(){
 				throw new Error("rc returned an error code '@1'".replace("@1",ret.toString()));
 			}
 		}
-		sopt1=sopt1+' "'+fn_res+'"'
+		sopt1.push(' "'+fn_res+'"')
 	}
 	if(g_json.lib_files){
 		for(var i=0;i<g_json.lib_files.length;i++){
-			sopt1=sopt1+' "'+SearchForFile(g_json.lib_files[i])+'"';
+			sopt1.push(' "'+SearchForFile(g_json.lib_files[i])+'"');
 		}
 	}
 	if(need_link||!FileExists(s_final_output)){
-		VC.Link(sopt1,s_final_output);
+		VC.Link(sopt1.join(""),s_final_output);
 	}
 	if(g_json.dll_files){
 		//copy the dll dependency

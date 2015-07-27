@@ -1,0 +1,158 @@
+import "gui2d.jc"
+import "javascript.jc"
+import "g-l.jc"
+import Gui2D.*
+import Javascript.*
+import System.Console.*
+import System.Math.*
+import GL.*
+
+__generate_json("js_units","gui2d/ui.js")
+__generate_json("js_units","gui2d/widgets.js")
+
+auto readf3(JSObject obj)
+	x=obj[0].or(0.f)
+	y=obj[1].or(0.f)
+	z=obj[2].or(0.f)
+	return float3(x,y,z)
+
+auto makeProjectionMatrix(float aspect,float fov_degrees,float znear,float zfar)
+	image_plane=1.f/tan(fov_degrees*(3.1415926f/180.f*0.5f))
+	return [
+		image_plane/aspect,0.f,0.f,0.f,
+		0.f,image_plane,0.f,0.f,
+		0.f,0.f,(zfar+znear)/(zfar-znear),1.f,
+		0.f,0.f,-2.f*zfar*znear/(zfar-znear),0.f]
+
+(function(){
+	JS=new JSContext
+	sbox=setupModuleSystem(JS,1)
+	sbox.UILoadZip(string.NULL)
+	/////////////
+	//native renderer, JS control
+	g_tech=new GLTechnique
+	g_tech.SetVertexShader(sbox.UIReadAll("res/vs.glsl"))
+	g_tech.SetFragmentShader(sbox.UIReadAll("res/fs.glsl"))
+	/////////////////
+	global=JS.GetGlobal()
+	vbo_P=new float3[]
+	vbo_N=new float3[]
+	vbo_C=new int[]
+	//ebo=new int4[]
+	g_view0=new float[]
+	g_view1=new float[]
+	global["cuber_begin"]=function(JSContext JS){
+		cam=JS.Param(0).as(JSObject)
+		eye=readf3(cam["eye"].as(JSObject))
+		eye_split=cam["eye_split"].or(1.f)
+		pitch=cam["pitch"].or(0.f)
+		yaw=cam["yaw"].or(0.f)
+		fov=cam["fov"].or(90.f)
+		g_tech.SetUniform("player_z",eye.z)
+		cp=cos(pitch);sp=sin(pitch)
+		cr=cos(yaw);sr=sin(yaw)
+		Vx=float3(cr,0.f,-sr)
+		Vy=float3(0.f,cp,-sp)
+		Vz=float3(sr,sp*cr,cp*cr)
+		cam["front"][0]=Vz.x
+		cam["front"][1]=Vz.y
+		cam["front"][2]=Vz.z
+		mview=new float[16]
+		mview[0*4+0]=Vx.x;mview[0*4+1]=Vy.x;mview[0*4+2]=Vz.x;
+		mview[1*4+0]=Vx.y;mview[1*4+1]=Vy.y;mview[1*4+2]=Vz.y;
+		mview[2*4+0]=Vx.z;mview[2*4+1]=Vy.z;mview[2*4+2]=Vz.z;
+		mview[15]=1.f
+		g_view0=new(mview)
+		g_view1=new(mview)
+		////////
+		eye0=eye-eye_split*Vx;
+		eye0=float3(dot(eye0,Vx),dot(eye0,Vy),dot(eye0,Vz))
+		g_view0[12]=-eye0.x
+		g_view0[13]=-eye0.y
+		g_view0[14]=-eye0.z
+		eye1=eye+eye_split*Vx;
+		eye1=float3(dot(eye1,Vx),dot(eye1,Vy),dot(eye1,Vz))
+		g_view1[12]=-eye1.x
+		g_view1[13]=-eye1.y
+		g_view1[14]=-eye1.z
+		mproj=makeProjectionMatrix(float(Gui2D.detail.g_renderer.m_window_w)/float(Gui2D.detail.g_renderer.m_window_h),fov,1.f,4096.f)
+		g_tech.SetUniform("mproj",mproj)
+		vbo_P.clear()
+		vbo_N.clear()
+		vbo_C.clear()
+		//ebo.clear()
+		return 0
+	}
+	global["cuber_draw"]=function(JSContext JS){
+		P_center=readf3(JS.Param(0).as(JSObject))
+		V_radius=readf3(JS.Param(1).as(JSObject))
+		C=JS.Param(2).or(0xff808080)
+		P0=P_center-V_radius
+		P1=P_center+V_radius
+		P000=float3(P0.x,P0.y,P0.z);
+		P001=float3(P0.x,P0.y,P1.z);
+		P010=float3(P0.x,P1.y,P0.z);
+		P011=float3(P0.x,P1.y,P1.z);
+		P100=float3(P1.x,P0.y,P0.z);
+		P101=float3(P1.x,P0.y,P1.z);
+		P110=float3(P1.x,P1.y,P0.z);
+		P111=float3(P1.x,P1.y,P1.z);
+		/////////
+		vbo_P.push(P000);vbo_N.push(float3(0.f,0.f,-1.f))
+		vbo_P.push(P010);vbo_N.push(float3(0.f,0.f,-1.f))
+		vbo_P.push(P110);vbo_N.push(float3(0.f,0.f,-1.f))
+		vbo_P.push(P100);vbo_N.push(float3(0.f,0.f,-1.f))
+		/////////
+		vbo_P.push(P001);vbo_N.push(float3(0.f,0.f,1.f))
+		vbo_P.push(P011);vbo_N.push(float3(0.f,0.f,1.f))
+		vbo_P.push(P111);vbo_N.push(float3(0.f,0.f,1.f))
+		vbo_P.push(P101);vbo_N.push(float3(0.f,0.f,1.f))
+		/////////
+		vbo_P.push(P000);vbo_N.push(float3(0.f,-1.f,0.f))
+		vbo_P.push(P001);vbo_N.push(float3(0.f,-1.f,0.f))
+		vbo_P.push(P101);vbo_N.push(float3(0.f,-1.f,0.f))
+		vbo_P.push(P100);vbo_N.push(float3(0.f,-1.f,0.f))
+		/////////
+		vbo_P.push(P010);vbo_N.push(float3(0.f,1.f,0.f))
+		vbo_P.push(P011);vbo_N.push(float3(0.f,1.f,0.f))
+		vbo_P.push(P111);vbo_N.push(float3(0.f,1.f,0.f))
+		vbo_P.push(P110);vbo_N.push(float3(0.f,1.f,0.f))
+		/////////
+		vbo_P.push(P000);vbo_N.push(float3(-1.f,0.f,0.f))
+		vbo_P.push(P001);vbo_N.push(float3(-1.f,0.f,0.f))
+		vbo_P.push(P011);vbo_N.push(float3(-1.f,0.f,0.f))
+		vbo_P.push(P010);vbo_N.push(float3(-1.f,0.f,0.f))
+		/////////
+		vbo_P.push(P100);vbo_N.push(float3(1.f,0.f,0.f))
+		vbo_P.push(P101);vbo_N.push(float3(1.f,0.f,0.f))
+		vbo_P.push(P111);vbo_N.push(float3(1.f,0.f,0.f))
+		vbo_P.push(P110);vbo_N.push(float3(1.f,0.f,0.f))
+		/////////
+		for i=0:23
+			vbo_C.push(C)
+		return 0
+	}
+	global["cuber_end"]=function(JSContext JS){
+		glDisable(GL_BLEND)
+		glEnable(GL_DEPTH_TEST)
+		g_tech.SetVarying("vec4 Ci")
+		w=int(Gui2D.detail.g_renderer.m_window_w)
+		h=int(Gui2D.detail.g_renderer.m_window_h)
+		glViewport(0,0,w>>1,h)
+		g_tech.SetUniform("mview",g_view0)
+		g_tech.SetVertexArray("P",vbo_P)
+		g_tech.SetVertexArray("N",vbo_N)
+		g_tech.SetVertexArray("Cs",vbo_C)
+		g_tech.Draw(0u,GL_QUADS,vbo_P.n)
+		glViewport(w>>1,0,w-(w>>1),h)
+		g_tech.SetUniform("mview",g_view1)
+		g_tech.SetVertexArray("P",vbo_P)
+		g_tech.SetVertexArray("N",vbo_N)
+		g_tech.SetVertexArray("Cs",vbo_C)
+		g_tech.Draw(0u,GL_QUADS,vbo_P.n)
+		glEnable(GL_BLEND)
+		glViewport(0,0,w,h)
+		return 0
+	}
+	sbox.UIRunJS(JS,"res/flyer.js")
+})()

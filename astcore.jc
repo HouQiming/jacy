@@ -113,7 +113,7 @@ auto errorAtExpr(int type,PExpression pe,string serr)
 				pobjfn=val.val
 				pobjfn_template=readPool(pobjfn+FUNCTION_OFS_TEMPLATE)
 				if pobjfn_template:
-					errorAtAEPos(ETYPE_NOTE,readPool(pobjfn+FUNCTION_OFS_TEMPLATE_EPOS0),"during instantiation of '@1'".Replace(["@1",dumpFunction(pobjfn_template)]))
+					errorAtAEPos(ETYPE_NOTE,readPool(pobjfn+FUNCTION_OFS_TEMPLATE_EPOS0),"during instantiation of '@1'".Replace(["@1",dumpFunction(pobjfn)]))
 			pei=pe_parent
 		g_expr_errored[pe]=1
 
@@ -193,6 +193,18 @@ auto fstore_eval_core_ex(PExpression pecall,PCTObject pobj_var,TSCCPValue val_ne
 	val_old.tid=vv.tid
 	val_old.val=vv.val
 	val_final=mergeValues(pecall,val_old,val_new, pobj_var|0x80000000,pecall)
+	if pobj_var&&vv.tid!=g_vtid_UNINIT&&val_final.tid==g_vtid_RTVAR&&tisclass(readPool(pobj_var+VAR_OFS_OWNER)):{
+		val_oldx=TSCCPValue()
+		val_oldx.tid=vv.tid
+		val_oldx.val=vv.val
+		auto check_t0=getValueType(val_oldx)
+		auto check_t1=getValueType(val_final)
+		if check_t0!=check_t1:
+			errorAtExpr(ETYPE_WARNING,pecall,"member '@1' has changed type: @2 -> @3".Replace([
+				"@1",getIdString(readPool(pobj_var+VAR_OFS_ID)),
+				"@2",dumpType(check_t0),
+				"@3",dumpType(check_t1)]))
+	}
 	//Writeln(getIdString(ervar.v.key),' <- ',getIdString(val_old.tid),' || ',getIdString(val_new.tid))
 	force_changed=0
 	if val_final.tid==g_vtid_CTVAL:
@@ -8171,6 +8183,8 @@ auto deadelim()
 					val_cond=getExprValue(readPool(pe+EXPR_OFS_ARGS+0))
 					if val_cond.tid==g_vtid_UNINIT:
 						errorAtExpr(ETYPE_ERROR,readPool(pe+EXPR_OFS_ARGS+0),"unresolved if condition")
+						if g_enable_dump:
+							Writeln('cond ',dumpExpr(readPool(pe+EXPR_OFS_ARGS+0),fcolor_abbrv_blocks))
 			for i=-1:n_args-1
 				peargi=readPool(pe+EXPR_OFS_ARGS+i)
 				dfsPruneDead(peargi,as_recurse)
