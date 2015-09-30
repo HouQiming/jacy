@@ -615,31 +615,303 @@ class CLine_handler
 	__JS_prototype=function(JSObject proto){}
 
 ///////////////////////////////
+//diff tracker
 /*/
-hybrid line-size consistency
-	rendering breaks
-		LTR|RTL
-		\n|
-	block
-		design criteria
-			should be O(n/C)
-			should have a tight rendering BB
-		consistency
-			don't break UTF8 chars
-			block size must not exceed C+epsilon
-			if a block contains one rendering break
-				it must be the block tail
-			if a block contains more than one rendering breaks
-				the block head must also be one
-			\n and LTR|RTL are nested
-				the break consistencies should be satisfied separately
-					with \n taking priority
-				e.g. if the block contains more than one line breaks
-					the head must be one line break, not a LTR|RTL
-			if we have isLineOnly:
-				allow block size to exceed C
-				but still merge short lines
+use skiplist
+unified ccnt
+	maintain multiple text segments, each segment has a side: base, current, or both
+	maintain one ccnt for each side
 /*/
+DIFF_SIDE_BASE=1
+DIFF_SIDE_CURRENT=2
+DIFF_SIDE_BOTH=DIFF_SIDE_BASE+DIFF_SIDE_CURRENT
+class CDiffSLNode
+	CDiffSLNode pchild
+	CDiffSLNode pnext
+	//////////
+	//"both" isn't a simple sum of base and current - there are dedicated "both" segments that count as both
+	long3 ccnts
+
+auto CreateDiffSLNode(int side,i64 ccnt)
+	pc=new CDiffSLNode()
+	switch side{
+	case DIFF_SIDE_BASE:{
+		pc.ccnts=long3(ccnt,0LL,0LL)
+		break
+	}case DIFF_SIDE_CURRENT:{
+		pc.ccnts=long3(0LL,ccnt,0LL)
+		break
+	}case DIFF_SIDE_BOTH:{
+		pc.ccnts=long3(ccnt,ccnt,ccnt)
+		break
+	}}
+	return pc
+
+struct TDiffSLList
+	CDiffSLNode phead
+	CDiffSLNode ptail
+	inline cat(TDiffSLList b)
+		if !phead:return b
+		if !b.phead:return TDiffSLList(){phead:phead,ptail:ptail}
+		ret=TDiffSLList()
+		ret.phead=phead
+		ptail.pnext=b.phead
+		ret.ptail=b.ptail
+		return ret
+
+struct TDiffNodeOp
+	i64 ccnt_current
+	i64 sz_ed_del
+	i64 sz_ed_add
+
+class CDiffTracker
+	m_skiplist=new CDiffSLNode()
+	auto debugDumpSL()
+		levels=new string[]
+		auto _debugDumpSL(int level,CDiffSLNode nd)
+			if nd.pchild:
+				for(pc=nd.pchild;pc;pc=pc.pnext)
+					_debugDumpSL(level+1,pc)
+			else
+				Writeln(nd.ccnts)
+		Writeln('---')
+		_debugDumpSL(0,m_skiplist)
+	auto DiffSkipListPromote(TDiffSLList nds_ret0, TDiffSLList nds_child0,TDiffSLList nds_toadd,CDiffSLNode nd_ignore)
+		nds_ret=nds_ret0
+		nds_child=nds_child0
+		pc_pnext=CDiffSLNode.NULL
+		for(pc=nds_toadd.phead;pc;pc=pc_pnext)
+			pc_pnext=pc.pnext
+			if iptr(pc)!=iptr(nd_ignore)&&nds_child.phead&&System.Algorithm.Random(float)<SKIPLIST_PROMOTION_PROBABILITY:
+				//finish off the dangling chain
+				nds_child.ptail.pnext=CDiffSLNode.NULL
+				nds_ret.ptail.pchild=nds_child.phead
+				DiffRecomputeCcntInner(nds_ret.ptail)
+				//actually promote pc
+				nd_new=new CDiffSLNode
+				nds_ret.ptail.pnext=nd_new
+				nds_ret.ptail=nd_new
+				nds_child=TDiffSLList(){phead:pc,ptail:pc}
+			else
+				if !nds_child.phead:
+					nds_child.phead=pc
+					//nds_child.ptail=pc
+				else
+					nds_child.ptail.pnext=pc
+				nds_child.ptail=pc
+		return (nds_ret,nds_child)
+	auto DiffSkipListPromoteToRoot(TDiffSLList nds_toadd0)
+		nds_toadd=nds_toadd0
+		for(;;)
+			if iptr(nds_toadd.phead)==iptr(nds_toadd.ptail)&&nds_toadd.phead.pchild:
+				assert(!nds_toadd.phead.pnext)
+				return nds_toadd.phead
+			//promote the head
+			nd_new=new CDiffSLNode
+			nds_ret=TDiffSLList(){phead:nd_new,ptail:nd_new}
+			nds_child=TDiffSLList(){phead:nds_toadd.phead,ptail:nds_toadd.phead}
+			nds_toadd.phead=nds_toadd.phead.pnext
+			//add the rest
+			(nds_ret,nds_child)=DiffSkipListPromote(nds_ret,nds_child,nds_toadd,CDiffSLNode.NULL)
+			nds_ret.ptail.pchild=nds_child.phead;nds_child.ptail.pnext=CDiffSLNode.NULL
+			DiffRecomputeCcntInner(nds_ret.ptail)
+			//recurse one level up
+			nds_toadd=nds_ret
+	auto DiffRecomputeCcntInner(CDiffSLNode nd)
+		ccnts=long3()
+		for(pc=nd.pchild;pc;pc=pc.pnext)
+			ccnts+=pc.ccnts
+		nd.ccnts=ccnts
+	auto DiffBlockEdit(int debug_level,CDiffSLNode nd,i64 ccnt_current0,TDiffNodeOp[] bops)
+		p=0L
+		ccnt_current=ccnt_current0
+		//nds_ret.ptail.pchild is the dangling part represented by nds_child
+		nds_ret=TDiffSLList(){phead:nd,ptail:nd}
+		nds_child=TDiffSLList()
+		pc_pnext=CDiffSLNode.NULL
+		if !nd.pchild:
+			//leaf node case
+			//delete: DIFF_SIDE_CURRENT to nothing, DIFF_SIDE_BOTH to DIFF_SIDE_BASE, leave covered DIFF_SIDE_BASE untouched
+			//add: insert a DIFF_SIDE_CURRENT segment
+			//validate that leaf nodes can only have a single component
+			if !bops.n:return nds_ret
+			//assert(!nd.ccnts[0]+!nd.ccnts[1]>=1||nd.ccnts[2])
+			side=DIFF_SIDE_BOTH
+			nd_ccnt=0LL
+			if nd.ccnts[2]:
+				//both is... both
+				assert(nd.ccnts[2]==nd.ccnts[1]&&nd.ccnts[2]==nd.ccnts[0])
+				side=DIFF_SIDE_BOTH
+				nd_ccnt=nd.ccnts[2]
+			else if nd.ccnts[0]:
+				side=DIFF_SIDE_BASE
+				nd_ccnt=nd.ccnts[0]
+			else if nd.ccnts[1]:
+				side=DIFF_SIDE_CURRENT
+				nd_ccnt=nd.ccnts[1]
+			last_side=-1
+			appendChild=inline(side,ccnt){
+				//best-effort merging
+				auto pc=CreateDiffSLNode(side,ccnt)
+				if last_side==side:
+					Writeln('+ ',nds_child.ptail.ccnts,' ',pc.ccnts)//todo
+					nds_child.ptail.ccnts+=pc.ccnts
+					Writeln('= ',nds_child.ptail.ccnts)//todo
+				else
+					nds_child=nds_child.cat(TDiffSLList(){phead:pc,ptail:pc})
+				last_side=side
+			}
+			foreach bop in bops
+				if ccnt_current<bop.ccnt_current:
+					//create something as is
+					appendChild(side,bop.ccnt_current-ccnt_current)
+				//del
+				if bop.sz_ed_del:
+					if side!=DIFF_SIDE_CURRENT:
+						//keep it or downgrade to base
+						appendChild(DIFF_SIDE_BASE,bop.sz_ed_del)
+					else
+						//remove it
+						//do nothing
+				//add
+				if bop.sz_ed_add:
+					appendChild(DIFF_SIDE_CURRENT,bop.sz_ed_add)
+				//update current ccnt
+				ccnt_current=bop.ccnt_current+bop.sz_ed_del
+			if ccnt_current<ccnt_current0+nd_ccnt:
+				//create something as is
+				appendChild(side,ccnt_current0+nd_ccnt-ccnt_current)
+			return nds_child
+		for(pc=nd.pchild;pc;pc=pc_pnext)
+			pc_pnext=pc.pnext
+			pc_ccnt=pc.ccnts[1]
+			//intersect/cut bops within the child
+			p0=p
+			while p<bops.n&&bops[p].ccnt_current<ccnt_current+pc_ccnt:
+				p++
+			if p<bops.n&&!bops[p].sz_ed_del&&bops[p].ccnt_current==ccnt_current+pc_ccnt:
+				p++
+			//each bop could cover *multiple* children... need to test it
+			if p0<p:
+				bk=bops[p-1]
+				bk2=bops[p0]
+				//compute covering from sz_ed_del
+				bops[p-1].sz_ed_del=min(ccnt_current+pc.ccnts[1]-bops[p-1].ccnt_current,bops[p-1].sz_ed_del)
+				if bops[p-1].sz_ed_del<bk.sz_ed_del:
+					bops[p-1].sz_ed_add=0LL
+				bops[p0].sz_ed_del+=bops[p0].ccnt_current
+				bops[p0].ccnt_current=max(ccnt_current,bops[p0].ccnt_current)
+				bops[p0].sz_ed_del-=bops[p0].ccnt_current
+				assert(bops[p-1].sz_ed_del>=0LL)
+				assert(bops[p0].sz_ed_del>=0LL)
+				pc.pnext=CDiffSLNode.NULL//this is required
+				nds_pc=DiffBlockEdit(debug_level+1,pc,ccnt_current,bops[p0:p-1])
+				(nds_ret,nds_child)=DiffSkipListPromote(nds_ret, nds_child,nds_pc,pc)
+				bops[p0]=bk2
+				bops[p-1]=bk
+				//the last bop covers multiple segments
+				if ccnt_current+pc_ccnt<bops[p-1].ccnt_current+bops[p-1].sz_ed_del:
+					p--
+			else
+				pc.pnext=CDiffSLNode.NULL
+				nds_child=nds_child.cat(TDiffSLList(){phead:pc,ptail:pc})
+			ccnt_current+=pc_ccnt
+		//coulddo: removing nd itself
+		nds_ret.ptail.pchild=nds_child.phead;
+		if nds_child.ptail:nds_child.ptail.pnext=CDiffSLNode.NULL
+		DiffRecomputeCcntInner(nds_ret.ptail)
+		return nds_ret
+	auto RawEdit(TEditop[] ops)
+		bops=new TDiffNodeOp[ops.n]
+		foreach op,I in ops
+			bops[I].ccnt_current=op.ccnt
+			bops[I].sz_ed_del=op.sz
+			if op.s:
+				bops[I].sz_ed_add=op.s.n
+		nds_pc=DiffBlockEdit(0,m_skiplist,0LL,bops)
+		m_skiplist=DiffSkipListPromoteToRoot(nds_pc)
+		//todo
+		debugDumpSL()
+	auto Init(i64 ccnt)
+		m_skiplist=new CDiffSLNode()
+		m_skiplist.ccnts=long3(ccnt,ccnt,ccnt)
+	auto ConvertCcnt(CDiffSLNode nd,i64 ccnt,const to_side_idx)
+		pc=nd.pchild
+		if !pc:
+			//if we have what we want, it's ccnt, otherwise just subtract the difference
+			if nd.ccnts[to_side_idx]:
+				return ccnt
+			else
+				return ccnt-nd.ccnts[to_side_idx^1]
+		ccnt_remaining=ccnt
+		ccnt_acc=0LL
+		for(;pc;pc=pc.pnext)
+			if ccnt_remaining<=pc.ccnts[to_side_idx^1]:
+				return ccnt_acc+ConvertCcnt(pc,ccnt_remaining,to_side_idx)
+			ccnt_remaining-=pc.ccnts[to_side_idx^1]
+			ccnt_acc+=pc.ccnts[to_side_idx]
+		return ccnt_acc+ccnt_remaining
+	inline CurrentToBase(i64 ccnt)
+		return ConvertCcnt(m_skiplist,ccnt,0)
+	inline BaseToCurrent(i64 ccnt)
+		return ConvertCcnt(m_skiplist,ccnt,1)
+	auto CurrentToBoth(CDiffSLNode nd,i64 ccnt)
+		pc=nd.pchild
+		if !pc:
+			//if we have what we want, it's ccnt, otherwise just subtract the difference
+			if nd.ccnts[1]:
+				if nd.ccnts[2]:
+					return ccnt
+				else
+					return 0
+			else
+				return ccnt-nd.ccnts[1]
+		ccnt_remaining=ccnt
+		ccnt_acc=0LL
+		for(;pc;pc=pc.pnext)
+			if ccnt_remaining<=pc.ccnts[1]:
+				return ccnt_acc+CurrentToBoth(pc,ccnt_remaining)
+			ccnt_remaining-=pc.ccnts[1]
+			ccnt_acc+=pc.ccnts[2]
+		return ccnt_acc+ccnt_remaining
+	auto RangeQuery(i64 ccnt0,i64 ccnt1)
+		//whether there's add / delete in this range
+		//do not have to tell the difference
+		//does this actually need something *more*?
+		//no, [2]==[0]==[1] is sufficient: any change increases [0] or [1]
+		pboth0=CurrentToBoth(m_skiplist,ccnt0)
+		pboth1=CurrentToBoth(m_skiplist,ccnt1)
+		if pboth1-pboth0!=ccnt1-ccnt0:return 1
+		pbase0=CurrentToBase(ccnt0)
+		pbase1=CurrentToBase(ccnt1)
+		if pboth1-pboth0!=pbase1-pbase0:return 1
+		return 0
+	//todo: minimap ranges? can we really afford to draw it?
+	JS_discard=function(JSContext JS){
+		m_skiplist=CDiffSLNode.NULL
+		return 0
+	}
+	JS_RangeQuery=function(JSContext JS){
+		ccnt0=JS.Param(0).as(i64)
+		ccnt1=JS.Param(1).as(i64)
+		return JS.Return(RangeQuery(ccnt0,ccnt1))
+	}
+	JS_CurrentToBase=function(JSContext JS){
+		ccnt=JS.Param(0).as(i64);
+		return JS.Return(CurrentToBase(ccnt))
+	}
+	JS_BaseToCurrent=function(JSContext JS){
+		ccnt=JS.Param(0).as(i64);
+		return JS.Return(BaseToCurrent(ccnt))
+	}
+	auto __JS_prototype(JSObject proto)
+		proto.ExportMethod(this,"discard",JS_discard)
+		proto.ExportMethod(this,"RangeQuery",JS_RangeQuery)
+		proto.ExportMethod(this,"CurrentToBase",JS_CurrentToBase)
+		proto.ExportMethod(this,"BaseToCurrent",JS_BaseToCurrent)
+
+///////////////////////////////
+//base editor data structure
 struct TBlockOp
 	//delete first, add after
 	i64 ccnt
@@ -729,6 +1001,7 @@ class CEditableText
 	m_skiplist=new CSLNode(){s:new string}
 	m_locators=new CLocator[]
 	m_highlights=new CHLRange[]
+	m_diff_trackers=new CDiffTracker[]
 	m_layout_valid_to=0L
 	////////////////////
 	m_handlers=new ITextStateHandler[]
@@ -1100,12 +1373,18 @@ class CEditableText
 		RecomputeCcntInner(nds_ret.ptail)
 		return nds_ret
 	auto SortLocators()
+		need_sort=0
 		n2=0L
+		ccnt_current=0L
 		foreach loc,I in m_locators
 			if !loc.discarded:
 				m_locators[n2++]=loc
+				if loc.ccnt<ccnt_current:
+					need_sort=1
+				ccnt_current=loc.ccnt
 		m_locators.resize(n2)
-		m_locators.Sortby(inline(loc){return loc.ccnt})
+		if need_sort:
+			m_locators.Sortby(inline(loc){return loc.ccnt})
 	auto RawEdit(TEditop[] ops)
 		//editop -> block replace: mainly take-the-next-and-merge
 		//do the locators here
@@ -1313,6 +1592,13 @@ class CEditableText
 				restate_ranges.push(sz_current)
 			RecomputeStatesDfs(m_skiplist,0LL,restate_ranges,0L)
 		//Writeln('    leaf: ',g_states_time_leaf);g_states_time_leaf=new double[8]
+		///////////////////////
+		n2=0L
+		foreach diff in m_diff_trackers
+			if diff.m_skiplist:
+				diff.RawEdit(ops)
+				m_diff_trackers[n2++]=diff
+		m_diff_trackers.resize(n2)
 	inline InvalidateStates(i64[] ccnt_range)
 		RecomputeStatesDfs(m_skiplist,0LL,ccnt_range,0)
 	auto _GetText(string buf,iptr ofs, CSLNode nd,i64 ccnt0,i64 ccnt1)
@@ -1628,8 +1914,6 @@ class CEditableText
 		dfsRender(m_skiplist,0LL)
 		//Writeln('>>>>> total: ',System.Time.TicksToSeconds(System.Time.tick64()-timer_t0)*1000.0,'ms')
 		//////////////////////////////
-		if handler.EndRender:handler.EndRender(obj,this, x,y,w,h,scr_x,scr_y,scale)
-		//////////////////////////////
 		//draw the advanced highlights
 		if handler.DrawEnhancedHighlight:
 			foreach hl in m_highlights
@@ -1645,6 +1929,8 @@ class CEditableText
 				handler.DrawEnhancedHighlight(obj,this,hl, x,y,w,h,scr_x,scr_y,scale)
 		g_renderer.PopCliprect()
 		m_caret_offset=fixed2double(handler.GetCaretOffset())
+		//////////////////////////////
+		if handler.EndRender:handler.EndRender(obj,this, x,y,w,h,scr_x,scr_y,scale)
 	/////////////////////////////////////////////////
 	//just record classes and ccnts - restoring ccnt for discarded locators is OK
 	auto CreateLocator(i64 ccnt,int side)
@@ -1731,7 +2017,7 @@ class CEditableText
 		if !js_ops:return 0
 		is_raw=JS.Param(1).or(0)
 		n=js_ops["length"].as(iptr)
-		if !(n>0)||(n%3):
+		if !(n>=0)||(n%3):
 			return JS.ReturnError("bad operation array length @1".Replace(["@1",string(n)]))
 		//one array with even-odd packing
 		range0=0LL
@@ -1783,7 +2069,7 @@ class CEditableText
 		js_ops=JS.Param(0).as(JSObject)
 		if !js_ops:return 0
 		n=js_ops["length"].as(iptr)
-		if !(n>0)||(n%2):
+		if !(n>=0)||(n%2):
 			return JS.ReturnError("bad operation array length @1".Replace(["@1",string(n)]))
 		//one array with even-odd packing
 		range0=0LL
@@ -1841,6 +2127,12 @@ class CEditableText
 			return 0
 		else
 			return JS.Return(CreateHighlight(p0,p1,depth))
+	}
+	JS_CreateDiffTracker=function(JSContext JS){
+		diff=new CDiffTracker
+		diff.Init(this.GetTextSize())
+		m_diff_trackers.push(diff)
+		return JS.Return(diff)
 	}
 	JS_XYFromCcnt=function(JSContext JS){
 		ccnt=JS.Param(0).or(0LL)
@@ -2144,6 +2436,7 @@ class CEditableText
 		proto.ExportMethod(this,"Render",JS_Render)
 		proto.ExportMethod(this,"CreateLocator",JS_CreateLocator)
 		proto.ExportMethod(this,"CreateHighlight",JS_CreateHighlight)
+		proto.ExportMethod(this,"CreateDiffTracker",JS_CreateDiffTracker)
 		proto.ExportMethod(this,"XYFromCcnt",JS_XYFromCcnt)
 		proto.ExportMethod(this,"GetXYEnMasse",JS_GetXYEnMasse)
 		proto.ExportMethod(this,"SeekXY",JS_SeekXY)

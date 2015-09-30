@@ -3,6 +3,12 @@ import System.Math.*
 import System.Algorithm.*
 import System.Console.*
 
+class CClass0
+	c1_member=new CClass1()
+
+class CClass1
+	v_member=long3()
+
 (function(){
 	arrrrrrr=new float2[10]
 	for i=0:9
@@ -15,4 +21,10 @@ import System.Console.*
 	for i=0:9
 		arrrrrrr[i]-=aaaaaadelta
 	Writeln(arrrrrrr)
+	c0_thing=new CClass0()
+	for i=0:9
+		c1_thing=new CClass1()
+		c1_thing.v_member=long3(i64(i),i64(i),i64(i))
+		c0_thing.c1_member.v_member+=c1_thing.v_member
+	Writeln(c0_thing.c1_member.v_member)
 })()

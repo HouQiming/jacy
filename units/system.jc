@@ -7029,7 +7029,7 @@ module IO
 		else
 			srcu=toNativeString(src.Replace(["/","\\"]))
 			taru=toNativeString(tar.Replace(["/","\\"]))
-			return CopyFileW(srcu.d,taru.d,0)
+			return CopyFileW(__pointer(srcu.d),__pointer(taru.d),0)
 	/**
 	 * \brief Create a directory.
 	 *
@@ -8206,7 +8206,7 @@ module Algorithm
 		else
 			__error("System.Algorithm.Random() doesn't support type '@1', only 32/64 bit integers and floating point types are supported",T)
 	auto RandomIptr(iptr exclusive_upper_bound)
-		assert(exclusive_upper_bound>=0L)
+		assert(exclusive_upper_bound>0L)
 		delta=uptr(exclusive_upper_bound)
 		mask=delta
 		mask|=mask>>1
@@ -9498,7 +9498,13 @@ module Processes
 			CloseHandle(__C(__pointer,"((PROCESS_INFORMATION*)@1)->hThread",pinfo))
 			if !IS_PIPED:
 				if !ret:return CProcess.NULL
-				return new CProcess(){hjob:hjob,pipe:NULL,hProcess:__C(__pointer,"((PROCESS_INFORMATION*)@1)->hProcess",pinfo),pid:pinfo.dwProcessId,tid:pinfo.dwThreadId}
+				return new CProcess(){
+					hjob:hjob,
+					pipe:Win32File.NULL,
+					hProcess:__C(__pointer,"((PROCESS_INFORMATION*)@1)->hProcess",pinfo),
+					pid:__C(int,"((PROCESS_INFORMATION*)@1)->dwProcessId",pinfo),
+					tid:__C(int,"((PROCESS_INFORMATION*)@1)->dwThreadId",pinfo),
+				}
 			else
 				CloseHandle(pipe2)
 				if hpipe_out:CloseHandle(hpipe_out)
@@ -9512,10 +9518,34 @@ module Processes
 					pid:__C(int,"((PROCESS_INFORMATION*)@1)->dwProcessId",pinfo),
 					tid:__C(int,"((PROCESS_INFORMATION*)@1)->dwThreadId",pinfo),
 				}
+		auto _make_commandline(string[] shell_args)
+			auto genString(string s0)
+				s=new string
+				foreach ch0 in s0
+					ch=int(u8(ch0))
+					if ch>=0:
+						if ch=='"':
+							s.push('\\')
+							s.push('"')
+						else if ch>=32&&ch<127:
+							s.push(char(ch))
+				return s
+			//properly quote the args
+			n=shell_args.n
+			scmd=new string
+			for i=0:n-1
+				s_args_i=shell_args[i]
+				if Platform.IS_WINDOWS:
+					if !i:s_args_i=s_args_i.Replace(["/","\\"])
+				if s_args_i.IndexOf(' ')>=0:
+					s_args_i="\""+genString(s_args_i)+"\""
+				if i:scmd.push(' ')
+				scmd.push(s_args_i)
+			return scmd
 		//>end_private
-		auto Run(string cmd,string path,int show,string mode)
-			return _RunPiped(0,cmd,path,show,mode)
-		auto RunPiped(string cmd,string path,int show,string mode)
-			return _RunPiped(1,cmd,path,show,mode)
+		auto Run(string[] cmd,string path,int show,string mode)
+			return _RunPiped(0,_make_commandline(cmd),path,show,mode)
+		auto RunPiped(string[] cmd,string path,int show,string mode)
+			return _RunPiped(1,_make_commandline(cmd),path,show,mode)
 	else
-		//todo: popen
+		//todo: unix version with popen

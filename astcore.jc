@@ -6697,7 +6697,9 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 	//need_renaming=0
 	//rename_map=new PCTObject[PCTObject]
 	fflatten_struct_variables=function(PExpression pe0){
-		pe=pe0
+		//if !readPool(pe0+EXPR_OFS_CALLER):
+		//	Writeln('bad pe0: ',pe0)
+		auto pe=pe0
 		if !testUserFlag(pe,QUEUE_FLAG_REACH):
 			if !isExpr(pe,EFLAG_VARIABLE):return 0
 		if isBuiltin(pe,g_id_dot)||isBuiltin(pe,g_id_stdot):
@@ -6742,10 +6744,14 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 							//class member, keep the original write
 							if is_write:
 								pe_pending_setnop=call(g_id_stdot,exprvar(pobj_var),exprctval(pobj_member),exprvar(pobj_ret))
-								transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,call(g_id_store,exprvar(pobj_ret),readPool(pe+EXPR_OFS_ARGS+2)),[pe_pending_setnop])
+								pe_new=call(g_id_store,exprvar(pobj_ret),readPool(pe+EXPR_OFS_ARGS+2))
+								transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,pe_new,[pe_pending_setnop])
+								pe=pe_new
 							else
 								pe_pending_setnop=call(g_id_keep_alive,exprvar(pobj_var))
-								transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,exprvar(pobj_ret),[pe_pending_setnop])
+								pe_new=exprvar(pobj_ret)
+								transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,pe_new,[pe_pending_setnop])
+								pe=pe_new
 							znew_pending_setnops.push(pe_pending_setnop)
 						else
 							if is_write:
@@ -6917,6 +6923,9 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 						vtid=readPool(pobj_member)
 						if vtid!=g_vtid_RTVAR:continue
 						as.push(call(g_id_stdot,exprvar(pv_temp),exprctval(pobj_member),exprvar(getFlattenedVariable(pobj_src,pobj_member,0))))
+					//if !readPool(pe+EXPR_OFS_CALLER):
+					//	Writeln('bad pe: ',pe,' ',pe0)
+					assert(!!readPool(pe+EXPR_OFS_CALLER))
 					transformCode(pe,__zero(ftransformer_callback), as,expriptr(0),PExpression[].NULL)
 			return 0
 		else if isBuiltin(pe,g_id_assert_ctval):

@@ -13,6 +13,13 @@ UpdateTo=function(fn_old,fn_new){
 	return 1;
 };
 
+UpdateToCLike=function(fn_old,fn_new){
+	if(!FileExists(fn_new))return 0;
+	if(FileExists(fn_old)&&!IsNewerThan(fn_new,fn_old))return 0;
+	CreateFile(fn_old,['#line 1 "',fn_new,'"\n',ReadFile(fn_new)].join(""))
+	return 1;
+};
+
 CreateIfDifferent=function(fn,scontent){
 	if(FileExists(fn)&&ReadFile(fn)==scontent){return;}
 	CreateFile(fn,scontent);
@@ -279,9 +286,10 @@ g_action_handlers.runjs=function(){
 	}
 	//locate the per-arch script and eval that
 	if(g_json.c_files){
-		var s_jssrc=ReadFile(g_root+"/js/build_"+g_arch+".js")
+		var fn=g_root+"/js/build_"+g_arch+".js";
+		var s_jssrc=ReadFile(fn)
 		if(!s_jssrc){die("I don't know how to build for platform '@1'".replace("@1",g_arch));}
-		eval(s_jssrc);
+		debugEval(s_jssrc,fn);
 	}
 	//run the js files first
 	var include_js=g_json.include_js;
@@ -295,5 +303,12 @@ g_action_handlers.runjs=function(){
 	}
 	if(!g_action_handlers[g_action]){die("I don't know how to perform action '@1'".replace("@1",g_action));}
 	(g_action_handlers[g_action])();
+	if(g_json.pause_after_run){
+		if(g_current_arch=="win32"||g_current_arch=="win64"){
+			shell(["pause"])
+		}else{
+			shell(["read","-p","Press any key to continue..."])
+		}
+	}
 	return {};
 })();

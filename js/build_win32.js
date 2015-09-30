@@ -136,7 +136,7 @@ g_action_handlers.make=function(){
 	for(var i=0;i<g_json.h_files.length;i++){
 		var fn=SearchForFile(g_json.h_files[i]);
 		var fnh=g_work_dir+"/"+RemovePath(fn)
-		UpdateTo(fnh,fn);
+		UpdateToCLike(fnh,fn);
 	}
 	//sync and compile the C/C++ files
 	var sopt1=[];
@@ -145,7 +145,7 @@ g_action_handlers.make=function(){
 		//VC.Compile checks date
 		var fn=SearchForFile(c_files[i]);
 		var fnc=g_work_dir+"/"+RemovePath(fn)
-		UpdateTo(fnc,fn);
+		UpdateToCLike(fnc,fn);
 		var fnobj=g_work_dir+"/"+GetMainFileName(fn)+".obj"
 		var ret=VC.Compile(fnc,fnobj)
 		if(ret>0||IsNewerThan(fnobj,s_final_output)){
