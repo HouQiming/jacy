@@ -16,8 +16,8 @@ var clean=function(dir){
 	//build the stuff
 	print("*** Release-building the compiler ***")
 	shell(["bin/win32/main","--build=release","main.jc"])
-	print("*** Release-building the UI editor ***")
-	shell(["bin/win32/main","--build=release","mo/mo.jc"])
+	//print("*** Release-building the UI editor ***")
+	//shell(["bin/win32/main","--build=release","mo/mo.jc"])
 	//the binaries
 	mkdir("../jc/bin/win32_release")
 	UpdateTo("../jc/bin/win32_release/jc.exe","bin/win32_release/main.exe")

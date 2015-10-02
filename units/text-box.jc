@@ -659,13 +659,27 @@ struct TDiffSLList
 		ret.ptail=b.ptail
 		return ret
 
+//but del / add operate on current, it should be just fine
+//we don't care the relative ordering of BASE / CURRENT blocks? sometimes it's ill-defined anyway
+//at least try to make it right - current mode and unified mode
+//unified=base+current-both
 struct TDiffNodeOp
-	i64 ccnt_current
+	//i64 ccnt_current
+	i64 ccnt
 	i64 sz_ed_del
-	i64 sz_ed_add
+	//set high bit for restore
+	i64 sz_ed_add_type
+	//i64 sz_ed_restore//for undo: restore BASE into BOTH
+
+struct TDiffUndoItem
+	TDiffNodeOp[] ops
 
 class CDiffTracker
 	m_skiplist=new CDiffSLNode()
+	m_undo_queue=new TDiffUndoItem[]
+	m_redo_queue=new TDiffUndoItem[]
+	TDiffNodeOp[] m_temp_undo_queue
+	m_temp_undo_delta=0LL
 	auto debugDumpSL()
 		levels=new string[]
 		auto _debugDumpSL(int level,CDiffSLNode nd)
@@ -722,11 +736,16 @@ class CDiffTracker
 		for(pc=nd.pchild;pc;pc=pc.pnext)
 			ccnts+=pc.ccnts
 		nd.ccnts=ccnts
-	auto DiffBlockEdit(int debug_level,CDiffSLNode nd,i64 ccnt_current0,TDiffNodeOp[] bops)
-		p=0L
-		ccnt_current=ccnt_current0
+	auto DiffBlockEdit(
+			int debug_level,CDiffSLNode nd,
+			i64 ccnt_ptr0,i64 ccnt_unified0,
+			TDiffNodeOp[] bops,iptr pbops0,iptr pbops1,
+			int is_unified)
+		ccnt_ptr=ccnt_ptr0
+		ccnt_unified=ccnt_unified0//we always need a unified ccnt for undo generation
 		//nds_ret.ptail.pchild is the dangling part represented by nds_child
 		nds_ret=TDiffSLList(){phead:nd,ptail:nd}
+		if pbops0>=pbops1:return nds_ret
 		nds_child=TDiffSLList()
 		pc_pnext=CDiffSLNode.NULL
 		if !nd.pchild:
@@ -734,7 +753,6 @@ class CDiffTracker
 			//delete: DIFF_SIDE_CURRENT to nothing, DIFF_SIDE_BOTH to DIFF_SIDE_BASE, leave covered DIFF_SIDE_BASE untouched
 			//add: insert a DIFF_SIDE_CURRENT segment
 			//validate that leaf nodes can only have a single component
-			if !bops.n:return nds_ret
 			//assert(!nd.ccnts[0]+!nd.ccnts[1]>=1||nd.ccnts[2])
 			side=DIFF_SIDE_BOTH
 			nd_ccnt=0LL
@@ -742,96 +760,152 @@ class CDiffTracker
 				//both is... both
 				assert(nd.ccnts[2]==nd.ccnts[1]&&nd.ccnts[2]==nd.ccnts[0])
 				side=DIFF_SIDE_BOTH
-				nd_ccnt=nd.ccnts[2]
 			else if nd.ccnts[0]:
 				side=DIFF_SIDE_BASE
-				nd_ccnt=nd.ccnts[0]
 			else if nd.ccnts[1]:
 				side=DIFF_SIDE_CURRENT
-				nd_ccnt=nd.ccnts[1]
+			nd_ccnt=nd.ccnts[0]+nd.ccnts[1]-nd.ccnts[2]
 			last_side=-1
 			appendChild=inline(side,ccnt){
 				//best-effort merging
 				auto pc=CreateDiffSLNode(side,ccnt)
 				if last_side==side:
-					Writeln('+ ',nds_child.ptail.ccnts,' ',pc.ccnts)//todo
 					nds_child.ptail.ccnts+=pc.ccnts
-					Writeln('= ',nds_child.ptail.ccnts)//todo
 				else
 					nds_child=nds_child.cat(TDiffSLList(){phead:pc,ptail:pc})
 				last_side=side
 			}
-			foreach bop in bops
-				if ccnt_current<bop.ccnt_current:
+			//foreach bop in bops
+			for I=pbops0:pbops1-1
+				bop=bops[I]
+				if ccnt_ptr<bop.ccnt:
 					//create something as is
-					appendChild(side,bop.ccnt_current-ccnt_current)
+					appendChild(side,bop.ccnt-ccnt_ptr)
 				//del
 				if bop.sz_ed_del:
 					if side!=DIFF_SIDE_CURRENT:
 						//keep it or downgrade to base
 						appendChild(DIFF_SIDE_BASE,bop.sz_ed_del)
+						//use restore for undo
+						m_temp_undo_queue.push(TDiffNodeOp(){
+							ccnt:ccnt_unified+(bop.ccnt-ccnt_ptr0)+m_temp_undo_delta,
+							sz_ed_add_type:bop.sz_ed_del+(1LL<<63)})
+						//the unified ccnt doesn't change!
+						//do not touch m_temp_undo_delta 
 					else
 						//remove it
-						//do nothing
-				//add
-				if bop.sz_ed_add:
-					appendChild(DIFF_SIDE_CURRENT,bop.sz_ed_add)
+						//use add for undo
+						m_temp_undo_queue.push(TDiffNodeOp(){
+							ccnt:ccnt_unified+(bop.ccnt-ccnt_ptr0)+m_temp_undo_delta,
+							sz_ed_add_type:bop.sz_ed_del})
+						//unified ccnt got removed
+						m_temp_undo_delta-=bop.sz_ed_del
 				//update current ccnt
-				ccnt_current=bop.ccnt_current+bop.sz_ed_del
-			if ccnt_current<ccnt_current0+nd_ccnt:
+				ccnt_ptr=bop.ccnt+bop.sz_ed_del
+				//add / restore
+				if bop.sz_ed_add_type:
+					if !(bop.sz_ed_add_type&(1LL<<63)):
+						//add
+						sz_ed_add=bop.sz_ed_add_type
+						m_temp_undo_queue.push(TDiffNodeOp(){
+							ccnt:ccnt_unified+(ccnt_ptr-ccnt_ptr0)+m_temp_undo_delta,
+							sz_ed_del:sz_ed_add})
+						m_temp_undo_delta+=sz_ed_add
+						appendChild(DIFF_SIDE_CURRENT,sz_ed_add)
+					else
+						//restore
+						sz_ed_restore=(bop.sz_ed_add_type-(1LL<<63))
+						m_temp_undo_queue.push(TDiffNodeOp(){
+							ccnt:ccnt_unified+(ccnt_ptr-ccnt_ptr0)+m_temp_undo_delta,
+							sz_ed_del:sz_ed_restore})
+						//leave m_temp_undo_delta untouched
+						assert(side==DIFF_SIDE_BASE)
+						//assert(sz_ed_restore==nd_ccnt)
+						//assert(ccnt_current==ccnt_current0)
+						appendChild(DIFF_SIDE_BOTH,nd_ccnt)
+						ccnt_ptr+=sz_ed_restore
+			if ccnt_ptr<ccnt_ptr0+nd_ccnt:
 				//create something as is
-				appendChild(side,ccnt_current0+nd_ccnt-ccnt_current)
+				appendChild(side,ccnt_ptr0+nd_ccnt-ccnt_ptr)
 			return nds_child
+		p=pbops0
 		for(pc=nd.pchild;pc;pc=pc_pnext)
 			pc_pnext=pc.pnext
-			pc_ccnt=pc.ccnts[1]
+			pc_ccnt_unified=pc.ccnts[0]+pc.ccnts[1]-pc.ccnts[2]
+			if is_unified:
+				pc_ccnt=pc_ccnt_unified
+			else
+				pc_ccnt=pc.ccnts[1]
 			//intersect/cut bops within the child
 			p0=p
-			while p<bops.n&&bops[p].ccnt_current<ccnt_current+pc_ccnt:
+			while p<pbops1&&bops[p].ccnt<ccnt_ptr+pc_ccnt:
 				p++
-			if p<bops.n&&!bops[p].sz_ed_del&&bops[p].ccnt_current==ccnt_current+pc_ccnt:
+			if p<pbops1&&!bops[p].sz_ed_del&&bops[p].sz_ed_add_type>=0LL&&bops[p].ccnt==ccnt_ptr+pc_ccnt:
+				//we still don't want a tail-restore
 				p++
 			//each bop could cover *multiple* children... need to test it
 			if p0<p:
 				bk=bops[p-1]
 				bk2=bops[p0]
 				//compute covering from sz_ed_del
-				bops[p-1].sz_ed_del=min(ccnt_current+pc.ccnts[1]-bops[p-1].ccnt_current,bops[p-1].sz_ed_del)
+				bops[p-1].sz_ed_del=min(ccnt_ptr+pc_ccnt-bops[p-1].ccnt,bops[p-1].sz_ed_del)
 				if bops[p-1].sz_ed_del<bk.sz_ed_del:
-					bops[p-1].sz_ed_add=0LL
-				bops[p0].sz_ed_del+=bops[p0].ccnt_current
-				bops[p0].ccnt_current=max(ccnt_current,bops[p0].ccnt_current)
-				bops[p0].sz_ed_del-=bops[p0].ccnt_current
+					bops[p-1].sz_ed_add_type=0LL
+				bops[p0].sz_ed_del+=bops[p0].ccnt
+				bops[p0].ccnt=max(ccnt_ptr,bops[p0].ccnt)
+				bops[p0].sz_ed_del-=bops[p0].ccnt
 				assert(bops[p-1].sz_ed_del>=0LL)
 				assert(bops[p0].sz_ed_del>=0LL)
 				pc.pnext=CDiffSLNode.NULL//this is required
-				nds_pc=DiffBlockEdit(debug_level+1,pc,ccnt_current,bops[p0:p-1])
+				nds_pc=DiffBlockEdit(debug_level+1,pc,ccnt_ptr,ccnt_unified,bops,p0,p, is_unified)
 				(nds_ret,nds_child)=DiffSkipListPromote(nds_ret, nds_child,nds_pc,pc)
 				bops[p0]=bk2
 				bops[p-1]=bk
 				//the last bop covers multiple segments
-				if ccnt_current+pc_ccnt<bops[p-1].ccnt_current+bops[p-1].sz_ed_del:
+				if ccnt_ptr+pc_ccnt<bops[p-1].ccnt+bops[p-1].sz_ed_del:
 					p--
 			else
 				pc.pnext=CDiffSLNode.NULL
 				nds_child=nds_child.cat(TDiffSLList(){phead:pc,ptail:pc})
-			ccnt_current+=pc_ccnt
+			ccnt_ptr+=pc_ccnt
+			ccnt_unified+=pc_ccnt_unified
 		//coulddo: removing nd itself
 		nds_ret.ptail.pchild=nds_child.phead;
 		if nds_child.ptail:nds_child.ptail.pnext=CDiffSLNode.NULL
 		DiffRecomputeCcntInner(nds_ret.ptail)
 		return nds_ret
-	auto RawEdit(TEditop[] ops)
+	auto BlockEdit(TDiffNodeOp[] bops,int is_unified)
+		m_temp_undo_queue=new TDiffNodeOp[]
+		m_temp_undo_delta=0LL
+		nds_pc=DiffBlockEdit(0,m_skiplist,0LL,0LL,bops,0L,bops.n, is_unified)
+		m_skiplist=DiffSkipListPromoteToRoot(nds_pc)
+		ret=m_temp_undo_queue
+		m_temp_undo_queue=TDiffNodeOp[].NULL
+		//debugDumpSL()
+		return ret
+	auto MakeBlockOps(TEditop[] ops)
 		bops=new TDiffNodeOp[ops.n]
 		foreach op,I in ops
-			bops[I].ccnt_current=op.ccnt
+			bops[I].ccnt=op.ccnt
 			bops[I].sz_ed_del=op.sz
 			if op.s:
-				bops[I].sz_ed_add=op.s.n
-		nds_pc=DiffBlockEdit(0,m_skiplist,0LL,bops)
-		m_skiplist=DiffSkipListPromoteToRoot(nds_pc)
-		//todo
-		debugDumpSL()
+				bops[I].sz_ed_add_type=i64(op.s.n)
+		return bops
+	auto Edit(TEditop[] ops)
+		//debugDumpSL()
+		m_undo_queue.push(TDiffUndoItem(){ops:BlockEdit(MakeBlockOps(ops),0)})
+	auto RawUndo(TDiffUndoItem[] queue_in,TDiffUndoItem[] queue_out,TEditop[] ops)
+		if queue_in.n:
+			bops=queue_in.pop().ops
+			is_unified=1
+		else
+			bops=MakeBlockOps(ops)
+			is_unified=0
+		queue_out.push(TDiffUndoItem(){ops:BlockEdit(bops,is_unified)})
+	inline Undo(TEditop[] ops)
+		return RawUndo(m_undo_queue,m_redo_queue,ops)
+	inline Redo(TEditop[] ops)
+		return RawUndo(m_redo_queue,m_undo_queue,ops)
 	auto Init(i64 ccnt)
 		m_skiplist=new CDiffSLNode()
 		m_skiplist.ccnts=long3(ccnt,ccnt,ccnt)
@@ -1299,11 +1373,11 @@ class CEditableText
 			RecomputeCcntInner(nds_ret.ptail)
 			//recurse one level up
 			nds_toadd=nds_ret
-	auto BlockEdit(int debug_level,CSLNode nd,i64 ccnt_base0,TBlockOp[] bops)
+	auto BlockEdit(int debug_level,CSLNode nd,i64 ccnt_base0,TBlockOp[] bops,iptr pbops0,iptr pbops1)
 		assert(!nd.s)
 		//for each child -> untouched / new list (on which we apply random growth)
 		//so the return value is a list
-		p=0L
+		p=pbops0
 		ccnt_base=ccnt_base0
 		//nds_ret.ptail.pchild is the dangling part represented by nds_child
 		nds_ret=TSLList(){phead:nd,ptail:nd}
@@ -1315,7 +1389,7 @@ class CEditableText
 			//Writeln(debug_level,' ',formatNumber(iptr(pc),{align:8,base:16}),' ',pc_ccnt)
 			//intersect cut bops with the child
 			p0=p
-			while p<bops.n&&bops[p].ccnt<ccnt_base+pc.ccnt:
+			while p<pbops1&&bops[p].ccnt<ccnt_base+pc.ccnt:
 				p++
 			//assert(p==bops.n||bops[p].ccnt==ccnt_base+pc.ccnt)
 			//each bop could cover *multiple* children... need to test it
@@ -1356,7 +1430,8 @@ class CEditableText
 							//keep it
 							nds_pc=nds_pc.cat(TSLList(){phead:pc,ptail:pc})
 					else
-						nds_pc=BlockEdit(debug_level+1,pc,ccnt_base,bops[p0:p-1])
+						//nds_pc=BlockEdit(debug_level+1,pc,ccnt_base,bops[p0:p-1])
+						nds_pc=BlockEdit(debug_level+1,pc,ccnt_base,bops,p0,p)
 					(nds_ret,nds_child)=skipListPromote(nds_ret, nds_child,nds_pc,pc)
 				bops[p0]=bk2
 				bops[p-1]=bk
@@ -1550,7 +1625,7 @@ class CEditableText
 		//	Writeln(bop.ccnt,' ',bop.sz,' ',iptr(bop.ss))
 		//block replace -> skiplist edit
 		if m_skiplist.ccnt:
-			nds_pc=BlockEdit(0,m_skiplist,0LL,bops)
+			nds_pc=BlockEdit(0,m_skiplist,0LL,bops,0L,bops.n)
 		else
 			nds_pc=TSLList()
 			foreach bop in bops
@@ -1592,13 +1667,6 @@ class CEditableText
 				restate_ranges.push(sz_current)
 			RecomputeStatesDfs(m_skiplist,0LL,restate_ranges,0L)
 		//Writeln('    leaf: ',g_states_time_leaf);g_states_time_leaf=new double[8]
-		///////////////////////
-		n2=0L
-		foreach diff in m_diff_trackers
-			if diff.m_skiplist:
-				diff.RawEdit(ops)
-				m_diff_trackers[n2++]=diff
-		m_diff_trackers.resize(n2)
 	inline InvalidateStates(i64[] ccnt_range)
 		RecomputeStatesDfs(m_skiplist,0LL,ccnt_range,0)
 	auto _GetText(string buf,iptr ofs, CSLNode nd,i64 ccnt0,i64 ccnt1)
@@ -1651,8 +1719,28 @@ class CEditableText
 	auto Edit(TEditop[] ops)
 		m_redo_queue.discard()
 		UndoableEdit(ops,m_undo_queue)
+		///////////////////////
+		//normal edit for diff tracking
+		n2=0L
+		foreach diff in m_diff_trackers
+			if diff.m_skiplist:
+				diff.Edit(ops)
+				m_diff_trackers[n2++]=diff
+		m_diff_trackers.resize(n2)
 	auto RawUndo(TUndoItem[] queue_in,TUndoItem[] queue_out)
 		uitem=queue_in.pop()
+		///////////////////////
+		//undo for diff tracking
+		n2=0L
+		foreach diff in m_diff_trackers
+			if diff.m_skiplist:
+				if iptr(queue_in)==iptr(m_undo_queue):
+					diff.Undo(uitem.ops)
+				else
+					diff.Redo(uitem.ops)
+				m_diff_trackers[n2++]=diff
+		m_diff_trackers.resize(n2)
+		///////////////
 		UndoableEdit(uitem.ops,queue_out)
 		foreach loci in uitem.locs
 			loci.loc.ccnt=loci.ccnt
