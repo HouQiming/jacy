@@ -959,9 +959,9 @@ W.Edit_prototype={
 			if(event.text==hki.key){
 				if(!hki.action.call(this,hki.key)){
 					//0 for cancel
-					if(sel0_ccnt!=this.sel0.ccnt||sel1_ccnt!=this.sel1.ccnt){
-						this.CallOnSelectionChange()
-					}
+					//if(sel0_ccnt!=this.sel0.ccnt||sel1_ccnt!=this.sel1.ccnt){
+					//	this.CallOnSelectionChange()
+					//}
 					UI.Refresh()
 					return 1
 				}
@@ -1095,6 +1095,8 @@ W.Edit_prototype={
 		}else if(IsHotkey(event,"BACKSPACE")||IsHotkey(event,"DELETE")){
 			var ccnt0=sel0.ccnt;
 			var ccnt1=sel1.ccnt;
+			var is_backspace=(IsHotkey(event,"BACKSPACE"));
+			var bk_m_user_just_typed_char=this.m_user_just_typed_char
 			if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
 			if(ccnt0==ccnt1){
 				if(IsHotkey(event,"BACKSPACE")){
@@ -1106,6 +1108,9 @@ W.Edit_prototype={
 			if(ccnt0<ccnt1){
 				this.HookedEdit([ccnt0,ccnt1-ccnt0,null])
 				this.CallOnChange()
+				if(is_backspace){
+					this.m_user_just_typed_char=bk_m_user_just_typed_char
+				}
 				UI.Refresh();
 				return;
 			}
@@ -1164,18 +1169,22 @@ W.Edit_prototype={
 			epilog();
 		}else if(IsHotkey(event,"PGUP SHIFT+PGUP")){
 			var hc=this.GetCharacterHeightAtCaret();
+			var bk=this.x_updown;
 			var ed_caret=this.GetCaretXY();
-			this.MoveCursorToXY(ed_caret.x,ed_caret.y-Math.floor(this.h/hc)*hc);
+			this.MoveCursorToXY(this.x_updown,ed_caret.y-Math.floor(this.h/hc)*hc);
 			var ed_caret2=this.GetCaretXY();
 			this.scroll_y+=ed_caret2.y-ed_caret.y
 			epilog();
+			this.x_updown=bk;
 		}else if(IsHotkey(event,"PGDN SHIFT+PGDN")){
 			var hc=this.GetCharacterHeightAtCaret();
+			var bk=this.x_updown;
 			var ed_caret=this.GetCaretXY();
-			this.MoveCursorToXY(ed_caret.x,ed_caret.y+Math.floor(this.h/hc)*hc);
+			this.MoveCursorToXY(this.x_updown,ed_caret.y+Math.floor(this.h/hc)*hc);
 			var ed_caret2=this.GetCaretXY();
 			this.scroll_y+=ed_caret2.y-ed_caret.y
 			epilog();
+			this.x_updown=bk;
 		}else if(IsHotkey(event,"CTRL+C")||IsHotkey(event,"CTRL+INSERT")){
 			this.Copy()
 		}else if(IsHotkey(event,"CTRL+X")||IsHotkey(event,"SHIFT+DELETE")){
@@ -1206,16 +1215,17 @@ W.Edit_prototype={
 			this.CallOnSelectionChange()
 		}
 	},
-	SetSelection:function(ccnt0,ccnt1,mode){
+	SetSelection:function(ccnt0,ccnt1){
 		this.sel0.ccnt=ccnt0
 		this.sel1.ccnt=ccnt1
-		this.AutoScroll(mode&&this.sel0.ccnt==ccnt0&&this.sel1.ccnt==ccnt1?"center":"center_if_hidden");
+		//this.AutoScroll(mode&&this.sel0.ccnt==ccnt0&&this.sel1.ccnt==ccnt1?"center":"center_if_hidden");
+		this.AutoScroll("center_if_hidden");
 		this.caret_is_wrapped=0
 		UI.Refresh()
 		//this.CallOnSelectionChange()
 	},
-	SetCaretTo:function(ccnt,mode){
-		this.SetSelection(ccnt,ccnt,mode)
+	SetCaretTo:function(ccnt){
+		this.SetSelection(ccnt,ccnt)
 	},
 	////////////////////////////
 	OnMouseDown:function(event){
@@ -2256,8 +2266,8 @@ W.ListView=function(id,attrs){
 	if(!obj.no_region){W.PureRegion(id,obj)}//region goes before children
 	if(!obj.no_clipping){UI.PushCliprect(obj.x,obj.y,obj.w,obj.h)}
 	if(!obj.dragging_samples){obj.Simulate()}
-	W.PureGroup(obj,"temp")
 	//forced clicksel
+	var bk_layout_direction=obj.layout_direction
 	obj.layout_direction=undefined
 	UI.Begin(obj)
 		for(var i=0;i<items.length;i++){
@@ -2280,6 +2290,13 @@ W.ListView=function(id,attrs){
 				})
 			}
 		}
+	UI.End("temp")
+	//do group after the regions
+	obj.layout_direction=bk_layout_direction
+	W.PureGroup(obj,"temp")
+	obj.layout_direction=undefined
+	//but before the scrollbars
+	UI.Begin(obj)
 		if(obj.has_scroll_bar){
 			//associated scrollbar
 			if(obj.dimension=="y"){

@@ -1130,7 +1130,8 @@ class CEditableText
 		if nd.s:
 			if m_context_size:
 				context_size=m_context_size
-				s_context=GetText(max(ccnt_base-i64(context_size),0LL),min(i64(context_size),m_skiplist.ccnt))
+				ccnt_context0=max(ccnt_base-i64(context_size),0LL)
+				s_context=GetText(ccnt_context0,min(ccnt_base-ccnt_context0,m_skiplist.ccnt))
 				if s_context.n<context_size:
 					s_context=(new char[context_size-s_context.n])+s_context
 			else
@@ -1213,7 +1214,8 @@ class CEditableText
 	auto GetContextBefore(ITextStateHandler handler,i64 ccnt_base)
 		if handler.contextSize:
 			context_size=handler.contextSize()
-			s_context=GetText(max(ccnt_base-i64(context_size),0LL),min(i64(context_size),m_skiplist.ccnt))
+			ccnt_context0=max(ccnt_base-i64(context_size),0LL)
+			s_context=GetText(ccnt_context0,min(ccnt_base-ccnt_context0,m_skiplist.ccnt))
 			if s_context.n<context_size:
 				s_context=(new char[context_size-s_context.n])+s_context
 		else

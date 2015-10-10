@@ -1,4 +1,4 @@
-//import "System.jc"
+import "system.jc"
 import "parser.jc"
 import "astcore.jc"
 import System.Algorithm.*
