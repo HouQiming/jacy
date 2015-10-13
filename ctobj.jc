@@ -18,18 +18,21 @@ EFLAG_STRING=3*EFLAG_MULTIPLIER
 EFLAG_CTVAL=4*EFLAG_MULTIPLIER
 //EFLAG_PLACEHOLDER=5*EFLAG_MULTIPLIER
 //////////
-USER_FLAG_ACTIVATED=0x08000000
-USER_FLAG_MASK=0x0fffffff
+//user flags are shared by vars / exprs
+USER_FLAG_ACTIVATED=0x04000000
+USER_FLAG_MASK=0x07ffffff
 QUEUE_FLAG_REACH=0x80000000
 QUEUE_FLAG_EVAL=0x40000000
 QUEUE_FLAG_USERS=0x20000000
 QUEUE_FLAG_DOT=QUEUE_FLAG_USERS//0x10000000
 QUEUE_FLAG_ONREACH_CALLED=0x10000000
-VAR_USER_FLAG_MASK=0x0fffffff
+//EXPR_FLAG_IS_STACK_ALLOC=0x08000000
+VAR_USER_FLAG_MASK=0x07ffffff
 VAR_FLAG_LAMBDAED=0x80000000
 VAR_FLAG_PARAM=0x40000000
 VAR_FLAG_FLATTENED_STRUCT_MEMBER=0x20000000
 VAR_FLAG_STRUCT_SLOT_ALLOCATED=0x10000000
+VAR_FLAG_CLASS_IS_STACK_ALLOCED=VAR_FLAG_STRUCT_SLOT_ALLOCATED
 //VAR_FLAG_FLATTENED=0x20000000
 //USER_FLAG_IN_EXPR=0x08000000
 //EFLAG_CODEBLOCK=4*EFLAG_MULTIPLIER
@@ -666,6 +669,7 @@ FFLAG_IS_PRELIVE=1<<20
 FFLAG_IS_PARALLEL=1<<21
 FFLAG_IS_EMPTY_CTOR=1<<22
 FFLAG_IS_EMPTY_CTOR_TESTED=1<<23
+FFLAG_LAMBDA_LEAKED=1<<24
 FFLAG_TEMP_IMPURE=0x80000000
 FFLAG_TEMP_UNFLATTENABLE=0x80000000
 FFLAG_CGEN_QUEUED=0x80000000
@@ -700,6 +704,7 @@ FUNCTION_OFS_RETURN_LABEL_CACHE=24
 FUNCTION_OFS_TEMPLATE=25
 FUNCTION_OFS_TEMPLATE_EPOS0=26
 FUNCTION_OFS_TEMPLATE_EPOS1=27
+FUNCTION_OFS_P_FULL_CALLER_LIST=28
 struct TFunction
 	int tid
 	int flags
@@ -722,8 +727,9 @@ struct TFunction
 	int return_label_cache
 	PCTObject pf_template
 	int template_epos0,template_epos1
+	int p_full_caller_list //this is transient
 g_tid_TFunction=getid("TFunction")
-g_desc_TFunction=('tid','flags','first_function_user','value_time','pvar_return','plambda_vars','nlambda_vars','pcall_graph_edges','ncall_graph_edges','pinv_call_graph_edges','ninv_call_graph_edges','fn_finalizer','pe_decl','code','nest_depth','id_name','pparam_value_slots','obj_onreach','obj_oneval','obj_oncgen','temp_slot','pmember_list','nmember_list','t_raw_function_type','return_label_cache','pf_template','template_epos0','template_epos1')
+g_desc_TFunction=('tid','flags','first_function_user','value_time','pvar_return','plambda_vars','nlambda_vars','pcall_graph_edges','ncall_graph_edges','pinv_call_graph_edges','ninv_call_graph_edges','fn_finalizer','pe_decl','code','nest_depth','id_name','pparam_value_slots','obj_onreach','obj_oneval','obj_oncgen','temp_slot','pmember_list','nmember_list','t_raw_function_type','return_label_cache','pf_template','template_epos0','template_epos1','p_full_caller_list')
 g_value_time=1
 //struct TCompilerFunction
 //	int tid
@@ -1075,6 +1081,7 @@ g_id_return_=getid("$return_")//the $ is significant - it's used in tests
 //g_id_get_extra_return=getid("__get_extra_return")
 g_id_function=getid("function")
 g_id_function_type=getid("__function_type")
+g_id_dtor_hack_ccnv=getid("__destructor")
 g_id_ftype_raw=getid("__ftype_raw")
 g_id_ptr_fn=getid("ptr_fn")
 g_id_ptr_this=getid("ptr_this")
@@ -1222,6 +1229,9 @@ g_id_callstack=getid("__callstack")
 g_id_set_callstack=getid("__set_callstack")
 g_id_FILE=getid("__FILE__")
 g_id_LINE=getid("__LINE__")
+/////////////////////
+//stack allocation
+g_id_stackzero=getid('__stack_zero')
 
 g_tuple_ids=new int[]
 auto getTupleId(int n)

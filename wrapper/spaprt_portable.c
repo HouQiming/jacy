@@ -145,6 +145,7 @@ typedef long iptr;
 */
 
 #define malloc SDL_malloc
+#define calloc SDL_calloc
 #define free SDL_free
 #define THREADCALL SDLCALL
 #define THREADRET int

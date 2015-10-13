@@ -1,0 +1,17 @@
+import "system.jc"
+import System.Console.*
+
+class CThing
+	int a
+	int b
+
+(function(){
+	a=new int[100]
+	b=new CThing
+	for i=0:99
+		a[i]=i
+		b.a+=i
+		b.b-=i
+	Writeln(a)
+	Writeln(b)
+})()

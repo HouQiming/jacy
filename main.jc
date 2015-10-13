@@ -51,6 +51,7 @@ auto dumpAllErrors()
 tm_parser=tnew(":parser")
 tm_root=tnew(":rootexpr")
 tm_junk=tnew(":junk")
+tm_stackalloc=tnew(":stackalloc")
 tm_lambda=tnew(":lambda")
 tm_rc=tnew(":rc")
 tm_instrumentation=tnew(":instrumentation")
@@ -76,6 +77,7 @@ auto doBuild()
 	if g_enable_dump:
 		Writeln('>>> after iterative SCCP')
 		Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
+	//////////
 	tbegin(tm_junk)
 	if DEBUG_DUMP_PASSES:{WriteErr('-------------------\n')}
 	if DEBUG_DUMP_PASSES:{WriteErr(string(System.Time.t(),2),' interlude: ')}
@@ -84,6 +86,16 @@ auto doBuild()
 	if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
 	if DEBUG_DUMP_PASSES:{WriteErr('-------------------\n')}
 	tend(tm_junk)
+	//////////
+	if g_enable_dump:
+		Writeln('>>> before doStackAllocs')
+		Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
+	tbegin(tm_stackalloc)
+	if DEBUG_DUMP_PASSES:{WriteErr(string(System.Time.t(),2),' doStackAllocs: ')}
+	doStackAllocs()
+	if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
+	tend(tm_stackalloc)
+	//////////
 	if g_enable_dump:
 		Writeln('>>> before translateLambdas')
 		Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
@@ -92,6 +104,7 @@ auto doBuild()
 	translateLambdas()
 	if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
 	tend(tm_lambda)
+	//////////
 	if g_enable_dump:
 		Writeln('>>> before refcnt')
 		Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
@@ -100,6 +113,7 @@ auto doBuild()
 	genRefcnt()
 	if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
 	tend(tm_rc)
+	//////////
 	if DEBUG_DUMP_PASSES:{WriteErr(string(System.Time.t(),2),' cleanup: ')}
 	if g_enable_debug_instrumentation:
 		tbegin(tm_instrumentation)

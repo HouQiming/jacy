@@ -611,6 +611,8 @@ UI.RegisterEditorPlugin=function(fplugin){
 UI.HL_DISPLAY_MODE_RECT=0
 UI.HL_DISPLAY_MODE_EMBOLDEN=1
 UI.HL_DISPLAY_MODE_TILDE=2
+var g_regexp_newline=new RegExp("\n","g")
+var g_regexp_dos2unix=new RegExp("\r\n","g")
 W.Edit_prototype={
 	plugin_class:'widget',
 	//////////
@@ -668,8 +670,9 @@ W.Edit_prototype={
 			this.scroll_x=Math.min(this.scroll_x,Math.min(ed.XYFromCcnt(ccnt0).x,ed_caret.x))
 		}
 		this.scroll_x=Math.min(this.scroll_x,ed_caret.x);
-		//if .do_wrap&&this.scroll_x&&ed_caret.x<wwidth:
-		//	this.scroll_x=0
+		if(this.scroll_x&&ed_caret.x<wwidth){
+			this.scroll_x=0
+		}
 		if(ed_caret.x-this.scroll_x>=wwidth){
 			//going over the right
 			var chneib=ed.GetUtf8CharNeighborhood(ccnt1);
@@ -886,8 +889,11 @@ W.Edit_prototype={
 	},
 	Paste:function(){
 		var stext=UI.SDL_GetClipboardText()
+		if(UI.Platform.ARCH=="win32"||UI.Platform.ARCH=="win64"){
+			stext=stext.replace(g_regexp_dos2unix,"\n");
+		}
 		if(this.is_single_line){
-			stext=stext.replace("\n"," ");
+			stext=stext.replace(g_regexp_newline," ");
 		}
 		this.OnTextInput({"text":stext,"is_paste":1})
 	},
@@ -1191,6 +1197,7 @@ W.Edit_prototype={
 			if(this.Cut()){return;}
 		}else if(IsHotkey(event,"CTRL+V")||IsHotkey(event,"SHIFT+INSERT")){
 			this.Paste()
+			return;
 		}else if(IsHotkey(event,"CTRL+Z")||IsHotkey(event,"ALT+BACKSPACE")){
 			var ret=ed.Undo()
 			if(ret&&ret.sz>=0){
