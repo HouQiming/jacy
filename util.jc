@@ -381,7 +381,7 @@ auto FormatCCode(string feed)
 					nextline()
 			else if ch=='}':
 				indent--
-				if I<feed.n-2&&feed[I+1]==';':
+				if I<feed.n-2&&(feed[I+1]==';'||feed[I+1]==','):
 					//nothing
 				else
 					nextline()

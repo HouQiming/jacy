@@ -25,7 +25,7 @@ DEBUG_DUMP_DEADELIM=0
 DEBUG_DUMP_PASSES=(Platform.BUILD=="debug")
 DEBUG_DUMP_GVN_DETAILS=0
 DEBUG_DUMP_SCCP=0
-DEBUG_DUMP_STACKALLOC=1//todo
+DEBUG_DUMP_STACKALLOC=0
 ///////////////
 DERIV_HAS_REUSABLE_COMPONENTS=0x80000000
 
@@ -1349,10 +1349,8 @@ auto coreInit()
 			testUserFlag(getVariable(readPool(pecaller+EXPR_OFS_ARGS+0)),VAR_FLAG_CLASS_IS_STACK_ALLOCED)):
 				//get the stack slot
 				pobj_var=getVariable(readPool(pecaller+EXPR_OFS_ARGS+0))
-				g_code_buffer.push('(')
-				g_code_buffer.push('&s7_SA_')
+				g_code_buffer.push('(&s7_SA_')
 				g_code_buffer.push(toBase32(pobj_var))
-				g_code_buffer.push(',')
 			else
 				g_code_buffer.push('(NULL,')
 		else
@@ -1686,7 +1684,9 @@ auto coreInit()
 				else
 					g_code_buffer.push('* s7_BL=(')
 					genClassName(pobjfn)
-					g_code_buffer.push('*)(s7_BA?s7_BA:calloc(1,sizeof(')
+					g_code_buffer.push('*)(s7_BA?(memset(s7_BA,0,sizeof(')
+					genClassName(pobjfn)
+					g_code_buffer.push(')),s7_BA):calloc(1,sizeof(')
 					genClassName(pobjfn)
 					g_code_buffer.push(')));')
 		if is_type_only:
@@ -2623,19 +2623,26 @@ auto coreInit()
 		//	need_bracket=1
 		//	g_code_buffer.push('(')
 		assert(!expr_oplevel)
-		if pobj_var&&testUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED)&&tisrealclass(t):
+		if pobj_var&&testUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED|VAR_FLAG_CLASS_STACK_STYLE_RC)&&tisrealclass(t):
 			//stack allocation case
 			if delta>0:
 				//don't need NULL test
 				genObject()
 				g_code_buffer.push('->s7rc')
 				g_code_buffer.push(FormatAsText('+=',delta))//*2
-			else if delta<0:
+			else
 				//only need to finalize if there's a dtor
-				if pf_dtor:
+				pf_dtor=readPool(t+FUNCTION_OFS_FINALIZER)
+				//Writeln(dumpExpr(pecall,fcolor_abbrv_blocks),' ',dumpType(t),' ',pf_dtor)
+				if check_finalize&&pf_dtor:
 					g_code_buffer.push('if(')
 					genObject()
 					g_code_buffer.push(')')
+					g_code_buffer.push('if((')
+					genObject()
+					g_code_buffer.push('->s7rc')
+					g_code_buffer.push(FormatAsText('+=',delta))//*2
+					g_code_buffer.push(')<=0)')
 					if g_enable_debug_instrumentation:
 						g_code_buffer.push('(')
 						genLineInfoExpr(pecall)
@@ -5116,7 +5123,7 @@ auto coreInit()
 		pobj_var=getExprValueAs(pe_target,g_vtid_CTVAL)
 		g_code_buffer.push('((')
 		genClassName(t)
-		g_code_buffer.push('*)memset((&s7_SA')
+		g_code_buffer.push('*)memset((&s7_SA_')
 		g_code_buffer.push(toBase32(pobj_var))
 		g_code_buffer.push('),0,sizeof(')
 		genClassName(t)
@@ -9257,7 +9264,7 @@ auto doStackAllocs()
 					//todo: and g_id_slice
 					assert(pestore_defining==pe)
 					pobjfn_defining=(isExpr(pe_value,EFLAG_FCALL)?getExprFunction(pe_value):0)
-					if !pobjfn_defining||!tisrealclass(pobjfn_defining):
+					if !(!pobjfn_defining||tisrealclass(pobjfn_defining)||isBuiltin(pe_value,g_id_ldparam)):
 						if DEBUG_DUMP_STACKALLOC:
 							Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
 						setVarLeak(pobj_var)
@@ -9356,18 +9363,24 @@ auto doStackAllocs()
 			pobj_var=getVariable(pe_var)
 			if !testUserFlag(pobj_var,FLAG_IS_LEAKED)&&tisrealclass(getVariableType(pobj_var)):
 				pe_value=readPool(pe+EXPR_OFS_ARGS+1)
-				pobjfn=getExprFunction(pe_value)
-				setUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED)
-				if isCtorEmpty(pobjfn,1):
-					//remove it, make it memset + local ptr ass
-					changed=1
-					pe_replacement=call(g_id_stackzero,exprctval(pobj_var),exprctval(pobjfn))
-					sccpQueueReach(insertCallAt(pe,~1,function(PExpression pe0){return pe_replacement}))
-					return 0
+				if !isExpr(pe_value,EFLAG_FCALL)||isBuiltin(pe_value,g_id_ldparam):
+					//we still need RC... for same-function things, but do it stack-style
+					setUserFlag(pobj_var,VAR_FLAG_CLASS_STACK_STYLE_RC)
 				else
-					//pass a param to the allocation - hack at code generation time
-					//generate declaration the same way
-					//setUserFlag(pe_value,EXPR_FLAG_IS_STACK_ALLOC)
+					if DEBUG_DUMP_STACKALLOC:
+						Writeln('stackalloc ',dumpExpr(pe,fcolor_abbrv_blocks))
+					pobjfn=getExprFunction(pe_value)
+					setUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED)
+					if isCtorEmpty(pobjfn,1):
+						//remove it, make it memset + local ptr ass
+						changed=1
+						pe_replacement=call(g_id_stackzero,exprctval(pobj_var),exprctval(pobjfn))
+						sccpQueueReach(insertCallAt(pe,~1,function(PExpression pe0){return pe_replacement}))
+						return 0
+					else
+						//pass a param to the allocation - hack at code generation time
+						//generate declaration the same way
+						//setUserFlag(pe_value,EXPR_FLAG_IS_STACK_ALLOC)
 		return 1
 	}
 	dfsExpr(g_pe_top,fmake_stack_allocs)

@@ -5,13 +5,23 @@ class CThing
 	int a
 	int b
 
+class CThing2
+	int a
+	int b
+	auto __done__()
+		Writeln('CThing2 - dtor')
+
 (function(){
 	a=new int[100]
 	b=new CThing
+	c=new CThing2
 	for i=0:99
 		a[i]=i
 		b.a+=i
 		b.b-=i
+		c.a-=i
+		c.b+=i
 	Writeln(a)
 	Writeln(b)
+	Writeln(c)
 })()
