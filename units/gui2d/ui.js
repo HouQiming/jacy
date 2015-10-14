@@ -1705,7 +1705,9 @@ UI.Run=function(){
 			}
 			for(var i=0;i<UI.context_paint_queue.length;i++){
 				var obj=UI.context_paint_queue[i];
-				obj.caret_state=1;
+				if(!(obj.caret_state>0)){
+					obj.caret_state=1;
+				}
 				UI.JSDrawWindow(obj)
 				if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
 					if(!obj.has_caret_callback){
@@ -1788,12 +1790,17 @@ UI.Run=function(){
 					break;
 				case UI.SDL_WINDOWEVENT_FOCUS_GAINED:
 					var obj_window=UI.m_window_map[event.windowID.toString()];
-					obj.m_window_has_focus=1
+					obj_window.m_window_has_focus=1
+					obj_window.caret_state=2
+					UI.Refresh()
+					if(UI.OnApplicationSwitch){
+						UI.OnApplicationSwitch()
+					}
 					break;
 				case UI.SDL_WINDOWEVENT_FOCUS_LOST:
 					var obj_window=UI.m_window_map[event.windowID.toString()];
 					if(obj_window.OnWindowBlur){obj_window.OnWindowBlur()};
-					obj.m_window_has_focus=0
+					obj_window.m_window_has_focus=0
 					UI.SetFocus(null)
 					break;
 				}

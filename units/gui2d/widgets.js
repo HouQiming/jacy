@@ -251,7 +251,7 @@ UI.SetCaret=function(obj,x,y,w,h,C,dt){
 	obj.caret_w=w;
 	obj.caret_h=h;
 	obj.caret_C=C;
-	obj.caret_state=1;
+	obj.caret_state=2;
 	obj.caret_dt=dt;
 	obj.caret_is_set=1
 	UI.SDL_SetTextInputRect(
@@ -1944,6 +1944,7 @@ W.ScrollBar_prototype={
 	OnMouseOver:function(){this.mouse_state="over";UI.Refresh();},
 	OnMouseOut:function(){this.mouse_state="out";UI.Refresh();},
 	GetSubStyle:function(){
+		if(this.bar&&this.bar.mouse_state=="over"){return "over";}
 		return this.mouse_state
 	},
 	///////////////
@@ -1952,6 +1953,9 @@ W.ScrollBar_prototype={
 }
 W.ScrollBarThingy_prototype={
 	dimension:'y',
+	mouse_state:'out',
+	OnMouseOver:function(){this.mouse_state="over";UI.Refresh();},
+	OnMouseOut:function(){this.mouse_state="out";UI.Refresh();},
 	OnMouseDown:function(event){
 		var owner=this.owner
 		this.anchored_value=owner.value
@@ -1971,7 +1975,7 @@ W.ScrollBarThingy_prototype={
 }
 W.ScrollBar=function(id,attrs){
 	var obj=UI.StdWidget(id,attrs,"scroll_bar",W.ScrollBar_prototype)
-	W.PureRegion(id,attrs)
+	W.PureRegion(id,obj)
 	UI.Begin(obj)
 		var szbar;
 		if(obj.page_size&&obj.total_size){
@@ -1995,7 +1999,7 @@ W.ScrollBar=function(id,attrs){
 					w:obj.middle_bar.w, h:szbar,
 					factor:obj.h-szbar,
 					round:obj.middle_bar.round,
-					color:obj.middle_bar.color, 
+					color:obj.icon_color||obj.middle_bar.color,
 					border_width:obj.middle_bar.border_width, 
 					border_color:obj.middle_bar.border_color}
 			}else{
@@ -2005,7 +2009,7 @@ W.ScrollBar=function(id,attrs){
 					w:szbar, h:obj.middle_bar.w,
 					factor:obj.w-szbar,
 					round:obj.middle_bar.round,
-					color:obj.middle_bar.color, 
+					color:obj.icon_color||obj.middle_bar.color, 
 					border_width:obj.middle_bar.border_width, 
 					border_color:obj.middle_bar.border_color}
 			}

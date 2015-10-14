@@ -25,6 +25,7 @@ DEBUG_DUMP_DEADELIM=0
 DEBUG_DUMP_PASSES=(Platform.BUILD=="debug")
 DEBUG_DUMP_GVN_DETAILS=0
 DEBUG_DUMP_SCCP=0
+DEBUG_DUMP_STACKALLOC=1//todo
 ///////////////
 DERIV_HAS_REUSABLE_COMPONENTS=0x80000000
 
@@ -9191,6 +9192,7 @@ auto doStackAllocs()
 	//mark leaking variables / param leakness flags
 	//todo: ignore members for now
 	//todo: members - store(?,dot()) case - middle state - "leaked" from stack but is a static member
+	//todo: logging
 	//find leak roots
 	funarg_leaks=new i8[i64]
 	Q=new PCTObject[]
@@ -9200,6 +9202,8 @@ auto doStackAllocs()
 		setUserFlag(pobj_var,FLAG_IS_LEAKED)
 		if !tisrealclass(getVariableType(pobj_var)):return
 		Q.push(pobj_var)
+		if DEBUG_DUMP_STACKALLOC:
+			Writeln('setVarLeak ',dumpObject(pobj_var))
 	}
 	setFunargLeak=function(PCTObject pobjfn,int paramid){
 		auto key=(i64(pobjfn)<<32)+i64(paramid)
@@ -9207,25 +9211,35 @@ auto doStackAllocs()
 		funarg_leaks[key]=i8(1)
 		QF.push(pobjfn)
 		QF.push(paramid)
+		if DEBUG_DUMP_STACKALLOC:
+			Writeln('setFunargLeak ',dumpObject(pobjfn),' ',paramid)
 	}
 	ffind_leak_root=function(PExpression pe){
 		if isBuiltin(pe,g_id_stdot):
 			//invalidate the VALUE
 			pe_value=readPool(pe+EXPR_OFS_ARGS+2)
 			if isExpr(pe_value,EFLAG_VARIABLE):
+				if DEBUG_DUMP_STACKALLOC:
+					Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
 				setVarLeak(getVariable(pe_value))
 		else if isBuiltin(pe,g_id_cast):
 			//invalidate the OPERAND
 			pe_src=readPool(pe+EXPR_OFS_ARGS+1)
 			if isExpr(pe_src,EFLAG_VARIABLE):
+				if DEBUG_DUMP_STACKALLOC:
+					Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
 				setVarLeak(getVariable(pe_src))
 		else if isBuiltin(pe,g_id_store):
 			pe_var=readPool(pe+EXPR_OFS_ARGS+0)
 			pe_value=readPool(pe+EXPR_OFS_ARGS+1)
 			pobj_var=getVariable(pe_var)
 			if isBuiltin(pe_value,g_id_dot)||isBuiltin(pe_value,g_id_cast):
+				if DEBUG_DUMP_STACKALLOC:
+					Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
 				setVarLeak(pobj_var)
 			if readPool(pobj_var+VAR_OFS_ID)==g_id_return:
+				if DEBUG_DUMP_STACKALLOC:
+					Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
 				setVarLeak(pobj_var)
 			else
 				//multi-store test
@@ -9241,8 +9255,11 @@ auto doStackAllocs()
 				else
 					//only allow new
 					//todo: and g_id_slice
-					pobjfn_defining=getExprFunction(pestore_defining)
-					if !tisrealclass(pobjfn_defining):
+					assert(pestore_defining==pe)
+					pobjfn_defining=(isExpr(pe_value,EFLAG_FCALL)?getExprFunction(pe_value):0)
+					if !pobjfn_defining||!tisrealclass(pobjfn_defining):
+						if DEBUG_DUMP_STACKALLOC:
+							Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
 						setVarLeak(pobj_var)
 		else if (readPool(pe)&EFLAG_MASK)==EFLAG_FCALL:
 			pobjfn=getExprFunction(pe)
@@ -9252,6 +9269,8 @@ auto doStackAllocs()
 				for i=0:pobjfn-1
 					pe_argi=readPool(pe+EXPR_OFS_ARGS+i)
 					if isExpr(pe_argi,EFLAG_VARIABLE):
+						if DEBUG_DUMP_STACKALLOC:
+							Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
 						setVarLeak(getVariable(pe_argi))
 		return 1
 	}
@@ -9337,7 +9356,7 @@ auto doStackAllocs()
 			pobj_var=getVariable(pe_var)
 			if !testUserFlag(pobj_var,FLAG_IS_LEAKED)&&tisrealclass(getVariableType(pobj_var)):
 				pe_value=readPool(pe+EXPR_OFS_ARGS+1)
-				pobjfn=getExprFunction(pe)
+				pobjfn=getExprFunction(pe_value)
 				setUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED)
 				if isCtorEmpty(pobjfn,1):
 					//remove it, make it memset + local ptr ass
@@ -9354,6 +9373,8 @@ auto doStackAllocs()
 	dfsExpr(g_pe_top,fmake_stack_allocs)
 	if changed:
 		sccp(0)
+	//////////////////////
+	clearUserFlags(g_pe_top,0)
 
 ////////////////////////////
 struct TStringConstItem
@@ -11700,7 +11721,7 @@ auto cgPopScope()
 		if tisrealclass(t)&&testUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED):
 			//do NOT initialize the pointer to the slot - we want to fool NULL tests
 			genClassName(t)
-			g_code_buffer.push('s7_SA_')
+			g_code_buffer.push(' s7_SA_')
 			g_code_buffer.push(toBase32(pobj_var))
 			g_code_buffer.push(';')
 		//Writeln(dumpObject(pobj_var),' ',t)

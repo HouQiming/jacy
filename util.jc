@@ -374,8 +374,11 @@ auto FormatCCode(string feed)
 			else
 				sret.push(char(ch))
 			if ch=='{':
-				indent++
-				nextline()
+				if I+3<feed.n&&feed[I+1]=='s'&&feed[I+2]=='7':
+					//nothing
+				else
+					indent++
+					nextline()
 			else if ch=='}':
 				indent--
 				if I<feed.n-2&&feed[I+1]==';':
