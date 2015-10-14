@@ -1600,10 +1600,14 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			return 0
 		}
 		JS_UI["_SwitchToSubWindow"]=function(JSContext JS){
-			x=int(ceil(JS.Param(0).or(0.f)))
-			y=int(ceil(JS.Param(1).or(0.f)))
-			w=int(floor(JS.Param(2).or(0.f)))
-			h=int(floor(JS.Param(3).or(0.f)))
+			xf=JS.Param(0).or(0.f)
+			yf=JS.Param(1).or(0.f)
+			wf=JS.Param(2).or(0.f)
+			hf=JS.Param(3).or(0.f)
+			x=int(floor(xf))
+			y=int(floor(yf))
+			w=int(ceil(xf+wf))-x
+			h=int(ceil(yf+hf))-y
 			is_relative=JS.Param(4).or(0)
 			is_pop=JS.Param(5).or(0)
 			g_renderer.SwitchToSubWindow(x,y,w,h,is_relative,is_pop)

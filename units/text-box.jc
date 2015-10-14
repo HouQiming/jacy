@@ -2181,6 +2181,7 @@ class CEditableText
 		ed=this
 		params=JS.Param(0).as(JSObject)
 		if !params:return 0
+		if JS.GetGlobal()["UI"]["m_frame_is_invalid"].as(int):return 0
 		param_x=double2fixed(params["x"].or(0.))
 		param_y=double2fixed(params["y"].or(0.))
 		param_w=double2fixed(params["w"].or(0.))

@@ -9197,9 +9197,7 @@ auto doStackAllocs()
 	dfsExpr(g_pe_top,trackLambdaLeaker)
 	///////////////////////////////////////////////////
 	//mark leaking variables / param leakness flags
-	//todo: ignore members for now
 	//todo: members - store(?,dot()) case - middle state - "leaked" from stack but is a static member
-	//todo: logging
 	//find leak roots
 	funarg_leaks=new i8[i64]
 	Q=new PCTObject[]
@@ -9348,8 +9346,10 @@ auto doStackAllocs()
 					if isExpr(pearg,EFLAG_VARIABLE):
 						setVarLeak(getVariable(pearg))
 		QF.clear()
-	//todo: mark static class members
-	//todo: mark static arrays
+	///////////////////////////////////////////////////
+	//mark statically sized arrays
+	//todo: resize test, not leaked, not resized = OK... resize flag can propagate the same way?
+	//todo: array type testing... a new FFLAG_IS_
 	///////////////////////////////////////////////////
 	//transform into static allocation
 	//todo: move the pass to earlier? if we do arrays, we need an additional round of sccp after intrinsic-to-inline

@@ -1321,7 +1321,7 @@ UI.StdStyling=function(id,obj,attrs,s_default_style_name,child_style){
 			}
 		}
 		testTransition()
-		var ref_frame=obj.transition_frame1||obj.transition_current_frame;
+		var ref_frame=(obj.transition_frame1||obj.transition_current_frame);
 		if(!ref_frame){
 			ref_frame={};
 			for(var key in UI.interpolators){
