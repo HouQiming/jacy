@@ -1199,6 +1199,8 @@ auto coreInit()
 			//clone, hack out ldparam
 			pobjfn_insted=cloneFunction(pobjfn)
 			ctUnique(template_desc)=pobjfn_insted
+			if readPool(pobjfn+FUNCTION_OFS_NAME)==g_id_array_template:
+				setFFlag(pobjfn,FFLAG_IS_ARRAY_CLASS)
 			//if g_readable_c_code:
 			sname=new(getIdString(readPool(pobjfn+FUNCTION_OFS_NAME)))
 			sname.push('<')
@@ -9134,6 +9136,7 @@ auto getRootNamespaceType()
 ////////////////////////////
 auto doStackAllocs()
 	FLAG_IS_LEAKED=1
+	FLAG_IS_RESIZED=2
 	clearUserFlags(g_pe_top,0)
 	///////////////////////////////////////////////////
 	//mark context leakers - class / struct ctor, non-call use of local function value + lambda access
@@ -9202,13 +9205,14 @@ auto doStackAllocs()
 	funarg_leaks=new i8[i64]
 	Q=new PCTObject[]
 	QF=new PCTObject[]
-	setVarLeak=function(PCTObject pobj_var){
-		if testUserFlag(pobj_var,FLAG_IS_LEAKED):return
-		setUserFlag(pobj_var,FLAG_IS_LEAKED)
+	setVarLeak=function(PCTObject pobj_var,int flag){
+		//leaked counts as resized, but not vice versa
+		if testUserFlag(pobj_var,FLAG_IS_LEAKED|flag):return
+		setUserFlag(pobj_var,flag)
 		if !tisrealclass(getVariableType(pobj_var)):return
 		Q.push(pobj_var)
 		if DEBUG_DUMP_STACKALLOC:
-			Writeln('setVarLeak ',dumpObject(pobj_var))
+			Writeln(flag==FLAG_IS_LEAKED?'setVarLeak ':'setVarResize ',dumpObject(pobj_var))
 	}
 	setFunargLeak=function(PCTObject pobjfn,int paramid){
 		auto key=(i64(pobjfn)<<32)+i64(paramid)
@@ -9226,14 +9230,14 @@ auto doStackAllocs()
 			if isExpr(pe_value,EFLAG_VARIABLE):
 				if DEBUG_DUMP_STACKALLOC:
 					Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
-				setVarLeak(getVariable(pe_value))
+				setVarLeak(getVariable(pe_value),FLAG_IS_LEAKED)
 		else if isBuiltin(pe,g_id_cast):
 			//invalidate the OPERAND
 			pe_src=readPool(pe+EXPR_OFS_ARGS+1)
 			if isExpr(pe_src,EFLAG_VARIABLE):
 				if DEBUG_DUMP_STACKALLOC:
 					Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
-				setVarLeak(getVariable(pe_src))
+				setVarLeak(getVariable(pe_src),FLAG_IS_LEAKED)
 		else if isBuiltin(pe,g_id_store):
 			pe_var=readPool(pe+EXPR_OFS_ARGS+0)
 			pe_value=readPool(pe+EXPR_OFS_ARGS+1)
@@ -9241,11 +9245,11 @@ auto doStackAllocs()
 			if isBuiltin(pe_value,g_id_dot)||isBuiltin(pe_value,g_id_cast):
 				if DEBUG_DUMP_STACKALLOC:
 					Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
-				setVarLeak(pobj_var)
+				setVarLeak(pobj_var,FLAG_IS_LEAKED)
 			if readPool(pobj_var+VAR_OFS_ID)==g_id_return:
 				if DEBUG_DUMP_STACKALLOC:
 					Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
-				setVarLeak(pobj_var)
+				setVarLeak(pobj_var,FLAG_IS_LEAKED)
 			else
 				//multi-store test
 				n_stores=0
@@ -9256,7 +9260,7 @@ auto doStackAllocs()
 					n_stores++
 					if n_stores>1:break
 				if n_stores!=1:
-					setVarLeak(pobj_var)
+					setVarLeak(pobj_var,FLAG_IS_LEAKED)
 				else
 					//only allow new
 					//todo: and g_id_slice
@@ -9265,7 +9269,7 @@ auto doStackAllocs()
 					if !(!pobjfn_defining||tisrealclass(pobjfn_defining)||isBuiltin(pe_value,g_id_ldparam)):
 						if DEBUG_DUMP_STACKALLOC:
 							Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
-						setVarLeak(pobj_var)
+						setVarLeak(pobj_var,FLAG_IS_LEAKED)
 		else if (readPool(pe)&EFLAG_MASK)==EFLAG_FCALL:
 			pobjfn=getExprFunction(pe)
 			if !pobjfn:
@@ -9276,80 +9280,106 @@ auto doStackAllocs()
 					if isExpr(pe_argi,EFLAG_VARIABLE):
 						if DEBUG_DUMP_STACKALLOC:
 							Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
-						setVarLeak(getVariable(pe_argi))
+						setVarLeak(getVariable(pe_argi),FLAG_IS_LEAKED)
 		return 1
 	}
 	dfsExpr(g_pe_top,ffind_leak_root)
-	//propagate out
-	is_first=1
+	//build full caller list, it's always needed
 	all_calls=new i64[]
-	for(;Q.n||QF.n;)
-		for(I=0;I<Q.n;I++)
-			pobj_var=Q[I]
-			//var - propagate through both directions of assignments
-			for(peuser=readPool(pobj_var+VAR_OFS_USER_QUEUE);peuser;peuser=readPool(peuser+EXPR_OFS_NEXT_V_USER))
-				pe=peuser
-				if isExpr(pe,EFLAG_VARIABLE)
-					pe=readPool(pe+EXPR_OFS_CALLER)
-				if isBuiltin(pe,g_id_store):
-					pe_var=readPool(pe+EXPR_OFS_ARGS+0)
-					pe_value=readPool(pe+EXPR_OFS_ARGS+1)
-					setVarLeak(getVariable(pe_var))
-					if isExpr(pe_value,EFLAG_VARIABLE):
-						setVarLeak(getVariable(pe_value))
-			for(pestore=readPool(pobj_var+VAR_OFS_STORE_QUEUE);pestore;pestore=readPool(pestore+EXPR_OFS_NEXT_V_USER))
-				pe=pestore
-				if isBuiltin(pe,g_id_store):
-					pe_var=readPool(pe+EXPR_OFS_ARGS+0)
-					pe_value=readPool(pe+EXPR_OFS_ARGS+1)
-					setVarLeak(getVariable(pe_var))
-					if isExpr(pe_value,EFLAG_VARIABLE):
-						setVarLeak(getVariable(pe_value))
-					else if isBuiltin(pe_value,g_id_ldparam)
-						//propagate to funarg
-						//expecting it to be sparse
-						paramid=getExprValueAs(readPool(pe_value+EXPR_OFS_ARGS+0),g_vtid_CNS)
-						pf_owner=getOwningFunction(pe)
-						setFunargLeak(pf_owner,paramid)
-		Q.clear()
-		//build full caller list only when needed
-		if QF.n&&is_first:
-			is_first=0
-			fbuild_caller_list=function(PExpression pe){
-				if (readPool(pe)&EFLAG_MASK)==EFLAG_FCALL:
-					pobjfn=getExprFunction(pe)
-					if pobjfn:
-						if !(getFFlag(pobjfn)&(FFLAG_BUILTIN|FFLAG_IMPORTED)):
-							all_calls.push((i64(pobjfn)<<32)+i64(pe))
-				return 1
-			}
-			dfsExpr(g_pe_top,fbuild_caller_list)
-			all_calls.Sort()
-			for i=0:all_calls.n-1
-				pobjfn_i=int(all_calls[i]>>32)
-				if i&&int(all_calls[i-1]>>32)!=pobjfn_i:
-					writePool(pobjfn_i+FUNCTION_OFS_P_FULL_CALLER_LIST,i)
-			all_calls.push(-1LL)
-		for(I=0;I<QF.n;I+=2)
-			//fun-arg - two ints
-			pobjfn=QF[I+0]
-			paramid=QF[I+1]
-			//propagate to all calling instances
-			ppe_callers=readPool(pobjfn+FUNCTION_OFS_P_FULL_CALLER_LIST)
-			if !ppe_callers:continue
-			for(j=ppe_callers;;j++)
-				if int(all_calls[j]>>32)!=pobjfn:break
-				pecaller=int(all_calls[j])
-				n_args=getExprNArgs(pecaller)
-				if paramid<n_args:
-					pearg=readPool(pecaller+EXPR_OFS_ARGS+paramid)
-					if isExpr(pearg,EFLAG_VARIABLE):
-						setVarLeak(getVariable(pearg))
-		QF.clear()
+	fbuild_caller_list=function(PExpression pe){
+		if (readPool(pe)&EFLAG_MASK)==EFLAG_FCALL:
+			pobjfn=getExprFunction(pe)
+			if pobjfn:
+				if !(getFFlag(pobjfn)&(FFLAG_BUILTIN|FFLAG_IMPORTED)):
+					all_calls.push((i64(pobjfn)<<32)+i64(pe))
+		return 1
+	}
+	dfsExpr(g_pe_top,fbuild_caller_list)
+	all_calls.Sort()
+	for i=0:all_calls.n-1
+		pobjfn_i=int(all_calls[i]>>32)
+		if i&&int(all_calls[i-1]>>32)!=pobjfn_i:
+			writePool(pobjfn_i+FUNCTION_OFS_P_FULL_CALLER_LIST,i)
+	all_calls.push(-1LL)
+	//propagate out
+	fpropagate=function(int flag){
+		for(;Q.n||QF.n;)
+			for(I=0;I<Q.n;I++)
+				pobj_var=Q[I]
+				//var - propagate through both directions of assignments
+				for(peuser=readPool(pobj_var+VAR_OFS_USER_QUEUE);peuser;peuser=readPool(peuser+EXPR_OFS_NEXT_V_USER))
+					pe=peuser
+					if isExpr(pe,EFLAG_VARIABLE)
+						pe=readPool(pe+EXPR_OFS_CALLER)
+					if isBuiltin(pe,g_id_store):
+						pe_var=readPool(pe+EXPR_OFS_ARGS+0)
+						pe_value=readPool(pe+EXPR_OFS_ARGS+1)
+						setVarLeak(getVariable(pe_var),flag)
+						if isExpr(pe_value,EFLAG_VARIABLE):
+							setVarLeak(getVariable(pe_value),flag)
+				for(pestore=readPool(pobj_var+VAR_OFS_STORE_QUEUE);pestore;pestore=readPool(pestore+EXPR_OFS_NEXT_V_USER))
+					pe=pestore
+					if isBuiltin(pe,g_id_store):
+						pe_var=readPool(pe+EXPR_OFS_ARGS+0)
+						pe_value=readPool(pe+EXPR_OFS_ARGS+1)
+						setVarLeak(getVariable(pe_var),flag)
+						if isExpr(pe_value,EFLAG_VARIABLE):
+							setVarLeak(getVariable(pe_value),flag)
+						else if isBuiltin(pe_value,g_id_ldparam)
+							//propagate to funarg
+							//expecting it to be sparse
+							paramid=getExprValueAs(readPool(pe_value+EXPR_OFS_ARGS+0),g_vtid_CNS)
+							pf_owner=getOwningFunction(pe)
+							setFunargLeak(pf_owner,paramid)
+			Q.clear()
+			for(I=0;I<QF.n;I+=2)
+				//fun-arg - two ints
+				pobjfn=QF[I+0]
+				paramid=QF[I+1]
+				//propagate to all calling instances
+				ppe_callers=readPool(pobjfn+FUNCTION_OFS_P_FULL_CALLER_LIST)
+				if !ppe_callers:continue
+				for(j=ppe_callers;;j++)
+					if int(all_calls[j]>>32)!=pobjfn:break
+					pecaller=int(all_calls[j])
+					n_args=getExprNArgs(pecaller)
+					if paramid<n_args:
+						pearg=readPool(pecaller+EXPR_OFS_ARGS+paramid)
+						if isExpr(pearg,EFLAG_VARIABLE):
+							setVarLeak(getVariable(pearg),flag)
+			QF.clear()
+	}
+	fpropagate(FLAG_IS_LEAKED)
 	///////////////////////////////////////////////////
 	//mark statically sized arrays
-	//todo: resize test, not leaked, not resized = OK... resize flag can propagate the same way?
-	//todo: array type testing... a new FFLAG_IS_
+	//resize test, not leaked, not resized = OK... resize flag can propagate the same way? different queue
+	//resize root... funarg propagates
+	//leak counts as resized, and it's already propagated
+	ffind_resize_root=function(PExpression pe){
+		//just find the resize calls
+		if !isExpr(pe,EFLAG_FCALL):return 1
+		pefunc=readPool(pe+EXPR_OFS_FUNCTION)
+		if !isBuiltin(pefunc,g_id_dot):return 1
+		peobj=readPool(pefunc+EXPR_OFS_ARGS+0)
+		if !isExpr(peobj,EFLAG_VARIABLE):return 1
+		pobj_var=getVariable(peobj)
+		if testUserFlag(pobj_var,FLAG_IS_LEAKED|FLAG_IS_RESIZED):return 1
+		t=getVariableType(pobj_var)
+		if !tisarray(t):return 1
+		pobj_member=getDotMember(pefunc,0)
+		if readPool(pobj_member+VAR_OFS_ID)!=g_id_resize:return 1
+		if DEBUG_DUMP_STACKALLOC:
+			Writeln('resize call ',dumpExpr(readPool(pe+EXPR_OFS_CALLER),fcolor_abbrv_blocks))
+		setVarLeak(pobj_var,FLAG_IS_RESIZED)
+		return 1
+	}
+	dfsExpr(g_pe_top,ffind_resize_root)
+	//propagate out
+	//funarg table is NOT cleared - if it's leaking, it invalidates static arrays already
+	fpropagate(FLAG_IS_RESIZED)
+	//todo: improve number-to-string, inlining slice could be enough
+	!? //todo: actually make use of FLAG_IS_RESIZED - hack something inside __builtin_ctor
+	//__builtin_ctor vs resize, push is resize
 	///////////////////////////////////////////////////
 	//transform into static allocation
 	//todo: move the pass to earlier? if we do arrays, we need an additional round of sccp after intrinsic-to-inline

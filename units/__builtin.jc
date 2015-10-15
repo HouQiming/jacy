@@ -108,7 +108,7 @@ __meta_state("stdfn.make_function")=inline(T,fn_this,fn,dummy){
 	return T(){ptr_this:__cast(__variant,fn_this),ptr_fn:fn}
 }
 
-class Array(T)
+class __array_template(T)
 	IS_ARRAY=1
 	IS_STRUCT=__is_type("struct",T)
 	IS_CLASS=__is_type("class",T)
@@ -823,6 +823,7 @@ class Array(T)
 	else
 		__init__=__builtin_ctor
 
+Array=__array_template
 string=Array(char)
 (string+string)=inline(a,b){
 	ret=char[a.n+b.n]
