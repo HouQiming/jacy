@@ -1646,7 +1646,7 @@ auto coreInit()
 				pobj_var_d=lookupFunctionVariable(pobjfn,getid("d"))
 				pobj_var_n=lookupFunctionVariable(pobjfn,getid("n"))
 				pobj_var_sz=lookupFunctionVariable(pobjfn,getid("sz"))
-				pobj_var_destructor_nbound_or_slice_reference=lookupFunctionVariable(pobjfn,getid("destructor_nbound_or_slice_reference"))
+				pobj_var_destructor_nbound_or_slice_reference=lookupFunctionVariable(pobjfn,g_id_destructor_nbound_or_slice_reference)
 				pobjfn_dtor=readPool(pobjfn+FUNCTION_OFS_FINALIZER)
 				foreach citem,I in g_c_str_consts
 					//s7rc
@@ -2635,6 +2635,9 @@ auto coreInit()
 			else
 				//only need to finalize if there's a dtor
 				pf_dtor=readPool(t+FUNCTION_OFS_FINALIZER)
+				if testUserFlag(pobj_var,VAR_FLAG_ARRAY_STACK_ALLOCED):
+					//remove dtor call for VAR_FLAG_ARRAY_STACK_ALLOCED
+					pobjfn=0
 				//Writeln(dumpExpr(pecall,fcolor_abbrv_blocks),' ',dumpType(t),' ',pf_dtor)
 				if check_finalize&&pf_dtor:
 					g_code_buffer.push('if(')
@@ -5115,6 +5118,8 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_set_callstack,__zero(fcompiler_callback),__zero(fcompiler_callback),fset_callstack_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
+	//////////////////////////////////////
+	//stackalloc
 	fstackzero_oneval=function(PExpression pecall,int expr_oplevel){
 		auto t=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
 		return TSCCPValue(){'tid':g_vtid_RTVAR,'val':t}
@@ -5132,7 +5137,41 @@ auto coreInit()
 		g_code_buffer.push(')))')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_stackzero,__zero(fcompiler_callback),fstackzero_oneval,fstackzero_oncgen,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
+	registerPrimitive(g_id_stackzero,__zero(fcompiler_callback),fstackzero_oneval,fstackzero_oncgen,FFLAG_SPECIAL)
+	farray_malloc_oneval=fget_rtti_oneval
+	//function(PExpression pecall,int expr_oplevel){
+	//	return TSCCPValue(){'tid':g_vtid_RTVAR,'val':getBuiltinType(const_type(CTYPE_INT,Util.bitSize()))}
+	//}
+	farray_malloc_oncgen=function(PExpression pecall,int expr_oplevel){
+		n_args=getExprNArgs(pecall)
+		pe_bsize=readPool(pecall+EXPR_OFS_ARGS+0)
+		need_bracket=0
+		if expr_oplevel&&expr_oplevel<LEVEL_PREFIX:
+			need_bracket=1
+			g_code_buffer.push('(')
+		//cast to iptr, needed in the context
+		g_code_buffer.push('(')
+		genType(getBuiltinType(const_type(CTYPE_INT,Util.bitSize())))
+		g_code_buffer.push(')')
+		if n_args<3:
+			g_code_buffer.push('calloc(1,')
+			genCode(pe_bsize,LEVEL_ASSIGNMENT)
+			g_code_buffer.push(')')
+		else
+			bsize=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+0),g_vtid_CNS)
+			t_element=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
+			pobj_var=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+2),g_vtid_CTVAL)
+			g_code_buffer.push('memset(s7_Sa_')
+			g_code_buffer.push(toBase32(pobj_var))
+			g_code_buffer.push(',0,sizeof(s7_Sa_')
+			g_code_buffer.push(toBase32(pobj_var))
+			g_code_buffer.push('))')
+			g_array_stackalloc_info[pobj_var]=int2(t_element,bsize)
+		if need_bracket:
+			g_code_buffer.push(')')
+		return TSCCPValue(){'tid':g_vtid_UNINIT}
+	}
+	registerPrimitive(g_id_array_malloc,__zero(fcompiler_callback),farray_malloc_oneval,farray_malloc_oncgen,FFLAG_SPECIAL)
 	//////////////////////////////////////
 	//the operators: promote both sides, grand switch, do the op
 	inline CreateArithOperator(string opname,char optoken,int level,const fop,const IS_INT_ONLY,const IS_CMP)
@@ -6681,7 +6720,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 				//typeof/has_member are fine
 				return 0
 			if DEBUG_DUMP_FLATTEN:
-				Writeln('unflattenable (unrecognized function): '+dumpExpr(pe,__zero(fcolorer_callback))+" "+dumpExpr(pecaller,__zero(fcolorer_callback)))
+				Writeln('unflattenable (used in unrecognized function): '+dumpExpr(pe,__zero(fcolorer_callback))+" "+dumpExpr(pecaller,__zero(fcolorer_callback)))
 			setUserFlag(pobj_var,VAR_USER_UNFLATTENABLE)
 		else
 			if !testUserFlag(pe,QUEUE_FLAG_REACH):
@@ -9377,9 +9416,6 @@ auto doStackAllocs()
 	//propagate out
 	//funarg table is NOT cleared - if it's leaking, it invalidates static arrays already
 	fpropagate(FLAG_IS_RESIZED)
-	//todo: improve number-to-string, inlining slice could be enough
-	!? //todo: actually make use of FLAG_IS_RESIZED - hack something inside __builtin_ctor
-	//__builtin_ctor vs resize, push is resize
 	///////////////////////////////////////////////////
 	//transform into static allocation
 	//todo: move the pass to earlier? if we do arrays, we need an additional round of sccp after intrinsic-to-inline
@@ -9392,6 +9428,7 @@ auto doStackAllocs()
 			pe_var=readPool(pe+EXPR_OFS_ARGS+0)
 			pobj_var=getVariable(pe_var)
 			if !testUserFlag(pobj_var,FLAG_IS_LEAKED)&&tisrealclass(getVariableType(pobj_var)):
+				//stack new
 				pe_value=readPool(pe+EXPR_OFS_ARGS+1)
 				if !isExpr(pe_value,EFLAG_FCALL)||isBuiltin(pe_value,g_id_ldparam):
 					//we still need RC... for same-function things, but do it stack-style
@@ -9411,6 +9448,44 @@ auto doStackAllocs()
 						//pass a param to the allocation - hack at code generation time
 						//generate declaration the same way
 						//setUserFlag(pe_value,EXPR_FLAG_IS_STACK_ALLOC)
+		else if isBuiltin(pe,g_id_array_malloc):
+			//size must be const and reasonable
+			pe_bsize=readPool(pe+EXPR_OFS_ARGS+0)
+			petype=readPool(pe+EXPR_OFS_ARGS+1)
+			val=getExprValue(pe_bsize)
+			if val.tid!=g_vtid_CNS:return 1
+			if !isConstReasonableSASize(g_const_values[val.val]):return 1
+			//it must be:
+			pecaller=readPool(pe+EXPR_OFS_CALLER)
+			is_stdot=0
+			pobj_var=0
+			if isBuiltin(pecaller,g_id_store):
+				//store to flattened thing (always stack friendly - not used in function calls, not copied out)
+				if readPool(pecaller+EXPR_OFS_ARGS+1)!=pe:return 1
+				peflattened=readPool(pecaller+EXPR_OFS_ARGS+0)
+				pobj_var_flattened=getVariable(peflattened)
+				pobj_var=readPool(pobj_var_flattened+VAR_OFS_FLATTENING_OWNER)
+				if !pobj_var:return 1
+			else if isBuiltin(pecaller,g_id_stdot):
+				//stdot to object (stack friendly if not leaked and not resized)
+				is_stdot=1
+				if readPool(pecaller+EXPR_OFS_ARGS+2)!=pe:return 1
+				peobj=readPool(pecaller+EXPR_OFS_ARGS+0)
+				if !isExpr(peobj,EFLAG_VARIABLE):return 1
+				pobj_var=getVariable(peobj)
+				if testUserFlag(pobj_var,FLAG_IS_LEAKED|FLAG_IS_RESIZED):return 1
+			else
+				return 1
+			//flag the var and stackify the alloc
+			//set destructor_nbound_or_slice_reference=2 anyway for safety
+			setUserFlag(pobj_var,VAR_FLAG_ARRAY_STACK_ALLOCED)
+			pe_dtor_smash=call(g_id_stdot,
+				exprvar(pobj_var),
+				exprstr(g_id_destructor_nbound_or_slice_reference),
+				expriptr(2))
+			pe_array_stackalloc=call(g_id_array_malloc,exprcns(val.val),petype,exprctval(pobj_var))
+			transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,pe_array_stackalloc,[pe_dtor_smash])
+			//todo: don't use resize for number-to-string, inline the new part of slice
 		return 1
 	}
 	dfsExpr(g_pe_top,fmake_stack_allocs)
@@ -11746,6 +11821,7 @@ auto cgPushScope()
 	g_code_buffer=new string
 	assert(!g_local_decl_buffer.n)
 
+g_array_stackalloc_info=new int2[int]
 auto cgPopScope()
 	stk=g_c_scope_stack.pop()
 	vars=stk.var_stores
@@ -11761,12 +11837,25 @@ auto cgPopScope()
 		dat_var=readPoolTyped(pobj_var,TSCCPValue)
 		t=getValueType(dat_var)
 		if !t:continue
-		if tisrealclass(t)&&testUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED):
-			//do NOT initialize the pointer to the slot - we want to fool NULL tests
-			genClassName(t)
-			g_code_buffer.push(' s7_SA_')
-			g_code_buffer.push(toBase32(pobj_var))
-			g_code_buffer.push(';')
+		if tisrealclass(t):
+			if testUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED):
+				//do NOT initialize the pointer to the slot - we want to fool NULL tests
+				genClassName(t)
+				g_code_buffer.push(' s7_SA_')
+				g_code_buffer.push(toBase32(pobj_var))
+				g_code_buffer.push(';')
+			if testUserFlag(pobj_var,VAR_FLAG_ARRAY_STACK_ALLOCED):
+				sainfo=g_array_stackalloc_info[pobj_var]
+				t_element=sainfo.x
+				bsize=sainfo.y
+				genType(t_element)
+				g_code_buffer.push(' s7_Sa_')
+				g_code_buffer.push(toBase32(pobj_var))
+				g_code_buffer.push('[')
+				g_code_buffer.push(string(bsize))
+				g_code_buffer.push('/sizeof(')
+				genType(t_element)
+				g_code_buffer.push(')];')
 		//Writeln(dumpObject(pobj_var),' ',t)
 		genType(t)
 		g_code_buffer.push(' ')

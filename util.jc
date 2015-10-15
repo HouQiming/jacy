@@ -2,6 +2,7 @@
 import System.Algorithm.*
 import System.Console.*
 DEBUG_ANSI_COLOR_IN_OUTPUT=0
+MAX_REASONABLE_STACK_ALLOC_ARRAY=4096
 
 //note: this is NOT memory efficient!
 //linked list of sorted pair arrays... slow lookup
@@ -235,6 +236,12 @@ auto isConstOne(TConstValue val)
 		assert(val.type==const_type(CTYPE_FLOAT,64))
 		return val.val_bin==__double_as_longlong(1.0)
 	return (val.val_bin&getBitMask(n_bits))==i64(1)
+
+auto isConstReasonableSASize(TConstValue val)
+	if val.type==CTYPE_TYPED_NULL||val.type==CTYPE_POINTER:return 0
+	n_bits=((val.type&~CTYPE_MASK)+1)*8
+	if (val.type&CTYPE_MASK)==CTYPE_FLOAT:return 0
+	return u64(val.val_bin&getBitMask(n_bits))<=u64(MAX_REASONABLE_STACK_ALLOC_ARRAY)
 
 //////////////////////////////////////
 //error management
