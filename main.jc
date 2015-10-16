@@ -80,15 +80,6 @@ auto doBuild()
 		Writeln('>>> after iterative SCCP')
 		Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
 	//////////
-	tbegin(tm_junk)
-	if DEBUG_DUMP_PASSES:{WriteErr('-------------------\n')}
-	if DEBUG_DUMP_PASSES:{WriteErr(string(System.Time.t(),2),' interlude: ')}
-	removeSCCPJunk()
-	createCallGraph()
-	if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
-	if DEBUG_DUMP_PASSES:{WriteErr('-------------------\n')}
-	tend(tm_junk)
-	//////////
 	if g_enable_dump:
 		Writeln('>>> before doStackAllocs')
 		Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
@@ -97,6 +88,15 @@ auto doBuild()
 	doStackAllocs()
 	if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
 	tend(tm_stackalloc)
+	//////////
+	tbegin(tm_junk)
+	if DEBUG_DUMP_PASSES:{WriteErr('-------------------\n')}
+	if DEBUG_DUMP_PASSES:{WriteErr(string(System.Time.t(),2),' interlude: ')}
+	removeSCCPJunk()
+	createCallGraph()
+	if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
+	if DEBUG_DUMP_PASSES:{WriteErr('-------------------\n')}
+	tend(tm_junk)
 	//////////
 	if g_enable_dump:
 		Writeln('>>> before translateLambdas')

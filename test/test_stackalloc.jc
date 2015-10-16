@@ -6,7 +6,7 @@ class CThing
 	int b
 
 class CThing2
-	int a
+	a=1000000
 	int b
 	auto __done__()
 		Writeln('CThing2 - dtor')
@@ -17,6 +17,12 @@ class CThing2
 	c=new CThing2
 	d=new CThing
 	for i=0:99
+		obj_last=obj_i
+		obj_i=new CThing2
+		obj_i.a=i*100
+		if obj_last&&i<10:
+			Writeln(i,' ',obj_last.a,' ',obj_i.a)
+		//////
 		a[i]=i
 		b.a+=i
 		b.b-=i

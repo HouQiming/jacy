@@ -121,7 +121,7 @@ class __array(T)
 	d=0L
 	n=0L
 	sz=0L
-	destructor_nbound_or_slice_reference=0L
+	destructor_nbound_or_slice_reference=__force_var(0L)//2 is always possible after dostackalloc
 	////////////////////////////////
 	//basic C-like array
 	inline __builtin_ctor(ndata,i16 dummy)
@@ -858,7 +858,7 @@ __define_comparisons(u16[])
 __define_comparisons(u32[])
 
 __FArrayDtor=function(iptr p,iptr sz):int
-__all_array_dtors=__FArrayDtor[2]
+__all_array_dtors=new __FArrayDtor[2]
 __meta_state("stdtype.array")=Array
 __meta_state("stdtype.string")=Array(char)
 __meta_state("stdfn.make_string")=inline(ret){

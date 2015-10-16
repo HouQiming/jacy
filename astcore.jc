@@ -25,7 +25,7 @@ DEBUG_DUMP_DEADELIM=0
 DEBUG_DUMP_PASSES=(Platform.BUILD=="debug")
 DEBUG_DUMP_GVN_DETAILS=0
 DEBUG_DUMP_SCCP=0
-DEBUG_DUMP_STACKALLOC=0
+DEBUG_DUMP_STACKALLOC=1
 ///////////////
 DERIV_HAS_REUSABLE_COMPONENTS=0x80000000
 
@@ -2640,6 +2640,11 @@ auto coreInit()
 			//stack allocation case
 			if delta>0:
 				//don't need NULL test
+				//if testUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED):
+				//else
+				//	g_code_buffer.push('if(')
+				//	genObject()
+				//	g_code_buffer.push(')')
 				genObject()
 				g_code_buffer.push('->s7rc')
 				g_code_buffer.push(FormatAsText('+=',delta))//*2
@@ -6588,6 +6593,8 @@ auto isCtorEmpty(PCTObject t_tar,int do_caching)
 				return 0
 			auto pe_var=readPool(pe+EXPR_OFS_ARGS+0)
 			auto pe_value=readPool(pe+EXPR_OFS_ARGS+1)
+			if isBuiltin(pe_value,g_id_force_var):
+				pe_value=readPool(pe_value+EXPR_OFS_ARGS+0)
 			if isBuiltin(pe_value,g_id_get_lambda_context)||isBuiltin(pe_value,g_id_ldparam):return 0
 			if readPool(pe_var)==EFLAG_VARIABLE+pvret_t_tar:return 0
 			var_value=getExprValue(pe_var)
@@ -7866,6 +7873,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 						//t=getVariableType(pobj_var)
 						//if t&&!tisstruct(t):
 						//	errorAtExpr(ETYPE_WARNING,pe,"uninitialized variable '@1'".Replace(["@1",citeexpr(pe)]))
+						//errorAtExpr(ETYPE_WARNING,pe,"uninitialized variable '@1'".Replace(["@1",citeexpr(pe)]))
 						writePool(pobj_var+VAR_OFS_USER_FLAGS,flag0|USER_FLAG_MASK)
 					else
 						//do the renaming
@@ -9216,6 +9224,7 @@ auto doStackAllocs()
 	temp_fflag=0
 	pobj_local_owner=0
 	trackLambdaLeaker=function(PExpression pe){
+		if isExpr(pe,EFLAG_FCALL)&&!testUserFlag(pe,QUEUE_FLAG_REACH):return 0
 		if isBuiltin(pe,g_id_function):
 			//recurse into it
 			auto stack_fflag=temp_fflag
@@ -9293,6 +9302,7 @@ auto doStackAllocs()
 			Writeln('setFunargLeak ',dumpObject(pobjfn),' ',paramid)
 	}
 	ffind_leak_root=function(PExpression pe){
+		if isExpr(pe,EFLAG_FCALL)&&!testUserFlag(pe,QUEUE_FLAG_REACH):return 0
 		if isBuiltin(pe,g_id_stdot):
 			//invalidate the VALUE
 			pe_value=readPool(pe+EXPR_OFS_ARGS+2)
@@ -9315,7 +9325,12 @@ auto doStackAllocs()
 				if DEBUG_DUMP_STACKALLOC:
 					Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
 				setVarLeak(pobj_var,FLAG_IS_LEAKED)
-			if readPool(pobj_var+VAR_OFS_ID)==g_id_return:
+			if isExpr(pe_value,EFLAG_VARIABLE)&&!isTempId(readPool(pobj_var+VAR_OFS_ID)):
+				//non-temp copy
+				pvar_src=getVariable(pe_value)
+				setVarLeak(pobj_var,FLAG_IS_LEAKED)
+				setVarLeak(pvar_src,FLAG_IS_LEAKED)
+			else if readPool(pobj_var+VAR_OFS_ID)==g_id_return:
 				if DEBUG_DUMP_STACKALLOC:
 					Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
 				setVarLeak(pobj_var,FLAG_IS_LEAKED)
@@ -9355,6 +9370,7 @@ auto doStackAllocs()
 	//build full caller list, it's always needed
 	all_calls=new i64[]
 	fbuild_caller_list=function(PExpression pe){
+		if isExpr(pe,EFLAG_FCALL)&&!testUserFlag(pe,QUEUE_FLAG_REACH):return 0
 		if (readPool(pe)&EFLAG_MASK)==EFLAG_FCALL:
 			pobjfn=getExprFunction(pe)
 			if pobjfn:
@@ -9437,6 +9453,7 @@ auto doStackAllocs()
 	//resize root... funarg propagates
 	//leak counts as resized, and it's already propagated
 	ffind_resize_root=function(PExpression pe){
+		if isExpr(pe,EFLAG_FCALL)&&!testUserFlag(pe,QUEUE_FLAG_REACH):return 0
 		//just find the resize calls
 		if !isExpr(pe,EFLAG_FCALL):return 1
 		pefunc=readPool(pe+EXPR_OFS_FUNCTION)
@@ -9465,6 +9482,7 @@ auto doStackAllocs()
 	//if isCtorEmpty(pobjfn,1):
 	changed=0
 	fmake_stack_allocs=function(PExpression pe){
+		if isExpr(pe,EFLAG_FCALL)&&!testUserFlag(pe,QUEUE_FLAG_REACH):return 0
 		if isBuiltin(pe,g_id_store):
 			pe_var=readPool(pe+EXPR_OFS_ARGS+0)
 			pobj_var=getVariable(pe_var)
@@ -9478,7 +9496,7 @@ auto doStackAllocs()
 					if DEBUG_DUMP_STACKALLOC:
 						Writeln('stackalloc ',dumpExpr(pe,fcolor_abbrv_blocks))
 					pobjfn=getExprFunction(pe_value)
-					setUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED)
+					setUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED|VAR_FLAG_CLASS_STACK_STYLE_RC)
 					if isCtorEmpty(pobjfn,1):
 						//remove it, make it memset + local ptr ass
 						changed=1
@@ -9519,6 +9537,9 @@ auto doStackAllocs()
 				return 1
 			//flag the var and stackify the alloc
 			//set destructor_nbound_or_slice_reference=2 anyway for safety
+			if DEBUG_DUMP_STACKALLOC:
+				Writeln('stackarray ',dumpExpr(pecaller,fcolor_abbrv_blocks))
+			changed=1
 			t_element=getExprValueAs(petype,g_vtid_CTVAL)
 			setUserFlag(pobj_var,VAR_FLAG_ARRAY_STACK_ALLOCED)
 			pe_dtor_smash=call(g_id_stdot,
@@ -11092,7 +11113,7 @@ auto genRefcnt()
 						if pobj_var:
 							setUserFlag(pv_temp,
 								readPool(pobj_var+EXPR_OFS_USER_FLAGS)&(
-									VAR_FLAG_CLASS_IS_STACK_ALLOCED|VAR_FLAG_CLASS_STACK_STYLE_RC|VAR_FLAG_ARRAY_STACK_ALLOCED))
+									VAR_FLAG_CLASS_STACK_STYLE_RC))
 					t_temp=t_return
 					writePool(pv_temp,g_vtid_RTVAR)
 					writePool(pv_temp+1,t_temp)
@@ -11339,6 +11360,9 @@ auto genRefcnt()
 						pv_temp=makevar(pf_owner)
 						writePool(pv_temp,g_vtid_RTVAR)
 						writePool(pv_temp+1,t)
+						setUserFlag(pv_temp,
+							readPool(pobj_var+EXPR_OFS_USER_FLAGS)&(
+								VAR_FLAG_CLASS_STACK_STYLE_RC))
 					//pe_recurse_into=pe_value
 					if isBuiltin(pe,g_id_store):
 						as_backup=new PExpression[]
