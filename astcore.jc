@@ -25,7 +25,7 @@ DEBUG_DUMP_DEADELIM=0
 DEBUG_DUMP_PASSES=(Platform.BUILD=="debug")
 DEBUG_DUMP_GVN_DETAILS=0
 DEBUG_DUMP_SCCP=0
-DEBUG_DUMP_STACKALLOC=0
+DEBUG_DUMP_STACKALLOC=1
 ///////////////
 DERIV_HAS_REUSABLE_COMPONENTS=0x80000000
 
@@ -2647,7 +2647,9 @@ auto coreInit()
 		//	need_bracket=1
 		//	g_code_buffer.push('(')
 		assert(!expr_oplevel)
-		if pobj_var&&testUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED|VAR_FLAG_CLASS_STACK_STYLE_RC)&&tisrealclass(t):
+		if (
+		pobj_var&&tisrealclass(t)&&testUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED|VAR_FLAG_CLASS_STACK_STYLE_RC)||
+		!pobj_var&&!(getFFlag(t)&FFLAG_LAMBDA_LEAKED)):
 			//stack allocation case
 			if delta>0:
 				//don't need NULL test
@@ -2662,7 +2664,7 @@ auto coreInit()
 			else
 				//only need to finalize if there's a dtor
 				pf_dtor=readPool(t+FUNCTION_OFS_FINALIZER)
-				if testUserFlag(pobj_var,VAR_FLAG_ARRAY_STACK_ALLOCED):
+				if pobj_var&&testUserFlag(pobj_var,VAR_FLAG_ARRAY_STACK_ALLOCED):
 					//remove dtor call for VAR_FLAG_ARRAY_STACK_ALLOCED
 					sainfo=g_array_stackalloc_info[pobj_var]
 					t_element=sainfo.x
@@ -9240,6 +9242,7 @@ auto doStackAllocs()
 		if isExpr(pe,EFLAG_FCALL)&&!testUserFlag(pe,QUEUE_FLAG_REACH):return 0
 		if isBuiltin(pe,g_id_function):
 			//recurse into it
+			auto stack_pobj_local_owner=pobj_local_owner
 			auto stack_fflag=temp_fflag
 			auto n_args=getExprNArgs(pe)
 			auto pecode=readPool(pe+(EXPR_OFS_ARGS)+n_args-1)
@@ -9248,10 +9251,14 @@ auto doStackAllocs()
 			temp_fflag=0
 			dfsExpr(pecode,trackLambdaLeaker)
 			if temp_fflag==TEMP_FLAG_FUNC_ASSIGN_LEAK+TEMP_FLAG_LAMBDA_ACCESS||tisclass(pobjfn):
+				if DEBUG_DUMP_STACKALLOC:
+					if !tisclass(pobjfn):
+						Writeln('lambda leaked ',dumpFunction(pobjfn))
 				setFFlag(pobjfn,FFLAG_LAMBDA_LEAKED)
 			//propagate both flags up
 			stack_fflag|=temp_fflag
 			temp_fflag=stack_fflag
+			pobj_local_owner=stack_pobj_local_owner
 			return 0
 		if isExpr(pe,EFLAG_FCALL):
 			//assign leak
@@ -9269,23 +9276,33 @@ auto doStackAllocs()
 				if !pvalue||readPool(pvalue)==g_vtid_CTVAL:
 					//erroneous stdot is harmless
 					return 1
-			else if (getFFlag(pobjfn)&FFLAG_BUILTIN):
-				//non-store/stdot built-in should be harmless
-				return 1
-			//if any param is a function... it's leaked
-			n_args=getExprNArgs(pe)
-			for i=0:n_args-1
-				pe_argi=readPool(pe+EXPR_OFS_ARGS+i)
-				pobjfn_i=getExprValueAs(pe_argi,g_vtid_CTVAL)
-				if pobjfn_i&&isFunction(pobjfn_i):
-					temp_fflag|=TEMP_FLAG_FUNC_ASSIGN_LEAK
+			else
+				pobjfn=getExprFunction(pe)
+				if pobjfn&&(getFFlag(pobjfn)&FFLAG_BUILTIN):
+					//non-store/stdot built-in should be harmless
 					return 1
+			//if any param is a function... it's leaked
+			if !(temp_fflag&TEMP_FLAG_FUNC_ASSIGN_LEAK):
+				n_args=getExprNArgs(pe)
+				for i=0:n_args-1
+					pe_argi=readPool(pe+EXPR_OFS_ARGS+i)
+					pobjfn_i=getExprValueAs(pe_argi,g_vtid_CTVAL)
+					if pobjfn_i&&isFunction(pobjfn_i):
+						if DEBUG_DUMP_STACKALLOC:
+							if !(temp_fflag&TEMP_FLAG_FUNC_ASSIGN_LEAK)&&pobj_local_owner:
+								Writeln('assign leak ',dumpExpr(pe,fcolor_abbrv_blocks),' ',dumpFunction(pobj_local_owner))
+						temp_fflag|=TEMP_FLAG_FUNC_ASSIGN_LEAK
+						return 1
 		else if isExpr(pe,EFLAG_VARIABLE):
 			pobj_var=getVariable(pe)
 			tid_var=readPool(pobj_var)
 			pfowner=readPool(pobj_var+VAR_OFS_OWNER)
 			if pfowner!=pobj_local_owner&&(tid_var==g_vtid_RTVAR||tid_var==g_vtid_CTVAL):
-				temp_fflag|=TEMP_FLAG_LAMBDA_ACCESS
+				if tid_var==g_vtid_CTVAL&&readPool(readPool(pe+EXPR_OFS_CALLER)+EXPR_OFS_FUNCTION)!=pe:
+					if DEBUG_DUMP_STACKALLOC:
+						if !(temp_fflag&TEMP_FLAG_LAMBDA_ACCESS)&&pobj_local_owner:
+							Writeln('lambda access ',dumpExpr(pe,fcolor_abbrv_blocks),' ',dumpFunction(pobj_local_owner))
+					temp_fflag|=TEMP_FLAG_LAMBDA_ACCESS
 		return 1
 	}
 	dfsExpr(g_pe_top,trackLambdaLeaker)

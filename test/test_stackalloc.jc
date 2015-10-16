@@ -45,4 +45,5 @@ class CThing2
 		Writeln(a[5:10])
 		Writeln(e)
 	})()
+	Writeln(g_leak_target)
 })()
