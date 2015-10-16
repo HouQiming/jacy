@@ -153,6 +153,7 @@ class __array(T)
 			if IS_CLASS:
 				__explicit_rc(value,1)
 				__explicit_rc(__memory(T,d+sizeof(T)*iptr(i)),-1)
+				__force_leak(value)
 			__memory(T,d+sizeof(T)*iptr(i))=value
 	////////////////////////////////
 	//basic C-like array

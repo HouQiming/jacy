@@ -5,17 +5,22 @@ class CThing
 	int a
 	int b
 
+g_leak_target=CThing2.NULL
 class CThing2
 	a=1000000
 	int b
 	auto __done__()
 		Writeln('CThing2 - dtor')
+	auto Leak()
+		g_leak_target=this
 
 (function(){
 	a=new int[100]
 	b=new CThing
 	c=new CThing2
 	d=new CThing
+	e=new CThing2
+	e.Leak()
 	for i=0:99
 		obj_last=obj_i
 		obj_i=new CThing2
@@ -36,8 +41,8 @@ class CThing2
 		Writeln(a_slice)
 		Writeln(d)
 	})(a[5:10])
-	//(function(){
-	//	Writeln(a[5:10])
-	//	Writeln(d)
-	//})()
+	(function(){
+		Writeln(a[5:10])
+		Writeln(e)
+	})()
 })()
