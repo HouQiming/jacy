@@ -8,7 +8,7 @@ import Ctobj.*
 import Astcore.*
 import Parser.*
 
-COMPILER_VERSION=101
+COMPILER_VERSION=0x101
 
 c_system=__c_function(int,"system","stdlib.h")
 exit=__c_function(int,"exit","stdlib.h")
@@ -246,7 +246,7 @@ auto main()
 	coreInit()
 	registerConst(getid("__env_arch"),g_vtid_STR,getid(s_arch))
 	registerConst(getid("__env_build"),g_vtid_STR,getid(s_mode))
-	registerConst(getid("__env_compiler_version"),g_vtid_CNS,getid_const(const_type(CTYPE_INT,32),COMPILER_VERSION))
+	registerConst(getid("__env_compiler_version"),g_vtid_CNS,getid_const(const_type(CTYPE_INT,32),i64(COMPILER_VERSION)))
 	tbegin(tm_parser)
 	if !files.n:
 		System.IO.stderr().Write('no input files\n')

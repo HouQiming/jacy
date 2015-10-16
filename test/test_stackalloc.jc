@@ -15,13 +15,18 @@ class CThing2
 	a=new int[100]
 	b=new CThing
 	c=new CThing2
+	d=new CThing
 	for i=0:99
 		a[i]=i
 		b.a+=i
 		b.b-=i
 		c.a-=i
 		c.b+=i
+		d.a+=i
 	Writeln(a)
 	Writeln(b)
 	Writeln(c)
+	(function(){
+		Writeln(d)
+	})()
 })()

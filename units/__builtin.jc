@@ -255,10 +255,10 @@ class __array_template(T)
 		//dtor 1 is empty
 		if d:
 			if destructor_nbound_or_slice_reference&1:
-				if IS_CLASS://todo: NEED_RC
-					for(i=0;i<n;i++)
-						tmp=this[i]
-						__explicit_rc(tmp,-1)
+				//if IS_CLASS:
+				//	for(i=0;i<n;i++)
+				//		tmp=this[i]
+				//		__explicit_rc(tmp,-1)
 				//slice
 				src=__cast(Array(T),destructor_nbound_or_slice_reference-1L)
 				src.destructor_nbound_or_slice_reference-=MAX_DTOR_TYPES*2;
@@ -335,10 +335,10 @@ class __array_template(T)
 		ret.sz=ndata;
 		//hack for slice
 		ret.destructor_nbound_or_slice_reference=__cast(iptr,src)+1L;
-		if IS_CLASS://todo: NEED_RC
-			for i in range(ndata)
-				tmp=ret[i]
-				__explicit_rc(tmp,1)
+		//if IS_CLASS:
+		//	for i in range(ndata)
+		//		tmp=ret[i]
+		//		__explicit_rc(tmp,1)
 		return ret;
 	inline __slice(a)
 		if arguments.length<2:

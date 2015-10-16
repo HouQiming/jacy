@@ -1686,11 +1686,16 @@ auto coreInit()
 				else
 					g_code_buffer.push('* s7_BL=(')
 					genClassName(pobjfn)
-					g_code_buffer.push('*)(s7_BA?(memset(s7_BA,0,sizeof(')
-					genClassName(pobjfn)
-					g_code_buffer.push(')),s7_BA):calloc(1,sizeof(')
-					genClassName(pobjfn)
-					g_code_buffer.push(')));')
+					if id_ccnv==g_id_class:
+						g_code_buffer.push('*)(s7_BA?(memset(s7_BA,0,sizeof(')
+						genClassName(pobjfn)
+						g_code_buffer.push(')),s7_BA):calloc(1,sizeof(')
+						genClassName(pobjfn)
+						g_code_buffer.push(')));')
+					else
+						g_code_buffer.push('*)calloc(1,sizeof(')
+						genClassName(pobjfn)
+						g_code_buffer.push('));')
 		if is_type_only:
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
 		sbak=g_code_buffer
@@ -2637,7 +2642,15 @@ auto coreInit()
 				pf_dtor=readPool(t+FUNCTION_OFS_FINALIZER)
 				if testUserFlag(pobj_var,VAR_FLAG_ARRAY_STACK_ALLOCED):
 					//remove dtor call for VAR_FLAG_ARRAY_STACK_ALLOCED
-					pobjfn=0
+					sainfo=g_array_stackalloc_info[pobj_var]
+					t_element=sainfo.x
+					if Platform.BUILD=="debug":
+						if !t_element:
+							Writeln('bad stack array ',dumpObject(pobj_var))
+					assert(!!t_element)
+					//if we need RC... we still need the dtor
+					if !tisclass(t_element):
+						pf_dtor=0
 				//Writeln(dumpExpr(pecall,fcolor_abbrv_blocks),' ',dumpType(t),' ',pf_dtor)
 				if check_finalize&&pf_dtor:
 					g_code_buffer.push('if(')
@@ -2754,6 +2767,9 @@ auto coreInit()
 				n_bytes=((ct&~CTYPE_MASK)+1)
 			assert(const_type(CTYPE_INT,Util.bitSize())<CTYPE_COUNT)
 			return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,Util.bitSize()),i64(n_bytes))}
+		if tisrealclass(t):
+			return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,Util.bitSize()),i64(Util.bitSize()>>3))}
+		//todo: function types
 		return TSCCPValue(){'tid':g_vtid_RTVAR,'val':getBuiltinType(const_type(CTYPE_INT,Util.bitSize()))}
 	}
 	fcsizeof_oncgen=function(PExpression pecall,int expr_oplevel){
@@ -5159,14 +5175,12 @@ auto coreInit()
 			g_code_buffer.push(')')
 		else
 			bsize=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+0),g_vtid_CNS)
-			t_element=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
 			pobj_var=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+2),g_vtid_CTVAL)
-			g_code_buffer.push('memset(s7_Sa_')
+			g_code_buffer.push('memset(s7_arr_')
 			g_code_buffer.push(toBase32(pobj_var))
-			g_code_buffer.push(',0,sizeof(s7_Sa_')
+			g_code_buffer.push(',0,sizeof(s7_arr_')
 			g_code_buffer.push(toBase32(pobj_var))
 			g_code_buffer.push('))')
-			g_array_stackalloc_info[pobj_var]=int2(t_element,bsize)
 		if need_bracket:
 			g_code_buffer.push(')')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -9065,12 +9079,12 @@ auto idCastConstI32(int val,PCTObject t_result)
 	cval=castConst(TConstValue(){'val_bin':i64(val),'type':const_type(CTYPE_INT,32)},t_result)
 	return getid_const(cval.type,cval.val_bin)
 
-USER_FLAG_RC_SLOTID_MASK=0x01ffffff
-USER_FLAG_RC_IS_SAFE_STORE=0x04000000
+USER_FLAG_RC_SLOTID_MASK=0x00ffffff
+USER_FLAG_RC_IS_SAFE_STORE=0x02000000
 //USER_FLAG_RC_IS_GENERATED_STORE=0x02000000
-USER_FLAG_RC_STORE_WITHOUT_ADDREF=0x02000000
-VAR_USER_FLAG_RC_SLOTID_MASK=0x03ffffff
-VAR_USER_FLAG_RC_SLOT_ALLOCATED=0x04000000
+USER_FLAG_RC_STORE_WITHOUT_ADDREF=0x01000000
+VAR_USER_FLAG_RC_SLOTID_MASK=0x01ffffff
+VAR_USER_FLAG_RC_SLOT_ALLOCATED=0x02000000
 famcallback=function(int):int
 auto ancestorMerge(const is_death,PExpression pe_old0,PExpression pe_new0,famcallback fgetdepth,famcallback fgetbirthid)
 	//return the merged and whether the new one can be considered as a safe-store
@@ -9302,7 +9316,6 @@ auto doStackAllocs()
 					setVarLeak(pobj_var,FLAG_IS_LEAKED)
 				else
 					//only allow new
-					//todo: and g_id_slice
 					assert(pestore_defining==pe)
 					pobjfn_defining=(isExpr(pe_value,EFLAG_FCALL)?getExprFunction(pe_value):0)
 					if !(!pobjfn_defining||tisrealclass(pobjfn_defining)||isBuiltin(pe_value,g_id_ldparam)):
@@ -9418,7 +9431,6 @@ auto doStackAllocs()
 	fpropagate(FLAG_IS_RESIZED)
 	///////////////////////////////////////////////////
 	//transform into static allocation
-	//todo: move the pass to earlier? if we do arrays, we need an additional round of sccp after intrinsic-to-inline
 	//just add an optional allocated lambda pointer param to all class ctors
 	//for empty ctors we could just get rid of it - and we have isCtorEmpty
 	//if isCtorEmpty(pobjfn,1):
@@ -9478,21 +9490,28 @@ auto doStackAllocs()
 				return 1
 			//flag the var and stackify the alloc
 			//set destructor_nbound_or_slice_reference=2 anyway for safety
+			t_element=getExprValueAs(petype,g_vtid_CTVAL)
 			setUserFlag(pobj_var,VAR_FLAG_ARRAY_STACK_ALLOCED)
 			pe_dtor_smash=call(g_id_stdot,
 				exprvar(pobj_var),
 				exprstr(g_id_destructor_nbound_or_slice_reference),
 				expriptr(2))
-			pe_array_stackalloc=call(g_id_array_malloc,exprcns(val.val),petype,exprctval(pobj_var))
-			transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,pe_array_stackalloc,[pe_dtor_smash])
+			pe_array_stackalloc=call(g_id_array_malloc,
+				exprcns(val.val),
+				exprctval(t_element),
+				exprctval(pobj_var))
+			bsize=getExprValueAs(pe_bsize,g_vtid_CNS)
+			g_array_stackalloc_info[pobj_var]=int2(t_element,bsize)
+			pe_new=transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,pe_array_stackalloc,[pe_dtor_smash])
 			//todo: don't use resize for number-to-string, inline the new part of slice
+			return 0
 		return 1
 	}
 	dfsExpr(g_pe_top,fmake_stack_allocs)
-	if changed:
-		sccp(0)
 	//////////////////////
 	clearUserFlags(g_pe_top,0)
+	if changed:
+		sccp(0)
 
 ////////////////////////////
 struct TStringConstItem
@@ -10808,7 +10827,6 @@ auto translateLambdas()
 		if as.n||(getFFlag(pobjfn)&FFLAG_LAMBDA_NEEDS_RTTI)||is_variant:
 			//only use the dtor if it's not empty or if we need RTTI
 			if !is_variant:
-				//todo: pull out the free for future alloca... and allocator specialization
 				as.push(call(g_id_C_free,exprvar(pv_this)))
 			if g_enable_debug_instrumentation:
 				as0=as
@@ -11848,8 +11866,12 @@ auto cgPopScope()
 				sainfo=g_array_stackalloc_info[pobj_var]
 				t_element=sainfo.x
 				bsize=sainfo.y
+				if Platform.BUILD=="debug":
+					if !t_element:
+						Writeln('bad stack array ',dumpObject(pobj_var))
+				assert(!!t_element)
 				genType(t_element)
-				g_code_buffer.push(' s7_Sa_')
+				g_code_buffer.push(' s7_arr_')
 				g_code_buffer.push(toBase32(pobj_var))
 				g_code_buffer.push('[')
 				g_code_buffer.push(string(bsize))
