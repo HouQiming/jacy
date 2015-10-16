@@ -1089,6 +1089,7 @@ g_id_function=getid("function")
 g_id_function_type=getid("__function_type")
 g_id_dtor_hack_ccnv=getid("__destructor")
 g_id_ftype_raw=getid("__ftype_raw")
+g_id_Bind=getid("Bind")
 g_id_ptr_fn=getid("ptr_fn")
 g_id_ptr_this=getid("ptr_this")
 g_id_c_function=getid("__c_function")
@@ -1110,10 +1111,11 @@ g_id_operator_xor=getid("operator^")
 g_id_operator_shl=getid("operator<<")
 g_id_operator_shr=getid("operator>>")
 g_id_array_type=getid("__array_type")
-g_id_array_template=getid("__array_template")
+g_id_array_template=getid("__array")
 g_id_array_malloc=getid("__array_malloc")
 g_id_destructor_nbound_or_slice_reference=getid("destructor_nbound_or_slice_reference")
 g_id_resize=getid("resize")
+g_id_set_slice=getid("__set_slice")
 ////////////////////
 g_id_if=getid("if")//switch also goes here
 g_id_else=getid("else")
@@ -1242,6 +1244,7 @@ g_id_LINE=getid("__LINE__")
 /////////////////////
 //stack allocation
 g_id_stackzero=getid('__stack_zero')
+g_id_stack_force_slot=getid('__stack_force_slot')
 
 g_tuple_ids=new int[]
 auto getTupleId(int n)

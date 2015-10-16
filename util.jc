@@ -140,7 +140,7 @@ auto gettempid(int id_name)
 	g_symbols.push(TSymbol(){'p_name':n0,"n":int(g_strings.n)-n0})
 	return ret
 
-if Platform.BUILD=="debug"
+if Platform.BUILD=="debug":
 	g_id_errored=0
 auto getIdString(int id)
 	if Platform.BUILD=="debug"

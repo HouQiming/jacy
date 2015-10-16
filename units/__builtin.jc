@@ -96,6 +96,7 @@ inline variant(pobj)
 		return __cast(__variant,pobj)
 
 struct __FunctionImpl(__ftype_raw)
+	//all members will be forcibly lambdaed unless whitelisted, this includes methods
 	ptr_this=__force_var(__variant.NULL)
 	ptr_fn=__force_var(NULL)
 	inline Bind(fn_this)
@@ -108,7 +109,7 @@ __meta_state("stdfn.make_function")=inline(T,fn_this,fn,dummy){
 	return T(){ptr_this:__cast(__variant,fn_this),ptr_fn:fn}
 }
 
-class __array_template(T)
+class __array(T)
 	IS_ARRAY=1
 	IS_STRUCT=__is_type("struct",T)
 	IS_CLASS=__is_type("class",T)
@@ -309,7 +310,29 @@ class __array_template(T)
 		return slice(a,a+n-1)
 	////////////////////////////////
 	//slicing
-	auto slice(iptr a0,iptr b)
+	auto __set_slice(Array(T) src0,iptr a0,iptr b)
+		//use __force_var to insulate src0 from src to prevent leak propagation
+		//__set_slice leak-propagates as an assignment, the function name is significant
+		src=__force_var(src0)
+		a=a0
+		ndata=b+1-a;
+		//we can't just use another dtor - it packs a full pointer
+		a=src.d+a*sizeof(T)
+		for(;src.destructor_nbound_or_slice_reference&1L;)
+			//flatten nested slice
+			src=__cast(Array(T),src.destructor_nbound_or_slice_reference-1L)
+		__explicit_rc(src,1);
+		src.destructor_nbound_or_slice_reference+=MAX_DTOR_TYPES*2;
+		this.d=a;
+		this.n=ndata;
+		this.sz=ndata;
+		//hack for slice
+		this.destructor_nbound_or_slice_reference=__cast(iptr,src)+1L;
+		//if IS_CLASS:
+		//	for i in range(ndata)
+		//		tmp=ret[i]
+		//		__explicit_rc(tmp,1)
+	inline slice(iptr a0,iptr b)
 		a=a0
 		if Platform.BUILD=="debug":
 			if uptr(a)>uptr(b+1):
@@ -318,27 +341,9 @@ class __array_template(T)
 				__basic_api.spapReportError("the slice range @1:@2 is out of bound 0:@3\0".Replace(["@1",string(a),"@2",string(b),"@3",string(n-1)]))
 			if !this:
 				__basic_api.spapReportError("slicing a NULL array at @1:@2 is invalid\0".Replace(["@1",string(a),"@2",string(b)]))
-				return Array(T).NULL
 		ret=Array(T)();
-		if a==b+1:return ret;
-		ndata=b+1-a;
-		src=this
-		//we can't just use another dtor - it packs a full pointer
-		a=src.d+a*sizeof(T)
-		for(;src.destructor_nbound_or_slice_reference&1L;)
-			//flatten nested slice
-			src=__cast(Array(T),src.destructor_nbound_or_slice_reference-1L)
-		__explicit_rc(src,1);
-		src.destructor_nbound_or_slice_reference+=MAX_DTOR_TYPES*2;
-		ret.d=a;
-		ret.n=ndata;
-		ret.sz=ndata;
-		//hack for slice
-		ret.destructor_nbound_or_slice_reference=__cast(iptr,src)+1L;
-		//if IS_CLASS:
-		//	for i in range(ndata)
-		//		tmp=ret[i]
-		//		__explicit_rc(tmp,1)
+		if a<b+1:
+			ret.__set_slice(this,a,b)
 		return ret;
 	inline __slice(a)
 		if arguments.length<2:
@@ -594,10 +599,10 @@ class __array_template(T)
 		__init__=(inline(a){
 			TA=typeof(a)
 			if TA==int
-				resize(16)
+				__builtin_ctor(16,i16(0))
 				n=iptr(__detail.FormatInt(d,16, 0,1,1,10, i64(a)))
 			else if TA==u32
-				resize(16)
+				__builtin_ctor(16,i16(0))
 				n=iptr(__detail.FormatInt(d,16, 0,0,1,10, i64(a)))
 			else if TA==float
 				lg=__detail.FormatDouble(0L,0,0,0,1,7, f64(a))
@@ -608,10 +613,10 @@ class __array_template(T)
 				resize(lg)
 				__detail.FormatDouble(d,lg,0,0,1,7, a)
 			else if TA==u64
-				resize(32)
+				__builtin_ctor(32,i16(0))
 				n=iptr(__detail.FormatInt(d,32, 0,0,1,10, i64(a)))
 			else if TA==i64
-				resize(32)
+				__builtin_ctor(32,i16(0))
 				n=iptr(__detail.FormatInt(d,32, 0,1,1,10, a))
 			else if TA==i16
 				__init__(int(a))
@@ -824,7 +829,7 @@ class __array_template(T)
 	else
 		__init__=__builtin_ctor
 
-Array=__array_template
+Array=__array
 string=Array(char)
 (string+string)=inline(a,b){
 	ret=char[a.n+b.n]

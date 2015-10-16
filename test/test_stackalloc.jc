@@ -26,7 +26,12 @@ class CThing2
 	Writeln(a)
 	Writeln(b)
 	Writeln(c)
-	(function(){
+	(function(int[] a_slice){
+		Writeln(a_slice)
 		Writeln(d)
-	})()
+	})(a[5:10])
+	//(function(){
+	//	Writeln(a[5:10])
+	//	Writeln(d)
+	//})()
 })()

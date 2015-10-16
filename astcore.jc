@@ -1628,6 +1628,12 @@ auto coreInit()
 				//Writeln(dumpType(t),' ',dumpObject(pobj_var))
 				genType(t)
 				if tisstruct(t):g_code_buffer.pop()
+				if g_readable_c_code:
+					id_name=readPool(pobj_var+VAR_OFS_ID)
+					if id_name:
+						g_code_buffer.push(' /*')
+						g_code_buffer.push(getIdString(id_name))
+						g_code_buffer.push('*/')
 				g_code_buffer.push(' m_')
 				g_code_buffer.push(toBase32(pobj_var))
 				g_code_buffer.push(';')
@@ -2769,7 +2775,9 @@ auto coreInit()
 			return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,Util.bitSize()),i64(n_bytes))}
 		if tisrealclass(t):
 			return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,Util.bitSize()),i64(Util.bitSize()>>3))}
-		//todo: function types
+		if tisfunction(t):
+			//the two-pointer struct is hard-coded
+			return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,Util.bitSize()),i64(Util.bitSize()>>2))}
 		return TSCCPValue(){'tid':g_vtid_RTVAR,'val':getBuiltinType(const_type(CTYPE_INT,Util.bitSize()))}
 	}
 	fcsizeof_oncgen=function(PExpression pecall,int expr_oplevel){
@@ -3423,9 +3431,9 @@ auto coreInit()
 			assert(isExpr(pe_var,EFLAG_VARIABLE))
 			pobj_original_var=getVariable(pe_var)
 			id_original_var__=g_id__
-			if g_readable_c_code:
-				if pobj_original_var:
-					id_original_var__=catid(readPool(pobj_original_var+VAR_OFS_ID),g_id__)
+			//if g_readable_c_code:
+			if pobj_original_var:
+				id_original_var__=catid(readPool(pobj_original_var+VAR_OFS_ID),g_id__)
 			pe_original_expr=readPool(pestore+(EXPR_OFS_ARGS+1))
 			pobjfn_toplevel=(isExpr(pe_original_expr,EFLAG_FCALL)?getExprFunction(pe_original_expr):0)
 			if pobjfn_toplevel:
@@ -3466,9 +3474,9 @@ auto coreInit()
 				pvar_deriv_i=ctUnique([g_id_deriv,pobjfn_dup,pobj_var,pobj_vderiv])
 				if !pvar_deriv_i:
 					pvar_deriv_i=makevar(pobjfn_dup)
-					if g_readable_c_code:
-						vid=readPool(pobj_vderiv+VAR_OFS_ID)
-						writePool(pvar_deriv_i+VAR_OFS_ID,gettempid(vid?catid(id_original_var__,vid):0))
+					//if g_readable_c_code:
+					vid=readPool(pobj_vderiv+VAR_OFS_ID)
+					writePool(pvar_deriv_i+VAR_OFS_ID,gettempid(vid?catid(id_original_var__,vid):0))
 					ctUnique([g_id_deriv,pobjfn_dup,pobj_var,pobj_vderiv])=pvar_deriv_i
 				pe_store_deriv=call(g_id_store,exprvar(pvar_deriv_i),pe_deriv_i)
 				as.push(pe_store_deriv)
@@ -5154,6 +5162,13 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_stackzero,__zero(fcompiler_callback),fstackzero_oneval,fstackzero_oncgen,FFLAG_SPECIAL)
+	fstack_force_slot_oncgen=function(PExpression pecall,int expr_oplevel){
+		pe_target=readPool(pecall+EXPR_OFS_ARGS+0)
+		pobj_var=getExprValueAs(pe_target,g_vtid_CTVAL)
+		g_c_scope_stack.back().var_stores.push(pobj_var)
+		return TSCCPValue(){'tid':g_vtid_UNINIT}
+	}
+	registerPrimitive(g_id_stack_force_slot,__zero(fcompiler_callback),fdummy_callback,fstack_force_slot_oncgen,FFLAG_SPECIAL)
 	farray_malloc_oneval=fget_rtti_oneval
 	//function(PExpression pecall,int expr_oplevel){
 	//	return TSCCPValue(){'tid':g_vtid_RTVAR,'val':getBuiltinType(const_type(CTYPE_INT,Util.bitSize()))}
@@ -6797,12 +6812,13 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 			pobj_ret=makevar(readPool(pobj_var+VAR_OFS_OWNER))
 			setUserFlag(pobj_ret,VAR_USER_UNFLATTENABLE)
 			writePool(pobj_ret+VAR_OFS_FLATTENING_OWNER,pobj_var)
-			if g_readable_c_code:
-				id_obj=readPool(pobj_var+VAR_OFS_ID)
-				id_child=readPool(pobj_member+VAR_OFS_ID)
-				if id_obj:
-					id_child=catid(id_obj,catid(getid("."),id_child))
-				writePool(pobj_ret+VAR_OFS_ID,id_child)
+			//if g_readable_c_code:
+			//need this id for temp detection
+			id_obj=readPool(pobj_var+VAR_OFS_ID)
+			id_child=readPool(pobj_member+VAR_OFS_ID)
+			if id_obj:
+				id_child=catid(id_obj,catid(getid("."),id_child))
+			writePool(pobj_ret+VAR_OFS_ID,id_child)
 			//flattened_items.push(int2(pobj_var,pobj_member))
 			writeGlobalI2Hash(int2(pobj_var,pobj_member),pobj_ret)
 			writeGlobalI2Hash(int2(pobj_var,0),1)
@@ -9363,12 +9379,25 @@ auto doStackAllocs()
 					pe=peuser
 					if isExpr(pe,EFLAG_VARIABLE)
 						pe=readPool(pe+EXPR_OFS_CALLER)
+					pecaller=readPool(pe+EXPR_OFS_CALLER)
 					if isBuiltin(pe,g_id_store):
 						pe_var=readPool(pe+EXPR_OFS_ARGS+0)
 						pe_value=readPool(pe+EXPR_OFS_ARGS+1)
 						setVarLeak(getVariable(pe_var),flag)
 						if isExpr(pe_value,EFLAG_VARIABLE):
 							setVarLeak(getVariable(pe_value),flag)
+					else if isBuiltin(pe,g_id_dot)&&readPool(readPool(pe+EXPR_OFS_ARGS+1))==EFLAG_STRING+g_id_set_slice&&readPool(pecaller+EXPR_OFS_FUNCTION)==pe:
+						//g_id_set_slice propagates like an assignment
+						pe_src=readPool(pecaller+EXPR_OFS_ARGS+0)
+						if isExpr(pe_src,EFLAG_VARIABLE):
+							setVarLeak(getVariable(pe_src),flag)
+					if isExpr(pecaller,EFLAG_FCALL):
+						pefunc=readPool(pecaller+EXPR_OFS_FUNCTION)
+						if isBuiltin(pefunc,g_id_dot)&&readPool(readPool(pefunc+EXPR_OFS_ARGS+1))==EFLAG_STRING+g_id_set_slice&&readPool(pecaller+EXPR_OFS_ARGS+0)==pe:
+							//g_id_set_slice propagates like an assignment
+							pe_tar=readPool(pefunc+EXPR_OFS_ARGS+0)
+							if isExpr(pe_tar,EFLAG_VARIABLE):
+								setVarLeak(getVariable(pe_tar),flag)
 				for(pestore=readPool(pobj_var+VAR_OFS_STORE_QUEUE);pestore;pestore=readPool(pestore+EXPR_OFS_NEXT_V_USER))
 					pe=pestore
 					if isBuiltin(pe,g_id_store):
@@ -9503,7 +9532,6 @@ auto doStackAllocs()
 			bsize=getExprValueAs(pe_bsize,g_vtid_CNS)
 			g_array_stackalloc_info[pobj_var]=int2(t_element,bsize)
 			pe_new=transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,pe_array_stackalloc,[pe_dtor_smash])
-			//todo: don't use resize for number-to-string, inline the new part of slice
 			return 0
 		return 1
 	}
@@ -9942,7 +9970,7 @@ auto translateLambdas()
 			n_members=readPool(pobjfn+FUNCTION_OFS_NMEMBER_LIST)
 			for i=0:n_members-1
 				id_member=readPool(p_members+i)
-				if id_member==g_id_this||id_member==g_id_return||id_member==g_id_ftype_raw:continue
+				if id_member==g_id_this||id_member==g_id_return||id_member==g_id_ftype_raw||id_member==g_id_Bind:continue
 				pobj_var=lookupFunctionVariable(pobjfn,id_member)
 				vflags=readPool(pobj_var+VAR_OFS_USER_FLAGS)
 				if !(vflags&VAR_FLAG_LAMBDAED):
@@ -9983,11 +10011,14 @@ auto translateLambdas()
 						writePool(pv_temp+VAR_OFS_DEFINING_STORE,pe_store_temp)
 						transformCode(pecaller,__zero(ftransformer_callback), [pe_store_temp],call(g_id_stlambda, pecontext, exprctval(pobj_var), exprvar(pv_temp)),PExpression[].NULL)
 					else
-						pecaller_caller=readPool(pecaller+EXPR_OFS_CALLER)
 						faddstlambda=function(PExpression pestore){
 							return call(g_id_stlambda, pecontext, exprctval(pobj_var), pe_value)
 						}
-						sccpQueueReach(insertCallAt(pecaller_caller,pecaller,faddstlambda))
+						pecaller_caller=readPool(pecaller+EXPR_OFS_CALLER)
+						pe_replacement=sccpQueueReach(insertCallAt(pecaller_caller,pecaller,faddstlambda))
+						if testUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED|VAR_FLAG_ARRAY_STACK_ALLOCED):
+							transformCode(pe_replacement,__zero(ftransformer_callback),
+								[call(g_id_stack_force_slot,exprctval(pobj_var))],0,PExpression[].NULL)
 				else
 					//g_id_ldlambda
 					faddldlambda=function(PExpression pe){
@@ -11055,6 +11086,13 @@ auto genRefcnt()
 				else
 					//we need to temp this
 					pv_temp=makevar(pf_owner)
+					if is_ldlambda&&tisrealclass(t_return):
+						//copy stackalloc flags
+						pobj_var=getExprValueAs(readPool(pe+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
+						if pobj_var:
+							setUserFlag(pv_temp,
+								readPool(pobj_var+EXPR_OFS_USER_FLAGS)&(
+									VAR_FLAG_CLASS_IS_STACK_ALLOCED|VAR_FLAG_CLASS_STACK_STYLE_RC|VAR_FLAG_ARRAY_STACK_ALLOCED))
 					t_temp=t_return
 					writePool(pv_temp,g_vtid_RTVAR)
 					writePool(pv_temp+1,t_temp)
@@ -11717,7 +11755,7 @@ auto genCode(PExpression pe,int expr_oplevel)
 			n_args=getExprNArgs(pe)
 			pftype=getExprType(pecallee)
 			if !tisfunction(pftype):
-				//todo: improve error message - operator[] case, method case, ...
+				//coulddo: improve error message - operator[] case, method case, ...
 				errorAtExpr(ETYPE_ERROR,pecallee,"'@1' is not a function and can't be called here, it's currently of type '@2'".Replace(["@1",citeexpr(pecallee),"@2",dumpType(pftype)]))
 				//Writeln(dumpType(pftype))
 				//Writeln(">>> "+dumpExpr(pe,fcolor_abbrv_blocks))
