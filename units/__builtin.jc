@@ -975,7 +975,7 @@ class Map(T0,T1)
 		k=__zero(T0)
 		v=__zero(T1)
 	m_data=KVPair[1]
-	m_hash=iptr[0]
+	m_hash=new iptr[]
 	inline __clone__()
 		ret=Map(T0,T1)()
 		ret.m_data=__builtin.clone(m_data)

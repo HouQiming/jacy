@@ -25,7 +25,7 @@ DEBUG_DUMP_DEADELIM=0
 DEBUG_DUMP_PASSES=(Platform.BUILD=="debug")
 DEBUG_DUMP_GVN_DETAILS=0
 DEBUG_DUMP_SCCP=0
-DEBUG_DUMP_STACKALLOC=0
+DEBUG_DUMP_STACKALLOC=1//todo: 0
 ///////////////
 DERIV_HAS_REUSABLE_COMPONENTS=0x80000000
 
@@ -2651,6 +2651,10 @@ auto coreInit()
 		pobj_var&&tisrealclass(t)&&testUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED|VAR_FLAG_CLASS_STACK_STYLE_RC)||
 		!pobj_var&&!(getFFlag(t)&FFLAG_LAMBDA_LEAKED)):
 			//stack allocation case
+			if DEBUG_DUMP_STACKALLOC:
+				Writeln('stackalloc-rc ',dumpExpr(pecall,fcolor_abbrv_blocks),
+					testUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED)?' VAR_FLAG_CLASS_IS_STACK_ALLOCED':'',
+					testUserFlag(pobj_var,VAR_FLAG_CLASS_STACK_STYLE_RC)?' VAR_FLAG_CLASS_STACK_STYLE_RC':'')
 			if delta>0:
 				//don't need NULL test
 				//if testUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED):
@@ -2659,8 +2663,8 @@ auto coreInit()
 				//	genObject()
 				//	g_code_buffer.push(')')
 				genObject()
-				g_code_buffer.push('->s7rc')
-				g_code_buffer.push(FormatAsText('+=',delta))//*2
+				g_code_buffer.push('->s7rc+=')
+				g_code_buffer.push(string(delta))//*2
 			else
 				//only need to finalize if there's a dtor
 				pf_dtor=readPool(t+FUNCTION_OFS_FINALIZER)
@@ -7888,6 +7892,8 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 						//if t&&!tisstruct(t):
 						//	errorAtExpr(ETYPE_WARNING,pe,"uninitialized variable '@1'".Replace(["@1",citeexpr(pe)]))
 						//errorAtExpr(ETYPE_WARNING,pe,"uninitialized variable '@1'".Replace(["@1",citeexpr(pe)]))
+						if DEBUG_DUMP_SSA:
+							Writeln('smash uninited var: ',dumpObject(pobj_var))
 						writePool(pobj_var+VAR_OFS_USER_FLAGS,flag0|USER_FLAG_MASK)
 					else
 						//do the renaming
@@ -9228,6 +9234,7 @@ auto getRootNamespaceType()
 auto doStackAllocs()
 	FLAG_IS_LEAKED=1
 	FLAG_IS_RESIZED=2
+	FLAG_IS_LAMBDAED=4
 	PARAMID_THIS=0x7fffffff
 	clearUserFlags(g_pe_top,0)
 	///////////////////////////////////////////////////
@@ -9235,9 +9242,10 @@ auto doStackAllocs()
 	//class / struct ctor is obvious
 	//lambda-leaked functions count as classes and should go the member path - but assignment to the var is still a variable leak!
 	TEMP_FLAG_FUNC_ASSIGN_LEAK=1
-	TEMP_FLAG_LAMBDA_ACCESS=2
+	//TEMP_FLAG_LAMBDA_ACCESS=2
 	temp_fflag=0
 	pobj_local_owner=0
+	has_lambda_access=new i8[PCTObject]
 	trackLambdaLeaker=function(PExpression pe){
 		if isExpr(pe,EFLAG_FCALL)&&!testUserFlag(pe,QUEUE_FLAG_REACH):return 0
 		if isBuiltin(pe,g_id_function):
@@ -9250,7 +9258,7 @@ auto doStackAllocs()
 			pobj_local_owner=pobjfn
 			temp_fflag=0
 			dfsExpr(pecode,trackLambdaLeaker)
-			if temp_fflag==TEMP_FLAG_FUNC_ASSIGN_LEAK+TEMP_FLAG_LAMBDA_ACCESS||tisclass(pobjfn):
+			if temp_fflag==TEMP_FLAG_FUNC_ASSIGN_LEAK&&has_lambda_access[pobjfn]||tisclass(pobjfn):
 				if DEBUG_DUMP_STACKALLOC:
 					if !tisclass(pobjfn):
 						Writeln('lambda leaked ',dumpFunction(pobjfn))
@@ -9278,7 +9286,7 @@ auto doStackAllocs()
 					return 1
 			else
 				pobjfn=getExprFunction(pe)
-				if pobjfn&&(getFFlag(pobjfn)&FFLAG_BUILTIN):
+				if pobjfn&&(getFFlag(pobjfn)&FFLAG_BUILTIN)&&pobjfn!=g_id_set_memory:
 					//non-store/stdot built-in should be harmless
 					return 1
 			//if any param is a function... it's leaked
@@ -9297,12 +9305,15 @@ auto doStackAllocs()
 			pobj_var=getVariable(pe)
 			tid_var=readPool(pobj_var)
 			pfowner=readPool(pobj_var+VAR_OFS_OWNER)
-			if pfowner!=pobj_local_owner&&(tid_var==g_vtid_RTVAR||tid_var==g_vtid_CTVAL):
-				if tid_var==g_vtid_CTVAL&&readPool(readPool(pe+EXPR_OFS_CALLER)+EXPR_OFS_FUNCTION)!=pe:
+			if pfowner&&pfowner!=pobj_local_owner&&(tid_var==g_vtid_RTVAR||tid_var==g_vtid_CTVAL):
+				if tid_var==g_vtid_RTVAR||readPool(readPool(pe+EXPR_OFS_CALLER)+EXPR_OFS_FUNCTION)!=pe:
 					if DEBUG_DUMP_STACKALLOC:
-						if !(temp_fflag&TEMP_FLAG_LAMBDA_ACCESS)&&pobj_local_owner:
-							Writeln('lambda access ',dumpExpr(pe,fcolor_abbrv_blocks),' ',dumpFunction(pobj_local_owner))
-					temp_fflag|=TEMP_FLAG_LAMBDA_ACCESS
+						//if !(temp_fflag&TEMP_FLAG_LAMBDA_ACCESS)&&pobj_local_owner:
+						//	Writeln('lambda access ',dumpExpr(pe,fcolor_abbrv_blocks),' ',dumpFunction(pobj_local_owner))
+						if !has_lambda_access[pfowner]:
+							Writeln('lambda access ',dumpExpr(pe,fcolor_abbrv_blocks),' ',dumpFunction(pfowner))
+					//temp_fflag|=TEMP_FLAG_LAMBDA_ACCESS
+					has_lambda_access[pfowner]=i8(1)
 		return 1
 	}
 	dfsExpr(g_pe_top,trackLambdaLeaker)
@@ -9336,6 +9347,40 @@ auto doStackAllocs()
 		if DEBUG_DUMP_STACKALLOC:
 			Writeln('setFunargLeak ',dumpObject(pobjfn),' ',paramid)
 	}
+	fprescan_for_lambdas=function(PExpression pe){
+		if !testUserFlag(pe,QUEUE_FLAG_REACH)&&!isExpr(pe,EFLAG_VARIABLE):
+			return 0
+		if isBuiltin(pe,g_id_function):
+			auto pobjfn_bk=pobj_local_owner
+			auto pobjfn=getExprValueAs(pe,g_vtid_CTVAL)
+			assert(!!pobjfn)
+			pobj_local_owner=pobjfn
+			for i=0:(readPool(pe)&~EFLAG_MASK)-1
+				dfsExpr(readPool(pe+EXPR_OFS_ARGS+i),fprescan_for_lambdas)
+			pobj_local_owner=pobjfn_bk
+			return 0
+		if isBuiltin(pe,g_id_dot)||isBuiltin(pe,g_id_stdot):
+			pe_member_name=readPool(pe+EXPR_OFS_ARGS+1)
+			if isExpr(pe_member_name,EFLAG_CTVAL):
+				//hack for template, don't translate
+				val=getExprValueAs(pe_member_name,g_vtid_CTVAL)
+				if !isVariable(val):
+					return 1
+			pobj_member=getDotMember(pe,0)
+			if !pobj_member:
+				return 1
+			setUserFlag(pobj_member,FLAG_IS_LAMBDAED)
+			return 1
+		else if isExpr(pe,EFLAG_VARIABLE):
+			pobj_var=getVariable(pe)
+			tid_var=readPool(pobj_var)
+			pfowner=readPool(pobj_var+VAR_OFS_OWNER)
+			if pfowner!=pobj_local_owner&&pfowner&&(tid_var==g_vtid_RTVAR||tid_var==g_vtid_CTVAL):
+				setUserFlag(pobj_var,FLAG_IS_LAMBDAED)
+				return 1
+		return 1
+	}
+	dfsExpr(g_pe_top,fprescan_for_lambdas)
 	ffind_leak_root=function(PExpression pe){
 		if isExpr(pe,EFLAG_FCALL)&&!testUserFlag(pe,QUEUE_FLAG_REACH):return 0
 		if isBuiltin(pe,g_id_stdot):
@@ -9370,14 +9415,21 @@ auto doStackAllocs()
 			if isExpr(pe_value,EFLAG_VARIABLE)&&!isTempId(readPool(pobj_var+VAR_OFS_ID)):
 				//non-temp copy
 				//pvar_src=getVariable(pe_value)
+				if DEBUG_DUMP_STACKALLOC:
+					Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
 				setVarExprLeak(pe_var,FLAG_IS_LEAKED)
 				setVarExprLeak(pe_value,FLAG_IS_LEAKED)
 			else if readPool(pobj_var+VAR_OFS_ID)==g_id_return:
 				if DEBUG_DUMP_STACKALLOC:
 					Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
 				setVarExprLeak(pe_var,FLAG_IS_LEAKED)
+			else if (getFFlag(readPool(pobj_var+VAR_OFS_OWNER))&FFLAG_LAMBDA_LEAKED)&&testUserFlag(pobj_var,FLAG_IS_LAMBDAED):
+				//if the function is lambda-leaked and the variable is lambdaed, it's out of question
+				if DEBUG_DUMP_STACKALLOC:
+					Writeln('leak root (lambda) ',dumpExpr(pe,fcolor_abbrv_blocks))
+				setVarExprLeak(pe_var,FLAG_IS_LEAKED)
 			else
-				//multi-store test
+				//elegible, do multi-store test
 				n_stores=0
 				pestore_defining=0
 				for(pestore=readPool(pobj_var+VAR_OFS_STORE_QUEUE);pestore;pestore=readPool(pestore+EXPR_OFS_NEXT_V_USER))
@@ -9386,12 +9438,14 @@ auto doStackAllocs()
 					n_stores++
 					if n_stores>1:break
 				if n_stores!=1:
+					if DEBUG_DUMP_STACKALLOC:
+						Writeln('multi-store ',dumpExpr(pe,fcolor_abbrv_blocks))
 					setVarExprLeak(pe_var,FLAG_IS_LEAKED)
 				else
 					//only allow new
 					assert(pestore_defining==pe)
 					pobjfn_defining=(isExpr(pe_value,EFLAG_FCALL)?getExprFunction(pe_value):0)
-					if !(!pobjfn_defining||tisrealclass(pobjfn_defining)||isBuiltin(pe_value,g_id_ldparam)||isBuiltin(pe_value,g_id_get_lambda_context)):
+					if !(!isExpr(pe_value,EFLAG_FCALL)||pobjfn_defining&&tisrealclass(pobjfn_defining)||isBuiltin(pe_value,g_id_ldparam)||isBuiltin(pe_value,g_id_get_lambda_context)):
 						if DEBUG_DUMP_STACKALLOC:
 							Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
 						setVarExprLeak(pe_var,FLAG_IS_LEAKED)
@@ -9549,6 +9603,8 @@ auto doStackAllocs()
 					//it's 'this', do nothing
 				else if !isExpr(pe_value,EFLAG_FCALL)||isBuiltin(pe_value,g_id_ldparam):
 					//we still need RC... for same-function things, but do it stack-style
+					if DEBUG_DUMP_STACKALLOC:
+						Writeln('stack-style-rc ',dumpExpr(pe,fcolor_abbrv_blocks))
 					setUserFlag(pobj_var,VAR_FLAG_CLASS_STACK_STYLE_RC)
 				else
 					if DEBUG_DUMP_STACKALLOC:
@@ -10285,6 +10341,8 @@ auto translateLambdas()
 					pv_tar=getVariable(pe_target)
 					if readPool(pv_tar+VAR_OFS_ID)!=g_id_return:
 						//the store is destroyed, force allocate it
+						if DEBUG_DUMP_STACKALLOC:
+							Writeln('VAR_FLAG_STRUCT_SLOT_ALLOCATED ',dumpObject(pv_tar))
 						setUserFlag(pv_tar,VAR_FLAG_STRUCT_SLOT_ALLOCATED)
 				else if isBuiltin(pecaller,g_id_stlambda)&&pe==readPool(pecaller+EXPR_OFS_ARGS+2):
 					//pass in the target as ldlambda
@@ -10561,6 +10619,8 @@ auto translateLambdas()
 			id_var=readPool(vslot.pobj_var+VAR_OFS_ID)
 			if id_var==g_id_return:
 				//for returns, do the memcpy without allocing the slot
+				if DEBUG_DUMP_STACKALLOC:
+					Writeln('VAR_FLAG_STRUCT_SLOT_ALLOCATED ',dumpObject(vslot.pobj_var))
 				setUserFlag(vslot.pobj_var,VAR_FLAG_STRUCT_SLOT_ALLOCATED)
 				continue
 			//check all stores, not just the defining one
@@ -10607,6 +10667,8 @@ auto translateLambdas()
 			t=getVariableType(vslot.pobj_var)
 			alloc_jobs.push(TAllocJob(){'pobj_var':vslot.pobj_var,'vslotid':vslotid,"t":t,'is_free':0,'pe_insert_at':pe_birth})
 			alloc_jobs.push(TAllocJob(){'pobj_var':vslot.pobj_var,'vslotid':vslotid,"t":t,'is_free':1,'pe_insert_at':pe_death})
+			if DEBUG_DUMP_STACKALLOC:
+				Writeln('VAR_FLAG_STRUCT_SLOT_ALLOCATED ',dumpObject(vslot.pobj_var))
 			setUserFlag(vslot.pobj_var,VAR_FLAG_STRUCT_SLOT_ALLOCATED)
 		inline getExprSlotid(PExpression pe)
 			return (readPool(pe+EXPR_OFS_USER_FLAGS)&USER_FLAG_RC_SLOTID_MASK)
@@ -11169,6 +11231,8 @@ auto genRefcnt()
 						//copy stackalloc flags
 						pobj_var=getExprValueAs(readPool(pe+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
 						if pobj_var:
+							if DEBUG_DUMP_STACKALLOC:
+								Writeln('copy stackalloc flags ',dumpObject(pv_temp),' <- ',dumpObject(pobj_var))
 							setUserFlag(pv_temp,
 								readPool(pobj_var+EXPR_OFS_USER_FLAGS)&(
 									VAR_FLAG_CLASS_STACK_STYLE_RC))
@@ -11418,9 +11482,15 @@ auto genRefcnt()
 						pv_temp=makevar(pf_owner)
 						writePool(pv_temp,g_vtid_RTVAR)
 						writePool(pv_temp+1,t)
-						setUserFlag(pv_temp,
-							readPool(pobj_var+EXPR_OFS_USER_FLAGS)&(
-								VAR_FLAG_CLASS_STACK_STYLE_RC))
+						if tisrealclass(t)&&testUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED):
+							//class / struct members could mistakenly have their VAR_FLAG_CLASS_STACK_STYLE_RC set
+							//it's harmless... unless copied here
+							//setUserFlag(pv_temp,
+							//	readPool(pobj_var+EXPR_OFS_USER_FLAGS)&(
+							//		VAR_FLAG_CLASS_STACK_STYLE_RC))
+							if DEBUG_DUMP_STACKALLOC:
+								Writeln('copy stackalloc flags ',dumpObject(pv_temp),' <- ',dumpObject(pobj_var))
+							setUserFlag(pv_temp,VAR_FLAG_CLASS_STACK_STYLE_RC)
 					//pe_recurse_into=pe_value
 					if isBuiltin(pe,g_id_store):
 						as_backup=new PExpression[]
@@ -11471,9 +11541,24 @@ auto genRefcnt()
 						if Platform.BUILD=="debug":
 							all_rcs.back().debug_id_source=getid('post_store_addref')
 					if !testUserFlag(pe,USER_FLAG_RC_IS_SAFE_STORE):
-						all_rcs.push(TRefcntLine(){'pe':pe,"v":pv_temp,'delta':-1})
-						if Platform.BUILD=="debug":
-							all_rcs.back().debug_id_source=getid('pre_store_release')
+						is_released_before=0
+						if isBuiltin(pe,g_id_store):
+							if isBuiltin(pe_value,g_id_stackzero)||isExpr(pe_value,EFLAG_FCALL)&&tisrealclass(getExprFunction(pe_value)):
+								//if pe_value is from a new, we should release first for stackalloc and general efficiency
+								assert(as_backup.n==1)
+								if DEBUG_DUMP_STACKALLOC:
+									Writeln('release before store ',dumpExpr(pe,fcolor_abbrv_blocks))
+								pe_nop=call(g_id_nop)
+								as_backup.clear()
+								as_backup.push(pe_nop)
+								all_rcs.push(TRefcntLine(){'pe':pe_nop,"v":pobj_var,'delta':-1})
+								if Platform.BUILD=="debug":
+									all_rcs.back().debug_id_source=getid('pre_store_release')
+								is_released_before=1
+						if !is_released_before:
+							all_rcs.push(TRefcntLine(){'pe':pe,"v":pv_temp,'delta':-1})
+							if Platform.BUILD=="debug":
+								all_rcs.back().debug_id_source=getid('post_store_release')
 					foreach pe_added in as_backup
 						setUserFlag(pe_added,USER_FLAG_RC_IS_SAFE_STORE|USER_FLAG_RC_STORE_WITHOUT_ADDREF)
 					setUserFlag(pe,USER_FLAG_RC_IS_SAFE_STORE|USER_FLAG_RC_STORE_WITHOUT_ADDREF)
