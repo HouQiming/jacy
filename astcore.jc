@@ -9306,6 +9306,7 @@ auto doStackAllocs()
 			tid_var=readPool(pobj_var)
 			pfowner=readPool(pobj_var+VAR_OFS_OWNER)
 			if pfowner&&pfowner!=pobj_local_owner&&(tid_var==g_vtid_RTVAR||tid_var==g_vtid_CTVAL):
+				!? //todo: a stack... do it in fprescan_for_lambdas
 				if tid_var==g_vtid_RTVAR||readPool(readPool(pe+EXPR_OFS_CALLER)+EXPR_OFS_FUNCTION)!=pe:
 					if DEBUG_DUMP_STACKALLOC:
 						//if !(temp_fflag&TEMP_FLAG_LAMBDA_ACCESS)&&pobj_local_owner:
