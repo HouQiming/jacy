@@ -1250,6 +1250,7 @@ g_id_LINE=getid("__LINE__")
 //stack allocation
 g_id_stackzero=getid('__stack_zero')
 g_id_stack_force_slot=getid('__stack_force_slot')
+g_id_disable_inline_return=getid('__disable_inline_return')
 
 g_tuple_ids=new int[]
 auto getTupleId(int n)

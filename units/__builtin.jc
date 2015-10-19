@@ -142,7 +142,9 @@ class __array(T)
 	inline operator[](auto i)
 		if Platform.BUILD=="debug":
 			__range_check(i)
+		__disable_inline_return()
 		if IS_STRUCT:
+			//hack to prevent excessive inline return optimization
 			return __cast(T,d+sizeof(T)*iptr(i))
 		else
 			return __memory(T,d+sizeof(T)*iptr(i))
@@ -421,6 +423,7 @@ class __array(T)
 			T_sort=T
 			less=less0
 		inline S(auto i)
+			__disable_inline_return()
 			if IS_STRUCT:
 				return __cast(T_sort,s+sizeof(T_sort)*iptr(i))
 			else

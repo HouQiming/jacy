@@ -26,7 +26,7 @@ DEBUG_DUMP_DEADELIM=0
 DEBUG_DUMP_PASSES=(Platform.BUILD=="debug")
 DEBUG_DUMP_GVN_DETAILS=0
 DEBUG_DUMP_SCCP=0
-DEBUG_DUMP_STACKALLOC=1//todo: 0
+DEBUG_DUMP_STACKALLOC=0
 ///////////////
 DERIV_HAS_REUSABLE_COMPONENTS=0x80000000
 
@@ -817,10 +817,15 @@ auto coreInit()
 				need_return_scope=1
 			return 1
 		}
+		disable_inline_return=0
 		freplace_args=function(PExpression pe_store_i){
 			if isBuiltin(pe_store_i,g_id_function):
 				if !need_return_scope:
 					dfsExpr(pe_store_i,fdetect_returns)
+				return 0
+			if isBuiltin(pe_store_i,g_id_disable_inline_return):
+				disable_inline_return=1
+				setnop(pe_store_i)
 				return 0
 			//if isReturnJump(pe_store_i):
 			if isBuiltin(pe_store_i,g_id_blockex)&&readPool(readPool(pe_store_i+EXPR_OFS_ARGS+0))==EFLAG_STRING+id_return_label:
@@ -969,7 +974,7 @@ auto coreInit()
 		pobj_return_store_replace=0
 		pobj_return_store_replace_with=0
 		is_inline_return_optimized=0
-		if isBuiltin(pecaller_original,g_id_store)&&pvar_return:
+		if isBuiltin(pecaller_original,g_id_store)&&pvar_return&&!disable_inline_return:
 			id_pobjfn=readPool(pobjfn+FUNCTION_OFS_NAME)
 			if (id_pobjfn!=g_id_operator_aa&&
 			id_pobjfn!=g_id_operator_oo&&
@@ -1005,7 +1010,8 @@ auto coreInit()
 					need_optimization=1
 					setnop_jobs.push(pecaller_original)
 					is_inline_return_optimized=1
-					if DEBUG_EVAL_LOG:
+					//if DEBUG_EVAL_LOG:
+					if 1://todo
 						Writeln('inline return optimized ',
 							dumpObject(pobj_return_store_replace),' ',dumpObject(pobj_return_store_replace_with),' ',
 							dumpFunction(pobjfn),' ',
@@ -3239,6 +3245,7 @@ auto coreInit()
 	}
 	registerPrimitive(g_id_force_var,__zero(fcompiler_callback),fforce_var_oneval,fforce_var_oncgen,FFLAG_SPECIAL)
 	registerPrimitive(g_id_force_leak,__zero(fcompiler_callback),fdummy_callback,fdummy_callback,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
+	registerPrimitive(g_id_disable_inline_return,__zero(fcompiler_callback),fdummy_callback,fdummy_callback,FFLAG_SPECIAL)
 	freport_error=function(PExpression pecall,int expr_oplevel){
 		n_args=getExprNArgs(pecall)
 		if n_args<1:
