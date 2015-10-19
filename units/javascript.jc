@@ -108,8 +108,8 @@ module duktape
 			///////////////
 			//set up a default finalizer
 			m_all_callbacks.push(function(JSContext JS){
-				duk_to_primitive(_ctx(),0,0)
-				vptr=duk_get_pointer(_ctx(),0)
+				duk_to_primitive(JS._ctx(),0,0)
+				vptr=duk_get_pointer(JS._ctx(),0)
 				if vptr:
 					ret=__cast(__variant,vptr)
 					__explicit_rc(ret,-1)

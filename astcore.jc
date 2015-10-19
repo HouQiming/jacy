@@ -9245,29 +9245,58 @@ auto doStackAllocs()
 	//TEMP_FLAG_LAMBDA_ACCESS=2
 	temp_fflag=0
 	pobj_local_owner=0
-	has_lambda_access=new i8[PCTObject]
-	trackLambdaLeaker=function(PExpression pe){
-		if isExpr(pe,EFLAG_FCALL)&&!testUserFlag(pe,QUEUE_FLAG_REACH):return 0
+	struct TPrescanStackItem
+		PCTObject pobjfn
+		int has_lambda_access
+	stk=new TPrescanStackItem[]
+	stk.push(TPrescanStackItem(){pobjfn:0})
+	fprescan_for_lambdas=function(PExpression pe){
+		if !testUserFlag(pe,QUEUE_FLAG_REACH)&&!isExpr(pe,EFLAG_VARIABLE):
+			return 0
 		if isBuiltin(pe,g_id_function):
-			//recurse into it
-			auto stack_pobj_local_owner=pobj_local_owner
-			auto stack_fflag=temp_fflag
-			auto n_args=getExprNArgs(pe)
-			auto pecode=readPool(pe+(EXPR_OFS_ARGS)+n_args-1)
 			auto pobjfn=getExprValueAs(pe,g_vtid_CTVAL)
+			assert(!!pobjfn)
 			pobj_local_owner=pobjfn
+			stk.push(TPrescanStackItem(){pobjfn:pobjfn})
+			auto stack_fflag=temp_fflag
 			temp_fflag=0
-			dfsExpr(pecode,trackLambdaLeaker)
-			if temp_fflag==TEMP_FLAG_FUNC_ASSIGN_LEAK&&has_lambda_access[pobjfn]||tisclass(pobjfn):
+			for i=0:(readPool(pe)&~EFLAG_MASK)-1
+				dfsExpr(readPool(pe+EXPR_OFS_ARGS+i),fprescan_for_lambdas)
+			sitem=stk.pop()
+			if temp_fflag==TEMP_FLAG_FUNC_ASSIGN_LEAK&&sitem.has_lambda_access||tisclass(pobjfn):
 				if DEBUG_DUMP_STACKALLOC:
 					if !tisclass(pobjfn):
 						Writeln('lambda leaked ',dumpFunction(pobjfn))
 				setFFlag(pobjfn,FFLAG_LAMBDA_LEAKED)
-			//propagate both flags up
 			stack_fflag|=temp_fflag
 			temp_fflag=stack_fflag
-			pobj_local_owner=stack_pobj_local_owner
+			pobj_local_owner=stk[stk.n-1].pobjfn
 			return 0
+		if isExpr(pe,EFLAG_VARIABLE):
+			pobj_var=getVariable(pe)
+			tid_var=readPool(pobj_var)
+			pfowner=readPool(pobj_var+VAR_OFS_OWNER)
+			if pfowner!=pobj_local_owner&&pfowner&&(tid_var==g_vtid_RTVAR||tid_var==g_vtid_CTVAL):
+				setUserFlag(pobj_var,FLAG_IS_LAMBDAED)
+				if tid_var==g_vtid_RTVAR||readPool(readPool(pe+EXPR_OFS_CALLER)+EXPR_OFS_FUNCTION)!=pe&&isFunction(readPool(pobj_var+1)):
+					for j=stk.n-1:-1:0
+						if stk[j].pobjfn==pfowner:
+							for k=j:stk.n-1
+								if DEBUG_DUMP_STACKALLOC:
+									if !stk[k].has_lambda_access&&!tisclass(pfowner):
+										Writeln('lambda access ',dumpExpr(readPool(pe+EXPR_OFS_CALLER),fcolor_abbrv_blocks),' ',dumpFunction(pfowner))
+								stk[k].has_lambda_access=1
+							break
+			return 1
+		if isBuiltin(pe,g_id_dot)||isBuiltin(pe,g_id_stdot):
+			pe_member_name=readPool(pe+EXPR_OFS_ARGS+1)
+			//detect hack for template, which shouldn't be dfsed
+			if isExpr(pe_member_name,EFLAG_CTVAL)&&!isVariable(getExprValueAs(pe_member_name,g_vtid_CTVAL)):
+				//pass
+			else
+				pobj_member=getDotMember(pe,0)
+				if pobj_member:
+					setUserFlag(pobj_member,FLAG_IS_LAMBDAED)
 		if isExpr(pe,EFLAG_FCALL):
 			//assign leak
 			if isBuiltin(pe,g_id_store):
@@ -9301,23 +9330,9 @@ auto doStackAllocs()
 								Writeln('assign leak ',dumpExpr(pe,fcolor_abbrv_blocks),' ',dumpFunction(pobj_local_owner))
 						temp_fflag|=TEMP_FLAG_FUNC_ASSIGN_LEAK
 						return 1
-		else if isExpr(pe,EFLAG_VARIABLE):
-			pobj_var=getVariable(pe)
-			tid_var=readPool(pobj_var)
-			pfowner=readPool(pobj_var+VAR_OFS_OWNER)
-			if pfowner&&pfowner!=pobj_local_owner&&(tid_var==g_vtid_RTVAR||tid_var==g_vtid_CTVAL):
-				!? //todo: a stack... do it in fprescan_for_lambdas
-				if tid_var==g_vtid_RTVAR||readPool(readPool(pe+EXPR_OFS_CALLER)+EXPR_OFS_FUNCTION)!=pe:
-					if DEBUG_DUMP_STACKALLOC:
-						//if !(temp_fflag&TEMP_FLAG_LAMBDA_ACCESS)&&pobj_local_owner:
-						//	Writeln('lambda access ',dumpExpr(pe,fcolor_abbrv_blocks),' ',dumpFunction(pobj_local_owner))
-						if !has_lambda_access[pfowner]:
-							Writeln('lambda access ',dumpExpr(pe,fcolor_abbrv_blocks),' ',dumpFunction(pfowner))
-					//temp_fflag|=TEMP_FLAG_LAMBDA_ACCESS
-					has_lambda_access[pfowner]=i8(1)
 		return 1
 	}
-	dfsExpr(g_pe_top,trackLambdaLeaker)
+	dfsExpr(g_pe_top,fprescan_for_lambdas)
 	///////////////////////////////////////////////////
 	//mark leaking variables / param leakness flags
 	//todo: members - store(?,dot()) case - middle state - "leaked" from stack but is a static member
@@ -9348,40 +9363,6 @@ auto doStackAllocs()
 		if DEBUG_DUMP_STACKALLOC:
 			Writeln('setFunargLeak ',dumpObject(pobjfn),' ',paramid)
 	}
-	fprescan_for_lambdas=function(PExpression pe){
-		if !testUserFlag(pe,QUEUE_FLAG_REACH)&&!isExpr(pe,EFLAG_VARIABLE):
-			return 0
-		if isBuiltin(pe,g_id_function):
-			auto pobjfn_bk=pobj_local_owner
-			auto pobjfn=getExprValueAs(pe,g_vtid_CTVAL)
-			assert(!!pobjfn)
-			pobj_local_owner=pobjfn
-			for i=0:(readPool(pe)&~EFLAG_MASK)-1
-				dfsExpr(readPool(pe+EXPR_OFS_ARGS+i),fprescan_for_lambdas)
-			pobj_local_owner=pobjfn_bk
-			return 0
-		if isBuiltin(pe,g_id_dot)||isBuiltin(pe,g_id_stdot):
-			pe_member_name=readPool(pe+EXPR_OFS_ARGS+1)
-			if isExpr(pe_member_name,EFLAG_CTVAL):
-				//hack for template, don't translate
-				val=getExprValueAs(pe_member_name,g_vtid_CTVAL)
-				if !isVariable(val):
-					return 1
-			pobj_member=getDotMember(pe,0)
-			if !pobj_member:
-				return 1
-			setUserFlag(pobj_member,FLAG_IS_LAMBDAED)
-			return 1
-		else if isExpr(pe,EFLAG_VARIABLE):
-			pobj_var=getVariable(pe)
-			tid_var=readPool(pobj_var)
-			pfowner=readPool(pobj_var+VAR_OFS_OWNER)
-			if pfowner!=pobj_local_owner&&pfowner&&(tid_var==g_vtid_RTVAR||tid_var==g_vtid_CTVAL):
-				setUserFlag(pobj_var,FLAG_IS_LAMBDAED)
-				return 1
-		return 1
-	}
-	dfsExpr(g_pe_top,fprescan_for_lambdas)
 	ffind_leak_root=function(PExpression pe){
 		if isExpr(pe,EFLAG_FCALL)&&!testUserFlag(pe,QUEUE_FLAG_REACH):return 0
 		if isBuiltin(pe,g_id_stdot):
