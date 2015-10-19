@@ -11,6 +11,7 @@ import Ctobj.*
 ENABLE_FEM_DSL=1
 ENABLE_GVN=1
 ENABLE_DEADELIM=1
+ENABLE_STACK_ALLOCS=1
 DEBUG_MONITOR_REACH=0
 DEBUG_REACH_LOG=0
 DEBUG_EVAL_LOG=0
@@ -916,6 +917,7 @@ auto coreInit()
 		pvar_arg_ret.Sort()
 		pvar_arg_ret.Unique()
 		need_optimization=0
+		setnop_jobs=new PExpression[]
 		if !need_return_scope:
 			cnt_ass=new int[PCTObject]
 			cnt_use=new int[PCTObject]
@@ -940,7 +942,6 @@ auto coreInit()
 			fcount_ass_use(pe_return_value,1)
 			//do single-ass single-use optimization, return can get optimized too -- single-ass return must be the last
 			do_optimization=new PExpression[PCTObject]
-			setnop_jobs=new PExpression[]
 			foreach pvar in pvar_arg_ret
 				pe_ass=cnt_ass[pvar]
 				pe_value=readPool(pe_ass+EXPR_OFS_ARGS+1)
@@ -964,6 +965,51 @@ auto coreInit()
 			as_before.push(pe_store_this)
 		as_before.push(pe_expanded)
 		pecaller_original=readPool(pecall+EXPR_OFS_CALLER)
+		//replace pvar_return (or ITS source) with the parent store target
+		pobj_return_store_replace=0
+		pobj_return_store_replace_with=0
+		is_inline_return_optimized=0
+		if isBuiltin(pecaller_original,g_id_store)&&pvar_return:
+			id_pobjfn=readPool(pobjfn+FUNCTION_OFS_NAME)
+			if (id_pobjfn!=g_id_operator_aa&&
+			id_pobjfn!=g_id_operator_oo&&
+			id_pobjfn!=g_id_operator_select&&
+			id_pobjfn!=g_id_stdfn_function_or&&
+			id_pobjfn!=g_id_stdfn_make_string):
+				pobj_return_store_replace=pvar_return
+				if !need_return_scope:
+					pe_return_store=do_optimization[pvar_return]
+					pe_return_store&=0x7fffffff
+					if pe_return_store:
+						assert(isBuiltin(pe_return_store,g_id_store))
+						if isBuiltin(pe_return_store,g_id_store):
+							pe_return_store=readPool(pe_return_store+EXPR_OFS_ARGS+1)
+							if isExpr(pe_return_store,EFLAG_VARIABLE):
+								pobj_return_store_replace=getVariable(pe_return_store)
+								if do_optimization[pobj_return_store_replace]:
+									//direct param returner
+									pobj_return_store_replace=0
+							else
+								pobj_return_store_replace=0
+				if pobj_return_store_replace:
+					pobj_return_store_replace_with=getVariable(readPool(pecaller_original+EXPR_OFS_ARGS+0))
+					fdetect_return_var_use=function(PExpression pe){
+						if readPool(pe)==EFLAG_VARIABLE+pobj_return_store_replace_with:
+							pobj_return_store_replace=0
+							return 0
+						return !!pobj_return_store_replace
+					}
+					dfsExpr(pe_expanded,fdetect_return_var_use)
+				if pobj_return_store_replace:
+					pobj_return_store_replace_with=getVariable(readPool(pecaller_original+EXPR_OFS_ARGS+0))
+					need_optimization=1
+					setnop_jobs.push(pecaller_original)
+					is_inline_return_optimized=1
+					if DEBUG_EVAL_LOG:
+						Writeln('inline return optimized ',
+							dumpObject(pobj_return_store_replace),' ',dumpObject(pobj_return_store_replace_with),' ',
+							dumpFunction(pobjfn),' ',
+							pe_return_store?dumpExpr(pe_return_store,__zero(fcolorer_callback)):'(*)')
 		pe_final=transformCode(pecall,__zero(ftransformer_callback), as_before,pe_return_value,PExpression[].NULL)
 		//somehow we're needing this - test_js0.spap
 		if testUserFlag(pecaller_original,QUEUE_FLAG_REACH):
@@ -974,34 +1020,38 @@ auto coreInit()
 				//	return 0
 				if isExpr(pe,EFLAG_VARIABLE):
 					auto pvar=getVariable(pe)
-					auto pe_ass=do_optimization[pvar]
-					auto pecaller=readPool(pe+EXPR_OFS_CALLER)
-					auto need_dup=(pe_ass&0x80000000)
-					pe_ass&=0x7fffffff
-					if pe_ass&&pe_ass!=pecaller:
-						pe_replace_with=readPool(pe_ass+EXPR_OFS_ARGS+1)
-						//assert(!!pe_replace_with)
-						//writePool(pe_ass+EXPR_OFS_ARGS+1,0)
-						//Writeln('pe_ass>>> ',dumpExpr(pe_ass,__zero(fcolorer_callback)))
-						//Writeln('pe>>> ',dumpExpr(pe,__zero(fcolorer_callback)))
-						if need_dup:
-							pe_replace_with=cloneExpr(pe_replace_with)
-							writePool(pe_replace_with+EXPR_OFS_EPOS+0,readPool(pe+EXPR_OFS_EPOS+0))
-							writePool(pe_replace_with+EXPR_OFS_EPOS+1,readPool(pe+EXPR_OFS_EPOS+1))
-						else
-							do_optimization[pvar]=0
-							//setnop(pe_ass)
-						//no premature param reach, but we need to reach the return value
-						//wipeepos(pe_replace_with)
-						insertCallAt(pecaller,pe,function(PExpression pe){return pe_replace_with})
-						if pvar==pvar_return:
-							//Writeln('return reach: '+dumpExpr(pe_replace_with,fcolor_reach_eval))
-							sccpQueueReach(pe_replace_with)
-							if testUserFlag(pecaller,QUEUE_FLAG_REACH):
-								flag_pe_replacement=(readPool(pe_replace_with)&EFLAG_MASK)
-								if flag_pe_replacement==EFLAG_CONST||flag_pe_replacement==EFLAG_STRING||flag_pe_replacement==EFLAG_CTVAL:
-									//when const returning inline gets optimized, we need to queue the const user
-									sccpQueueEval(pecaller)
+					if pvar==pobj_return_store_replace:
+						//return store case: replace the original return variable with the store target
+						writePool(pe,EFLAG_VARIABLE+pobj_return_store_replace_with)
+					else if do_optimization:
+						auto pe_ass=do_optimization[pvar]
+						auto pecaller=readPool(pe+EXPR_OFS_CALLER)
+						auto need_dup=(pe_ass&0x80000000)
+						pe_ass&=0x7fffffff
+						if pe_ass&&pe_ass!=pecaller:
+							auto pe_replace_with=readPool(pe_ass+EXPR_OFS_ARGS+1)
+							//assert(!!pe_replace_with)
+							//writePool(pe_ass+EXPR_OFS_ARGS+1,0)
+							//Writeln('pe_ass>>> ',dumpExpr(pe_ass,__zero(fcolorer_callback)))
+							//Writeln('pe>>> ',dumpExpr(pe,__zero(fcolorer_callback)))
+							if need_dup:
+								pe_replace_with=cloneExpr(pe_replace_with)
+								writePool(pe_replace_with+EXPR_OFS_EPOS+0,readPool(pe+EXPR_OFS_EPOS+0))
+								writePool(pe_replace_with+EXPR_OFS_EPOS+1,readPool(pe+EXPR_OFS_EPOS+1))
+							else
+								do_optimization[pvar]=0
+								//setnop(pe_ass)
+							//no premature param reach, but we need to reach the return value
+							//wipeepos(pe_replace_with)
+							insertCallAt(pecaller,pe,function(PExpression pe){return pe_replace_with})
+							if pvar==pvar_return:
+								//Writeln('return reach: '+dumpExpr(pe_replace_with,fcolor_reach_eval))
+								sccpQueueReach(pe_replace_with)
+								if testUserFlag(pecaller,QUEUE_FLAG_REACH):
+									flag_pe_replacement=(readPool(pe_replace_with)&EFLAG_MASK)
+									if flag_pe_replacement==EFLAG_CONST||flag_pe_replacement==EFLAG_STRING||flag_pe_replacement==EFLAG_CTVAL:
+										//when const returning inline gets optimized, we need to queue the const user
+										sccpQueueEval(pecaller)
 					return 0
 				return 1
 			}
@@ -1009,6 +1059,9 @@ auto coreInit()
 			foreach pe in setnop_jobs
 				setnop(pe)
 		setnop(pecall)
+		if DEBUG_EVAL_LOG:
+			if is_inline_return_optimized:
+				Writeln('  ',dumpExpr(pe_final,__zero(fcolorer_callback)))
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	fget_function_return_value=function(PCTObject pobjfn,PExpression pecall){
@@ -1687,7 +1740,7 @@ auto coreInit()
 			g_all_struct_types.push(pobjfn)
 			g_code_buffer=sbk
 			if !is_type_only&&!tisstruct(pobjfn):
-				if pobjfn!=g_t_root_namespace&&id_ccnv!=g_id_class&&!(fn.flags&FFLAG_LAMBDA_LEAKED):
+				if ENABLE_STACK_ALLOCS&&pobjfn!=g_t_root_namespace&&id_ccnv!=g_id_class&&!(fn.flags&FFLAG_LAMBDA_LEAKED):
 					genClassName(pobjfn)
 					g_code_buffer.push(' s7_BSA;')
 					if !g_enable_c_line_info:
@@ -1705,14 +1758,14 @@ auto coreInit()
 						g_code_buffer.push(')),s7_BA):calloc(1,sizeof(')
 						genClassName(pobjfn)
 						g_code_buffer.push(')));')
-					else if fn.flags&FFLAG_LAMBDA_LEAKED:
-						g_code_buffer.push('calloc(1,sizeof(')
-						genClassName(pobjfn)
-						g_code_buffer.push('));')
-					else
+					else if ENABLE_STACK_ALLOCS&&!(fn.flags&FFLAG_LAMBDA_LEAKED):
 						g_code_buffer.push('(memset(&s7_BSA,0,sizeof(')
 						genClassName(pobjfn)
 						g_code_buffer.push(')),&s7_BSA);')
+					else
+						g_code_buffer.push('calloc(1,sizeof(')
+						genClassName(pobjfn)
+						g_code_buffer.push('));')
 		if is_type_only:
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
 		sbak=g_code_buffer
@@ -2025,6 +2078,7 @@ auto coreInit()
 		pesrc=readPool(pecall+EXPR_OFS_ARGS+1)
 		t_src=getExprType(pesrc)
 		if !t_src:
+			//Writeln(dumpExpr(pecall,fcolor_abbrv_blocks))
 			errorAtExpr(ETYPE_ERROR,pecall,"invalid source operand for __cast")
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
 		t_result=getExprValueAs(petype,g_vtid_CTVAL)
@@ -9232,6 +9286,7 @@ auto getRootNamespaceType()
 
 ////////////////////////////
 auto doStackAllocs()
+	if !ENABLE_STACK_ALLOCS:return
 	FLAG_IS_LEAKED=1
 	FLAG_IS_RESIZED=2
 	FLAG_IS_LAMBDAED=4
@@ -9386,6 +9441,20 @@ auto doStackAllocs()
 					Writeln('leak root ',dumpExpr(pe,fcolor_abbrv_blocks))
 				setVarExprLeak(pe_src,FLAG_IS_LEAKED)
 			return 1
+		else if (isBuiltin(pe,g_id_dot)&&
+		readPool(readPool(pe+EXPR_OFS_ARGS+1))==EFLAG_STRING+g_id_set_slice&&
+		readPool(readPool(pe+EXPR_OFS_CALLER)+EXPR_OFS_FUNCTION)==pe):
+			//set_slice, functions as a copy, need to test non-temp case
+			pecaller=readPool(pe+EXPR_OFS_CALLER)
+			pe_var=readPool(pe+EXPR_OFS_ARGS+0)
+			if isExpr(pe_var,EFLAG_VARIABLE):
+				pobj_var=getVariable(pe_var)
+				if !isTempId(readPool(pobj_var+VAR_OFS_ID)):
+					if DEBUG_DUMP_STACKALLOC:
+						Writeln('leak root (slice) ',dumpExpr(readPool(pe+EXPR_OFS_CALLER),fcolor_abbrv_blocks))
+					pe_setslice_arg=readPool(pecaller+EXPR_OFS_ARGS+0)
+					setVarExprLeak(pe_var,FLAG_IS_LEAKED)
+					setVarExprLeak(pe_setslice_arg,FLAG_IS_LEAKED)
 		else if isBuiltin(pe,g_id_store):
 			pe_var=readPool(pe+EXPR_OFS_ARGS+0)
 			pe_value=readPool(pe+EXPR_OFS_ARGS+1)
@@ -9699,6 +9768,7 @@ auto fixConstantTypes()
 			if (val.tid==g_vtid_CTVAL&&readPool(val.val)==g_tid_TFunction||val.tid==g_vtid_STR)&&!isBuiltin(pe,g_id_ldparam):
 				need_to_translate=0
 				ignore_dot=0
+				pobj_var_fptr_type_update=0
 				pobjfn_caller=getExprFunction(pecaller)
 				if val.tid==g_vtid_CTVAL&&readPool(pecaller+EXPR_OFS_FUNCTION)==pe:
 					//dotcall
@@ -9720,6 +9790,7 @@ auto fixConstantTypes()
 					if isBuiltin(pecaller,g_id_stdot):
 						pobj_member=getDotMember(pecaller,1)
 						val_var=readPoolTyped(pobj_member,TSCCPValue)
+						//pobj_var_fptr_type_update=pobj_member
 					else
 						pe_var=readPool(pecaller+EXPR_OFS_ARGS+0)
 						val_var=getExprValue(pe_var)
@@ -9727,6 +9798,7 @@ auto fixConstantTypes()
 						if readPool(pobj_var+VAR_OFS_ID)==g_id_return:
 							//return values have to be translated too
 							val_var.tid=g_vtid_RTVAR
+						pobj_var_fptr_type_update=pobj_var
 					if val_var.tid==g_vtid_RTVAR:
 						//stored to var, translate
 						need_to_translate=1
@@ -9761,8 +9833,15 @@ auto fixConstantTypes()
 						if !tisfunction(t):
 							//Writeln('bad function type: ',dumpType(t),' ',dumpExpr(pe,__zero(fcolorer_callback)))
 							errorAtExpr(ETYPE_ERROR,pe,"'@1' is not a C-like function and cannot be used as a run-time function pointer".Replace(["@1",citeexpr(pe)]))
-						pecaller=readPool(pe+EXPR_OFS_CALLER)
+						//update the store target type if there is one
+						if pobj_var_fptr_type_update:
+							if DEBUG_EVAL_LOG:
+								Writeln('update function type ',dumpObject(pobj_var_fptr_type_update),' ',dumpExpr(pecaller,fcolor_abbrv_blocks))
+							//writePool(pobj_var_fptr_type_update+0,g_vtid_RTVAR)
+							//writePool(pobj_var_fptr_type_update+1,t)
+							fstore_eval_core_ex(pecaller,pobj_var_fptr_type_update,TSCCPValue(){'tid':g_vtid_RTVAR,'val':t},1)
 						//we have to keep pe in case it's a function decl, but we don't want to ass it that way
+						pecaller=readPool(pe+EXPR_OFS_CALLER)
 						sccpQueueReach(insertCallAt(pecaller,pe,function(PExpression pe){
 							auto pe_dummy=(ignore_dot||got_this)?expriptr(0):pe;
 							return indcall([exprctval(getStdObject(0,STDFN_MAKE_FUNCTION)),exprctval(t),pe_this,exprctval(val.val),pe_dummy]);
@@ -11659,7 +11738,16 @@ auto genRefcnt()
 				rc_current.is_cancel_only=i8(0)
 		if rc_current.delta||!rc_current.is_cancel_only:
 			current_rcs_merged.push(rc_current)
-		current_rcs_merged.Sort(inline(rcia,rcib){return rcia.delta>rcib.delta||rcia.delta==rcib.delta&&rcia.v<rcib.v})
+		//current_rcs_merged.Sort(inline(rcia,rcib){return rcia.delta>rcib.delta||rcia.delta==rcib.delta&&rcia.v<rcib.v})
+		current_rcs_merged.Sortby(inline(rci){
+			//positive goes first, temp id goes first, v disambiguities
+			//nullout goes last
+			return u32(
+				(int(rci.need_null_out)<<31)+
+				((rci.delta<=0)<<30)+
+				((rci.v&&!isTempId(readPool(rci.v+VAR_OFS_ID)))<<29)+
+				rci.v)
+		})
 		as_rc_current=new PExpression[]
 		foreach rcitem in current_rcs_merged
 			pe_var=(rcitem.v?exprvar(rcitem.v):expriptr(0))

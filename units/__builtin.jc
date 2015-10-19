@@ -16,7 +16,7 @@ module __basic_api
 	__FFLAG_IS_PARALLEL=1<<21
 	__fflag(log)=__FFLAG_PURE
 
-__meta_state("stdfn.functional_or")=inline(f0,f1){
+__stdfn_functional_or=inline(f0,f1){
 	return inline(){
 		//the 3rd argument of __prototype_matches is a dependency placeholder
 		if __prototype_matches(arguments,f1,0):
@@ -24,7 +24,9 @@ __meta_state("stdfn.functional_or")=inline(f0,f1){
 		else
 			return f0.call(arguments)
 	}
-}
+};
+
+__meta_state("stdfn.functional_or")=__stdfn_functional_or
 
 inline operator&&(a,b)
 	if a:
@@ -102,12 +104,13 @@ struct __FunctionImpl(__ftype_raw)
 	inline Bind(fn_this)
 		return typeof(this)(){ptr_this:__cast(__variant,fn_this),ptr_fn:ptr_fn}
 
-__meta_state("stdtype.function_impl")=__FunctionImpl
-__meta_state("stdfn.make_function")=inline(T,fn_this,fn,dummy){
+__stdfn_make_function=inline(T,fn_this,fn,dummy){
 	//__reach(__variant)
 	dummy;
 	return T(){ptr_this:__cast(__variant,fn_this),ptr_fn:fn}
 }
+__meta_state("stdtype.function_impl")=__FunctionImpl
+__meta_state("stdfn.make_function")=__stdfn_make_function
 
 class __array(T)
 	IS_ARRAY=1
@@ -322,13 +325,18 @@ class __array(T)
 		for(;src.destructor_nbound_or_slice_reference&1L;)
 			//flatten nested slice
 			src=__cast(Array(T),src.destructor_nbound_or_slice_reference-1L)
-		__explicit_rc(src,1);
-		src.destructor_nbound_or_slice_reference+=MAX_DTOR_TYPES*2;
+		dtor_id=(int(src.destructor_nbound_or_slice_reference>>1)&(MAX_DTOR_TYPES-1))
+		if dtor_id==1:
+			//'free'-free memory, we don't need the addref shit
+			this.destructor_nbound_or_slice_reference=2
+		else
+			__explicit_rc(src,1);
+			src.destructor_nbound_or_slice_reference+=MAX_DTOR_TYPES*2;
+			//hack for slice
+			this.destructor_nbound_or_slice_reference=__cast(iptr,src)+1L;
 		this.d=a;
 		this.n=ndata;
 		this.sz=ndata;
-		//hack for slice
-		this.destructor_nbound_or_slice_reference=__cast(iptr,src)+1L;
 		//if IS_CLASS:
 		//	for i in range(ndata)
 		//		tmp=ret[i]
@@ -862,11 +870,12 @@ __FArrayDtor=function(iptr p,iptr sz):int
 __all_array_dtors=new __FArrayDtor[2]
 __meta_state("stdtype.array")=Array
 __meta_state("stdtype.string")=Array(char)
-__meta_state("stdfn.make_string")=inline(ret){
+__stdfn_make_string=inline(ret){
 	//there's a built-in rc for class-returners
 	//__explicit_rc(ret,1)
 	return ret
-}
+};
+__meta_state("stdfn.make_string")=__stdfn_make_string
 
 auto __registerArrayBinder(__FArrayDtor a)
 	__all_array_dtors.push(a)
