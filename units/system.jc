@@ -8617,7 +8617,7 @@ module Console
 		arguments0=arguments
 		s=string()
 		for i in crange(arguments0.length)
-			a=arguments0[i]
+			auto a=arguments0[i]
 			__format_to_string(s,a)
 		return s
 	inline Write()
