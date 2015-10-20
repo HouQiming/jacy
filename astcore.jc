@@ -992,8 +992,23 @@ auto coreInit()
 							if isExpr(pe_return_store,EFLAG_VARIABLE):
 								pobj_return_store_replace=getVariable(pe_return_store)
 								if do_optimization[pobj_return_store_replace]:
-									//direct param returner
+									/*
+									direct param returner, cancel the whole thing - it should have been already optimized
+										we replace original return var occurance with return expression
+										the return expression is a param var
+										which is replaced with param expr
+									*/
 									pobj_return_store_replace=0
+								else
+									//detect global / outsider returners
+									isok=0
+									foreach pvar_cloned in var_map
+										if pobj_return_store_replace==pvar_cloned:
+											isok=1
+											break
+									if !isok:
+										//cancel if it's external return: replacing return var with the global var is enough
+										pobj_return_store_replace=0
 							else
 								pobj_return_store_replace=0
 				if pobj_return_store_replace:
@@ -1010,8 +1025,7 @@ auto coreInit()
 					need_optimization=1
 					setnop_jobs.push(pecaller_original)
 					is_inline_return_optimized=1
-					//if DEBUG_EVAL_LOG:
-					if 1://todo
+					if DEBUG_EVAL_LOG:
 						Writeln('inline return optimized ',
 							dumpObject(pobj_return_store_replace),' ',dumpObject(pobj_return_store_replace_with),' ',
 							dumpFunction(pobjfn),' ',
@@ -9537,7 +9551,7 @@ auto doStackAllocs()
 	for i=0:all_calls.n-1
 		pobjfn_i=int(all_calls[i]>>32)
 		if i&&int(all_calls[i-1]>>32)!=pobjfn_i:
-			writePool(pobjfn_i+FUNCTION_OFS_P_FULL_CALLER_LIST,i)
+			writePool(pobjfn_i+FUNCTION_OFS_P_FULL_CALLER_LIST,int(i))
 	all_calls.push(-1LL)
 	//propagate out
 	fpropagate=function(int flag){
@@ -11949,6 +11963,8 @@ auto genConst(int cid)
 			if n_bits==8:
 				g_code_buffer.push('char ')
 			else
+				//if n_bits!=16:
+				//	Writeln(g_code_buffer,' ',n_bits,' ',cns)
 				assert(n_bits==16)
 				g_code_buffer.push('short ')
 			g_code_buffer.push(')')
