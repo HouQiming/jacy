@@ -1,0 +1,66 @@
+import "system.jc"
+import "javascript.jc"
+import System.Console.*
+import Javascript.*
+
+class CNativeClass
+	string name
+	js_hello=function(JSContext JS){
+		Writeln('name=',name,' param=',JS.Param(0).as(string))
+		return 0
+	}
+	auto __done__()
+		Writeln('native destructed: ',name)
+	auto __JS_prototype(JSObject proto)
+		proto.ExportProperty(this,"name")
+		proto.ExportMethod(this,"hello",js_hello)
+
+(function(){
+	JS=new JSContext
+	///////////
+	global=JS.GetGlobal()
+	global["newNative"]=function(JSContext JS){
+		return JS.Return(new CNativeClass)
+	}
+	JS.debugEval("
+		var g_reference;
+		(function(){
+			print('>>> setting global_reference');
+			g_reference=newNative();g_reference.name='global';
+			g_reference.hello('param');
+			print('>>> setting local');
+			var local=newNative();local.name='local';
+			local.hello('param');
+			print('>>> before return');
+		})();
+		print('>>> releasing global_reference');
+		g_reference=undefined;
+		//////////////////////
+		var HackCallback=function(f){f.prototype=null;return f;}
+		var freturned0=(function(){
+			print('>>> setting local in hacked closure');
+			var local=newNative();local.name='local-in-hacked-closure';
+			print('>>> before return');
+			return HackCallback(function(){local.hello('param');})
+		})();
+		print('>>> calling hacked-closure-returned function');
+		freturned0();
+		print('>>> releasing hacked-closure-returned function');
+		freturned0=undefined;
+		//////////////////////
+		var freturned=(function(){
+			print('>>> setting local in closure');
+			var local=newNative();local.name='local-in-closure';
+			print('>>> before return');
+			return function(){local.hello('param');}
+		})();
+		print('>>> calling closure-returned function');
+		freturned();
+		print('>>> releasing closure-returned function');
+		freturned=undefined;
+		print('>>> call Duktape.gc()');
+		Duktape.gc();
+		print('>>> all done');
+		","<eval>")
+	Writeln('----------------')
+})()

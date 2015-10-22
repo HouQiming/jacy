@@ -616,12 +616,12 @@ class CLine_handler
 
 ///////////////////////////////
 //diff tracker
-/*/
+/*
 use skiplist
 unified ccnt
 	maintain multiple text segments, each segment has a side: base, current, or both
 	maintain one ccnt for each side
-/*/
+*/
 DIFF_SIDE_BASE=1
 DIFF_SIDE_CURRENT=2
 DIFF_SIDE_BOTH=DIFF_SIDE_BASE+DIFF_SIDE_CURRENT

@@ -366,9 +366,9 @@ class CUISandbox
 		m_ui_zip=ParseZip(arr_res_zip)
 	auto UIRunJS(JSContext JS,string fn)
 		err=JS.evalVoid(UIReadAll(fn),fn)
-		if Platform.BUILD=="debug":
-			if err:
-				Writeln(err["stack"].or(""))
+		//if Platform.BUILD=="debug":
+		if err:
+			Writeln(err["stack"].or(""))
 
 class IRendererHook
 	function() BeginFrame

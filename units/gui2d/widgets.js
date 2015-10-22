@@ -553,13 +553,8 @@ W.DrawIconTextEx=function(style,data){
 	W.DrawIconText("",obj,obj);
 };
 
-W.Button=function(id,attrs){
-	//////////////////
-	//styling
-	var obj=UI.Keep(id,attrs,W.Button_prototype);
-	UI.StdStyling(id,obj,attrs, "button",(obj.value?"checked_":"")+(obj.mouse_state||"out"));
-	W.DrawIconText(id,obj,attrs)
-	if(obj.tooltip&&((obj.mouse_state||'out')!='out'||obj.show_tooltip_override)){UI.TopMostWidget(function(){
+W.DrawTooltip=function(obj){
+	UI.TopMostWidget(function(){
 		var tstyle=(obj.tooltip_style||UI.default_styles.tooltip)
 		var dim=UI.MeasureText(tstyle.font,obj.tooltip)
 		dim.w+=tstyle.padding*2
@@ -599,7 +594,18 @@ W.Button=function(id,attrs){
 				tstyle.color,0x25B2)
 		}
 		W.Text("",{x:x+tstyle.padding,y:y+tstyle.padding,font:tstyle.font,text:obj.tooltip,color:tstyle.text_color,flags:14})
-	})}
+	})
+}
+
+W.Button=function(id,attrs){
+	//////////////////
+	//styling
+	var obj=UI.Keep(id,attrs,W.Button_prototype);
+	UI.StdStyling(id,obj,attrs, "button",(obj.value?"checked_":"")+(obj.mouse_state||"out"));
+	W.DrawIconText(id,obj,attrs)
+	if(obj.tooltip&&((obj.mouse_state||'out')!='out'||obj.show_tooltip_override)){
+		W.DrawTooltip(obj)
+	}
 	return W.PureRegion(id,obj);
 }
 

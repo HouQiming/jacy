@@ -15,6 +15,7 @@ ENABLE_STACK_ALLOCS=1
 DEBUG_MONITOR_REACH=0
 DEBUG_REACH_LOG=0
 DEBUG_EVAL_LOG=0
+DEBUG_DUMP_FIX_CONSTANT_TYPES=0
 DEBUG_DUMP_LAMBDA=0
 DEBUG_DUMP_RC=0
 DEBUG_DUMP_FLATTEN=0
@@ -26,7 +27,7 @@ DEBUG_DUMP_DEADELIM=0
 DEBUG_DUMP_PASSES=(Platform.BUILD=="debug")
 DEBUG_DUMP_GVN_DETAILS=0
 DEBUG_DUMP_SCCP=0
-DEBUG_DUMP_STACKALLOC=1//todo: 0
+DEBUG_DUMP_STACKALLOC=0
 ///////////////
 DERIV_HAS_REUSABLE_COMPONENTS=0x80000000
 
@@ -123,7 +124,7 @@ auto getDotMember(PExpression pecall,int do_err)
 	peobj=readPool(pecall+EXPR_OFS_ARGS+0)
 	val_obj=getExprValue(peobj)
 	if val_obj.tid==g_vtid_STR||val_obj.tid==g_vtid_CTVAL:
-		//constant string dotted, force into rtvar
+		//constant string or constant function dotted, force into rtvar
 		pobj_str_var=PCTObject(0)
 		if isExpr(peobj,EFLAG_VARIABLE):
 			pobj_str_var=getVariable(peobj)
@@ -138,6 +139,11 @@ auto getDotMember(PExpression pecall,int do_err)
 			//else
 			t=getValueTypeEx(pecall,val_obj)
 			if !t:return 0
+			if val_obj.tid==g_vtid_CTVAL&&isFunction(val_obj.val):
+				//151022: getValueTypeEx - it doesn't call setFunctionUsed for void functions
+				//151022: need setParameterSlotTypes since we need to setvar its params
+				setFunctionUsed(val_obj.val)
+				setParameterSlotTypes(val_obj.val)
 			fstore_eval_core_ex(pecall,pobj_str_var,TSCCPValue(){tid:g_vtid_RTVAR,'val':t},1)
 	pe_member_name=readPool(pecall+EXPR_OFS_ARGS+1)
 	id_member=getExprValueAs(pe_member_name,g_vtid_STR)
@@ -3038,6 +3044,22 @@ auto coreInit()
 			return TSCCPValue(){'tid':g_vtid_CTVAL,'val':t}
 	}
 	registerPrimitive(g_id_typeof,__zero(fcompiler_callback),ftypeof_oneval,__zero(fcompiler_callback),FFLAG_SPECIAL)
+	ftypename_oneval=function(PExpression pecall,int expr_oplevel){
+		if readPool(pecall+0)!=1+EFLAG_FCALL:
+			errorAtExpr(ETYPE_ERROR,pecall,"__type_name(type) takes exactly 1 parameter")
+			return TSCCPValue(){'tid':g_vtid_UNINIT}
+		pe_opr=readPool(pecall+EXPR_OFS_ARGS+0)
+		val=getExprValue(pe_opr)
+		if val.tid==g_vtid_UNINIT:
+			return TSCCPValue(){'tid':g_vtid_UNINIT}
+		if val.tid==g_vtid_CTVAL:
+			//Writeln(getIdString(readPool(val.val)))
+			t=val.val
+			return TSCCPValue(){'tid':g_vtid_STR,'val':getid(dumpType(t))}
+		errorAtExpr(ETYPE_ERROR,pecall,"__type_name(type) can only take a type as parameter")
+		return TSCCPValue(){'tid':g_vtid_UNINIT}
+	}
+	registerPrimitive(g_id_type_name,__zero(fcompiler_callback),ftypename_oneval,__zero(fcompiler_callback),FFLAG_SPECIAL)
 	farraytype_oneval=function(PExpression pecall,int expr_oplevel){
 		assert(readPool(pecall+0)==1+EFLAG_FCALL)
 		pe_opr=readPool(pecall+EXPR_OFS_ARGS+0)
@@ -7353,6 +7375,9 @@ auto grandsccp()
 		if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
 		if !g_has_untranslated_cdf:break
 	if DEBUG_DUMP_PASSES:{WriteErr(formatNumber(System.Time.t(),{frac:2}),' fixConstantTypes: ')}
+	if g_enable_dump&&DEBUG_DUMP_FIX_CONSTANT_TYPES:
+		Writeln('>>> before fixing constant types')
+		Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
 	fixConstantTypes()
 	if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
 	if g_enable_dump:
@@ -8741,6 +8766,7 @@ auto getStoreTarget(PExpression pe)
 	return getVariable(pevarname)
 
 auto setFunctionUsed(PCTObject pobjfn)
+	//reach the function code
 	//fn=readPoolTyped(pobjfn,TFunction)
 	code=readPool(pobjfn+FUNCTION_OFS_CODE)
 	//reach the value and set up a scope
@@ -9797,6 +9823,8 @@ auto fixConstantTypes()
 						//Writeln(dumpExpr(pecaller,fcolor_reach_eval))
 			if (val.tid==g_vtid_CTVAL&&readPool(val.val)==g_tid_TFunction||val.tid==g_vtid_STR)&&!isBuiltin(pe,g_id_ldparam):
 				need_to_translate=0
+				if DEBUG_DUMP_FIX_CONSTANT_TYPES:
+					need_to_translate_reason="no_need"
 				ignore_dot=0
 				pobj_var_fptr_type_update=0
 				pobjfn_caller=getExprFunction(pecaller)
@@ -9804,16 +9832,22 @@ auto fixConstantTypes()
 					//dotcall
 					need_to_translate=1
 					ignore_dot=1
+					if DEBUG_DUMP_FIX_CONSTANT_TYPES:
+						need_to_translate_reason="dotcall"
 				else if !pobjfn_caller||!(getFFlag(pobjfn_caller)&(FFLAG_BUILTIN|FFLAG_IMPORTED)):
 					//normal call, translate
 					need_to_translate=1
+					if DEBUG_DUMP_FIX_CONSTANT_TYPES:
+						need_to_translate_reason="normalcall"
 				else if isBuiltin(pecaller,g_id_dot)&&readPool(pecaller+EXPR_OFS_ARGS+0)==pe:
 					//val.tid==g_vtid_STR
 					pecaller_caller=readPool(pecaller+EXPR_OFS_CALLER)
 					if readPool(pecaller_caller+EXPR_OFS_FUNCTION)==pecaller:
-						//dot caller - str only so no need of sccp test
-						//141106: it's no longer str only - functions
+						//dot caller - str-only so no need of sccp test
+						//141106: it's no longer str only - function methods
 						need_to_translate=1
+						if DEBUG_DUMP_FIX_CONSTANT_TYPES:
+							need_to_translate_reason="dot_caller"
 				else if ((isBuiltin(pecaller,g_id_store)||isBuiltin(pecaller,g_id_struct_copy))&&readPool(pecaller+EXPR_OFS_ARGS+1)==pe||
 				isBuiltin(pecaller,g_id_stdot)&&readPool(pecaller+EXPR_OFS_ARGS+2)==pe):
 					//it's stored, test the target
@@ -9832,6 +9866,8 @@ auto fixConstantTypes()
 					if val_var.tid==g_vtid_RTVAR:
 						//stored to var, translate
 						need_to_translate=1
+						if DEBUG_DUMP_FIX_CONSTANT_TYPES:
+							need_to_translate_reason="store_to_var"
 				if need_to_translate:
 					//const -> var link, translate
 					//Writeln('>>> '+dumpExpr(pe,fcolor_abbrv_blocks))
@@ -9842,6 +9878,8 @@ auto fixConstantTypes()
 						if !t||!tisfunction(t):
 							//make sure that we don't translate anything wrong
 							return 1
+						if DEBUG_DUMP_FIX_CONSTANT_TYPES:
+							Writeln('translate function const (',need_to_translate_reason,'): ',dumpFunction(val.val),' ',dumpExpr(pecaller,fcolor_abbrv_blocks))
 						setFFlag(val.val,FFLAG_HAS_FPTR_TAKEN)
 						got_this=0
 						if isBuiltin(pe,g_id_dot)&&!ignore_dot:
@@ -9879,6 +9917,8 @@ auto fixConstantTypes()
 						return 1
 					else
 						assert(val.tid==g_vtid_STR)
+						if DEBUG_DUMP_FIX_CONSTANT_TYPES:
+							Writeln('translate string const (',need_to_translate_reason,'): "',getIdString(val.val),'" ',dumpExpr(pecaller,fcolor_abbrv_blocks))
 						//pe_new=indcall([exprctval(getStdObject(0,STDFN_MAKE_STRING)),exprstr(val.val),expriptr(getIdString(val.val).n)])
 						pe_new=indcall([exprctval(getStdObject(0,STDFN_MAKE_STRING)),call(g_id_global_string_cns,exprstr(val.val))])
 						g_all_strings.push(val.val)

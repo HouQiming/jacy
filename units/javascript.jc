@@ -1,4 +1,5 @@
-//todo: pull in duktape.c
+import 'system.jc'
+
 //coulddo: type-weakening: const property names
 //DUK_OPT_NO_JX
 //DUK_OPT_NO_JC
@@ -108,9 +109,21 @@ module duktape
 			///////////////
 			//set up a default finalizer
 			m_all_callbacks.push(function(JSContext JS){
-				duk_to_primitive(JS._ctx(),0,0)
-				vptr=duk_get_pointer(JS._ctx(),0)
+				duk_get_prop_index(JS._ctx(),0,0)
+				duk_to_primitive(JS._ctx(),-1,0)
+				vptr=duk_get_pointer(JS._ctx(),-1)
+				duk_pop(JS._ctx())
 				if vptr:
+					//wipe the pointer first
+					duk_push_pointer(JS._ctx(),NULL)
+					duk_put_prop_index(JS._ctx(),0,0)
+					//duk_get_prop_index(JS._ctx(),0,0)
+					//duk_to_primitive(JS._ctx(),-1,0)
+					//vptr_after_wipe=duk_get_pointer(JS._ctx(),-1)
+					//duk_pop(JS._ctx())
+					//System.Console.Writeln('destructed ',
+					//	formatNumber(uptr(iptr(vptr)),{align:8,base:16}),' ',
+					//	formatNumber(uptr(iptr(vptr_after_wipe)),{align:8,base:16}))
 					ret=__cast(__variant,vptr)
 					__explicit_rc(ret,-1)
 				return 0
@@ -208,8 +221,11 @@ module duktape
 					obj_proto=m_cached_prototypes[rtti]
 					if !obj_proto:
 						obj_proto=New()
-						value.__JS_prototype(obj_proto)
+						fn_proto=value.__JS_prototype
+						fn_proto.Bind(typeof(value).NULL)(obj_proto)
 						m_cached_prototypes[rtti]=obj_proto
+					//System.Console.Writeln('constructed (with prototype) ',__type_name(typeof(value)),' ',
+					//	formatNumber(__cast(iptr,obj),{align:8,base:16}))
 					//////////
 					duk_push_object(_ctx())
 					duk_push_pointer(_ctx(),__cast(__pointer,obj))
@@ -227,6 +243,8 @@ module duktape
 				else
 					obj=variant(value)
 					__explicit_rc(obj,1)
+					//System.Console.Writeln('constructed (no prototype) ',__type_name(typeof(value)),' ',
+					//	formatNumber(__cast(iptr,obj),{align:8,base:16}))
 					duk_push_pointer(_ctx(),__cast(__pointer,obj))
 					//set a releasing finalizer
 					duk_to_object(_ctx(),-1)
@@ -416,7 +434,7 @@ module duktape
 				ret=JSObject.NULL
 			__explicit_rc(this,-1)
 			return ret
-		auto debugEval(string scode,string fnamen)
+		inline debugEval(string scode,string fnamen)
 			errobj=eval(JSObject,scode,fnamen)
 			if errobj&&errobj.has("stack"):
 				//todo: duk_is_error
@@ -627,10 +645,18 @@ module duktape
 			m_jsctx.GetGlobal()["Object"]["defineProperty"].Call(JSObject,this,sname,prop)
 		inline ExportMethod(self,sname,fn)
 			T_class=typeof(self)
+			/*
+			fn2 is mandatory: if we called .Bind on fn:
+				- it forces the METHOD to be RTVAR, 
+				- which makes an unnecessary member,
+				- the access of which involves self,
+				- which is NULL
+			*/
+			fn2=fn
 			this[sname]=function(JSContext JS){
 				native_this=JS.GetNativeThis(T_class)
 				if !native_this:return 0
-				return fn.Bind(native_this)(JS)
+				return fn2.Bind(native_this)(JS)
 			}
 		inline ExportGetterSetter(self,sname,fgetter,fsetter)
 			T_class=typeof(self)
