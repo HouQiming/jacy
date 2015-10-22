@@ -8571,7 +8571,9 @@ module Console
 			fwrite(str,1,str.n,__C(__pointer,"stdout"))
 	auto __format_to_string(string s,auto a)
 		T=typeof(a)
-		if __is_type("builtin",T):
+		if T==__pointer:
+			s.push(formatNumber(uptr(iptr(a)),{align:sizeof(iptr)*2,base:16}))
+		else if __is_type("builtin",T):
 			s.push(string(a))
 		else if T==string:
 			if !a:

@@ -1694,10 +1694,6 @@ UI.Run=function(){
 	var event=null;
 	var t_kill_mousedown=undefined;
 	for(;;){
-		if(UI.Platform.BUILD=="debug"){
-			//this makes memory leaks easier to debug
-			Duktape.gc()
-		}
 		if(UI.need_to_refresh){
 			UI.m_frame_is_invalid=0;
 			UI.DrawFrame();

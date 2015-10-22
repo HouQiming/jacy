@@ -1,3 +1,5 @@
+import "gui2d.jc"
+import "leak-detection.jc"
 import Gui2D.*
 import Gui2D.detail.*
 import Javascript.*
@@ -2575,6 +2577,15 @@ registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){
 	JS_UI["IsWordChar"]=function(JSContext JS){
 		return JS.Return(isWordChar(JS.Param(0).as(int)))
 	}
+	if Platform.BUILD=="debug"&&LeakDetection.isEnabled():
+		LeakDetection.RegisterRTTI(i8[])
+		LeakDetection.RegisterRTTI(int[])
+		LeakDetection.RegisterRTTI(iptr[])
+		LeakDetection.RegisterRTTI(CSLNode)
+		LeakDetection.RegisterRTTI(CDiffSLNode)
+		LeakDetection.RegisterRTTI(CLocator)
+		LeakDetection.RegisterRTTI(CHLRange)
+		LeakDetection.RegisterRTTI(CEditableText)
 })
 
 registerStateHandler("renderer_baseline",CLayouter_baseline)

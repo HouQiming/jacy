@@ -1,0 +1,166 @@
+import "system.jc"
+import System.Console.*
+
+__C(int,"@global:
+#define S7_LD_LEAK_DETECTION_ENABLED 0
+#define s7_LD_real_free free
+")
+
+auto CreateMemorySnapshot()
+	//0: prev, 1: next
+	__C(int,"@global:
+	static void* s7_LD_head[2]={(void*)s7_LD_head,(void*)s7_LD_head};
+	static size_t s7_LD_n_ptrs=0;
+	
+	static void* s7_LD_calloc(size_t sz){
+		void* ptr=calloc(1,sz+sizeof(void*)*3);
+		void* w=s7_LD_head[0];
+		void* x=(void*)s7_LD_head;
+		if(!ptr){return NULL;}
+		((void**)ptr)[0]=w; ((void**)w)[1]=ptr;
+		((void**)ptr)[1]=x; ((void**)x)[0]=ptr;
+		((void**)ptr)[2]=(void*)sz;
+		s7_LD_n_ptrs++;
+		return (void*)(((void**)ptr)+3);
+	}
+	
+	static void s7_LD_free(void* ptrx){
+		void* ptr=(void*)(((void**)ptrx)-3);
+		void* w=((void**)ptr)[0];
+		void* x=((void**)ptr)[1];
+		((void**)w)[1]=x; ((void**)x)[0]=w;
+		s7_LD_n_ptrs--;
+		free(ptr);
+	}
+	
+	static void* s7_LD_realloc(void* ptrx,size_t sz){
+		void* ptr=(void*)(((void**)ptrx)-3);
+		void* w=((void**)ptr)[0];
+		void* x=((void**)ptr)[1];
+		ptr=realloc(ptr,sz+sizeof(void*)*3);
+		if(!ptr){return NULL;}
+		((void**)w)[1]=x; ((void**)x)[0]=w;
+		w=s7_LD_head[0];
+		x=(void*)s7_LD_head;
+		((void**)ptr)[0]=w; ((void**)w)[1]=ptr;
+		((void**)ptr)[1]=x; ((void**)x)[0]=ptr;
+		((void**)ptr)[2]=(void*)sz;
+		return (void*)(((void**)ptr)+3);
+	}
+	
+	#undef s7_LD_real_free
+	static void s7_LD_real_free(void* p){free(p);} 
+	
+	#define calloc(a,b) s7_LD_calloc((a)*(b))
+	#define malloc(a) s7_LD_calloc(a)
+	#define free(a) s7_LD_free(a)
+	#define realloc(a,b) s7_LD_realloc(a,b)
+	#undef S7_LD_LEAK_DETECTION_ENABLED
+	#define S7_LD_LEAK_DETECTION_ENABLED 1
+	
+	")
+	n=__C(iptr,"s7_LD_n_ptrs")
+	ret=new iptr[n+2]
+	p0=iptr(__C(__pointer,"((void*)s7_LD_head)"))
+	p=iptr(__C(__pointer,"(s7_LD_head[1])"))
+	i=0L
+	while p!=p0
+		if i>=ret.n:
+			assert(0)
+			break
+		ret[i]=p
+		i++
+		p=__memory(iptr,p+sizeof(iptr))
+	ret.n=i
+	ret.Sort()
+	return ret
+
+module detail
+	FDumper=function(__variant):string
+	struct TRTTIInfo
+		string name
+		FDumper dump
+	g_previous_state0=iptr[].NULL
+	g_previous_state1=iptr[].NULL
+	g_rtti_map=new TRTTIInfo[iptr]
+
+auto CompareLeaks(iptr[] a0,iptr[] a1,int mask)
+	leaks=new iptr[]
+	p0=0L;p1=0L
+	while p0<a0.n||p1<a1.n:
+		if p0<a0.n&&(p1>=a1.n||a0[p0]<=a1[p1]):
+			//increment p0
+			if p1<a1.n&&a0[p0]==a1[p1]:
+				if mask==3:
+					leaks.push(a0[p0])
+				p1++
+			else
+				if mask==1:
+					leaks.push(a0[p0])
+			p0++
+		else
+			//increment p1 - newly allocated pointer
+			if mask==2:
+				p_leak=a1[p1]
+				if p_leak!=__cast(iptr,a1)&&p_leak!=a1.d:
+					leaks.push(p_leak)
+			p1++
+	return leaks
+	
+auto DetectLeaks()
+	state_new=CreateMemorySnapshot()
+	if detail.g_previous_state0:
+		leaks0=CompareLeaks(detail.g_previous_state0,detail.g_previous_state1,2)
+		leaks1=CompareLeaks(detail.g_previous_state0,state_new,2)
+		leaks=CompareLeaks(leaks0,leaks1,3)
+		if leaks.n:
+			Writeln('=== ',leaks.n,' leaks')
+			foreach p in leaks
+				sz=__memory(iptr,p+sizeof(iptr)*2)
+				Write(formatNumber(p,{align:sizeof(iptr)*2,base:16}),' ',sz,': ')
+				if sz>=16L:
+					for j=0L:15L
+						c=__memory(char,p+sizeof(iptr)*3+j)
+						if !(c>=32&&c<127):
+							c='.'
+						Write(c)
+				Writeln()
+				if sz>=sizeof(iptr)*2:
+					Write('  ')
+					for j=0L:min(4L,sz/sizeof(iptr))-1L
+						word=__memory(iptr,p+(3+j)*sizeof(iptr))
+						if j==1L:
+							rtti_info=detail.g_rtti_map[word]
+							if rtti_info.name:
+								obj=__cast(__variant,p+3*sizeof(iptr))
+								Write(rtti_info.name,rtti_info.dump(obj),' ')
+								continue
+						Write(formatNumber(uptr(word),{align:sizeof(iptr)*2,base:16}),' ')
+					Writeln()
+	detail.g_previous_state0=detail.g_previous_state1
+	detail.g_previous_state1=state_new
+
+inline RegisterRTTI(T)
+	rtti=iptr(__get_rtti(T))
+	if !detail.g_rtti_map[rtti].name:
+		//Writeln('RegisterRTTI ',rtti,' ',__type_name(T))
+		detail.g_rtti_map[rtti]=detail.TRTTIInfo(){
+			name:__type_name(T),
+			dump:function(__variant obj){
+				p=obj.as(T)
+				if p:
+					if readOptionalMember(p,"IS_ARRAY",0):
+						return FormatAsText('*',p.n)
+					else
+						return ""//FormatAsText(p)
+				else
+					//return "<RTTI-dump-failed>"
+					return ""
+			}
+		}
+
+inline isEnabled()
+	return __C(int,"S7_LD_LEAK_DETECTION_ENABLED")
+
+inline realFree(__pointer p)
+	__C(int,"s7_LD_real_free(@1)",p)

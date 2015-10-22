@@ -7517,8 +7517,10 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 				block_id_write=USER_FLAG_MASK
 			else
 				pecaller=readPool(pe+EXPR_OFS_CALLER)
-				if pecaller&&isBuiltin(pecaller,g_id_aliased)||readPool(pobj_var)==g_vtid_RTVAR&&tisclass(pobj_var+1):
-					//don't mess with the aliased! or class/struct!
+				//151022: this condition wasn't even working!
+				//if pecaller&&isBuiltin(pecaller,g_id_aliased)||readPool(pobj_var)==g_vtid_RTVAR&&tisclass(pobj_var+1):
+				if pecaller&&isBuiltin(pecaller,g_id_aliased):
+					//don't mess with the aliased!
 					block_id_write=USER_FLAG_MASK
 			writePool(pobj_var+VAR_OFS_USER_FLAGS,(flag0&~USER_FLAG_MASK)|block_id_write)
 			return

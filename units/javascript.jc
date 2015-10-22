@@ -1,4 +1,5 @@
 import 'system.jc'
+import 'leak-detection.jc'
 
 //coulddo: type-weakening: const property names
 //DUK_OPT_NO_JX
@@ -134,7 +135,7 @@ module duktape
 			duk_get_prop_index(_ctx(),-1,0)
 			duk_remove(_ctx(),-2)
 		auto _alloc_refid()
-			if m_ref_first_free>=0:
+			if m_ref_first_free>0:
 				//fetch the next free list element
 				ret=m_ref_first_free
 				//[] -> [array]
@@ -145,7 +146,9 @@ module duktape
 				//pop
 				m_ref_first_free=duk_get_int(_ctx(),-1)
 				duk_pop(_ctx())
-			return m_ref_count++
+			else
+				ret=m_ref_count++
+			return ret
 		auto _free_refid(int refid)
 			_push_stash_array()
 			duk_push_int(_ctx(),m_ref_first_free)
@@ -161,16 +164,16 @@ module duktape
 			duk_put_prop_index(_ctx(),-2,refid)
 			//leaves the stash array in the stack
 			return refid
-		auto _pop_function()
-			if !duk_is_function(_ctx(),-1):
-				duk_pop(_ctx())
-				duk_push_undefined(_ctx())
-			refid=_alloc_refid()
-			_push_stash_array()
-			duk_swap_top(_ctx(),-2)
-			duk_put_prop_index(_ctx(),-2,refid)
-			//leaves the stash array in the stack
-			return refid
+		//auto _pop_function()
+		//	if !duk_is_function(_ctx(),-1):
+		//		duk_pop(_ctx())
+		//		duk_push_undefined(_ctx())
+		//	refid=_alloc_refid()
+		//	_push_stash_array()
+		//	duk_swap_top(_ctx(),-2)
+		//	duk_put_prop_index(_ctx(),-2,refid)
+		//	//leaves the stash array in the stack
+		//	return refid
 		auto _push_object(int refid)
 			_push_stash_array()
 			duk_get_prop_index(_ctx(),-1,refid);
@@ -224,6 +227,8 @@ module duktape
 						fn_proto=value.__JS_prototype
 						fn_proto.Bind(typeof(value).NULL)(obj_proto)
 						m_cached_prototypes[rtti]=obj_proto
+						if Platform.BUILD=="debug"&&LeakDetection.isEnabled():
+							LeakDetection.RegisterRTTI(typeof(value))
 					//System.Console.Writeln('constructed (with prototype) ',__type_name(typeof(value)),' ',
 					//	formatNumber(__cast(iptr,obj),{align:8,base:16}))
 					//////////
@@ -242,12 +247,20 @@ module duktape
 					duk_push_undefined(_ctx())
 				else
 					obj=variant(value)
+					if __is_type("struct",typeof(value))
+						if Platform.BUILD=="debug"&&LeakDetection.isEnabled():
+							LeakDetection.RegisterRTTI(__Box(typeof(value)))
+					else
+						if Platform.BUILD=="debug"&&LeakDetection.isEnabled():
+							LeakDetection.RegisterRTTI(typeof(value))
 					__explicit_rc(obj,1)
 					//System.Console.Writeln('constructed (no prototype) ',__type_name(typeof(value)),' ',
 					//	formatNumber(__cast(iptr,obj),{align:8,base:16}))
+					//duk_push_pointer(_ctx(),__cast(__pointer,obj))
+					//duk_to_object(_ctx(),-1)
+					duk_push_object(_ctx())
 					duk_push_pointer(_ctx(),__cast(__pointer,obj))
-					//set a releasing finalizer
-					duk_to_object(_ctx(),-1)
+					duk_put_prop_index(_ctx(),-2,0);
 					////////////
 					//set the finalizer
 					__C(int,"duk_push_c_function(@1,s7_CB_duktape,1)",_ctx())
@@ -301,7 +314,7 @@ module duktape
 				//	ret=JSFunction(){"m_jsctx":this,"m_handle":refid}
 			else if T==__pointer:
 				ret=duk_get_pointer(_ctx(),-1)
-			else if __has_member(__zero(T),"__JS_prototype")
+			else// if __has_member(__zero(T),"__JS_prototype")
 				if duk_is_null_or_undefined(_ctx(),-1):
 					ret=__zero(T)
 				else
@@ -313,16 +326,6 @@ module duktape
 					else
 						ret=__cast(__variant,vptr).as(T)
 					duk_pop(_ctx())
-			else
-				if duk_is_null_or_undefined(_ctx(),-1):
-					ret=__zero(T)
-				else
-					duk_to_primitive(_ctx(),-1,0)
-					vptr=duk_get_pointer(_ctx(),-1)
-					if !vptr:
-						ret=__zero(T)
-					else
-						ret=__cast(__variant,vptr).as(T)
 			if count==1:
 				duk_pop(_ctx())
 			else
@@ -658,9 +661,11 @@ module duktape
 				if !native_this:return 0
 				return fn2.Bind(native_this)(JS)
 			}
-		inline ExportGetterSetter(self,sname,fgetter,fsetter)
+		inline ExportGetterSetter(self,sname,fgetter0,fsetter0)
 			T_class=typeof(self)
 			prop=m_jsctx.New()
+			fgetter=fgetter0
+			fsetter=fsetter0
 			if fgetter:
 				prop["get"]=function(JSContext JS){
 					js_this=JS.GetThis();

@@ -1,4 +1,5 @@
 //sharpening filter for font -- just downsample it differently... would it even work?
+import "leak-detection.jc"
 import Javascript.*
 import SDL.*
 import GL.*
@@ -1284,9 +1285,14 @@ class CRenderer
 		surf=stbi_load_from_memory(__pointer(data.d),int(data.n),&w,&h,&comp,4)
 		if !surf:return TBitmap()
 		ret=new int[]
-		ret.d=iptr(surf)
-		ret.n=iptr(w*h)
-		ret.sz=ret.n
+		if Platform.BUILD=="debug"&&LeakDetection.isEnabled():
+			ret.resize(w*h)
+			__basic_api.memcpy(__pointer(ret.d),surf,w*h*sizeof(int))
+			LeakDetection.realFree(surf)
+		else
+			ret.d=iptr(surf)
+			ret.n=iptr(w*h)
+			ret.sz=ret.n
 		return TBitmap(){rgba:ret,w:w,h:h}
 	////////////////
 	auto CacheRR(float radius0,float arg,const is_border)
@@ -1679,7 +1685,6 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 		return 0
 	}
 	//////////////////
-	//todo: dynamic bmp drawing - create an object, store cached dynid in there, wipe at BeginFrame
 	//if is_real:
 	//	JS_UI["DrawBitmap"]=function(JSContext JS){
 	//		bmpid=JS.Param(0).or(0)
@@ -1956,6 +1961,8 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			if !fn:return 0
 			return JS.Return(fn)
 		}
+	////////////////////////////////////////////
+	//leak detection
 	foreach f in g_ui_exts
 		f(JS_UI,sbox,is_real)
 	return JS_UI
@@ -1964,9 +1971,14 @@ auto inflate(string sin)
 	outlen=0
 	ptr_ret=stbi_zlib_decode_noheader_malloc(__pointer(sin.d),sin.n, &outlen);
 	ret=new string
-	ret.d=iptr(ptr_ret)
-	ret.n=iptr(outlen)
-	ret.sz=iptr(outlen)
+	if Platform.BUILD=="debug"&&LeakDetection.isEnabled():
+		ret.resize(outlen)
+		__basic_api.memcpy(__pointer(ret.d),ptr_ret,outlen)
+		LeakDetection.realFree(ptr_ret)
+	else
+		ret.d=iptr(ptr_ret)
+		ret.n=iptr(outlen)
+		ret.sz=iptr(outlen)
 	return ret
 	
 class CZipItem
