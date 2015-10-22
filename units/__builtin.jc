@@ -986,7 +986,7 @@ class Map(T0,T1)
 	struct KVPair
 		k=__zero(T0)
 		v=__zero(T1)
-	m_data=KVPair[1]
+	m_data=new KVPair[1]
 	m_hash=new iptr[]
 	inline __clone__()
 		ret=Map(T0,T1)()
@@ -994,7 +994,7 @@ class Map(T0,T1)
 		ret.m_hash=__builtin.clone(m_hash)
 		return ret
 	auto _grow_from(iptr sz)
-		hash2=iptr[sz?sz*2:8L]
+		hash2=new iptr[sz?sz*2:8L]
 		mask=hash2.n-1
 		for kv,I in m_data
 			if I:
