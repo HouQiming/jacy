@@ -1,5 +1,6 @@
 import 'system.jc'
 import 'leak-detection.jc'
+import System.Console.*
 
 //coulddo: type-weakening: const property names
 //DUK_OPT_NO_JX
@@ -37,7 +38,7 @@ module duktape
 	duk_push_global_object=__c_function(int,"duk_push_global_object","duktape.h")
 	duk_put_prop_index=__c_function(int,"duk_put_prop_index","duktape.h")
 	duk_put_prop=__c_function(int,"duk_put_prop","duktape.h")
-	duk_set_magic=__c_function(int,"duk_set_magic","duktape.h")
+	//duk_set_magic=__c_function(int,"duk_set_magic","duktape.h")
 	duk_is_object=__c_function(int,"duk_is_object","duktape.h")
 	duk_is_function=__c_function(int,"duk_is_function","duktape.h")
 	duk_is_undefined=__c_function(int,"duk_is_undefined","duktape.h")
@@ -70,26 +71,57 @@ module duktape
 	//problem: we can't assign it willy-nilly, the RC doesn't work for funcobjs, most likely we just get a bunch of global API
 	//use magic
 	JSNativeCallback=function(JSContext):int
-	auto call_ctx_callback(__pointer hctx,int fid)
-		duk_push_heap_stash(hctx);
-		duk_get_prop_index(hctx,-1,1)
-		pctx=__cast(JSContext,duk_get_pointer(hctx,-1))
-		duk_pop_2(hctx)
-		return pctx.m_all_callbacks[fid](pctx)
+	JSNativeCallbackImpl=function():int
+	auto js_call(__pointer vptr)
+		ret=0
+		obj=__cast(__variant,vptr)
+		if obj:
+			f=obj.as(JSNativeCallbackImpl)
+			if f:
+				ret=f()
+		return ret
+	auto js_release(__pointer vptr)
+		ret=__cast(__variant,vptr)
+		__explicit_rc(ret,-1)
+		return 0
 	__C(int,"@global:
-	typedef int(*s7_CB_duktape_fptr)(void*,int);
-	duk_ret_t s7_CB_duktape(duk_context *ctx){
-		duk_int_t magic=duk_get_current_magic(ctx);
-		int ret=((s7_CB_duktape_fptr)@1)((void*)ctx,(int)magic);
-		if(ret==-1){duk_throw(ctx);}
-		return ret;
-	}",call_ctx_callback)
-	__reach(call_ctx_callback)
+	typedef int(*s7_CB_duktape_fptr)(void*);
+
+	duk_ret_t s7_CB_duktape_call(duk_context *ctx){
+		void* vptr=NULL;
+		duk_push_current_function(ctx);
+		duk_get_prop_index(ctx,-1,0);
+		duk_to_primitive(ctx,-1,0);
+		vptr=duk_get_pointer(ctx,-1);
+		duk_pop_2(ctx);
+		if(vptr){
+			return ((s7_CB_duktape_fptr)@1)(vptr);
+		}else{
+			return 0;
+		}
+	}
+	
+	duk_ret_t s7_CB_duktape_finalizer(duk_context *ctx){
+		void* vptr=NULL;
+		duk_get_prop_index(ctx,0,0);
+		duk_to_primitive(ctx,-1,0);
+		vptr=duk_get_pointer(ctx,-1);
+		duk_pop(ctx);
+		if(vptr){
+			duk_push_pointer(ctx,NULL);
+			duk_put_prop_index(ctx,0,0);
+			((s7_CB_duktape_fptr)@2)(vptr);
+		}
+		return 0;
+	}
+	",js_call,js_release)
+	__reach(js_call)
+	__reach(js_release)
 	class JSContext
 		m_hctx=duk_create_heap_default()
 		m_ref_first_free=-1
 		m_ref_count=1
-		m_all_callbacks=new JSNativeCallback[]
+		m_stash_array_position=1
 		m_cached_prototypes=new JSObject[iptr]
 		inline _ctx()
 			return __C(__pointer,"(duk_context*)@1",m_hctx)
@@ -98,41 +130,27 @@ module duktape
 		///////////
 		//init the ref-holding stash
 		auto _init_stash()
-			//set-up stash[0] as an array of ref-holders, ref 0 is always the global object
 			duk_push_heap_stash(_ctx());
+			//find out whether there is another JC module using the context
+			duk_get_prop_index(_ctx(),-1,0)
+			if duk_is_null_or_undefined(_ctx(),-1):
+				m_stash_array_position=1
+			else
+				m_stash_array_position=duk_get_int(_ctx(),-1)+1
+			duk_pop(_ctx());
+			duk_push_int(_ctx(),m_stash_array_position)
+			duk_put_prop_index(_ctx(),-2,0);//stash[0]=m_stash_array_position
+			//////////////////////////////////////////
+			//set-up stash[m_stash_array_position] as an array of ref-holders, ref 0 is always the global object
 			duk_push_array(_ctx());
 			duk_push_global_object(_ctx())
 			duk_put_prop_index(_ctx(),-2,0);//array[0]=global
-			duk_put_prop_index(_ctx(),-2,0);//stash[0]=array[0]
-			duk_push_pointer(_ctx(),__cast(__pointer,this))
-			duk_put_prop_index(_ctx(),-2,1);//stash[1]=this
+			duk_put_prop_index(_ctx(),-2,m_stash_array_position);//stash[m_stash_array_position]=array
 			duk_pop(_ctx());
-			///////////////
-			//set up a default finalizer
-			m_all_callbacks.push(function(JSContext JS){
-				duk_get_prop_index(JS._ctx(),0,0)
-				duk_to_primitive(JS._ctx(),-1,0)
-				vptr=duk_get_pointer(JS._ctx(),-1)
-				duk_pop(JS._ctx())
-				if vptr:
-					//wipe the pointer first
-					duk_push_pointer(JS._ctx(),NULL)
-					duk_put_prop_index(JS._ctx(),0,0)
-					//duk_get_prop_index(JS._ctx(),0,0)
-					//duk_to_primitive(JS._ctx(),-1,0)
-					//vptr_after_wipe=duk_get_pointer(JS._ctx(),-1)
-					//duk_pop(JS._ctx())
-					//System.Console.Writeln('destructed ',
-					//	formatNumber(uptr(iptr(vptr)),{align:8,base:16}),' ',
-					//	formatNumber(uptr(iptr(vptr_after_wipe)),{align:8,base:16}))
-					ret=__cast(__variant,vptr)
-					__explicit_rc(ret,-1)
-				return 0
-			})
 		//ref allocation / free
 		inline _push_stash_array()
 			duk_push_heap_stash(_ctx());
-			duk_get_prop_index(_ctx(),-1,0)
+			duk_get_prop_index(_ctx(),-1,m_stash_array_position)
 			duk_remove(_ctx(),-2)
 		auto _alloc_refid()
 			if m_ref_first_free>0:
@@ -188,11 +206,17 @@ module duktape
 			else if __is_type("int",T)||__is_type("float",T)://&&T!=i64&&T!=u64
 				duk_push_number(_ctx(),double(value))
 			else if T==JSNativeCallback:
-				//wrap it up in s7_CB_duktape
-				fid=int(m_all_callbacks.n)
-				m_all_callbacks.push(value)
-				__C(int,"duk_push_c_function(@1,s7_CB_duktape,DUK_VARARGS)",_ctx())
-				duk_set_magic(_ctx(),-1,fid)
+				//wrap it up in s7_CB_duktape_call
+				__C(int,"duk_push_c_function(@1,s7_CB_duktape_call,DUK_VARARGS)",_ctx())
+				//create the function object
+				obj=variant(function(){return value(this);})
+				__explicit_rc(obj,1)
+				duk_push_pointer(_ctx(),__cast(__pointer,obj))
+				duk_put_prop_index(_ctx(),-2,0);
+				duk_push_undefined(_ctx())
+				duk_set_prototype(_ctx(),-2)
+				__C(int,"duk_push_c_function(@1,s7_CB_duktape_finalizer,1)",_ctx())
+				duk_set_finalizer(_ctx(),-2)
 			else if T==JSObject://||T==JSFunction:
 				if !value:
 					duk_push_undefined(_ctx())
@@ -239,8 +263,7 @@ module duktape
 					duk_set_prototype(_ctx(),-2)
 					////////////
 					//set the finalizer
-					__C(int,"duk_push_c_function(@1,s7_CB_duktape,1)",_ctx())
-					duk_set_magic(_ctx(),-1,0)
+					__C(int,"duk_push_c_function(@1,s7_CB_duktape_finalizer,1)",_ctx())
 					duk_set_finalizer(_ctx(),-2)
 			else
 				if !value:
@@ -261,10 +284,11 @@ module duktape
 					duk_push_object(_ctx())
 					duk_push_pointer(_ctx(),__cast(__pointer,obj))
 					duk_put_prop_index(_ctx(),-2,0);
+					duk_push_undefined(_ctx())
+					duk_set_prototype(_ctx(),-2)
 					////////////
 					//set the finalizer
-					__C(int,"duk_push_c_function(@1,s7_CB_duktape,1)",_ctx())
-					duk_set_magic(_ctx(),-1,0)
+					__C(int,"duk_push_c_function(@1,s7_CB_duktape_finalizer,1)",_ctx())
 					duk_set_finalizer(_ctx(),-2)
 		inline _put_prop_and_pop(value)
 			_push_value(value)

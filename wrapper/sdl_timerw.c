@@ -26,7 +26,8 @@ static int SDLCALL EventFilterRemoveDupTimers(void* userdata, SDL_Event* pevent)
 	}
 }
 
-EXPORT void SDL_ClearInterval(SDL_TimerID timer_id,void* userdata){
-	SDL_RemoveTimer(timer_id);
+EXPORT int SDL_ClearInterval(SDL_TimerID timer_id,void* userdata){
+	int ret=SDL_RemoveTimer(timer_id);
 	SDL_FilterEvents(EventFilterRemoveDupTimers,userdata);
+	return ret;
 }

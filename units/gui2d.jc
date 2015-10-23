@@ -1935,32 +1935,39 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 	///////////////////////////////////
 	//timer
 	if is_real:
-		timer_user_data=new JSObject[int]
-		sdl_badapi_hack_callback_to_timer_id=new int[iptr]
+		//timer_user_data=new JSObject[int]
+		//sdl_badapi_hack_callback_to_timer_id=new int[iptr]
+		//we need a stable handle as the native userdata
 		JS_UI["setInterval"]=function(JSContext JS){
 			fn=JS.Param(0).as(JSObject)
 			if !fn:return 0
 			interval=JS.Param(1).as(int)
 			if !(interval>0):return 0
-			timer_id=SDL_SetInterval(interval,__pointer(fn));
-			timer_user_data[timer_id]=fn
-			sdl_badapi_hack_callback_to_timer_id[iptr(fn)]=timer_id
-			return JS.Return(timer_id)
+			timer_id=SDL_SetInterval(interval,__cast(__pointer,fn));
+			fn[1]=timer_id
+			__explicit_rc(fn,1)
+			//timer_user_data[timer_id]=fn
+			//sdl_badapi_hack_callback_to_timer_id[iptr(fn)]=timer_id
+			//Writeln('setInterval ',interval,' -> #',timer_id)
+			return JS.Return(__cast(__pointer,fn))
 		}
 		JS_UI["clearInterval"]=function(JSContext JS){
-			timer_id=JS.Param(0).as(int)
-			fn=timer_user_data[timer_id]
-			if !fn:return 0
-			sdl_badapi_hack_callback_to_timer_id[iptr(fn)]=0
-			SDL_ClearInterval(timer_id,__pointer(fn));
-			timer_user_data[timer_id]=JSObject.NULL
-			return JS.Return(1)
+			ptr=JS.Param(0).as(__pointer)
+			if !ptr:return 0
+			fn=__cast(JSObject,ptr)
+			timer_id=fn[1].as(int)
+			ret=SDL_ClearInterval(timer_id,__cast(__pointer,fn));
+			//Writeln('clearInterval #',timer_id,' ',ret)
+			if ret:
+				__explicit_rc(fn,-1)
+			return JS.Return(ret)
 		}
 		JS_UI["getTimerFunction"]=function(JSContext JS){
-			timer_id=JS.Param(0).as(__pointer)
-			if !timer_id:return 0
-			fn=timer_user_data[sdl_badapi_hack_callback_to_timer_id[iptr(timer_id)]]
-			if !fn:return 0
+			ptr=JS.Param(0).as(__pointer)
+			if !ptr:return 0
+			//fn=timer_user_data[sdl_badapi_hack_callback_to_timer_id[iptr(timer_id)]]
+			//if !fn:return 0
+			fn=__cast(JSObject,ptr)
 			return JS.Return(fn)
 		}
 	////////////////////////////////////////////

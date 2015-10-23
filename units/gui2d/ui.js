@@ -952,16 +952,22 @@ UI.SDLK_PGUP=UI.SDLK_PAGEUP
 UI.SDLK_INS=UI.SDLK_INSERT
 UI.SDLK_DEL=UI.SDLK_DELETE
 
+UI.HackCallback=function(f){
+	f.prototype=null;
+	return f;
+}
+
 UI.setTimeout=function(f,ms){
+	f=UI.HackCallback(f);
 	var timer_id;
-	timer_id=UI.setInterval(function(){UI.clearInterval(timer_id);f();},ms);
+	timer_id=UI.setInterval(UI.HackCallback(function(){UI.clearInterval(timer_id);f();}),ms);
 	return timer_id;
 };
 
 var g_auto_refresh_timer_id;
 var g_need_auto_refresh=0
 UI.animation_framerate=60;
-var fauto_refresher=function(){
+var fauto_refresher=UI.HackCallback(function(){
 	if(g_need_auto_refresh){
 		g_need_auto_refresh=0;
 		UI.Refresh()
@@ -970,7 +976,7 @@ var fauto_refresher=function(){
 		g_auto_refresh_timer_id=undefined;
 		UI.clearInterval(my_id);
 	}
-}
+})
 
 UI.AutoRefresh=function(){
 	if(!UI.is_real){return;}
@@ -1060,11 +1066,6 @@ UI.Keep=function(id,attrs,prototype){
 UI.Ditch=function(id){
 	var parent=UI.context_parent;
 	parent[id]=null;
-}
-
-UI.HackCallback=function(f){
-	f.prototype=null;
-	return f;
 }
 
 UI.HackAllCallbacks=function(attrs){
