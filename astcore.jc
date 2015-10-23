@@ -10613,11 +10613,6 @@ auto translateLambdas()
 					pe_loop_recurse=pe
 			else if isBuiltin(pe,g_id_function):
 				pe_loop_recurse=0
-				//151023: if there is a 'return' in the middle of the function, we have to be conservative about the live range!
-				//but for the purpose of struct allocation, we can ignore this
-				//but we need to run the struct dtor in case the 'return' happens
-				//put in 'return' events and implementDestructor at them
-				!?
 			nargs=(flags&~EFLAG_MASK)
 			for i=-1:nargs-1
 				dfsLiveRange(readPool(pe+EXPR_OFS_ARGS+i),pe_loop_recurse)
@@ -10740,7 +10735,15 @@ auto translateLambdas()
 				foreach pv_str_member in str_member_list
 					pe_var=call(g_id_ldlambda,pe_var,exprctval(pv_str_member))
 				as.push(call(g_id_stlambda,pe_var,exprctval(pv_member),exprcns(getid_const(CTYPE_TYPED_NULL,i64(t_member)))))
-	auto processAllocJobs(PExpression pe,int[] vslotids_recurse)
+	REMODE_FREE=0
+	REMODE_RETURN=1
+	REMODE_ALLOC=2
+	struct TReturnJob
+		PExpression pe_insert_at
+		PCTObject pobj_var
+		//PCTObject t
+		int mode
+	auto processAllocJobs(PExpression pe,int[] vslotids_recurse,TReturnJob[] return_events)
 		vslotids_recurse.Sort()
 		vslotids_recurse.Unique()
 		struct TAllocJob
@@ -10871,6 +10874,8 @@ auto translateLambdas()
 			//sccpQueueReach(insertCallAt(pecaller,pe_insert_at_current,function(PExpression pe_original){as.push(pe_original);return vcall(g_id_block,as)}))
 		foreach aj,I in alloc_jobs
 			if !aj.is_free:
+				if return_events.n:
+					return_events.push(TReturnJob(){'pe_insert_at':aj.pe_insert_at,'pobj_var':aj.pobj_var,'mode':REMODE_ALLOC})
 				if pe_insert_at_current!=aj.pe_insert_at:
 					flushSlotGetters()
 					pe_insert_at_current=aj.pe_insert_at
@@ -10890,6 +10895,8 @@ auto translateLambdas()
 		foreach aj,I in alloc_jobs
 			if aj.is_free:
 				pe_block_level_point=promoteToRealBlockLevel(aj.pe_insert_at)
+				if return_events.n:
+					return_events.push(TReturnJob(){'pe_insert_at':pe_block_level_point,'pobj_var':aj.pobj_var,'mode':REMODE_FREE})
 				if pe_insert_at_current!=pe_block_level_point:
 					flushStructDestructors()
 					pe_insert_at_current=pe_block_level_point
@@ -10898,8 +10905,47 @@ auto translateLambdas()
 				pv_src=aj.pobj_var
 				implementDestructor(as,pv_src,aj.t)
 		flushStructDestructors()
-	auto dfsRealAllocation(PExpression pe,int[] vslotids)
+		//generate additional destructions at return events
+		if return_events.n:
+			//sort return events backwards
+			return_events.Sortby(inline(re){
+				auto slotid=getExprSlotid(re.pe_insert_at)
+				if re.mode==REMODE_ALLOC:
+					slotid=fgetbirthid(slotid)
+				return slotid*4+re.mode
+			})
+			vs=new PCTObject[]
+			foreach re in return_events 
+				switch(re.mode){
+				case REMODE_FREE:
+					vs.push(re.pobj_var)
+					break
+				case REMODE_RETURN:
+					auto as=new PExpression[]
+					foreach pobj_var in vs
+						t=getVariableType(pobj_var)
+						implementDestructor(as,pobj_var,t)
+					if as.n:
+						pe_updated=transformCode(re.pe_insert_at,__zero(ftransformer_callback),as,0,PExpression[].NULL)
+						if DEBUG_DUMP_RC:
+							Writeln('dtor added before return: ',dumpExpr(pe_updated,__zero(fcolorer_callback)))
+					as=PExpression[].NULL
+					break
+				case REMODE_ALLOC:
+					pobj_var_tmp=0
+					for j=vs.n-1:-1:0
+						pv=vs[j]
+						vs[j]=pobj_var_tmp
+						pobj_var_tmp=pv
+						if pobj_var_tmp==re.pobj_var:break
+					assert(pobj_var_tmp==re.pobj_var)
+					vs.pop()
+					break
+				}
+	auto dfsRealAllocation(PExpression pe,int[] vslotids,TReturnJob[] return_events,int id_return_label)
 		vslotids_recurse=vslotids
+		return_events_recurse=return_events
+		id_return_label_recurse=id_return_label
 		auto flags=readPool(pe)
 		if (flags&EFLAG_MASK)==EFLAG_FCALL:
 			//if !testUserFlag(pe,QUEUE_FLAG_REACH)&&isBuiltin(pe,g_id_block):return
@@ -10907,18 +10953,29 @@ auto translateLambdas()
 			if isBuiltin(pe,g_id_function):
 				is_function=1
 				vslotids_recurse=new int[]
+				return_events_recurse=new TReturnJob[]
+				id_return_label_recurse=getReturnLabel(getExprValueAs(pe,g_vtid_CTVAL))
+			else if isBuiltin(pe,g_id_blockex):
+				id_word=getExprValueAs(readPool(pe+EXPR_OFS_ARGS+0),g_vtid_STR)
+				if id_word==id_return_label_recurse:
+					//151023: if there is a 'return' in the middle of a function,
+					//we need to run the struct dtor in case the 'return' happens
+					//put in 'return' events and implementDestructor at them
+					//should put in dtor for the free events they skip over
+					//the lowest bit is the 'is-free' tag
+					return_events.push(TReturnJob(){'pe_insert_at':pe,'mode':REMODE_RETURN})
 			n_args=(flags&~EFLAG_MASK)
 			for i=-1:n_args-1
-				dfsRealAllocation(readPool(pe+EXPR_OFS_ARGS+i),vslotids_recurse)
+				dfsRealAllocation(readPool(pe+EXPR_OFS_ARGS+i),vslotids_recurse,return_events_recurse,id_return_label_recurse)
 			if is_function&&vslotids_recurse.n:
-				processAllocJobs(pe,vslotids_recurse)
+				processAllocJobs(pe,vslotids_recurse,return_events_recurse)
 		else if (flags&EFLAG_MASK)==EFLAG_VARIABLE:
 			pobj_var=getVariable(pe)
 			vflags=readPool(pobj_var+VAR_OFS_USER_FLAGS)
-			if vflags&VAR_USER_FLAG_RC_SLOT_ALLOCATED
+			if vflags&VAR_USER_FLAG_RC_SLOT_ALLOCATED:
 				vslotids.push(vflags&VAR_USER_FLAG_RC_SLOTID_MASK)
 	//Writeln('--- 54')
-	dfsRealAllocation(g_pe_top,int[].NULL)
+	dfsRealAllocation(g_pe_top,int[].NULL,TReturnJob[].NULL,0)
 	//generate the explicit destructions... detect copy from NULL
 	//Writeln('--- 6')
 	ftest_null_copy=function(PExpression pe){
