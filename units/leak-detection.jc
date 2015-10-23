@@ -16,24 +16,27 @@ auto CreateMemorySnapshot()
 		static size_t s7_LD_n_ptrs=0;
 		
 		static void* s7_LD_calloc(size_t sz){
-			void* ptr=calloc(1,sz+sizeof(void*)*5);
+			void* ptr=calloc(1,sz+sizeof(void*)*9);
 			void* w=s7_LD_head[0];
 			void* x=(void*)s7_LD_head;
 			void* stk=spapGetCallStack();
+			int p=3;
 			if(!ptr){return NULL;}
 			((void**)ptr)[0]=w; ((void**)w)[1]=ptr;
 			((void**)ptr)[1]=x; ((void**)x)[0]=ptr;
 			((void**)ptr)[2]=(void*)sz;
-			if(stk){
-				((void**)ptr)[3]=((void**)stk)[1];
-				((void**)ptr)[4]=((void**)stk)[2];
+			while(stk&&p<9){
+				((void**)ptr)[p+0]=((void**)stk)[1];
+				((void**)ptr)[p+1]=((void**)stk)[2];
+				stk=((void**)stk)[0];
+				p+=2;
 			}
 			s7_LD_n_ptrs++;
-			return (void*)(((void**)ptr)+5);
+			return (void*)(((void**)ptr)+9);
 		}
 		
 		static void s7_LD_free(void* ptrx){
-			void* ptr=(void*)(((void**)ptrx)-5);
+			void* ptr=(void*)(((void**)ptrx)-9);
 			void* w=((void**)ptr)[0];
 			void* x=((void**)ptr)[1];
 			((void**)w)[1]=x; ((void**)x)[0]=w;
@@ -42,11 +45,12 @@ auto CreateMemorySnapshot()
 		}
 		
 		static void* s7_LD_realloc(void* ptrx,size_t sz){
-			void* ptr=(void*)(((void**)ptrx)-5);
+			void* ptr=(void*)(((void**)ptrx)-9);
 			void* w=((void**)ptr)[0];
 			void* x=((void**)ptr)[1];
 			void* stk=spapGetCallStack();
-			ptr=realloc(ptr,sz+sizeof(void*)*5);
+			int p=3;
+			ptr=realloc(ptr,sz+sizeof(void*)*9);
 			if(!ptr){return NULL;}
 			((void**)w)[1]=x; ((void**)x)[0]=w;
 			w=s7_LD_head[0];
@@ -54,11 +58,18 @@ auto CreateMemorySnapshot()
 			((void**)ptr)[0]=w; ((void**)w)[1]=ptr;
 			((void**)ptr)[1]=x; ((void**)x)[0]=ptr;
 			((void**)ptr)[2]=(void*)sz;
-			if(stk){
-				((void**)ptr)[3]=((void**)stk)[1];
-				((void**)ptr)[4]=((void**)stk)[2];
+			while(p<9){
+				if(stk){
+					((void**)ptr)[p+0]=((void**)stk)[1];
+					((void**)ptr)[p+1]=((void**)stk)[2];
+					stk=((void**)stk)[0];
+				}else{
+					((void**)ptr)[p+0]=NULL;
+					((void**)ptr)[p+1]=NULL;
+				}
+				p+=2;
 			}
-			return (void*)(((void**)ptr)+5);
+			return (void*)(((void**)ptr)+9);
 		}
 		
 		#undef s7_LD_real_free
@@ -119,7 +130,7 @@ auto CompareLeaks(iptr[] a0,iptr[] a1,int mask)
 		else
 			//increment p1 - newly allocated pointer
 			if mask==2:
-				p_leak=a1[p1]+sizeof(iptr)*5
+				p_leak=a1[p1]+sizeof(iptr)*9
 				if p_leak!=__cast(iptr,a1)&&p_leak!=a1.d&&p_leak!=__cast(iptr,a0)&&p_leak!=a0.d:
 					leaks.push(a1[p1])
 			p1++
@@ -138,25 +149,26 @@ auto DetectLeaks()
 				Write(formatNumber(p,{align:sizeof(iptr)*2,base:16}),' ',sz,': ')
 				if sz>=16L:
 					for j=0L:15L
-						c=__memory(char,p+sizeof(iptr)*5+j)
+						c=__memory(char,p+sizeof(iptr)*9+j)
 						if !(c>=32&&c<127):
 							c='.'
 						Write(c)
 				Writeln()
-				li=__memory(iptr,p+4*sizeof(iptr))
-				for(;li;li=__memory(iptr,li+sizeof(iptr)))
-					s=__memory(iptr,li)
+				for si=0:2
+					li=__memory(iptr,p+(si*2+4)*sizeof(iptr))
+					for(;li;li=__memory(iptr,li+sizeof(iptr)))
+						s=__memory(iptr,li)
+						if s:detail.printstr(s)
+					s=__memory(iptr,p+(si*2+3)*sizeof(iptr))
 					if s:detail.printstr(s)
-				s=__memory(iptr,p+3*sizeof(iptr))
-				if s:detail.printstr(s)
 				if sz>=sizeof(iptr)*2:
 					Write('  ')
 					for j=0L:min(4L,sz/sizeof(iptr))-1L
-						word=__memory(iptr,p+(5+j)*sizeof(iptr))
+						word=__memory(iptr,p+(9+j)*sizeof(iptr))
 						if j==1L:
 							rtti_info=detail.g_rtti_map[word]
 							if rtti_info.name:
-								obj=__cast(__variant,p+5*sizeof(iptr))
+								obj=__cast(__variant,p+9*sizeof(iptr))
 								Write(rtti_info.name,rtti_info.dump(obj),' ')
 								continue
 						Write(formatNumber(uptr(word),{align:sizeof(iptr)*2,base:16}),' ')

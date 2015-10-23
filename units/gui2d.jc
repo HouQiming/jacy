@@ -489,6 +489,8 @@ class CRenderer
 			m_glyph_cache_invalidated=0
 		m_glyph_cache=new CGlyphCacheItem[int3]
 		m_fast_glyph_cache_font=TFont()
+		m_fast_glyph_cache=TFastGlyphCacheItem[int].NULL
+		m_fast_glyph_cache_ascii=TFastGlyphCacheItem[].NULL
 		m_has_new_glyph_cache_entry=0
 		m_dynamic_textures=new TBitmapA8[]
 		//m_dynamic_packings=TTextureSubImage[].NULL
