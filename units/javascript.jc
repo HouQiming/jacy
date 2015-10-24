@@ -509,7 +509,8 @@ module duktape
 							__basic_api.memcpy(__pointer(s_name.d),__pointer(pstr),lg)
 							Writeln('fnc ',s_object_path,': JS function in ',s_name)
 							duk_pop(_ctx())
-						return
+						else
+							return
 					if !duk_is_object(_ctx(),-1):return
 					is_our_object=__C(int,"s7_CB_duktape_is_our_object(@1)",_ctx())
 					if is_our_object:
@@ -531,7 +532,8 @@ module duktape
 						obj_handle=iptr(duk_get_heapptr(_ctx(),-1))
 						if reached[obj_handle]:return
 						reached[obj_handle]=i8(1)
-						duk_enum(_ctx(),-1,0)
+						DUK_ENUM_INCLUDE_INTERNAL=2
+						duk_enum(_ctx(),-1,DUK_ENUM_INCLUDE_INTERNAL)
 						n0=s_object_path.n
 						if n0:s_object_path.push('.')
 						while duk_next(_ctx(),-1,1):

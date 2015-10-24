@@ -1166,6 +1166,7 @@ UI.End=function(is_temp){
 				obj[c_i.__id]=undefined
 			}
 		}
+		obj.__children=undefined;
 	}
 	UI.context_parent=obj.__parent;
 	obj.__parent=undefined;
@@ -1693,21 +1694,29 @@ UI.DestroyWindow=function(obj){
 };
 
 var runCaretCallback=function(obj){
-	var fn_ret=function(){
-		if(obj.caret_state>0){
-			obj.caret_state--;
-		}else{
-			obj.caret_state=1;
-		}
-		UI.JSDrawWindow(obj)
-		if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
-			obj.has_caret_callback=1;
-			UI.setTimeout(fn_ret,obj.caret_dt);
-		}else{
-			obj.has_caret_callback=0;
-		}
-	};
-	UI.setTimeout(fn_ret,obj.caret_dt)
+	if(!obj.has_caret_callback){
+		obj.has_caret_callback=1;
+		var fn_ret=function(){
+			if(obj.caret_state>0){
+				obj.caret_state--;
+			}else{
+				obj.caret_state=1;
+			}
+			UI.JSDrawWindow(obj)
+			if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
+				obj.has_caret_callback=1;
+				UI.setTimeout(fn_ret,obj.caret_dt);
+			}else{
+				obj.has_caret_callback=0;
+			}
+		};
+		UI.setTimeout(fn_ret,obj.caret_dt)
+	}
+}
+
+UI.m_need_gc_call=0
+UI.CallGCLater=function(){
+	UI.m_need_gc_call=1;
 }
 
 UI.m_poll_jobs=[]
@@ -1734,10 +1743,7 @@ UI.Run=function(){
 				}
 				UI.JSDrawWindow(obj)
 				if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
-					if(!obj.has_caret_callback){
-						obj.has_caret_callback=1;
-						runCaretCallback(obj);
-					}
+					runCaretCallback(obj);
 				}
 			}
 			if(UI.Platform.ARCH=="android"&&UI.android_hack_refresh_twice){
@@ -1755,10 +1761,19 @@ UI.Run=function(){
 			event=UI.SDL_PollEvent();
 			if(!event){continue;}
 		}else{
+			//only call GC when we become idle
+			if(UI.m_need_gc_call>0){
+				Duktape.gc()
+				UI.m_need_gc_call=0
+			}
 			event=UI.SDL_WaitEvent();
 		}
 		while(event){
-			if(event.type==UI.SDL_QUIT){return UI;}
+			if(event.type==UI.SDL_QUIT){
+				//print("=== run gc inside UI.Run")
+				//Duktape.gc()
+				return UI;
+			}
 			switch(event.type){
 			case UI.SDL_USEREVENT:
 				if(event.code==1){
@@ -1993,6 +2008,8 @@ UI.Run=function(){
 		}
 	}
 	UI.SDL_Quit()
+	//print("=== run gc inside UI.Run 2")
+	//Duktape.gc()
 	return UI;
 }
 
