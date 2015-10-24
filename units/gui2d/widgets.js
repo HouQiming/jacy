@@ -371,6 +371,9 @@ W.PureRegion=function(id,obj){
 	if(obj==UI.nd_focus){
 		UI.context_focus_is_a_region=1
 	}
+	if(obj==UI.nd_mouse_over){
+		UI.context_mouse_over_is_a_region=1;
+	}
 	obj.sub_window_offset_x=UI.sub_window_offset_x
 	obj.sub_window_offset_y=UI.sub_window_offset_y
 	obj.sub_window_scale=UI.pixels_per_unit

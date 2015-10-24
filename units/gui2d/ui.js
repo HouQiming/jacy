@@ -953,7 +953,7 @@ UI.SDLK_INS=UI.SDLK_INSERT
 UI.SDLK_DEL=UI.SDLK_DELETE
 
 UI.HackCallback=function(f){
-	f.prototype=null;
+	f.prototype=undefined;
 	return f;
 }
 
@@ -1034,7 +1034,7 @@ UI.Keep=function(id,attrs,prototype){
 		ret=attrs_old;
 		for(var key in attrs){
 			var f=attrs[key];
-			if(typeof f=='function'){f.prototype=null;}
+			if(typeof f=='function'){f.prototype=undefined;}
 			ret[key]=f;
 		}
 		ret.__anchored=0;
@@ -1043,7 +1043,7 @@ UI.Keep=function(id,attrs,prototype){
 			ret=Object.create(prototype);
 			for(var key in attrs){
 				var f=attrs[key];
-				if(typeof f=='function'){f.prototype=null;}
+				if(typeof f=='function'){f.prototype=undefined;}
 				ret[key]=f;
 			}
 		}else{
@@ -1065,13 +1065,13 @@ UI.Keep=function(id,attrs,prototype){
 
 UI.Ditch=function(id){
 	var parent=UI.context_parent;
-	parent[id]=null;
+	parent[id]=undefined;
 }
 
 UI.HackAllCallbacks=function(attrs){
 	for(var i in attrs){
 		var f=attrs[i];
-		if(f&&f.call){f.prototype=null;}
+		if(f&&f.call){f.prototype=undefined;}
 	}
 	return attrs;
 }
@@ -1168,10 +1168,10 @@ UI.End=function(is_temp){
 		}
 	}
 	UI.context_parent=obj.__parent;
-	obj.__parent=null;
+	obj.__parent=undefined;
 	if(obj.__hwnd){
 		UI.context_window=obj.__window_parent;
-		obj.__window_parent=null;
+		obj.__window_parent=undefined;
 		if(!obj.caret_is_set){
 			obj.caret_w=0;
 			obj.caret_h=0;
@@ -1472,7 +1472,7 @@ UI.StdAnchoring=function(id,attrs){
 		}
 	}
 	//break the cycle
-	attrs.anchor=null;
+	attrs.anchor=undefined;
 	UI.style_secs+=Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())//todo
 }
 
@@ -1508,7 +1508,7 @@ UI.CaptureMouse=function(attrs){
 
 UI.ReleaseMouse=function(attrs){
 	if(UI.nd_captured&&UI.nd_captured==attrs){
-		UI.nd_captured=null;
+		UI.nd_captured=undefined;
 		UI.SDL_SetWindowGrab(attrs.region___hwnd,0);
 	}
 }
@@ -1609,16 +1609,17 @@ UI.DrawFrame=function(){
 	UI.m_frame_tick=Duktape.__ui_get_tick()
 	//print("UI.context_focus_is_a_region=0")
 	UI.context_focus_is_a_region=0;
+	UI.context_mouse_over_is_a_region=0;
 	UI.context_paint_queue=[];
 	UI.context_hotkeys=[];
 	UI.context_regions=[];
 	UI.context_parent=UI;
-	UI.context_tentative_focus=null;
+	UI.context_tentative_focus=undefined;
 	var cb0=UI.frame_callbacks
 	UI.frame_callbacks=[]
 	for(var i=0;i<cb0.length;i++){
 		var f=cb0[i]
-		f.prototype=null;
+		f.prototype=undefined;
 		if(f()){
 			UI.frame_callbacks.push(f)
 		}
@@ -1637,14 +1638,18 @@ UI.DrawFrame=function(){
 	}
 	if(!UI.context_focus_is_a_region){
 		//if the node is gone, DO NOT CALL OnBlur! just null it out
-		UI.nd_focus=null;
+		UI.nd_focus=undefined;
 		UI.SDL_StopTextInput()
+	}
+	if(!UI.context_mouse_over_is_a_region){
+		UI.nd_mouse_over=undefined;
 	}
 	if(!UI.nd_focus&&UI.context_tentative_focus){
 		UI.SetFocus(UI.context_tentative_focus,1);
 		UI.Refresh();
 	}
 	UI.EndFrame();
+	UI.context_parent=undefined
 	if(UI.enable_timing){
 		print('DrawFrame=',(UI.frame_time*1000).toFixed(2),'ms')
 		if(!UI.frame_id){UI.frame_id=1}else{UI.frame_id++}
@@ -1687,12 +1692,30 @@ UI.DestroyWindow=function(obj){
 	UI.SDL_DestroyWindow(obj.__hwnd)
 };
 
+var runCaretCallback=function(obj){
+	var fn_ret=function(){
+		if(obj.caret_state>0){
+			obj.caret_state--;
+		}else{
+			obj.caret_state=1;
+		}
+		UI.JSDrawWindow(obj)
+		if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
+			obj.has_caret_callback=1;
+			UI.setTimeout(fn_ret,obj.caret_dt);
+		}else{
+			obj.has_caret_callback=0;
+		}
+	};
+	UI.setTimeout(fn_ret,obj.caret_dt)
+}
+
 UI.m_poll_jobs=[]
 UI.NextTick=function(f){UI.m_poll_jobs.push(UI.HackCallback(f))}
 UI.SDL_bad_coordinate_corrector=1;
 UI.Run=function(){
 	if(!UI.is_real){return;}
-	var event=null;
+	var event=undefined;
 	var t_kill_mousedown=undefined;
 	for(;;){
 		if(UI.need_to_refresh){
@@ -1713,20 +1736,7 @@ UI.Run=function(){
 				if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
 					if(!obj.has_caret_callback){
 						obj.has_caret_callback=1;
-						UI.setTimeout((function(obj){var fn_ret=function(){
-							if(obj.caret_state>0){
-								obj.caret_state--;
-							}else{
-								obj.caret_state=1;
-							}
-							UI.JSDrawWindow(obj)
-							if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
-								obj.has_caret_callback=1;
-								UI.setTimeout(fn_ret,obj.caret_dt);
-							}else{
-								obj.has_caret_callback=0;
-							}
-						};return fn_ret;})(obj),obj.caret_dt)
+						runCaretCallback(obj);
 					}
 				}
 			}
@@ -1893,7 +1903,7 @@ UI.Run=function(){
 				}
 				var regions=UI.context_regions;
 				var lg=regions.length;
-				var nd_mouse_receiver=null;
+				var nd_mouse_receiver=undefined;
 				var mouse_cursor="arrow";
 				//print("------------------")
 				//for(var i=lg-1;i>=0;i--){
@@ -1930,7 +1940,7 @@ UI.Run=function(){
 							event.y/=UI.nd_mouse_over.sub_window_scale
 							UI.CallIfAvailable(UI.nd_mouse_over,"OnMouseOut",event);
 							event.x=xbk;event.y=ybk;
-							UI.nd_mouse_over=null;
+							UI.nd_mouse_over=undefined;
 						}
 					}
 					UI.SetSystemCursor(mouse_cursor)
@@ -1955,6 +1965,7 @@ UI.Run=function(){
 							event.x=xbk;event.y=ybk;
 						}
 						UI.nd_mouse_over=nd_mouse_receiver;
+						UI.context_mouse_over_is_a_region=1;
 						UI.CallIfAvailable(nd_mouse_receiver,"OnMouseOver",event);
 					}
 					UI.CallIfAvailable(nd_mouse_receiver,"OnMouseMove",event);
@@ -1969,7 +1980,7 @@ UI.Run=function(){
 						if(attrs_previous&&attrs_previous==nd_mouse_receiver){
 							UI.CallIfAvailable(nd_mouse_receiver,"OnClick",event);
 						}
-						UI.nd_mouse_down[event.button]=null;
+						UI.nd_mouse_down[event.button]=undefined;
 					}
 				}
 				break;

@@ -2516,9 +2516,13 @@ class CEditableText
 			Writeln(s.Replace(["\0","."]))
 		Writeln()
 	///////////////////////////
-	//auto __done__()
-	//	Writeln('editor destroyed ',this.GetTextSize())
-	//	m_skiplist=CSLNode.NULL
+	//todo
+	(function(){
+		Writeln('editor created ',__cast(__pointer,this))
+	})()
+	auto __done__()
+		Writeln('editor destroyed ',__cast(__pointer,this),' ',this.GetTextSize())
+	//todo
 	auto __JS_prototype(JSObject proto)
 		proto.ExportProperty(this,"m_handler_registration")
 		proto.ExportProperty(this,"m_caret_locator")

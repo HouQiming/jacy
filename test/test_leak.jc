@@ -1,0 +1,34 @@
+import "system.jc"
+import "javascript.jc"
+import "leak-detection.jc"
+import System.Console.*
+import Javascript.*
+import LeakDetection.*
+
+class CSimpleThing
+	int a
+	auto __done__()
+		Writeln('CSimpleThing destructed ',a)
+
+(function(){
+	JS=new JSContext
+	jsio=JS.New()
+	JS["IO"]=jsio
+	LeakDetection.RegisterRTTI(CSimpleThing)
+	jsio["GetFileTimestamp"]=function(JSContext JS){
+		fn=JS.Param(0).or(new string)
+		st=new CSimpleThing(){a:123}
+		foreach fn,fi in System.IO.EnumFiles(fn,System.IO.ENUM_FILE)
+			st.a++
+			return JS.Return(fi.latest_time())
+		return 0
+	}
+	DetectLeaks()
+	DetectLeaks()
+	(function(){
+		JS.debugEval("print(IO.GetFileTimestamp('*.jc'))","<eval>")
+	})()
+	DetectLeaks()
+	DetectLeaks()
+})()
+	

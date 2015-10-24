@@ -6,7 +6,7 @@ import System.Console.*
 //DUK_OPT_NO_JX
 //DUK_OPT_NO_JC
 module duktape
-	duk_create_heap_default=__c_function(__pointer,"duk_create_heap_default","duktape.h", "c_files","duktape.c")
+	duk_create_heap_default=__c_function(__pointer,"duk_create_heap_default","duktape.h", "c_files","duktape.c", "h_files","duk_config.h")
 	duk_destroy_heap=__c_function(int,"duk_destroy_heap","duktape.h")
 	duk_push_string=__c_function(__pointer,"duk_push_string","duktape.h")
 	duk_push_lstring=__c_function(__pointer,"duk_push_lstring","duktape.h")
@@ -81,13 +81,14 @@ module duktape
 				ret=f()
 		return ret
 	auto js_release(__pointer vptr)
+		//Writeln('js_release ',vptr)
 		ret=__cast(__variant,vptr)
 		__explicit_rc(ret,-1)
 		return 0
 	__C(int,"@global:
 	typedef int(*s7_CB_duktape_fptr)(void*);
 
-	duk_ret_t s7_CB_duktape_call(duk_context *ctx){
+	static duk_ret_t s7_CB_duktape_call(duk_context *ctx){
 		void* vptr=NULL;
 		duk_push_current_function(ctx);
 		duk_get_prop_index(ctx,-1,0);
@@ -101,7 +102,7 @@ module duktape
 		}
 	}
 	
-	duk_ret_t s7_CB_duktape_finalizer(duk_context *ctx){
+	static duk_ret_t s7_CB_duktape_finalizer(duk_context *ctx){
 		void* vptr=NULL;
 		duk_get_prop_index(ctx,0,0);
 		duk_to_primitive(ctx,-1,0);
@@ -477,6 +478,85 @@ module duktape
 			fnamen=new(fname)
 			fnamen.push(char(0))
 			return debugEval(scode,fnamen)
+		/////////
+		if Platform.BUILD=="debug":
+			auto debugDumpHeap()
+				__C(int,"@global:
+				static int s7_CB_duktape_is_our_object(duk_context *ctx){
+					int ret=0;
+					duk_get_finalizer(ctx,-1);
+					ret=(void*)duk_get_c_function(ctx, -1)==(void*)s7_CB_duktape_finalizer;
+					duk_pop(ctx);
+					return ret;
+				}
+				")
+				duk_enum=__c_function(int,"duk_enum","duktape.h")
+				duk_next=__c_function(int,"duk_next","duktape.h")
+				duk_get_heapptr=__c_function(__pointer,"duk_get_heapptr","duktape.h")
+				duk_is_ecmascript_function=__c_function(int,"duk_is_ecmascript_function","duktape.h")
+				s_object_path=new string
+				reached=new i8[iptr]
+				auto dfs()
+					if duk_is_function(_ctx(),-1):
+						//don't enum into functions
+						if duk_is_ecmascript_function(_ctx(),-1):
+							s_name0="fileName"
+							duk_push_lstring(_ctx(),s_name0,s_name0.n)
+							duk_get_prop(_ctx(),-2)
+							lg=0L
+							pstr=iptr(duk_to_lstring(_ctx(),-1,&lg))
+							s_name=new char[lg]
+							__basic_api.memcpy(__pointer(s_name.d),__pointer(pstr),lg)
+							Writeln('fnc ',s_object_path,': JS function in ',s_name)
+							duk_pop(_ctx())
+						return
+					if !duk_is_object(_ctx(),-1):return
+					is_our_object=__C(int,"s7_CB_duktape_is_our_object(@1)",_ctx())
+					if is_our_object:
+						duk_get_prop_index(_ctx(),-1,0)
+						duk_to_primitive(_ctx(),-1,0)
+						vptr=duk_get_pointer(_ctx(),-1)
+						duk_pop(_ctx())
+						if vptr:
+							ret=__cast(__variant,vptr)
+							auto rtti=iptr(__get_rtti(ret))
+							rtti_info=LeakDetection.detail.g_rtti_map[rtti]
+							if rtti_info.name:
+								Writeln('obj ',s_object_path,': ',vptr,' ',rtti_info.name)
+							else
+								Writeln('obj ',s_object_path,': ',vptr,' unknown native object')
+						else
+							Writeln('err ',s_object_path,': discarded native object')
+					else
+						obj_handle=iptr(duk_get_heapptr(_ctx(),-1))
+						if reached[obj_handle]:return
+						reached[obj_handle]=i8(1)
+						duk_enum(_ctx(),-1,0)
+						n0=s_object_path.n
+						if n0:s_object_path.push('.')
+						while duk_next(_ctx(),-1,1):
+							duk_swap_top(_ctx(),-2)
+							lg=0L
+							pstr=iptr(duk_to_lstring(_ctx(),-1,&lg))
+							s_object_path.resize((n0?n0+1:n0)+lg)
+							__basic_api.memcpy(__pointer(s_object_path.d+(n0?n0+1:n0)),__pointer(pstr),lg)
+							duk_pop(_ctx())
+							dfs()
+							duk_pop(_ctx())
+						s_object_path.resize(n0)
+						duk_pop(_ctx())
+				duk_push_global_object(_ctx())
+				dfs()
+				duk_pop(_ctx())
+				s_object_path.push("$STASH$")
+				duk_push_heap_stash(_ctx());
+				dfs()
+				duk_pop(_ctx())
+			auto debugWipeStash()
+				duk_push_heap_stash(_ctx());
+				duk_push_int(_ctx(),0)
+				duk_put_prop_index(_ctx(),-2,m_stash_array_position);//stash[m_stash_array_position]=0
+				duk_pop(_ctx());
 		/////////
 		_init_stash()
 	///////

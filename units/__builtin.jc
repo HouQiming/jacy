@@ -1326,13 +1326,15 @@ module __detail
 		if !pows_ready:init_powers()
 		return parsereal(double,s,s2)
 	//////////////////////////////////////////
-	g_formatint_tmp=char[].NULL
+	//g_formatint_tmp=char[].NULL
 	auto FormatInt(iptr ret,iptr szret,int do_plus_sign,int signed,int align,int base, i64 d)
 		//digits="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-		tmp=g_formatint_tmp
-		if !tmp:
-			tmp=char[64]
-			g_formatint_tmp=tmp
+		//tmp=g_formatint_tmp
+		//if !tmp:
+		//	tmp=char[64]
+		//	g_formatint_tmp=tmp
+		//this gets stackalloced, we no longer need g_formatint_tmp
+		tmp=new char[64]
 		p=0
 		dd=u64(d)
 		if i64(dd)<0LL&&signed:
