@@ -1671,6 +1671,14 @@ class CEditableText
 				restate_ranges.push(sz_current)
 			RecomputeStatesDfs(m_skiplist,0LL,restate_ranges,0L)
 		//Writeln('    leaf: ',g_states_time_leaf);g_states_time_leaf=new double[8]
+		sz_text_new=GetTextSize()
+		m_block_size=1024
+		if sz_text_new>128<<20:
+			m_block_size=8192
+		else if sz_text_new>16<<20:
+			m_block_size=4096
+		else if sz_text_new>1<<20:
+			m_block_size=2048
 	inline InvalidateStates(i64[] ccnt_range)
 		RecomputeStatesDfs(m_skiplist,0LL,ccnt_range,0)
 	auto _GetText(string buf,iptr ofs, CSLNode nd,i64 ccnt0,i64 ccnt1)

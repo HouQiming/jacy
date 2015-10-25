@@ -27,7 +27,7 @@ DEBUG_DUMP_DEADELIM=0
 DEBUG_DUMP_PASSES=(Platform.BUILD=="debug")
 DEBUG_DUMP_GVN_DETAILS=0
 DEBUG_DUMP_SCCP=0
-DEBUG_DUMP_STACKALLOC=0
+DEBUG_DUMP_STACKALLOC=1//todo: 0
 ///////////////
 DERIV_HAS_REUSABLE_COMPONENTS=0x80000000
 
@@ -11428,6 +11428,16 @@ auto genRefcnt()
 						if pobj_var:
 							if DEBUG_DUMP_STACKALLOC:
 								Writeln('copy stackalloc flags ',dumpObject(pv_temp),' <- ',dumpObject(pobj_var))
+							setUserFlag(pv_temp,
+								readPool(pobj_var+EXPR_OFS_USER_FLAGS)&(
+									VAR_FLAG_CLASS_STACK_STYLE_RC))
+					if isBuiltin(pecaller,g_id_stlambda)&&pe==readPool(pecaller+EXPR_OFS_ARGS+2):
+						//151025: copy stackalloc flags for stlambda
+						//todo: it's not enough - we need to correctly credit the ALLOC
+						pobj_var=getExprValueAs(readPool(pecaller+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
+						if pobj_var:
+							if DEBUG_DUMP_STACKALLOC:
+								Writeln('copy stackalloc flags (stlambda) ',dumpObject(pv_temp),' <- ',dumpObject(pobj_var))
 							setUserFlag(pv_temp,
 								readPool(pobj_var+EXPR_OFS_USER_FLAGS)&(
 									VAR_FLAG_CLASS_STACK_STYLE_RC))

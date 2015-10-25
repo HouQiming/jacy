@@ -113,9 +113,9 @@ module detail
 	FDumper=function(__variant):string
 	struct TRTTIInfo
 		string name
-		FDumper dump
 	g_previous_state0=iptr2[].NULL
 	g_previous_state1=iptr2[].NULL
+	g_js_rc=new iptr[iptr]
 	g_rtti_map=new TRTTIInfo[iptr]
 	printstr=inline(s){
 		__C(int,'printf("%s",(char*)@1)',s)
@@ -144,7 +144,36 @@ auto CompareLeaks(iptr2[] a0,iptr2[] a1,int mask)
 					leaks.push(a1[p1])
 			p1++
 	return leaks
-	
+
+auto AnalyzeReferer(iptr2[] leaks,iptr2[] state_new)
+	check_needed=new i8[iptr]
+	referer_pairs=new iptr2[]
+	foreach lk in leaks
+		p=lk.y
+		pobj=p+10*sizeof(iptr)
+		check_needed[pobj]=i8(1)
+	foreach st in state_new
+		p=st.y
+		pobj=p+10*sizeof(iptr)
+		if pobj==state_new.d:continue
+		if pobj==detail.g_previous_state0.d:continue
+		if pobj==detail.g_previous_state1.d:continue
+		if pobj==detail.g_js_rc.m_data.d:continue
+		sz=__memory(iptr,p+sizeof(iptr)*2)
+		n=iptr(uptr(sz)/uptr(sizeof(iptr)))
+		did=0
+		for i=0:n-1
+			pref=__memory(iptr,pobj+i*sizeof(iptr))
+			if check_needed[pref]==i8(1):
+				referer_pairs.push(iptr2(pref,pobj))
+				did=1
+		if did&&!check_needed[pobj]:
+			check_needed[pobj]=i8(2)
+			leaks.push(iptr2(-1L,p))
+	referer_pairs.Sort()
+	referer_pairs.Unique()
+	return referer_pairs
+
 auto DetectLeaks()
 	state_new=CreateMemorySnapshot()
 	if detail.g_previous_state0:
@@ -152,14 +181,19 @@ auto DetectLeaks()
 		leaks1=CompareLeaks(detail.g_previous_state0,state_new,2)
 		leaks=CompareLeaks(leaks0,leaks1,3)
 		if leaks.n:
+			referer_pairs=AnalyzeReferer(leaks, state_new)
+			//Writeln([__pointer(ref.x) for ref in referer_pairs])
+			//Writeln([__pointer(ref.y) for ref in referer_pairs])
 			Writeln('=== ',leaks.n,' leaks, ',state_new.n,' alloced')
 			foreach lk in leaks
 				p=lk.y
+				pobj=p+10*sizeof(iptr)
 				sz=__memory(iptr,p+sizeof(iptr)*2)
-				Write(formatNumber(p,{align:sizeof(iptr)*2,base:16}),' ',sz,': ')
+				if lk.x<0L:Write('(referer) ')
+				Write(formatNumber(pobj,{align:sizeof(iptr)*2,base:16}),' ',sz,': ')
 				if sz>=16L:
 					for j=0L:15L
-						c=__memory(char,p+sizeof(iptr)*10+j)
+						c=__memory(char,pobj+j)
 						if !(c>=32&&c<127):
 							c='.'
 						Write(c)
@@ -173,15 +207,25 @@ auto DetectLeaks()
 					if s:detail.printstr(s)
 				if sz>=sizeof(iptr)*2:
 					Write('  ')
-					for j=0L:min(4L,sz/sizeof(iptr))-1L
-						word=__memory(iptr,p+(10+j)*sizeof(iptr))
+					for j=0L:min(8L,sz/sizeof(iptr))-1L
+						word=__memory(iptr,pobj+j*sizeof(iptr))
 						if j==1L:
 							rtti_info=detail.g_rtti_map[word]
 							if rtti_info.name:
-								obj=__cast(__variant,p+10*sizeof(iptr))
-								Write(rtti_info.name,rtti_info.dump(obj),' ')
+								obj=__cast(__variant,pobj)
+								//Write(rtti_info.name,rtti_info.dump(obj),' ')
+								Write(rtti_info.name,' ')
 								continue
 						Write(formatNumber(uptr(word),{align:sizeof(iptr)*2,base:16}),' ')
+					Writeln()
+				if detail.g_js_rc[pobj]:
+					Writeln('  has ',detail.g_js_rc[pobj],' JS references')
+				ppref=referer_pairs.InlineBisect(inline(a){return a.x<pobj})
+				if ppref<referer_pairs.n&&referer_pairs[ppref].x==pobj:
+					Write('  referers:')
+					while ppref<referer_pairs.n&&referer_pairs[ppref].x==pobj:
+						Write(' ',__pointer(referer_pairs[ppref].y))
+						ppref++
 					Writeln()
 		else
 			Writeln('=== no leak, ',state_new.n,' alloced')
@@ -196,17 +240,6 @@ inline RegisterRTTI(T)
 		//Writeln('RegisterRTTI ',rtti,' ',__type_name(T))
 		detail.g_rtti_map[rtti]=detail.TRTTIInfo(){
 			name:__type_name(T),
-			dump:function(__variant obj){
-				p=obj.as(T)
-				if p:
-					if readOptionalMember(p,"IS_ARRAY",0):
-						return FormatAsText('*',p.n)
-					else
-						return ""//FormatAsText(p)
-				else
-					//return "<RTTI-dump-failed>"
-					return ""
-			}
 		}
 
 inline isEnabled()
@@ -214,3 +247,9 @@ inline isEnabled()
 
 inline realFree(__pointer p)
 	__C(int,"s7_LD_real_free(@1)",p)
+
+auto JSAddref(iptr obj)
+	detail.g_js_rc[obj]++
+	
+auto JSRelease(iptr obj)
+	detail.g_js_rc[obj]--

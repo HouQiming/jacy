@@ -1009,7 +1009,7 @@ UI.GetPreviousState=function(id){
 };
 
 UI.Keep=function(id,attrs,prototype){
-	var tick0=Duktape.__ui_get_tick()//todo
+	//var tick0=Duktape.__ui_get_tick()
 	var parent=UI.context_parent;
 	var attrs_old=parent[id];
 	var ret;
@@ -1059,7 +1059,7 @@ UI.Keep=function(id,attrs,prototype){
 		}
 	}
 	//parent[id]=attrs;
-	UI.style_secs+=Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())//todo
+	//UI.style_secs+=Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())
 	return ret;
 }
 
@@ -1166,7 +1166,7 @@ UI.End=function(is_temp){
 				obj[c_i.__id]=undefined
 			}
 		}
-		obj.__children=undefined;
+		//obj.__children=undefined;
 	}
 	UI.context_parent=obj.__parent;
 	obj.__parent=undefined;
@@ -1263,6 +1263,7 @@ UI.interpolators.caption_color=UI.interpolators.color;
 UI.interpolators.border_color=UI.interpolators.color;
 UI.interpolators.text_color=UI.interpolators.color;
 UI.interpolators.icon_color=UI.interpolators.color;
+UI.interpolators.shadow_color=UI.interpolators.color;
 UI.non_animated_values={
 	value:1,
 	x:1,
@@ -1271,10 +1272,10 @@ UI.non_animated_values={
 	h:1,
 	transition_dt:1}
 
-UI.style_secs=0//todo
-UI.style_count=0//todo
+//UI.style_secs=0
+//UI.style_count=0
 UI.StdStyling=function(id,obj,attrs,s_default_style_name,child_style){
-	var tick0=Duktape.__ui_get_tick()//todo
+	//var tick0=Duktape.__ui_get_tick()
 	//styling
 	var style=obj.style||UI.default_styles[s_default_style_name||"-"];
 	if(style){
@@ -1368,10 +1369,8 @@ UI.StdStyling=function(id,obj,attrs,s_default_style_name,child_style){
 			}
 		}
 	}
-	//todo
-	UI.style_secs+=Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())
-	UI.style_count++
-	//todo
+	//UI.style_secs+=Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())
+	//UI.style_count++
 };
 
 UI.doHAlign=function(anchor_align,attrs,obj_anchor){
@@ -1403,7 +1402,7 @@ UI.doVAlign=function(anchor_align,attrs,obj_anchor){
 UI.StdAnchoring=function(id,attrs){
 	//anchoring, default to parent
 	if(attrs.__anchored){return;}
-	var tick0=Duktape.__ui_get_tick()//todo
+	//var tick0=Duktape.__ui_get_tick()
 	var obj_anchor=attrs.anchor;if(obj_anchor=='parent'){obj_anchor=UI.context_parent;}
 	var anchor_placement;
 	var anchor_align;
@@ -1474,7 +1473,7 @@ UI.StdAnchoring=function(id,attrs){
 	}
 	//break the cycle
 	attrs.anchor=undefined;
-	UI.style_secs+=Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())//todo
+	//UI.style_secs+=Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())
 }
 
 UI.StdWidget=function(id,attrs,style_name,proto){
@@ -1654,6 +1653,8 @@ UI.DrawFrame=function(){
 	if(UI.enable_timing){
 		print('DrawFrame=',(UI.frame_time*1000).toFixed(2),'ms')
 		if(!UI.frame_id){UI.frame_id=1}else{UI.frame_id++}
+		print('BetweenFrames=',(Duktape.__ui_seconds_between_ticks(UI.m_last_frame_tick,UI.m_frame_tick)*1000).toFixed(2),'ms')
+		if(UI.m_frame_is_invalid){print("FRAME INVALIDATED")}
 		print('============= Frame #',UI.frame_id)
 	}
 }

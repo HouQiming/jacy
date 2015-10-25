@@ -83,6 +83,7 @@ module duktape
 	auto js_release(__pointer vptr)
 		//Writeln('js_release ',vptr)
 		ret=__cast(__variant,vptr)
+		LeakDetection.JSRelease(__cast(iptr,ret))
 		__explicit_rc(ret,-1)
 		return 0
 	__C(int,"@global:
@@ -216,6 +217,9 @@ module duktape
 				duk_put_prop_index(_ctx(),-2,0);
 				duk_push_undefined(_ctx())
 				duk_set_prototype(_ctx(),-2)
+				if Platform.BUILD=="debug"&&LeakDetection.isEnabled():
+					LeakDetection.RegisterRTTI(__Box(function():int))
+					LeakDetection.JSAddref(__cast(iptr,obj))
 				__C(int,"duk_push_c_function(@1,s7_CB_duktape_finalizer,1)",_ctx())
 				duk_set_finalizer(_ctx(),-2)
 			else if T==JSObject://||T==JSFunction:
@@ -264,6 +268,8 @@ module duktape
 					duk_set_prototype(_ctx(),-2)
 					////////////
 					//set the finalizer
+					if Platform.BUILD=="debug"&&LeakDetection.isEnabled():
+						LeakDetection.JSAddref(__cast(iptr,obj))
 					__C(int,"duk_push_c_function(@1,s7_CB_duktape_finalizer,1)",_ctx())
 					duk_set_finalizer(_ctx(),-2)
 			else
@@ -289,6 +295,8 @@ module duktape
 					duk_set_prototype(_ctx(),-2)
 					////////////
 					//set the finalizer
+					if Platform.BUILD=="debug"&&LeakDetection.isEnabled():
+						LeakDetection.JSAddref(__cast(iptr,obj))
 					__C(int,"duk_push_c_function(@1,s7_CB_duktape_finalizer,1)",_ctx())
 					duk_set_finalizer(_ctx(),-2)
 		inline _put_prop_and_pop(value)
@@ -480,7 +488,10 @@ module duktape
 			return debugEval(scode,fnamen)
 		/////////
 		if Platform.BUILD=="debug":
+			i8[iptr] m_is_function_dumped
 			auto debugDumpHeap()
+				if !m_is_function_dumped:
+					m_is_function_dumped=new i8[iptr]
 				__C(int,"@global:
 				static int s7_CB_duktape_is_our_object(duk_context *ctx){
 					int ret=0;
@@ -500,15 +511,18 @@ module duktape
 					if duk_is_function(_ctx(),-1):
 						//don't enum into functions
 						if duk_is_ecmascript_function(_ctx(),-1):
-							s_name0="fileName"
-							duk_push_lstring(_ctx(),s_name0,s_name0.n)
-							duk_get_prop(_ctx(),-2)
-							lg=0L
-							pstr=iptr(duk_to_lstring(_ctx(),-1,&lg))
-							s_name=new char[lg]
-							__basic_api.memcpy(__pointer(s_name.d),__pointer(pstr),lg)
-							Writeln('fnc ',s_object_path,': JS function in ',s_name)
-							duk_pop(_ctx())
+							obj_handle=iptr(duk_get_heapptr(_ctx(),-1))
+							if !m_is_function_dumped[obj_handle]:
+								m_is_function_dumped[obj_handle]=i8(1)
+								s_name0="fileName"
+								duk_push_lstring(_ctx(),s_name0,s_name0.n)
+								duk_get_prop(_ctx(),-2)
+								lg=0L
+								pstr=iptr(duk_to_lstring(_ctx(),-1,&lg))
+								s_name=new char[lg]
+								__basic_api.memcpy(__pointer(s_name.d),__pointer(pstr),lg)
+								Writeln('fnc ',s_object_path,': JS function in ',s_name)
+								duk_pop(_ctx())
 						else
 							return
 					if !duk_is_object(_ctx(),-1):return
