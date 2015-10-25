@@ -9774,7 +9774,7 @@ auto doStackAllocs()
 				exprctval(t_element),
 				exprctval(pobj_var))
 			bsize=getExprValueAs(pe_bsize,g_vtid_CNS)
-			g_array_stackalloc_info[pobj_var]=int2(t_element,bsize)
+			g_array_stackalloc_info[pobj_var]=int3(t_element,bsize,pobj_var)
 			pe_new=transformCode(pe,__zero(ftransformer_callback), PExpression[].NULL,pe_array_stackalloc,[pe_dtor_smash])
 			return 0
 		return 1
@@ -9963,6 +9963,13 @@ auto fixConstantTypes()
 		n_real_chars+=s.n+1
 		g_c_str_consts.push(TStringConstItem(){"p":ps,"n":s.n,'id':id})
 	g_global_strings_code.push('";\n')
+
+auto copyFullStackAllocFlags(PCTObject pv_temp,PCTObject pobj_var)
+	flags=readPool(pobj_var+EXPR_OFS_USER_FLAGS)&(
+			VAR_FLAG_CLASS_IS_STACK_ALLOCED|VAR_FLAG_CLASS_STACK_STYLE_RC|VAR_FLAG_ARRAY_STACK_ALLOCED)
+	setUserFlag(pv_temp,flags)
+	if flags&VAR_FLAG_ARRAY_STACK_ALLOCED:
+		g_array_stackalloc_info[pv_temp]=g_array_stackalloc_info[pobj_var]
 
 //g_dump_eval=0
 auto translateLambdas()
@@ -11184,9 +11191,7 @@ auto translateLambdas()
 					writePool(pv_temp+1,t_member)
 					if !tisclass(pobjfn):
 						//151025 - stack-based dtor for lambdaed stackalloced variables
-						setUserFlag(pv_temp,
-							readPool(pv_member+EXPR_OFS_USER_FLAGS)&(
-								VAR_FLAG_CLASS_IS_STACK_ALLOCED|VAR_FLAG_CLASS_STACK_STYLE_RC|VAR_FLAG_ARRAY_STACK_ALLOCED))
+						copyFullStackAllocFlags(pv_temp,pv_member)
 					as.push(call(g_id_store,exprvar(pv_temp),call(g_id_ldlambda,pe_var,exprctval(pv_member))))
 					writePool(pv_temp+VAR_OFS_DEFINING_STORE,as.back())
 					as.push(call(g_id_release,exprvar(pv_temp),expriptr(-1)))
@@ -11450,9 +11455,7 @@ auto genRefcnt()
 									if readPool(pobj_var+EXPR_OFS_USER_FLAGS)&(
 									VAR_FLAG_CLASS_IS_STACK_ALLOCED|VAR_FLAG_CLASS_STACK_STYLE_RC|VAR_FLAG_ARRAY_STACK_ALLOCED)
 										Writeln('copy stackalloc flags (stlambda) ',dumpObject(pv_temp),' <- ',dumpObject(pobj_var))
-								setUserFlag(pv_temp,
-									readPool(pobj_var+EXPR_OFS_USER_FLAGS)&(
-										VAR_FLAG_CLASS_IS_STACK_ALLOCED|VAR_FLAG_CLASS_STACK_STYLE_RC|VAR_FLAG_ARRAY_STACK_ALLOCED))
+								copyFullStackAllocFlags(pv_temp,pobj_var)
 					t_temp=t_return
 					writePool(pv_temp,g_vtid_RTVAR)
 					writePool(pv_temp+1,t_temp)
@@ -12275,7 +12278,7 @@ auto cgPushScope()
 	g_code_buffer=new string
 	assert(!g_local_decl_buffer.n)
 
-g_array_stackalloc_info=new int2[int]
+g_array_stackalloc_info=new int3[PCTObject]
 auto cgPopScope()
 	stk=g_c_scope_stack.pop()
 	vars=stk.var_stores
@@ -12308,7 +12311,7 @@ auto cgPopScope()
 				assert(!!t_element)
 				genType(t_element)
 				g_code_buffer.push(' s7_arr_')
-				g_code_buffer.push(toBase32(pobj_var))
+				g_code_buffer.push(toBase32(sainfo.z))
 				g_code_buffer.push('[')
 				g_code_buffer.push(string(bsize))
 				g_code_buffer.push('/sizeof(')
