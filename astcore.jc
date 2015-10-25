@@ -27,7 +27,7 @@ DEBUG_DUMP_DEADELIM=0
 DEBUG_DUMP_PASSES=(Platform.BUILD=="debug")
 DEBUG_DUMP_GVN_DETAILS=0
 DEBUG_DUMP_SCCP=0
-DEBUG_DUMP_STACKALLOC=1//todo: 0
+DEBUG_DUMP_STACKALLOC=0
 ///////////////
 DERIV_HAS_REUSABLE_COMPONENTS=0x80000000
 
@@ -5285,13 +5285,13 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_stackzero,__zero(fcompiler_callback),fstackzero_oneval,fstackzero_oncgen,FFLAG_SPECIAL)
-	fstack_force_slot_oncgen=function(PExpression pecall,int expr_oplevel){
-		pe_target=readPool(pecall+EXPR_OFS_ARGS+0)
-		pobj_var=getExprValueAs(pe_target,g_vtid_CTVAL)
-		g_c_scope_stack.back().var_stores.push(pobj_var)
-		return TSCCPValue(){'tid':g_vtid_UNINIT}
-	}
-	registerPrimitive(g_id_stack_force_slot,__zero(fcompiler_callback),fdummy_callback,fstack_force_slot_oncgen,FFLAG_SPECIAL)
+	//fstack_force_slot_oncgen=function(PExpression pecall,int expr_oplevel){
+	//	pe_target=readPool(pecall+EXPR_OFS_ARGS+0)
+	//	pobj_var=getExprValueAs(pe_target,g_vtid_CTVAL)
+	//	g_c_scope_stack.back().var_stores.push(pobj_var)
+	//	return TSCCPValue(){'tid':g_vtid_UNINIT}
+	//}
+	//registerPrimitive(g_id_stack_force_slot,__zero(fcompiler_callback),fdummy_callback,fstack_force_slot_oncgen,FFLAG_SPECIAL)
 	farray_malloc_oneval=fget_rtti_oneval
 	//function(PExpression pecall,int expr_oplevel){
 	//	return TSCCPValue(){'tid':g_vtid_RTVAR,'val':getBuiltinType(const_type(CTYPE_INT,Util.bitSize()))}
@@ -10284,9 +10284,9 @@ auto translateLambdas()
 						}
 						pecaller_caller=readPool(pecaller+EXPR_OFS_CALLER)
 						pe_replacement=sccpQueueReach(insertCallAt(pecaller_caller,pecaller,faddstlambda))
-						if testUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED|VAR_FLAG_ARRAY_STACK_ALLOCED):
-							transformCode(pe_replacement,__zero(ftransformer_callback),
-								[call(g_id_stack_force_slot,exprctval(pobj_var))],0,PExpression[].NULL)
+						//if testUserFlag(pobj_var,VAR_FLAG_CLASS_IS_STACK_ALLOCED|VAR_FLAG_ARRAY_STACK_ALLOCED):
+						//	transformCode(pe_replacement,__zero(ftransformer_callback),
+						//		[call(g_id_stack_force_slot,exprctval(pobj_var))],0,PExpression[].NULL)
 				else
 					//g_id_ldlambda
 					faddldlambda=function(PExpression pe){
@@ -11182,6 +11182,11 @@ auto translateLambdas()
 					pv_temp=makevar(pobjfn_dtor)
 					writePool(pv_temp,g_vtid_RTVAR)
 					writePool(pv_temp+1,t_member)
+					if !tisclass(pobjfn):
+						//151025 - stack-based dtor for lambdaed stackalloced variables
+						setUserFlag(pv_temp,
+							readPool(pv_member+EXPR_OFS_USER_FLAGS)&(
+								VAR_FLAG_CLASS_IS_STACK_ALLOCED|VAR_FLAG_CLASS_STACK_STYLE_RC|VAR_FLAG_ARRAY_STACK_ALLOCED))
 					as.push(call(g_id_store,exprvar(pv_temp),call(g_id_ldlambda,pe_var,exprctval(pv_member))))
 					writePool(pv_temp+VAR_OFS_DEFINING_STORE,as.back())
 					as.push(call(g_id_release,exprvar(pv_temp),expriptr(-1)))
@@ -11422,25 +11427,32 @@ auto genRefcnt()
 				else
 					//we need to temp this
 					pv_temp=makevar(pf_owner)
-					if is_ldlambda&&tisrealclass(t_return):
-						//copy stackalloc flags
-						pobj_var=getExprValueAs(readPool(pe+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
-						if pobj_var:
-							if DEBUG_DUMP_STACKALLOC:
-								Writeln('copy stackalloc flags ',dumpObject(pv_temp),' <- ',dumpObject(pobj_var))
-							setUserFlag(pv_temp,
-								readPool(pobj_var+EXPR_OFS_USER_FLAGS)&(
-									VAR_FLAG_CLASS_STACK_STYLE_RC))
-					if isBuiltin(pecaller,g_id_stlambda)&&pe==readPool(pecaller+EXPR_OFS_ARGS+2):
-						//151025: copy stackalloc flags for stlambda
-						//todo: it's not enough - we need to correctly credit the ALLOC
-						pobj_var=getExprValueAs(readPool(pecaller+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
-						if pobj_var:
-							if DEBUG_DUMP_STACKALLOC:
-								Writeln('copy stackalloc flags (stlambda) ',dumpObject(pv_temp),' <- ',dumpObject(pobj_var))
-							setUserFlag(pv_temp,
-								readPool(pobj_var+EXPR_OFS_USER_FLAGS)&(
-									VAR_FLAG_CLASS_STACK_STYLE_RC))
+					if tisrealclass(t_return):
+						//have to exclude class members - stlambda
+						if is_ldlambda:
+							//copy stackalloc flags
+							pobj_var=getExprValueAs(readPool(pe+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
+							if pobj_var&&!tisclass(readPool(pobj_var+VAR_OFS_OWNER)):
+								if DEBUG_DUMP_STACKALLOC:
+									if readPool(pobj_var+EXPR_OFS_USER_FLAGS)&(
+									VAR_FLAG_CLASS_STACK_STYLE_RC)
+										Writeln('copy stackalloc flags ',dumpObject(pv_temp),' <- ',dumpObject(pobj_var))
+								setUserFlag(pv_temp,
+									readPool(pobj_var+EXPR_OFS_USER_FLAGS)&(
+										VAR_FLAG_CLASS_STACK_STYLE_RC))
+						if isBuiltin(pecaller,g_id_stlambda)&&pe==readPool(pecaller+EXPR_OFS_ARGS+2):
+							//151025: copy stackalloc flags for stlambda
+							//it's not enough - we need to correctly attribute the ALLOC - so copy VAR_FLAG_CLASS_IS_STACK_ALLOCED
+							//got rid of __stack_force_slot so there should be only one slot
+							pobj_var=getExprValueAs(readPool(pecaller+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
+							if pobj_var&&!tisclass(readPool(pobj_var+VAR_OFS_OWNER)):
+								if DEBUG_DUMP_STACKALLOC:
+									if readPool(pobj_var+EXPR_OFS_USER_FLAGS)&(
+									VAR_FLAG_CLASS_IS_STACK_ALLOCED|VAR_FLAG_CLASS_STACK_STYLE_RC|VAR_FLAG_ARRAY_STACK_ALLOCED)
+										Writeln('copy stackalloc flags (stlambda) ',dumpObject(pv_temp),' <- ',dumpObject(pobj_var))
+								setUserFlag(pv_temp,
+									readPool(pobj_var+EXPR_OFS_USER_FLAGS)&(
+										VAR_FLAG_CLASS_IS_STACK_ALLOCED|VAR_FLAG_CLASS_STACK_STYLE_RC|VAR_FLAG_ARRAY_STACK_ALLOCED))
 					t_temp=t_return
 					writePool(pv_temp,g_vtid_RTVAR)
 					writePool(pv_temp+1,t_temp)
