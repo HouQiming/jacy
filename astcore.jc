@@ -1,5 +1,5 @@
 //coulddo: whether s7rc is necessary
-//import "system.jc"
+import "system.jc"
 import "ctobj.jc"
 import "util.jc"
 import System.Algorithm.*
@@ -7,6 +7,34 @@ import System.Console.*
 import System.Math.*
 import Util.*
 import Ctobj.*
+
+/*
+we say
+	expressions are type PExpression
+	expressions are called pe*
+	call expressions have isExpr(pecall,EFLAG_FCALL)
+	var expressions have isExpr(pevar,EFLAG_VARIABLE)
+	functions are type PCTObject
+	functions are called pf*
+	functions are called pobjfn*
+	functions have pf!=0
+	functions have readPool(pf)==g_tid_TFunction
+	variables are type PCTObject
+	variables are called pvar*
+	variables are called pobj_var*
+	objects are type PCTObject
+	counts are type int
+	numbers are type int
+	values are type TSCCPValue
+	values are called val*
+	arg means argument
+	arg means parameter
+	expr means expression
+	func means function
+
+to get arg expression given number i and call expression, readPool(pecall+EXPR_OFS_ARGS+i)
+to get func expression given call expression, readPool(pecall+EXPR_OFS_FUNCTION)
+*/
 
 ENABLE_FEM_DSL=1
 ENABLE_GVN=1
@@ -289,11 +317,13 @@ auto lockValueCheck(PExpression pe,int id_error_message)
 	return call(g_id_assert_ctval,pe,exprstr(id_error_message))
 
 inline getExprNArgs(PExpression pe)
+	//we return args number for the expression
 	ret=readPool(pe)
 	assert((ret&EFLAG_MASK)==EFLAG_FCALL&&!EFLAG_FCALL)
 	return ret
 
 auto computeConstIfBranch(PExpression pecall,TSCCPValue val_cond)
+	//we return branch number for call expression, given cond value
 	n_args=getExprNArgs(pecall)
 	cns_branch=1
 	for i=2:2:n_args-2

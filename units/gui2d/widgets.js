@@ -241,11 +241,11 @@ UI.Theme_Minimalistic=function(C){
 
 UI.SetCaret=function(obj,x,y,w,h,C,dt){
 	//uses absolute coords
-	UI.InsertJSDrawCall(function(){
+	UI.InsertJSDrawCall(UI.HackCallback(function(){
 		if(obj.caret_state>0&&obj.m_window_has_focus){
 			UI.DrawCaret(obj.caret_x,obj.caret_y,obj.caret_w,obj.caret_h,obj.caret_C)
 		}
-	})
+	}))
 	obj.caret_x=x;
 	obj.caret_y=y;
 	obj.caret_w=w;

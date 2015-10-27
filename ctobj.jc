@@ -318,9 +318,10 @@ auto getAsFunction(PCTObject pobj0)
 		return pobj
 	return 0
 	
-auto getExprFunction(PExpression pe)
-	assert(isExpr(pe,EFLAG_FCALL))
-	return getAsFunction(getExprValueAs(readPool(pe+EXPR_OFS_FUNCTION),g_vtid_CTVAL))
+auto getExprFunction(PExpression pecall)
+	//we return the function for call expression
+	assert(isExpr(pecall,EFLAG_FCALL))
+	return getAsFunction(getExprValueAs(readPool(pecall+EXPR_OFS_FUNCTION),g_vtid_CTVAL))
 
 inline getBuiltin(int fid)
 	return readPool(g_symbols[fid].user_slot+1)
@@ -336,6 +337,7 @@ inline getVariable(PExpression pe)
 	return pobj
 
 auto getExprValue(PExpression pe)
+	//we return the value of the expression
 	flags=readPool(pe)
 	switch flags&EFLAG_MASK{
 	case EFLAG_CONST:

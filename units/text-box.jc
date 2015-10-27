@@ -962,7 +962,6 @@ class CDiffTracker
 		pbase1=CurrentToBase(ccnt1)
 		if pboth1-pboth0!=pbase1-pbase0:return 1
 		return 0
-	//todo: minimap ranges? can we really afford to draw it?
 	JS_discard=function(JSContext JS){
 		m_skiplist=CDiffSLNode.NULL
 		return 0
@@ -976,6 +975,10 @@ class CDiffTracker
 		ccnt=JS.Param(0).as(i64);
 		return JS.Return(CurrentToBase(ccnt))
 	}
+	JS_CurrentToBoth=function(JSContext JS){
+		ccnt=JS.Param(0).as(i64);
+		return JS.Return(CurrentToBoth(m_skiplist,ccnt))
+	}
 	JS_BaseToCurrent=function(JSContext JS){
 		ccnt=JS.Param(0).as(i64);
 		return JS.Return(BaseToCurrent(ccnt))
@@ -984,6 +987,7 @@ class CDiffTracker
 		proto.ExportMethod(this,"discard",JS_discard)
 		proto.ExportMethod(this,"RangeQuery",JS_RangeQuery)
 		proto.ExportMethod(this,"CurrentToBase",JS_CurrentToBase)
+		proto.ExportMethod(this,"CurrentToBoth",JS_CurrentToBoth)
 		proto.ExportMethod(this,"BaseToCurrent",JS_BaseToCurrent)
 
 ///////////////////////////////

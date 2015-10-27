@@ -97,7 +97,9 @@ module duktape
 		vptr=duk_get_pointer(ctx,-1);
 		duk_pop_2(ctx);
 		if(vptr){
-			return ((s7_CB_duktape_fptr)@1)(vptr);
+			int ret=((s7_CB_duktape_fptr)@1)(vptr);
+			if(ret<0){duk_throw(ctx);}
+			return ret;
 		}else{
 			return 0;
 		}
