@@ -12,13 +12,13 @@ import Ctobj.*
 we say
 	expressions are type PExpression
 	expressions are called pe*
-	call expressions have isExpr(pecall,EFLAG_FCALL)
-	var expressions have isExpr(pevar,EFLAG_VARIABLE)
+	call expressions have: isExpr(pecall,EFLAG_FCALL)
+	var expressions have: isExpr(pevar,EFLAG_VARIABLE)
 	functions are type PCTObject
 	functions are called pf*
 	functions are called pobjfn*
-	functions have pf!=0
-	functions have readPool(pf)==g_tid_TFunction
+	functions have: pf!=0
+	functions have: readPool(pf)==g_tid_TFunction
 	variables are type PCTObject
 	variables are called pvar*
 	variables are called pobj_var*
@@ -31,9 +31,8 @@ we say
 	arg means parameter
 	expr means expression
 	func means function
-
-to get arg expression given number i and call expression, readPool(pecall+EXPR_OFS_ARGS+i)
-to get func expression given call expression, readPool(pecall+EXPR_OFS_FUNCTION)
+	to get arg expression given number i and call expression: readPool(pecall+EXPR_OFS_ARGS+i)
+	to get func expression given call expression: readPool(pecall+EXPR_OFS_FUNCTION)
 */
 
 ENABLE_FEM_DSL=1
@@ -323,7 +322,7 @@ inline getExprNArgs(PExpression pe)
 	return ret
 
 auto computeConstIfBranch(PExpression pecall,TSCCPValue val_cond)
-	//we return branch number for call expression, given cond value
+	//we return branch arg number for call expression, given cond value
 	n_args=getExprNArgs(pecall)
 	cns_branch=1
 	for i=2:2:n_args-2

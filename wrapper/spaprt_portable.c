@@ -58,7 +58,9 @@ In the android mode, the sdl stuff are set by the build script. We don't have to
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <poll.h>
 #include <wchar.h>
+#include <wait.h>
 ///////////
 #ifndef PM_RELEASE
 #include <signal.h>
@@ -1787,6 +1789,14 @@ qprintf(const char *str, Char *s)
 ////////////////////////////////
 #endif
 
+EXPORT int osal_PollPipe(int fd){
+	struct pollfd pfd;
+	memset(&pfd,0,sizeof(pfd));
+	pfd.fd=fd;
+	pfd.events = POLLIN
+	return poll(&pfd,1,0)==1;
+}
+
 EXPORT iptr osal_GetFileSize(int fd){
 	struct stat sb;
 	sb.st_size=0;
@@ -1818,6 +1828,55 @@ EXPORT int osal_EndFind(void* handle){
 	globfree((glob_t*)handle);
 	free(handle);
 	return 1;
+}
+
+#define OSAL_CP_PIPE_STDIN 1
+#define OSAL_CP_PIPE_STDOUT 2
+#define OSAL_CP_PIPE_STDERR 4
+EXPORT int osal_CreateProcess(int* ret, char** zargv,int flags){
+	int pipes[4];
+	int pid=0;
+	pipes[0]=-1;pipes[1]=-1;
+	pipes[2]=-1;pipes[3]=-1;
+	//pipes[4]=-1;pipes[5]=-1;
+	if(flags&OSAL_CP_PIPE_STDIN){pipe(pipes+0);}
+	if(flags&(OSAL_CP_PIPE_STDOUT|OSAL_CP_PIPE_STDERR)){pipe(pipes+2);}
+	//if(flags&OSAL_CP_PIPE_STDERR){pipe(pipes+4);}
+	pid=fork();
+	if(pid==0){
+		//child
+		if(flags&OSAL_CP_PIPE_STDIN){dup2(pipes+0+0, STDIN_FILENO);close(pipes[0+0]);close(pipes[0+1]);}
+		if(flags&OSAL_CP_PIPE_STDOUT){dup2(pipes+2+1, STDOUT_FILENO);}
+		if(flags&OSAL_CP_PIPE_STDERR){dup2(pipes+2+1, STDERR_FILENO);}
+		if(flags&(OSAL_CP_PIPE_STDOUT|OSAL_CP_PIPE_STDERR)){close(pipes[2+0]);close(pipes[2+1]);}
+		execv(zargv[0],zargv);
+	}else{
+		//parent
+		if(pid<0){return 0;}
+		ret[0]=pid;
+		if(flags&OSAL_CP_PIPE_STDIN){close(pipes[0+0]);ret[1]=pipes[0+1];}
+		if(flags&(OSAL_CP_PIPE_STDOUT|OSAL_CP_PIPE_STDERR)){close(pipes[2+1]);ret[2]=pipes[2+0];}
+	}
+	return 1;
+}
+
+EXPORT int osal_GetExitCodeProcess(int pid){
+	int stat_val=0;
+	int pid_ret=waitpid(pid,&stat_val,WNOHANG);
+	if(pid_ret==pid){
+		if(WIFEXITED(stat_val)){return -1;}
+		return WEXITSTATUS(stat_val);
+	}else if(pid_ret==0){
+		//it's still running
+		return -1
+	}else{
+		//assume it errored out
+		return 1;
+	}
+}
+
+EXPORT int osal_TerminateProcess(int pid){
+	return kill(pid,SIGKILL)==0;
 }
 
 //#define FILE_ATTRIBUTE_READONLY 0x00000001

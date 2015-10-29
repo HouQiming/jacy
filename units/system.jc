@@ -37,7 +37,8 @@ module OS_API
 		///////////////
 		_fopen=__c_function(__pointer,"fopen","stdio.h")
 		pipe=__c_function(int,"pipe","stdio.h")
-		poll=__c_function(int,"poll","stdio.h")
+		read=__c_function(iptr,"read","stdio.h")
+		write=__c_function(iptr,"write","stdio.h")
 		realpath=__c_function(__pointer,"realpath","stdio.h")
 		getenv=__c_function(__pointer,"getenv","stdio.h")
 		setenv=__c_function(__pointer,"setenv","stdio.h")
@@ -47,6 +48,7 @@ module OS_API
 		close=__c_function(int,"close","fcntl.h")
 		/////////////////
 		osal_GetUnixPathMax=__c_function(iptr,"osal_GetUnixPathMax","spaprt_portable.h")
+		osal_PollPipe=__c_function(int,"osal_PollPipe","stdio.h")
 		osal_GetFileSize=__c_function(iptr,"osal_GetFileSize","spaprt_portable.h")
 		osal_GetFileSize64=__c_function(i64,"osal_GetFileSize64","spaprt_portable.h")
 		osal_GetFileAttributes=__c_function(int,"osal_GetFileAttributes","spaprt_portable.h")
@@ -56,6 +58,9 @@ module OS_API
 		osal_GetStdHandle=__c_function(__pointer,"osal_GetStdHandle","spaprt_portable.h")
 		osal_getStoragePath=__c_function(__pointer,"osal_getStoragePath","spaprt_portable.h")
 		osal_errno=__c_function(int,"osal_errno","spaprt_portable.h")
+		osal_CreateProcess=__c_function(int,"osal_CreateProcess","spaprt_portable.h")
+		osal_GetExitCodeProcess=__c_function(int,"osal_GetExitCodeProcess","spaprt_portable.h")
+		osal_TerminateProcess=__c_function(int,"osal_TerminateProcess","spaprt_portable.h")
 		/////////////////
 		SDL_GetPerformanceCounter=__c_function(i64,"SDL_GetPerformanceCounter","SDL.h")
 		SDL_GetPerformanceFrequency=__c_function(i64,"SDL_GetPerformanceFrequency","SDL.h")
@@ -9320,10 +9325,10 @@ module Processes
 				CloseHandle(hf)
 				hf=NULL
 				return 1
-			auto Eof()
-				if !hf:return 1
-				ret=0
-				return !ReadFile(hf,&0,0,&ret,NULL)
+			//auto Eof()
+			//	if !hf:return 1
+			//	ret=0
+			//	return !ReadFile(hf,&0,0,&ret,NULL)
 			auto __init__(HANDLE handle)
 				if handle==INVALID_HANDLE_VALUE:
 					hf=NULL
@@ -9358,7 +9363,7 @@ module Processes
 			//int CtrlBreak()
 			//	return GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT,.pid)
 			auto __done__()
-				if auto_terminate&&exit_code==STILL_ACTIVE:
+				if auto_terminate&&isRunning():
 					Terminate()
 				if hjob:
 					CloseHandle(hjob)
@@ -9550,4 +9555,91 @@ module Processes
 		auto RunPiped(string[] cmd,string path,int show,string mode)
 			return _RunPiped(1,_make_commandline(cmd),path,show,mode)
 	else
-		//todo: unix version with popen
+		//unix version using pipe(), popen is not general enough and calls shell
+		class CUnixFile
+			hf=-1
+			auto __done__()
+				Close()
+			auto Read(iptr n)
+				a=new char[n]
+				ret=read(hf,a.d,a.n)
+				if ret<0L:ret=0L
+				a.resize(ret)
+				return a
+			auto Write(char[] a)
+				if hf<0:return 0
+				ret=write(hf,a.d,a.n)
+				if ret<0L:ret=0L
+				return iptr(ret)
+			auto WouldBlock()
+				if hf<0:return 0
+				return !osal_PollPipe(hf)
+			auto Flush()
+				return 1
+			auto Close()
+				if hf<0:return 0
+				close(hf)
+				hf=-1
+				return 1
+			inline __init__(int fd)
+				hf=fd
+		class CProcess
+			CUnixFile pipe
+			CUnixFile pipe_2nd
+			int pid
+			int auto_terminate
+			auto exit_code()
+				val=osal_GetExitCodeProcess(pid)
+				return val
+			auto isRunning()
+				return exit_code()==-1
+			auto Terminate()
+				return TerminateProcess(pid,1)
+			//int CtrlBreak()
+			//	return GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT,.pid)
+			auto __done__()
+				if auto_terminate&&isRunning():
+					Terminate()
+		auto _RunPiped(const IS_PIPED,string[] args,string path,int show,string mode)
+			pipe_flags=0
+			foreach smode in mode.Tokenize(string(","))
+				ssmode=smode
+				if IS_PIPED:
+					if ssmode=="input":
+						pipe_flags|=1
+					else if ssmode=="output":
+						pipe_flags|=2
+					else if ssmode=="error":
+						pipe_flags|=4
+				//gcKeepHere(smode)
+			zargv=new iptr[args.n+1]
+			pool=new string
+			foreach s,I in args
+				zargv[I]=pool.n
+				pool.push(s)
+				pool.push(i8(0))
+			zargv[args.n]=pool.n
+			pool.push(i8(0))
+			for i=0:zargv.n-1
+				zargv[i]+=pool.d
+			ret=new int[3]
+			scwd=IO.CurrentDirectory()
+			IO.SetCurrentDirectory(path)
+			succ=osal_CreateProcess(ret, __pointer(zargv.d),pipe_flags);
+			IO.SetCurrentDirectory(scwd)
+			if !succ:
+				pret=CProcess.NULL
+			else
+				if !IS_PIPED:
+					pret=new CProcess(){
+						pid:ret[0],
+					}
+				else
+					pret=new CProcess(){
+						pid:ret[0],
+						pipe:ret[2]<0?CUnixFile.NULL:new CUnixFile(ret[2]),
+						pipe_2nd:ret[1]<0?CUnixFile.NULL:new CUnixFile(ret[1]),
+					}
+			return pret
+		
+//////////

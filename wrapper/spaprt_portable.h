@@ -35,6 +35,7 @@ typedef struct _OSAL_TFileInfo{
 	int attr;
 }OSAL_TFileInfo;
 
+int osal_PollPipe(int fd);
 iptr osal_GetFileSize(int fd);
 long long osal_GetFileSize64(int fd);
 void* osal_BeginFind(char* fn_pattern);
@@ -44,6 +45,9 @@ int osal_GetFileAttributes(char* fn);
 iptr osal_GetUnixPathMax();
 void *osal_mmap(void *addr, iptr length, int prot, int flags,int fd);
 int osal_errno();
+
+int osal_CreateProcess(int* ret, char** zargv,int flags);
+
 
 void* osal_mmap_res_zip(iptr* psize);
 char* osal_getStoragePath();
