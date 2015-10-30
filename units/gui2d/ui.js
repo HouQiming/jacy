@@ -1570,13 +1570,16 @@ UI.IsModifier=function(event,name){
 	return UI.IsKey(event,name)==undefined;
 };
 
-var g_re_mac_symbols=new RegExp("[⇧＾⌥⌘]","g")
+var g_re_mac_symbols=new RegExp("[\u21e7\uff3e\u2325\u2318]","g")
 var g_faddplus=function(smatch){return smatch+"+"}
 
 UI.hotkey_mapping={};
 UI.IsHotkey=function(event,hotkey_name){
 	var names=UI.hotkey_mapping[hotkey_name];
 	if(!names){
+		if(UI.TranslateHotkey){
+			hotkey_name=UI.TranslateHotkey(hotkey_name)
+		}
 		names=hotkey_name.split(" ").map(function(a){return a.replace(g_re_mac_symbols,g_faddplus).split("+")});
 		UI.hotkey_mapping[hotkey_name]=names;
 	}
@@ -1723,6 +1726,7 @@ UI.CallGCLater=function(){
 UI.m_poll_jobs=[]
 UI.NextTick=function(f){UI.m_poll_jobs.push(UI.HackCallback(f))}
 UI.SDL_bad_coordinate_corrector=1;
+UI.SDL_bad_quit=0;
 UI.Run=function(){
 	if(!UI.is_real){return;}
 	var event=undefined;
@@ -1773,12 +1777,21 @@ UI.Run=function(){
 			if(event.type==UI.SDL_QUIT){
 				//print("=== run gc inside UI.Run")
 				//Duktape.gc()
+				if(UI.SDL_bad_quit>0){
+					UI.SDL_bad_quit--;
+					event=UI.SDL_PollEvent();
+					if(!event)break;
+					continue;
+				}
 				return UI;
 			}
 			switch(event.type){
 			case UI.SDL_USEREVENT:
 				if(event.code==1){
 					//close
+					if(UI.Platform.ARCH=="mac"){
+						UI.SDL_bad_quit++;
+					}
 					var obj=UI.m_window_map[event.windowID.toString()]
 					if(obj){
 						if(!UI.CallIfAvailable(obj,"OnClose")){
@@ -1837,7 +1850,7 @@ UI.Run=function(){
 				if(UI.inside_IME){break;}
 				var obj_window=UI.m_window_map[event.windowID.toString()];
 				event.keymod&=~(UI.KMOD_CAPS|UI.KMOD_NUM)//get rid of the bogus SDL flags
-				if(obj_window){
+				if(obj_window&&UI.Platform.ARCH!="mac"){
 					if(event.keysym==UI.SDLK_LALT||event.keysym==UI.SDLK_RALT){
 						//alt-menu case
 						//print("ALT",event.type==UI.SDL_KEYDOWN?"DOWN":"UP")
@@ -2048,8 +2061,8 @@ UI.MonthDay=function(month,day){
 }
 
 UI.m_mac_key_names={
-	"SHIFT":"\u21E7",
-	"CTRL":"\uFF3E",
+	"SHIFT":"\u21e7",
+	"CTRL":"\uff3e",
 	"ALT":"\u2325",
 	"WIN":"\u2318",
 };

@@ -2423,6 +2423,7 @@ class CEditableText
 			foreach ch,ccnti in enumUtf8Backward(ccnt)
 				ch1=ch0
 				ch0=ch
+				//Writeln('enumUtf8Backward ',ch0,' ',ch1,' ',ccnt)
 				if fcheck(ch0,ch1):return (ccnti_previous)
 				limit--
 				if limit<=0:return (ccnti_previous)
@@ -2440,10 +2441,10 @@ class CEditableText
 	auto GetStockFCheck(string stype,int direction)
 		if stype=="space":
 			if direction<0:
-				fcheck=function(int c0,int c1){return c0!=' '&&c0!='\t'}
+				fcheck=function(int c0,int c1){return c0!=' '&&c0!='\t'&&c0!='\r'}
 			else
-				fcheck=function(int c0,int c1){return c1!=' '&&c1!='\t'}
-		else if stype=="word_boundary":
+				fcheck=function(int c0,int c1){return c1!=' '&&c1!='\t'&&c1!='\r'}
+		else if stype=="word_boundary"
 			fcheck=function(int c0,int c1){return isWordChar(c0)!=isWordChar(c1)}
 		else if stype=="word_boundary_left":
 			fcheck=function(int c0,int c1){return !isWordChar(c0)&&isWordChar(c1)}
@@ -2479,7 +2480,8 @@ class CEditableText
 	JS_GetUtf8CharNeighborhood=function(JSContext JS){
 		ccnt=JS.Param(0).or(0LL)
 		range1=GetTextSize()
-		if u64(ccnt)>u64(range1):return 0
+		//if u64(ccnt)>u64(range1):return 0
+		ccnt=min(max(ccnt,0LL),range1)
 		(ch0,ch1)=GetUtf8CharNeighborhood(ccnt)
 		ret=JS.NewArray()
 		ret[0]=ch0

@@ -60,7 +60,7 @@ In the android mode, the sdl stuff are set by the build script. We don't have to
 #include <unistd.h>
 #include <poll.h>
 #include <wchar.h>
-#include <wait.h>
+#include <sys/wait.h>
 ///////////
 #ifndef PM_RELEASE
 #include <signal.h>
@@ -1793,7 +1793,7 @@ EXPORT int osal_PollPipe(int fd){
 	struct pollfd pfd;
 	memset(&pfd,0,sizeof(pfd));
 	pfd.fd=fd;
-	pfd.events = POLLIN
+	pfd.events = POLLIN;
 	return poll(&pfd,1,0)==1;
 }
 
@@ -1868,7 +1868,7 @@ EXPORT int osal_GetExitCodeProcess(int pid){
 		return WEXITSTATUS(stat_val);
 	}else if(pid_ret==0){
 		//it's still running
-		return -1
+		return -1;
 	}else{
 		//assume it errored out
 		return 1;
@@ -1893,8 +1893,8 @@ EXPORT int osal_FindNext(void* handle, char* fn,OSAL_TFileInfo* fi){
 	glob_t* handleg=(glob_t*)handle;
 	struct stat sb;
 	if(handleg->gl_offs>=handleg->gl_pathc)return 0;
-	fn[256]=0;
-	strncpy(fn,handleg->gl_pathv[handleg->gl_offs],256);
+	fn[1023]=0;
+	strncpy(fn,handleg->gl_pathv[handleg->gl_offs],1023);
 	memset(&sb,0,sizeof(sb));
 	stat(fn,&sb);
 	handleg->gl_offs++;

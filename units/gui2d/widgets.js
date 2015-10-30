@@ -354,6 +354,7 @@ if(attrs.w)
 //user input
 W.Hotkey=function(id,attrs){
 	if(!attrs.action){return;}
+	if(UI.TranslateHotkey){attrs.key=UI.TranslateHotkey(attrs.key);}
 	UI.context_hotkeys.push(attrs);
 	return attrs;
 }
@@ -1004,6 +1005,7 @@ W.Edit_prototype={
 		this.AutoScroll("show");
 		this.CallOnChange();
 		this.m_user_just_typed_char=1;
+		this.ed.m_IME_overlay=undefined;
 		UI.Refresh()
 	},
 	ProcessHotkeysKeyDown:function(hk,event){
@@ -1093,14 +1095,14 @@ W.Edit_prototype={
 				lwmode=ed.IsAtLineWrap(sel1.ccnt);
 				this.caret_is_wrapped=Math.min(lwmode,0);
 			}
-		}else if(IsHotkey(event,"CTRL+LEFT CTRL+SHIFT+LEFT")){
+		}else if(IsHotkey(event,"CTRL+LEFT SHIFT+CTRL+LEFT")){
 			var ccnt=this.SkipInvisibles(sel1.ccnt,-1);
 			if(ccnt>0){
 				sel1.ccnt=this.SnapToValidLocation(ed.MoveToBoundary(ed.SnapToCharBoundary(ccnt-1,-1),-1,"ctrl_lr_stop"),-1)
 				this.caret_is_wrapped=ed.IsAtLineWrap(sel1.ccnt);
 				epilog();
 			}
-		}else if(IsHotkey(event,"CTRL+RIGHT CTRL+SHIFT+RIGHT")){
+		}else if(IsHotkey(event,"CTRL+RIGHT SHIFT+CTRL+RIGHT")){
 			var ccnt=this.SkipInvisibles(sel1.ccnt,1);
 			if(ccnt<ed.GetTextSize()){
 				sel1.ccnt=this.SnapToValidLocation(ed.MoveToBoundary(ed.SnapToCharBoundary(ccnt+1,1),1,"ctrl_lr_stop"),1)
@@ -1216,7 +1218,7 @@ W.Edit_prototype={
 			}
 			this.CallOnChange();
 			UI.Refresh();
-		}else if(IsHotkey(event,"CTRL+SHIFT+Z")||IsHotkey(event,"CTRL+Y")){
+		}else if(IsHotkey(event,"SHIFT+CTRL+Z")||IsHotkey(event,"CTRL+Y")){
 			var ret=ed.Undo("redo")
 			if(ret&&ret.sz>=0){
 				sel0.ccnt=ret.ccnt;

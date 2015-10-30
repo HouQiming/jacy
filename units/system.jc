@@ -71,6 +71,7 @@ module OS_API
 		remove=__c_function(int,"remove","stdio.h")
 		mkdir=__c_function(int,"mkdir","sys/stat.h")
 		chdir=__c_function(int,"chdir","unistd.h")
+		getcwd=__c_function(int,"getcwd","unistd.h")
 		sleep=__c_function(int,"sleep","time.h")
 	time=__c_function(i64,"time","time.h")
 	localtime=__c_function(__pointer,"localtime","time.h")
@@ -6765,7 +6766,7 @@ module IO
 		paths=new string[]
 		paths.push(path)
 		if Platform.IS_UNIX:
-			fnbuf=new char[260]
+			fnbuf=new char[1024]
 			handle=NULL
 			return function(){
 				fibuf0=__C(__pointer,"@decl:OSAL_TFileInfo @1={0}")
@@ -6828,7 +6829,7 @@ module IO
 						handle=FindFirstFileW(fnameu,__C(__pointer,"(WIN32_FIND_DATAW*)@1",fd))
 						if handle==INVALID_HANDLE_VALUE||!handle:
 							continue
-					fdname=pwcharToString(__C(__pointer,"(void*)((WIN32_FIND_DATAW*)@1)->cFileName",fd),260)
+					fdname=pwcharToString(__C(__pointer,"(void*)((WIN32_FIND_DATAW*)@1)->cFileName",fd),1024)
 					iname=path+Algorithm.UnicodeToUtf8(fdname)
 					doit=0
 					if !(__C(int,"((WIN32_FIND_DATAW*)@1)->dwFileAttributes",fd)&FILE_ATTRIBUTE_DIRECTORY):
@@ -6893,13 +6894,22 @@ module IO
 	 * @see SetCurrentDirectory
 	*/
 	auto CurrentDirectory()
-		buf=new i16[264]
-		if !GetCurrentDirectoryW(260,buf):return string.NULL
-		for i=0:259
-			if !buf[i]:
-				buf.resize(i)
-				break
-		return Algorithm.UnicodeToUtf8(buf)
+		if Platform.IS_UNIX:
+			buf=new char[1024]
+			getcwd(buf,1023)
+			for i=0:buf.n-1
+				if !buf[i]:
+					buf.resize(i)
+					break
+			return buf
+		else
+			buf=new i16[264]
+			if !GetCurrentDirectoryW(260,buf):return string.NULL
+			for i=0:buf.n-1
+				if !buf[i]:
+					buf.resize(i)
+					break
+			return Algorithm.UnicodeToUtf8(buf)
 	/**
 	 * \brief Set the current directory.
 	 *
@@ -9054,7 +9064,9 @@ module Env
 					if pexpand>=0:
 						envz=new(aa[:pexpand-1])
 						envz.push(char(0))
-						ret.push(pcharToString(__pointer(iptr(getenv(envz)))))
+						penv=iptr(getenv(envz))
+						if penv:
+							ret.push(pcharToString(__pointer(penv)))
 						envz.discard()
 						aa=aa[pexpand+1:]
 					else
@@ -9594,13 +9606,13 @@ module Processes
 			auto isRunning()
 				return exit_code()==-1
 			auto Terminate()
-				return TerminateProcess(pid,1)
+				return osal_TerminateProcess(pid,1)
 			//int CtrlBreak()
 			//	return GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT,.pid)
 			auto __done__()
 				if auto_terminate&&isRunning():
 					Terminate()
-		auto _RunPiped(const IS_PIPED,string[] args,string path,int show,string mode)
+		auto _RunPiped(const IS_PIPED,string[] args,string path,string mode)
 			pipe_flags=0
 			foreach smode in mode.Tokenize(string(","))
 				ssmode=smode
@@ -9641,5 +9653,9 @@ module Processes
 						pipe_2nd:ret[1]<0?CUnixFile.NULL:new CUnixFile(ret[1]),
 					}
 			return pret
+		auto Run(string[] cmd,string path,int show,string mode)
+			return _RunPiped(0,cmd,path,mode)
+		auto RunPiped(string[] cmd,string path,int show,string mode)
+			return _RunPiped(1,cmd,path,mode)
 		
 //////////

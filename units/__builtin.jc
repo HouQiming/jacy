@@ -358,9 +358,9 @@ class __array(T)
 		return ret;
 	inline __slice(a)
 		if arguments.length<2:
-			return slice(a,n-1)
+			return slice(iptr(a),iptr(n-1))
 		else
-			return slice(a,arguments[1])
+			return slice(iptr(a),iptr(arguments[1]))
 	/////////////////
 	//callbacks - clone / forEach / __C_autocast
 	inline __clone__()
@@ -1775,16 +1775,16 @@ inline formatNumber(a)
 		options=0
 	T=typeof(a)
 	if __is_type("float",T):
-		fraction=readOptionalMember(options,"frac",7)
-		is_sci=readOptionalMember(options,"scientific",0)
-		force_sign=readOptionalMember(options,"sign",0)
+		fraction=int(readOptionalMember(options,"frac",7))
+		is_sci=int(readOptionalMember(options,"scientific",0))
+		force_sign=int(readOptionalMember(options,"sign",0))
 		lg=__detail.FormatDouble(0L,0L, force_sign,is_sci,__has_member(options,"frac"),fraction, f64(a))
 		ret=char[lg]
 		__detail.FormatDouble(ret.d,lg, force_sign,is_sci,__has_member(options,"frac"),fraction, f64(a))
 		return ret
 	else if __is_type("int",T):
-		align=readOptionalMember(options,"align",0)
-		base=readOptionalMember(options,"base",10)
+		align=int(readOptionalMember(options,"align",0))
+		base=int(readOptionalMember(options,"base",10))
 		if base<2||base>36:
 			return NULL
 		else
