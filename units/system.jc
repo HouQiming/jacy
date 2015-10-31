@@ -8,12 +8,11 @@ module OS_API
 	FILE_ATTRIBUTE_DIRECTORY=0x00000010
 	if Platform.IS_UNIX:
 		__generate_json("ldflags","-lm")
-		if Platform.ARCH=="rasppi"||Platform.ARCH=="linux32"||Platform.ARCH=="linux64":
+		if Platform.ARCH=="rasppi"||Platform.ARCH=="linux32"||Platform.ARCH=="linux64"||Platform.ARCH=="mac":
 			__generate_json("cflags","-I/usr/include/SDL2")
 			__generate_json("cflags","-I/usr/local/include/SDL2")
 			__generate_json("ldflags","-lSDL2")
 			__generate_json("ldflags","-lpthread")
-			__generate_json("ldflags","-lm")
 			__generate_json("ldflags","-ldl")
 		PROT_READ=0x1
 		PROT_WRITE=0x2

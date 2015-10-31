@@ -255,9 +255,9 @@ UI.SetCaret=function(obj,x,y,w,h,C,dt){
 	obj.caret_dt=dt;
 	obj.caret_is_set=1
 	UI.SDL_SetTextInputRect(
-		UI.sub_window_offset_x+x,
-		UI.sub_window_offset_y+y,
-		w,h)
+		(UI.sub_window_offset_x+x)/UI.SDL_bad_coordinate_corrector,
+		(UI.sub_window_offset_y+y)/UI.SDL_bad_coordinate_corrector,
+		w/UI.SDL_bad_coordinate_corrector,h/UI.SDL_bad_coordinate_corrector)
 };
 
 UI.ChooseScalingFactor=function(obj){

@@ -578,6 +578,13 @@ class CRenderer
 				//		if !is_capable:
 				//			m_srgb_supported=0
 			//m_srgb_supported=0
+			//Writeln('m_srgb_supported=',m_srgb_supported)
+			//Writeln(!!SDL.detail.SDL_GL_ExtensionSupported("GL_EXT_sRGB"))
+			//Writeln(!!(SDL.detail.SDL_GL_ExtensionSupported("GL_EXT_texture_sRGB")))
+			//Writeln(!!(SDL.detail.SDL_GL_ExtensionSupported("GL_ARB_framebuffer_sRGB")))
+			if Platform.ARCH=="mac":
+				//hack: Mac supports it but lies about the extensions
+				m_srgb_supported=1
 	auto debugDumpVBO()
 		Writeln('=========== Draw')
 		inline i2f_P(int i)

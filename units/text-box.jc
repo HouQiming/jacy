@@ -1222,8 +1222,8 @@ class CEditableText
 			context_size=handler.contextSize()
 			ccnt_context0=max(ccnt_base-i64(context_size),0LL)
 			s_context=GetText(ccnt_context0,min(ccnt_base-ccnt_context0,m_skiplist.ccnt))
-			if s_context.n<context_size:
-				s_context=(new char[context_size-s_context.n])+s_context
+			//if s_context.n<context_size:
+			//	s_context=(new char[context_size-s_context.n])+s_context
 		else
 			s_context=string.NULL
 		return s_context
@@ -1892,9 +1892,11 @@ class CEditableText
 			handler_colorer=m_handlers[hid_colorer]
 		hid=m_handler_registration["renderer"].as(int)
 		handler=m_handlers[hid]
+		//Writeln('Render ',x,' ',y,' ',w,' ',h)
 		wnd_ccnt0=SeekXY(x,y)
 		wnd_ccnt1=SeekXY(x+w,y+h)
 		rendering_started=0
+		//Writeln('Render ',x,' ',y,' ',w,' ',h,' wnd ',wnd_ccnt0,' ',wnd_ccnt1)
 		////////////////////////
 		//fnt_bold_scaled=obj["font_emboldened"].as(TFont)
 		//fnt_bold_scaled.h*=scale

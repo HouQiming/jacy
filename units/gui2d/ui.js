@@ -1688,9 +1688,11 @@ UI.SetSystemCursor=function(mouse_cursor){
 UI.OpenFile=function(){};
 
 UI.m_window_map={}
+UI.g_main_window_destroyed=0
 UI.DestroyWindow=function(obj){
 	UI.CallIfAvailable(obj,"OnDestroy");
 	if(obj.is_main_window){
+		UI.g_main_window_destroyed=1
 		UI.SDL_PostQuitEvent();
 	}
 	UI.m_window_map[obj.__hwnd.toString()]=undefined
@@ -1779,6 +1781,18 @@ UI.Run=function(){
 				//Duktape.gc()
 				if(UI.SDL_bad_quit>0){
 					UI.SDL_bad_quit--;
+					event=UI.SDL_PollEvent();
+					if(!event)break;
+					continue;
+				}
+				if(!UI.g_main_window_destroyed){
+					//mac quit
+					var obj=UI.top.app;
+					if(obj){
+						if(!UI.CallIfAvailable(obj,"OnClose")){
+							UI.DestroyWindow(obj)
+						}
+					}
 					event=UI.SDL_PollEvent();
 					if(!event)break;
 					continue;
