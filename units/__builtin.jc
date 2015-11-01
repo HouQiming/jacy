@@ -531,7 +531,7 @@ class __array(T)
 			for i=1:n-1
 				di=this[i]
 				keyi=fgetkey(di)
-				if !__equal(key_last,di):
+				if !__equal(key_last,keyi):
 					this[n2++]=di
 					key_last=keyi
 			n=n2
