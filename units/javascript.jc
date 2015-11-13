@@ -122,7 +122,21 @@ module duktape
 	__reach(js_call)
 	__reach(js_release)
 	class JSContext
-		m_hctx=duk_create_heap_default()
+		m_hctx=(inline(){
+			if Platform.BUILD=="debug"&&LeakDetection.isEnabled():
+				__C(int,"@global:				
+				static void* s7_LD_duk_create_heap(){
+					#if S7_LD_LEAK_DETECTION_ENABLED
+						return (void*)s7_LD_duk_create_heap(s7_LD_duk_calloc,s7_LD_duk_realloc,s7_LD_duk_free,NULL,NULL);
+					#else
+						return (void*)duk_create_heap_default();
+					#endif
+				}
+				")
+				return __C(__pointer,"s7_LD_duk_create_heap()")
+			else
+				return duk_create_heap_default()
+		})()
 		m_ref_first_free=-1
 		m_ref_count=1
 		m_stash_array_position=1
@@ -547,6 +561,7 @@ module duktape
 					else
 						obj_handle=iptr(duk_get_heapptr(_ctx(),-1))
 						if reached[obj_handle]:return
+						Writeln('jso ',s_object_path,': ',__pointer(obj_handle))
 						reached[obj_handle]=i8(1)
 						DUK_ENUM_INCLUDE_INTERNAL=2
 						duk_enum(_ctx(),-1,DUK_ENUM_INCLUDE_INTERNAL)

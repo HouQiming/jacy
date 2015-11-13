@@ -80,6 +80,18 @@ auto CreateMemorySnapshot()
 			return (void*)(((void**)ptr)+10);
 		}
 		
+		static void* s7_LD_duk_calloc(void* udata,size_t sz){
+			return s7_LD_calloc(sz);
+		}
+		
+		static void s7_LD_duk_free(void* udata,void* ptrx){
+			s7_LD_free(ptrx);
+		}
+		
+		static void* s7_LD_duk_realloc(void* udata,void* ptrx,size_t sz){
+			return s7_LD_realloc(ptrx,sz);
+		}
+		
 		#undef s7_LD_real_free
 		static void s7_LD_real_free(void* p){free(p);} 
 		
@@ -244,6 +256,9 @@ inline RegisterRTTI(T)
 
 inline isEnabled()
 	return __C(int,"S7_LD_LEAK_DETECTION_ENABLED")
+
+inline GetMemoryUsage()
+	return __C(iptr,"s7_LD_g_memsize")
 
 inline realFree(__pointer p)
 	__C(int,"s7_LD_real_free(@1)",p)

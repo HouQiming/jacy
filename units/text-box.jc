@@ -85,105 +85,6 @@ auto combineEditorOffset(long2 bb0,long2 bb1)
 		bb.x+=bb1.x
 	return bb
 
-inline CharToUtf8(auto s,T)
-	return {'forEach':inline(fbody){
-		ch0=0;nnxt=0;II=T(0)
-		surrogate_1st=-1;surrogate_II=II
-		foreach chc,I in s
-			ch=int(u8(chc))
-			if ch>=128:
-				if ch&0x40:
-					II=I
-					ch0=(ch&0x1f)
-					nnxt=1
-					if ch&0x20:
-						nnxt++
-						if ch&0x10:
-							nnxt++
-							ch0&=7
-				else
-					ch0=(ch0<<6)+(ch&63)
-					nnxt--
-				if nnxt:continue
-				ch=ch0
-				if u32(ch-0xd800)<0x800u:
-					//surrogate pair
-					if (ch&0x0400):
-						//2nd
-						if surrogate_1st>=0:
-							ch=(surrogate_1st*0x400)+(ch&0x3ff)
-							surrogate_1st=-1
-							II=surrogate_II
-						else
-							surrogate_1st=-1
-					else
-						if surrogate_1st<0:
-							//1st
-							surrogate_1st=(ch&0x3ff)
-							surrogate_II=II
-							continue
-						else
-							surrogate_1st=-1
-			else
-				II=I
-			fbody(ch,II,I+T(1))
-	}}
-
-inline CharToUtf8Backward(auto s,T)
-	return {'forEach':inline(fbody){
-		ch0=0;nshift=0;II=T(0)
-		surrogate_2nd=0
-		foreach chc,I in s
-			ch=int(u8(chc))
-			if ch>=128:
-				if ch&0x40:
-					II=I
-					chprefix=(ch&0x1f)
-					if ch&0x20:
-						if ch&0x10:
-							chprefix&=7
-					ch=ch0+(chprefix<<nshift)
-					ch0=0
-					nshift=0
-				else
-					ch0+=(ch&63)<<nshift
-					nshift+=6
-					continue
-				if u32(ch-0xd800)<0x800u:
-					//surrogate pair
-					if ch&0x0400:
-						//2nd
-						surrogate_2nd=(ch&0x3ff)
-						continue
-					else
-						//1st
-						ch=surrogate_2nd+(ch&0x3ff)*0x400
-						surrogate_2nd=0
-			else
-				II=I
-			fbody(ch,II)
-	}}	
-
-inline Utf8Chars(string s)
-	return CharToUtf8(s,iptr)
-
-inline Utf8CodeAt(string s,ofs)
-	ret=0
-	foreach ch in (CharToUtf8({'forEach':inline(fbody){
-				for i=iptr(ofs):s.n-1
-					fbody(s[i],i)
-			}},iptr))
-		ret=ch
-		break
-	return ret
-
-inline Utf8Length(int ch)
-	ret=1
-	if ch>=128:ret++
-	if ch>=2048:ret++
-	if ch>=65536:ret++
-	return ret
-
 auto MakeCharSet(string e)
 	ok=new u32[8]
 	inv=0
@@ -2033,10 +1934,10 @@ class CEditableText
 				mode=int(hl.display_mode)
 				if mode==HL_DISPLAY_MODE_RECT:continue
 				handler.DrawEnhancedHighlight(obj,this,hl, x,y,w,h,scr_x,scr_y,scale)
-		g_renderer.PopCliprect()
 		m_caret_offset=fixed2double(handler.GetCaretOffset())
 		//////////////////////////////
 		if handler.EndRender:handler.EndRender(obj,this, x,y,w,h,scr_x,scr_y,scale)
+		g_renderer.PopCliprect()
 	/////////////////////////////////////////////////
 	//just record classes and ccnts - restoring ccnt for discarded locators is OK
 	auto CreateLocator(i64 ccnt,int side)
@@ -2615,4 +2516,4 @@ registerStateHandler("line_column_unicode",CLine_handler)
 
 registerStateHandler=TextBox.detail.registerStateHandler
 isWordChar=TextBox.detail.isWordChar
-Utf8Chars=TextBox.detail.Utf8Chars
+

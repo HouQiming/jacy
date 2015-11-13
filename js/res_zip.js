@@ -6,7 +6,7 @@ function call7z(sdir,fnzip0,fnames,sextra_arg){
 	}
 	s_7z_2.push(fnzip0);
 	s_7z_2=s_7z_2.concat(fnames);
-	var scmd="@echo off\n"+shellcmd(["cd",sdir])+"\n"+shellcmd(s_7z_2)+"\n";
+	var scmd="@echo off\n"+shellcmd(["cd","/d",sdir])+"\n"+shellcmd(s_7z_2)+"\n";
 	var scall7z=g_work_dir+"/call7z.bat";
 	if(!CreateFile(scall7z,scmd)){
 		throw new Error("can't create call7z.bat");

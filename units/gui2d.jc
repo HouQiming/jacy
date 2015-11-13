@@ -367,9 +367,12 @@ class CUISandbox
 		m_ui_zip=ParseZip(arr_res_zip)
 	auto UIRunJS(JSContext JS,string fn)
 		err=JS.evalVoid(UIReadAll(fn),fn)
-		//if Platform.BUILD=="debug":
 		if err:
-			Writeln(err["stack"].or(""))
+			if Platform.BUILD=="debug":
+				Writeln(err["stack"].or(""))
+			else
+				if g_log_file:
+					System.IO.CreateFile(g_log_file).Write(err["stack"].or(""))
 
 class IRendererHook
 	function() BeginFrame
@@ -483,11 +486,13 @@ class CRenderer
 		//Writeln('----------------')
 		m_drawcalls.clear()
 		m_vbo.clear()
-		m_glyph_cache_prev=m_glyph_cache
+		//m_glyph_cache_prev=m_glyph_cache
 		if m_glyph_cache_invalidated:
-			m_glyph_cache_prev.discard()
+			//m_glyph_cache_prev.discard()
+			m_glyph_cache.discard()
+			m_glyph_cache=new CGlyphCacheItem[int3]
 			m_glyph_cache_invalidated=0
-		m_glyph_cache=new CGlyphCacheItem[int3]
+		//m_glyph_cache=new CGlyphCacheItem[int3]
 		m_fast_glyph_cache_font=TFont()
 		m_fast_glyph_cache=TFastGlyphCacheItem[int].NULL
 		m_fast_glyph_cache_ascii=TFastGlyphCacheItem[].NULL
@@ -884,7 +889,7 @@ class CRenderer
 		m_dynamic_textures.push(bmp)
 		_DrawBitmap(int(m_dynamic_textures.n)-1,x0,y0,w0,h0,C)
 	//////////////
-	m_glyph_cache_prev=new CGlyphCacheItem[int3]
+	//m_glyph_cache_prev=new CGlyphCacheItem[int3]
 	m_glyph_cache=new CGlyphCacheItem[int3]
 	m_glyph_cache_invalidated=0
 	m_has_new_glyph_cache_entry=0
@@ -999,7 +1004,7 @@ class CRenderer
 			ret=m_glyph_cache[key]
 			//Writeln('below ret=m_glyph_cache[key]')
 			if !ret&&FTW_GetGlyphId(pfnt.hfnt,ch):
-				ret=m_glyph_cache_prev[key]
+				//ret=m_glyph_cache_prev[key]
 				if !ret:
 					m_has_new_glyph_cache_entry=1
 					dims=new float[6]
@@ -1318,7 +1323,7 @@ class CRenderer
 			key=int3(0x80000000,is_border==1?__float_as_int(border_width):0xffffffff,__float_as_int(radius))
 		ret=m_glyph_cache[key]
 		if !ret:
-			ret=m_glyph_cache_prev[key]
+			//ret=m_glyph_cache_prev[key]
 			if !ret:
 				m_has_new_glyph_cache_entry=1
 				rif=System.Math.ceil(radius)
@@ -1548,6 +1553,105 @@ FUIExtension=function(JSObject JS_UI,CUISandbox sbox,int is_real)
 g_ui_exts=new FUIExtension[]
 inline registerUIExtension(f)
 	g_ui_exts.push(f)
+
+inline CharToUtf8(auto s,T)
+	return {'forEach':inline(fbody){
+		ch0=0;nnxt=0;II=T(0)
+		surrogate_1st=-1;surrogate_II=II
+		foreach chc,I in s
+			ch=int(u8(chc))
+			if ch>=128:
+				if ch&0x40:
+					II=I
+					ch0=(ch&0x1f)
+					nnxt=1
+					if ch&0x20:
+						nnxt++
+						if ch&0x10:
+							nnxt++
+							ch0&=7
+				else
+					ch0=(ch0<<6)+(ch&63)
+					nnxt--
+				if nnxt:continue
+				ch=ch0
+				if u32(ch-0xd800)<0x800u:
+					//surrogate pair
+					if (ch&0x0400):
+						//2nd
+						if surrogate_1st>=0:
+							ch=(surrogate_1st*0x400)+(ch&0x3ff)
+							surrogate_1st=-1
+							II=surrogate_II
+						else
+							surrogate_1st=-1
+					else
+						if surrogate_1st<0:
+							//1st
+							surrogate_1st=(ch&0x3ff)
+							surrogate_II=II
+							continue
+						else
+							surrogate_1st=-1
+			else
+				II=I
+			fbody(ch,II,I+T(1))
+	}}
+
+inline CharToUtf8Backward(auto s,T)
+	return {'forEach':inline(fbody){
+		ch0=0;nshift=0;II=T(0)
+		surrogate_2nd=0
+		foreach chc,I in s
+			ch=int(u8(chc))
+			if ch>=128:
+				if ch&0x40:
+					II=I
+					chprefix=(ch&0x1f)
+					if ch&0x20:
+						if ch&0x10:
+							chprefix&=7
+					ch=ch0+(chprefix<<nshift)
+					ch0=0
+					nshift=0
+				else
+					ch0+=(ch&63)<<nshift
+					nshift+=6
+					continue
+				if u32(ch-0xd800)<0x800u:
+					//surrogate pair
+					if ch&0x0400:
+						//2nd
+						surrogate_2nd=(ch&0x3ff)
+						continue
+					else
+						//1st
+						ch=surrogate_2nd+(ch&0x3ff)*0x400
+						surrogate_2nd=0
+			else
+				II=I
+			fbody(ch,II)
+	}}	
+
+inline Utf8Chars(string s)
+	return CharToUtf8(s,iptr)
+
+inline Utf8CodeAt(string s,ofs)
+	ret=0
+	foreach ch in (CharToUtf8({'forEach':inline(fbody){
+				for i=iptr(ofs):s.n-1
+					fbody(s[i],i)
+			}},iptr))
+		ret=ch
+		break
+	return ret
+
+inline Utf8Length(int ch)
+	ret=1
+	if ch>=128:ret++
+	if ch>=2048:ret++
+	if ch>=65536:ret++
+	return ret
 
 auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 	if is_real:
@@ -1791,6 +1895,59 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 		attrs["__layout"]=layout
 		return 0
 	}
+	JS_UI["DrawTextControlImmediate"]=function(JSContext JS){
+		attrs=JS.Param(0).as(JSObject)
+		x0=JS.Param(1).or(0.f)*g_renderer.m_pixels_per_unit
+		y0=JS.Param(2).or(0.f)*g_renderer.m_pixels_per_unit
+		C=int(JS.Param(3).or(u32(-1)))
+		fnt=attrs["font"].as(TFont)
+		fnt.h*=g_renderer.m_pixels_per_unit
+		if !fnt.pfnt:return 0
+		fnt_li=fnt
+		if g_renderer.m_srgb_supported:
+			fnt_li.SmartEmbolden(C)
+		flags=attrs["flags"].or(g_renderer.EDT_EXPANDTABS|g_renderer.EDT_WORDBREAK)
+		s=attrs["text"].or("")
+		wspace=g_renderer.GetCharacterAdvance(fnt,int(' '))
+		wtab=wspace*8.f
+		hc=g_renderer.GetCharacterHeight(fnt)
+		y_baseline=g_renderer.GetFontBaseline(fnt)
+		y_underline=y_baseline*1.05f
+		h_underline=y_baseline*0.05f
+		x=x0;y=y0
+		xmax=0.f
+		is_underlining=0
+		for ch in Utf8Chars(s)
+			if ch=='\r':continue
+			if flags&g_renderer.EDT_PREFIX_TO_UNDERLINE:
+				if ch=='&'&&!is_underlining:
+					is_underlining=1
+					continue
+			if ch=='\t':
+				if flags&g_renderer.EDT_EXPANDTABS:
+					dx=(floor(x/wtab)+1.f)*wtab-x
+				else
+					dx=wspace
+			else if ch=='\n':
+				x=x0
+				y+=hc
+				continue
+			else
+				(gc_I,delta_y)=g_renderer.CacheGlyph(fnt,ch)
+				if gc_I:
+					dx=gc_I.dx
+					g_renderer.DrawChar(fnt_li,x,y,C,ch)
+				else
+					dx=0.f
+			if is_underlining:
+				g_renderer.DrawRectangle(x,y+y_underline,dx,h_underline, C)
+				is_underlining=0
+			x+=dx
+			xmax=max(xmax,x)
+		attrs["w"]=xmax
+		attrs["h"]=y+(x>x0?hc:0.f)
+		return 0
+	}
 	JS_UI["DrawTextControl"]=function(JSContext JS){
 		attrs=JS.Param(0).as(JSObject)
 		x0=JS.Param(1).or(0.f)*g_renderer.m_pixels_per_unit
@@ -1801,10 +1958,10 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 		fnt=attrs["font"].as(TFont)
 		fnt.h*=g_renderer.m_pixels_per_unit
 		if !fnt.pfnt:return 0
+		fnt_li=fnt
+		if g_renderer.m_srgb_supported:
+			fnt_li.SmartEmbolden(int(C))
 		foreach li in layout.chars
-			fnt_li=fnt
-			if g_renderer.m_srgb_supported:
-				fnt_li.SmartEmbolden(li.ch)
 			g_renderer.DrawChar(fnt_li,x0+li.pos.x,y0+li.pos.y,int(C),li.ch)
 		if layout.underlines:
 			foreach ul in layout.underlines
@@ -1893,6 +2050,10 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 		}
 		JS_UI["SetFontSharpening"]=function(JSContext JS){
 			g_renderer.m_font_sharpening=JS.Param(0).or(0.f)
+			g_renderer.m_glyph_cache_invalidated=1
+			return 0
+		}
+		JS_UI["InvalidateGlyphCache"]=function(JSContext JS){
 			g_renderer.m_glyph_cache_invalidated=1
 			return 0
 		}
@@ -2138,6 +2299,8 @@ registerUIExtension=Gui2D.detail.registerUIExtension
 registerRenderingHook=inline(a){Gui2D.detail.g_renderer.m_hooks.push(getInterface(a,Gui2D.detail.IRendererHook))}
 CUISandbox=Gui2D.detail.CUISandbox
 CSandboxWindow=Gui2D.detail.CSandboxWindow
+Utf8Chars=Gui2D.detail.Utf8Chars
+g_log_file=string.NULL
 
 auto ProvideGLFunctions()
 	registerUIExtension(function(JSObject JS_UI,CUISandbox sbox,int is_real){

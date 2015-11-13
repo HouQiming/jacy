@@ -1245,6 +1245,9 @@ UI.default_interpolator=function(a,b,t){
 UI.lerp_rgba=function(a,b,t){
 	return (lerp(a&0xff,b&0xff,t)|0)+(lerp(a&0xff00,b&0xff00,t)&0xff00)+(lerp(a&0xff0000,b&0xff0000,t)&0xff0000)+((lerp((a>>24)&0xff,(b>>24)&0xff,t)|0)<<24)
 }
+UI.fade_rgba=function(a,alpha){
+	return UI.lerp_rgba(a&0x00ffffff,a,alpha);
+}
 UI.interpolators.color=function(a,b,t){
 	if(isNumber(a)&&isNumber(b)){
 		//32-bit rgba
@@ -1496,8 +1499,11 @@ UI.DeleteTemps=function(attrs){
 UI.need_to_refresh=1;
 UI.inside_IME=0;
 UI.nd_mouse_down=[];
+UI.tick_last_refresh=Duktape.__ui_get_tick();
 UI.Refresh=function(){
 	UI.need_to_refresh=1;
+	UI.tick_last_refresh=Duktape.__ui_get_tick();
+	//print(new Error("UI.Refresh").stack);
 }
 UI.InvalidateCurrentFrame=function(){UI.m_frame_is_invalid=1;}
 
@@ -1699,6 +1705,7 @@ UI.DestroyWindow=function(obj){
 	UI.SDL_DestroyWindow(obj.__hwnd)
 };
 
+UI.gc_interval=1
 var runCaretCallback=function(obj){
 	if(!obj.has_caret_callback){
 		obj.has_caret_callback=1;
@@ -1709,6 +1716,11 @@ var runCaretCallback=function(obj){
 				obj.caret_state=1;
 			}
 			UI.JSDrawWindow(obj)
+			if(Duktape.__ui_seconds_between_ticks(UI.tick_last_refresh,Duktape.__ui_get_tick())>UI.gc_interval){
+				UI.tick_last_refresh=Duktape.__ui_get_tick();
+				UI.InvalidateGlyphCache();
+				Duktape.gc();
+			}
 			if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
 				obj.has_caret_callback=1;
 				UI.setTimeout(fn_ret,obj.caret_dt);
@@ -1770,6 +1782,7 @@ UI.Run=function(){
 		}else{
 			//only call GC when we become idle
 			if(UI.m_need_gc_call>0){
+				UI.InvalidateGlyphCache();
 				Duktape.gc()
 				UI.m_need_gc_call=0
 			}
@@ -1777,8 +1790,6 @@ UI.Run=function(){
 		}
 		while(event){
 			if(event.type==UI.SDL_QUIT){
-				//print("=== run gc inside UI.Run")
-				//Duktape.gc()
 				if(UI.SDL_bad_quit>0){
 					UI.SDL_bad_quit--;
 					event=UI.SDL_PollEvent();

@@ -329,11 +329,15 @@ W.Bitmap=function(id,attrs){
 }
 
 W.Text=function(id,attrs){
-	if(!attrs.__layout){UI.LayoutText(attrs);}
-	attrs.w=(attrs.w||attrs.w_text);
-	attrs.h=(attrs.h||attrs.h_text);
-	UI.StdAnchoring(id,attrs);
-	UI.DrawTextControl(attrs,attrs.x,attrs.y,attrs.color||0xffffffff)
+	if(attrs.w==undefined&&attrs.h==undefined&&attrs.anchor==undefined){
+		UI.DrawTextControlImmediate(attrs,attrs.x,attrs.y,attrs.color||0xffffffff)
+	}else{
+		if(!attrs.__layout){UI.LayoutText(attrs);}
+		attrs.w=(attrs.w||attrs.w_text);
+		attrs.h=(attrs.h||attrs.h_text);
+		UI.StdAnchoring(id,attrs);
+		UI.DrawTextControl(attrs,attrs.x,attrs.y,attrs.color||0xffffffff)
+	}
 	return attrs
 };
 
@@ -557,47 +561,66 @@ W.DrawIconTextEx=function(style,data){
 	W.DrawIconText("",obj,obj);
 };
 
-W.DrawTooltip=function(obj){
+W.DrawTooltip=function(obj,alpha){
+	if(alpha==undefined){alpha=1;}
 	UI.TopMostWidget(function(){
 		var tstyle=(obj.tooltip_style||UI.default_styles.tooltip)
 		var dim=UI.MeasureText(tstyle.font,obj.tooltip)
 		dim.w+=tstyle.padding*2
 		dim.h+=tstyle.padding*2
-		var x=obj.x+(obj.w-dim.w)*0.5,y;
-		if(obj.tooltip_placement=='up'){
-			y=obj.y-dim.h-tstyle.spacing
+		var x,y;
+		if(obj.tooltip_placement=='right'){
+			x=obj.x+obj.w+tstyle.spacing;
+			y=obj.y+(obj.h-dim.h)*0.5;
 		}else{
-			y=obj.y+obj.h+tstyle.spacing
+			x=obj.x+(obj.w-dim.w)*0.5;
+			if(obj.tooltip_placement=='up'){
+				y=obj.y-dim.h-tstyle.spacing
+			}else{
+				y=obj.y+obj.h+tstyle.spacing
+			}
+			x=Math.max(Math.min(x,UI.context_window.w-dim.w),0)
 		}
-		x=Math.max(x,Math.min(x,UI.context_window.w-dim.w),0)
 		UI.RoundRect({
 			x:x,y:y,w:dim.w+tstyle.shadow_size,h:dim.h+tstyle.shadow_size,
-			color:tstyle.shadow_color,
+			color:UI.fade_rgba(tstyle.shadow_color,alpha),
 			round:tstyle.round,
 			border_width:-tstyle.shadow_size,
 		})
-		var dim_triangle
+		var dim_triangle;
 		if(tstyle.triangle_font){
-			dim_triangle=UI.MeasureText(tstyle.triangle_font,"\u25B2")
+			dim_triangle=UI.MeasureText(tstyle.triangle_font,obj.tooltip_placement=='right'?"\u25C0":"\u25B2")
 		}
 		if(tstyle.triangle_font2){
-			UI.DrawChar(tstyle.triangle_font2,obj.x+(obj.w-dim_triangle.w)*0.5,
-				y-dim_triangle.h*0.5,
-				tstyle.border_color,0x25B2)
+			if(obj.tooltip_placement=='right'){
+				UI.DrawChar(tstyle.triangle_font2,x-dim_triangle.w*0.5,
+					obj.y+(obj.h-dim_triangle.h)*0.5,
+					UI.fade_rgba(tstyle.border_color,alpha),0x25C0)
+			}else{
+				UI.DrawChar(tstyle.triangle_font2,obj.x+(obj.w-dim_triangle.w)*0.5,
+					y-dim_triangle.h*0.5,
+					UI.fade_rgba(tstyle.border_color,alpha),0x25B2)
+			}
 		}
 		UI.RoundRect({
 			x:x,y:y,w:dim.w,h:dim.h,
-			color:tstyle.color,
+			color:UI.fade_rgba(tstyle.color,alpha),
 			round:tstyle.round,
-			border_color:tstyle.border_color,
+			border_color:UI.fade_rgba(tstyle.border_color,alpha),
 			border_width:tstyle.border_width,
 		})
 		if(tstyle.triangle_font){
-			UI.DrawChar(tstyle.triangle_font,obj.x+(obj.w-dim_triangle.w)*0.5,
-				y-dim_triangle.h*0.5,
-				tstyle.color,0x25B2)
+			if(obj.tooltip_placement=='right'){
+				UI.DrawChar(tstyle.triangle_font,x-dim_triangle.w*0.5,
+					obj.y+(obj.h-dim_triangle.h)*0.5,
+					UI.fade_rgba(tstyle.color,alpha),0x25C0)
+			}else{
+				UI.DrawChar(tstyle.triangle_font,obj.x+(obj.w-dim_triangle.w)*0.5,
+					y-dim_triangle.h*0.5,
+					UI.fade_rgba(tstyle.color,alpha),0x25B2)
+			}
 		}
-		W.Text("",{x:x+tstyle.padding,y:y+tstyle.padding,font:tstyle.font,text:obj.tooltip,color:tstyle.text_color,flags:14})
+		W.Text("",{x:x+tstyle.padding,y:y+tstyle.padding,font:tstyle.font,text:obj.tooltip,color:UI.fade_rgba(tstyle.text_color,alpha),flags:14})
 	})
 }
 
@@ -607,8 +630,18 @@ W.Button=function(id,attrs){
 	var obj=UI.Keep(id,attrs,W.Button_prototype);
 	UI.StdStyling(id,obj,attrs, "button",(obj.value?"checked_":"")+(obj.mouse_state||"out"));
 	W.DrawIconText(id,obj,attrs)
-	if(obj.tooltip&&((obj.mouse_state||'out')!='out'||obj.show_tooltip_override)){
-		W.DrawTooltip(obj)
+	if(obj.tooltip){
+		var tooltip_alpha=0
+		if(((obj.mouse_state||'out')!='out'||obj.show_tooltip_override)){
+			tooltip_alpha=1
+		}
+		UI.Begin(obj)
+		var anim=W.AnimationNode("tooltip_animation",{transition_dt:obj.transition_dt,
+			tooltip_alpha:tooltip_alpha})
+		UI.End(obj)
+		if(anim.tooltip_alpha>0){
+			W.DrawTooltip(obj,anim.tooltip_alpha)
+		}
 	}
 	return W.PureRegion(id,obj);
 }
