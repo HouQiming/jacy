@@ -1718,8 +1718,10 @@ var runCaretCallback=function(obj){
 			UI.JSDrawWindow(obj)
 			if(Duktape.__ui_seconds_between_ticks(UI.tick_last_refresh,Duktape.__ui_get_tick())>UI.gc_interval){
 				UI.tick_last_refresh=Duktape.__ui_get_tick();
-				UI.InvalidateGlyphCache();
-				Duktape.gc();
+				if(UI.Platform.BUILD!="debug"){
+					UI.EmptyCache();
+					Duktape.gc();
+				}
 			}
 			if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
 				obj.has_caret_callback=1;
@@ -1782,7 +1784,7 @@ UI.Run=function(){
 		}else{
 			//only call GC when we become idle
 			if(UI.m_need_gc_call>0){
-				UI.InvalidateGlyphCache();
+				UI.EmptyCache();
 				Duktape.gc()
 				UI.m_need_gc_call=0
 			}
