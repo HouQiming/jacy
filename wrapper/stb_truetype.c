@@ -2057,7 +2057,7 @@ static void stbtt_Embolden(stbtt_vertex *vertices,int n,float lg){
 			}
 		}
 	}
-	STBTT_free(Ns,ft->userdata);
+	STBTT_free(Ns,NULL);
 }
 
 static u8* g_buf=NULL;

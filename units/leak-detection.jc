@@ -85,11 +85,11 @@ auto CreateMemorySnapshot()
 		}
 		
 		static void s7_LD_duk_free(void* udata,void* ptrx){
-			s7_LD_free(ptrx);
+			if(ptrx){s7_LD_free(ptrx);}
 		}
 		
 		static void* s7_LD_duk_realloc(void* udata,void* ptrx,size_t sz){
-			return s7_LD_realloc(ptrx,sz);
+			return ptrx?s7_LD_realloc(ptrx,sz):s7_LD_calloc(sz);;
 		}
 		
 		#undef s7_LD_real_free
@@ -230,6 +230,22 @@ auto DetectLeaks()
 								continue
 						Write(formatNumber(uptr(word),{align:sizeof(iptr)*2,base:16}),' ')
 					Writeln()
+					if iptr==i32:
+						if __memory(iptr,pobj+0*sizeof(iptr))==0x50000042:
+							//duktape object
+							p_props=__memory(iptr,pobj+4*sizeof(iptr))
+							e_size=__memory(i16,pobj+6*sizeof(iptr))
+							Write('  duktape object: {')
+							for j=0:e_size-1
+								p_str=__memory(iptr,p_props+j*sizeof(iptr))
+								if !p_str:continue
+								if j:Write(',')
+								p_str+=5*sizeof(iptr)
+								for(;;)
+									if !__memory(i8,p_str):break
+									Write(__memory(i8,p_str))
+									p_str++
+							Writeln('}')
 				if detail.g_js_rc[pobj]:
 					Writeln('  has ',detail.g_js_rc[pobj],' JS references')
 				ppref=referer_pairs.InlineBisect(inline(a){return a.x<pobj})

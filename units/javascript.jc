@@ -124,13 +124,12 @@ module duktape
 	class JSContext
 		m_hctx=(inline(){
 			if Platform.BUILD=="debug"&&LeakDetection.isEnabled():
-				__C(int,"@global:				
+				__C(int,"@global:
+				static void* s7_LD_duk_calloc(void* udata,size_t sz);
+				static void s7_LD_duk_free(void* udata,void* ptrx);
+				static void* s7_LD_duk_realloc(void* udata,void* ptrx,size_t sz);
 				static void* s7_LD_duk_create_heap(){
-					#if S7_LD_LEAK_DETECTION_ENABLED
-						return (void*)s7_LD_duk_create_heap(s7_LD_duk_calloc,s7_LD_duk_realloc,s7_LD_duk_free,NULL,NULL);
-					#else
-						return (void*)duk_create_heap_default();
-					#endif
+					return (void*)duk_create_heap(s7_LD_duk_calloc,s7_LD_duk_realloc,s7_LD_duk_free,NULL,NULL);
 				}
 				")
 				return __C(__pointer,"s7_LD_duk_create_heap()")

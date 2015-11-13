@@ -1264,7 +1264,8 @@ UI.interpolators.color=function(a,b,t){
 }
 UI.interpolators.caption_color=UI.interpolators.color;
 UI.interpolators.border_color=UI.interpolators.color;
-UI.interpolators.text_color=UI.interpolators.color;
+//UI.interpolators.text_color=UI.interpolators.color;
+UI.interpolators.text_color=function(a,b,t){return b;}//avoid smartembolden explosion
 UI.interpolators.icon_color=UI.interpolators.color;
 UI.interpolators.shadow_color=UI.interpolators.color;
 UI.non_animated_values={

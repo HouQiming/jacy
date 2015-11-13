@@ -184,8 +184,8 @@ struct TFont
 	h=0.f
 	embolden=0
 	auto SmartEmbolden(int m_color)
-		embolden+=int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*3000.f/h)
-		Writeln(int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*3000.f/h))//todo
+		//avoid creating too many glyphs during text fading
+		embolden+=((int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*3000.f/h)+8)&-16)
 
 //struct TGlyphCacheItem
 class CGlyphCacheItem
@@ -246,6 +246,53 @@ class CUISandbox
 			else
 				if g_log_file:
 					System.IO.CreateFile(g_log_file).Write(err["stack"].or(""))
+
+lanczos_filter=function(int aa,int szwnd,float font_sharpening){
+	auto htap=aa*szwnd
+	auto ret=new float[htap*2+1]
+	auto scale=float(PI)/float(aa)
+	auto scale2=float(PI)/float(aa*szwnd)
+	////////
+	//sinc
+	for i=1:htap
+		auto x=scale*float(i)
+		//auto x2=scale2*float(i)
+		//v=sin(x)*sin(x2)/(x*x2)
+		v=sin(x)/x
+		ret[htap+i]=v
+		ret[htap-i]=v
+	ret[htap]=1.f
+	////////
+	//sharpening
+	auto scale=font_sharpening
+	auto lap=new float[ret.n]
+	for i=1:ret.n-2
+		lap[i]=ret[i]*2.f-ret[i-1]-ret[i+1]
+	for i=0:ret.n-1
+		ret[i]+=lap[i]*scale
+	////////
+	//windowing
+	for i=1:htap
+		auto x2=scale2*float(i)
+		v=sin(x2)/x2
+		ret[htap+i]*=v
+		ret[htap-i]*=v
+	////////
+	auto wgt=0.f
+	for i=0:ret.n-1
+		wgt+=ret[i]
+	wgt=1.f/wgt
+	for i=0:ret.n-1
+		ret[i]*=wgt
+	return ret
+}
+box_filter=function(int aa){
+	auto ret=new float[aa]
+	auto val=1.f/float(aa)
+	for i=0:aa-1
+		ret[i]=val
+	return ret
+}
 
 //note: m_texture_height cannot go over m_texture_width
 //the DC singleton
@@ -769,6 +816,8 @@ class CRenderer
 		return ret
 	auto CreateFont(CCoreFont pfnt,float h,int embolden)
 		return TFont(){pfnt:pfnt,h:h,embolden:embolden}
+	m_filter3=float[].NULL
+	m_filter5=float[].NULL
 	auto CacheGlyph(TFont fnt, int ch)
 		embolden=float(max(min(fnt.embolden,511),-512))*fnt.h
 		x_aa=3
@@ -804,55 +853,14 @@ class CRenderer
 				dims=new float[6]
 				//pbitmap=FTW_GetCharacterEx(pfnt.hfnt,fnt.h,x_aa, embolden, ch,dims)
 				//font_sharpening=m_font_sharpening*max(min(1.f-(fnt.h-16.f)/16.f,1.f),0.f)
-				font_sharpening=m_font_sharpening
-				lanczos_filter=function(int aa,int szwnd){
-					auto htap=aa*szwnd
-					auto ret=new float[htap*2+1]
-					auto scale=float(PI)/float(aa)
-					auto scale2=float(PI)/float(aa*szwnd)
-					////////
-					//sinc
-					for i=1:htap
-						auto x=scale*float(i)
-						//auto x2=scale2*float(i)
-						//v=sin(x)*sin(x2)/(x*x2)
-						v=sin(x)/x
-						ret[htap+i]=v
-						ret[htap-i]=v
-					ret[htap]=1.f
-					////////
-					//sharpening
-					auto scale=font_sharpening
-					auto lap=new float[ret.n]
-					for i=1:ret.n-2
-						lap[i]=ret[i]*2.f-ret[i-1]-ret[i+1]
-					for i=0:ret.n-1
-						ret[i]+=lap[i]*scale
-					////////
-					//windowing
-					for i=1:htap
-						auto x2=scale2*float(i)
-						v=sin(x2)/x2
-						ret[htap+i]*=v
-						ret[htap-i]*=v
-					////////
-					auto wgt=0.f
-					for i=0:ret.n-1
-						wgt+=ret[i]
-					wgt=1.f/wgt
-					for i=0:ret.n-1
-						ret[i]*=wgt
-					return ret
-				}
-				box_filter=function(int aa){
-					auto ret=new float[aa]
-					auto val=1.f/float(aa)
-					for i=0:aa-1
-						ret[i]=val
-					return ret
-				}
-				x_filter=lanczos_filter(x_aa,2)
-				y_filter=lanczos_filter(y_aa,2)
+				//font_sharpening=m_font_sharpening
+				if !m_filter3:
+					m_filter3=lanczos_filter(3,2,m_font_sharpening)
+					m_filter5=lanczos_filter(5,2,m_font_sharpening)
+				assert(x_aa==3||x_aa==5)
+				assert(y_aa==3||y_aa==5)
+				x_filter=(x_aa==3?m_filter3:m_filter5)
+				y_filter=(y_aa==3?m_filter3:m_filter5)
 				//x_filter=box_filter(x_aa)
 				//y_filter=box_filter(y_aa)
 				x_htaps=int(x_filter.n>>1)
@@ -1832,6 +1840,8 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 		}
 		JS_UI["SetFontSharpening"]=function(JSContext JS){
 			g_renderer.m_font_sharpening=JS.Param(0).or(0.f)
+			g_renderer.m_filter3=lanczos_filter(3,2,g_renderer.m_font_sharpening)
+			g_renderer.m_filter5=lanczos_filter(5,2,g_renderer.m_font_sharpening)
 			g_renderer.m_glyph_cache_invalidated=1
 			return 0
 		}
