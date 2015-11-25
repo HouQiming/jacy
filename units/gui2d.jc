@@ -16,8 +16,6 @@ FTW_GetAscent=__c_function(float,"FTW_GetAscent","stb_truetype.h", "c_files","st
 FTW_GetGlyphAdvance=__c_function(float,"FTW_GetGlyphAdvance","stb_truetype.h", "c_files","stb_truetype.c")
 FTW_GetKerning=__c_function(float,"FTW_GetKerning","stb_truetype.h", "c_files","stb_truetype.c")
 FTW_SetRetardedWindingOrder=__c_function(int,"FTW_SetRetardedWindingOrder","stb_truetype.h", "c_files","stb_truetype.c")
-stbi_write_png_to_mem=__c_function(__pointer,"stbi_write_png_to_mem","stb_image_write.h", "c_files","stb_image_write.c")
-stbi_free_image_write=__c_function(__pointer,"stbi_free_image_write","stb_image_write.h", "c_files","stb_image_write.c")
 stbi_load_from_memory=__c_function(__pointer,"stbi_load_from_memory","stb_image.h", "c_files","stb_image.c")
 stbi_zlib_decode_malloc=__c_function(__pointer,"stbi_zlib_decode_malloc","stb_image.h", "c_files","stb_image.c")
 stbi_zlib_decode_noheader_malloc=__c_function(__pointer,"stbi_zlib_decode_noheader_malloc","stb_image.h", "c_files","stb_image.c")
@@ -245,7 +243,14 @@ class CUISandbox
 				Writeln(err["stack"].or(""))
 			else
 				if g_log_file:
-					System.IO.CreateFile(g_log_file).Write(err["stack"].or(""))
+					if !System.IO.FileExists(g_log_file):
+						f=System.IO.CreateFile(g_log_file)
+					else
+						f=System.IO.fopen(g_log_file,System.IO.OPEN_READ|System.IO.OPEN_WRITE)
+						f.SeekFromEnd(0L)
+					if f:
+						f.Write(err["stack"].or(""))
+						f.Close()
 
 lanczos_filter=function(int aa,int szwnd,float font_sharpening){
 	auto htap=aa*szwnd
@@ -363,6 +368,8 @@ class CRenderer
 		//m_pixels_per_unit=f32(m_screen_dpi)/f32(m_design_dpi)
 	//////////////////////////
 	auto SavePNG(string fn, int[] img,int w,int h)
+		stbi_write_png_to_mem=__c_function(__pointer,"stbi_write_png_to_mem","stb_image_write.h", "c_files","stb_image_write.c")
+		stbi_free_image_write=__c_function(__pointer,"stbi_free_image_write","stb_image_write.h", "c_files","stb_image_write.c")
 		len=0
 		spng=stbi_write_png_to_mem(img,w*4,w,h,4,&len)
 		if !spng:

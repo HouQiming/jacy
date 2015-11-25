@@ -55,6 +55,7 @@ DEBUG_DUMP_PASSES=(Platform.BUILD=="debug")
 DEBUG_DUMP_GVN_DETAILS=0
 DEBUG_DUMP_SCCP=0
 DEBUG_DUMP_STACKALLOC=0
+DEBUG_DUMP_CALL_GRAPH=0
 ///////////////
 DERIV_HAS_REUSABLE_COMPONENTS=0x80000000
 
@@ -1917,6 +1918,7 @@ auto coreInit()
 		pobjfn=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
 		if pobjfn:
 			setFunctionUsed(pobjfn)
+			setParameterSlotTypes(pobjfn)
 		if !id_export_name||!pobjfn:
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
 		fn=readPoolTyped(pobjfn,TFunction)
@@ -3147,7 +3149,7 @@ auto coreInit()
 					transformCode(pecall,__zero(ftransformer_callback),[lockValueCheck(pe_subscript,g_id_error_int_cannot_change)],call(g_id_stdot,peobj,exprstr(getTupleId(cns_subscript)),pe_stdot_value),PExpression[].NULL)
 				return TSCCPValue(){'tid':g_vtid_UNINIT}
 			else
-				errorAtExpr(ETYPE_ERROR,pe_subscript,"invalid tuple subscript '@1'".Replace(["@1",citeexpr(pe_subscript)]))
+				errorAtExpr(ETYPE_ERROR,pe_subscript,"invalid tuple subscript '@1'==@2".Replace(["@1",citeexpr(pe_subscript),"@2",string(cns_subscript)]))
 		else if val_subscript.tid==g_vtid_UNINIT:
 			//Writeln(string(pe_subscript)+" damn "+dumpExpr(pe_subscript,fcolor_reach_eval))
 			//System.IO.stdin.ReadLine()
@@ -6891,6 +6893,12 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 										if testUserFlag(pv_dot_object,VAR_FLAG_PARAM):
 											//we can flatten members of symderiv's param
 											break
+								//pe_dot_object=readPool(pe_value+EXPR_OFS_ARGS+0)
+								//if isExpr(pe_dot_object,EFLAG_VARIABLE):
+								//	pv_dot_object=getVariable(pe_dot_object)
+								//	if tisstruct(getVariableType(pv_dot_object)):
+								//		//struct members should be flatten-able
+								//		break
 								if DEBUG_DUMP_FLATTEN:
 									Writeln('unflattenable (member of another class): '+dumpExpr(pe,__zero(fcolorer_callback)))
 								setUserFlag(pobj_var,VAR_USER_UNFLATTENABLE)
@@ -9985,7 +9993,7 @@ auto fixConstantTypes()
 		foreach ch in s
 			genChar(g_global_strings_code,int(u8(ch)))
 			pprev_line++
-			if g_global_strings_code.n-pprev_line>=1048000:
+			if g_global_strings_code.n-pprev_line>=16000://1048000:
 				g_global_strings_code.push('"\n"')
 				pprev_line=g_global_strings_code.n-1
 		genChar(g_global_strings_code,0)
@@ -11295,19 +11303,19 @@ auto createCallGraph()
 			pobjfn_called=(readPool(p+i)>>1)
 			assert(!!pobjfn_called)
 			writePool(pobjfn_called+FUNCTION_OFS_NINV_CALL_GRAPH_EDGES,readPool(pobjfn_called+FUNCTION_OFS_NINV_CALL_GRAPH_EDGES)+1)
-	//if Platform.BUILD=="debug":
-	//	all_recorded_func=new int[int]
-	//	foreach pobjfn in g_all_functions
-	//		all_recorded_func[pobjfn]=1
-	//	foreach pobjfn in g_all_functions
-	//		p=readPool(pobjfn+FUNCTION_OFS_PCALL_GRAPH_EDGES)
-	//		n=readPool(pobjfn+FUNCTION_OFS_NCALL_GRAPH_EDGES)
-	//		for i=0:n-1
-	//			pobjfn_called=readPool(p+i)
-	//			if !all_recorded_func[pobjfn_called]:
-	//				Writeln('bad: ',dumpObject(pobjfn_called))
-	//			assert(!!pobjfn_called)
-	//			writePool(pobjfn_called+FUNCTION_OFS_NINV_CALL_GRAPH_EDGES,readPool(pobjfn_called+FUNCTION_OFS_NINV_CALL_GRAPH_EDGES)+1)
+	if DEBUG_DUMP_CALL_GRAPH:
+		all_recorded_func=new int[int]
+		foreach pobjfn in g_all_functions
+			all_recorded_func[pobjfn]=1
+		foreach pobjfn in g_all_functions
+			p=readPool(pobjfn+FUNCTION_OFS_PCALL_GRAPH_EDGES)
+			n=readPool(pobjfn+FUNCTION_OFS_NCALL_GRAPH_EDGES)
+			for i=0:n-1
+				pobjfn_called=(readPool(p+i)>>1)
+				if !all_recorded_func[pobjfn_called]:
+					Writeln('bad: ',dumpObject(pobjfn),' ',pobjfn_called,' ',dumpObject(pobjfn_called))
+				assert(!!pobjfn_called)
+				writePool(pobjfn_called+FUNCTION_OFS_NINV_CALL_GRAPH_EDGES,readPool(pobjfn_called+FUNCTION_OFS_NINV_CALL_GRAPH_EDGES)+1)
 	//and create them
 	n0=int(g_ctobject_pool.n)
 	cnt=0
@@ -11324,7 +11332,8 @@ auto createCallGraph()
 			pobjfn_called=(raw_data>>1)
 			assert(pobjfn_called>0)
 			if pobjfn_called<0:continue
-			//Writeln(dumpObject(pobjfn_called))
+			if DEBUG_DUMP_CALL_GRAPH:
+				Writeln('DEBUG_DUMP_CALL_GRAPH loop2 ',dumpObject(pobjfn_called))//todo
 			pinv=readPool(pobjfn_called+FUNCTION_OFS_PINV_CALL_GRAPH_EDGES)-1
 			if pinv<0:
 				assert(0)

@@ -1501,9 +1501,11 @@ UI.need_to_refresh=1;
 UI.inside_IME=0;
 UI.nd_mouse_down=[];
 UI.tick_last_refresh=Duktape.__ui_get_tick();
+UI.g_refreshed_since_last_tick=0;
 UI.Refresh=function(){
 	UI.need_to_refresh=1;
 	UI.tick_last_refresh=Duktape.__ui_get_tick();
+	UI.g_refreshed_since_last_tick=1;
 	//print(new Error("UI.Refresh").stack);
 }
 UI.InvalidateCurrentFrame=function(){UI.m_frame_is_invalid=1;}
@@ -1659,13 +1661,14 @@ UI.DrawFrame=function(){
 		UI.Refresh();
 	}
 	UI.EndFrame();
+	UI.context_tentative_focus=undefined;
 	UI.context_parent=undefined
 	if(UI.enable_timing){
 		print('DrawFrame=',(UI.frame_time*1000).toFixed(2),'ms')
 		if(!UI.frame_id){UI.frame_id=1}else{UI.frame_id++}
-		print('BetweenFrames=',(Duktape.__ui_seconds_between_ticks(UI.m_last_frame_tick,UI.m_frame_tick)*1000).toFixed(2),'ms')
+		//print('BetweenFrames=',(Duktape.__ui_seconds_between_ticks(UI.m_last_frame_tick,UI.m_frame_tick)*1000).toFixed(2),'ms')
 		if(UI.m_frame_is_invalid){print("FRAME INVALIDATED")}
-		print('============= Frame #',UI.frame_id)
+		UI.TimingEvent('Frame #'+UI.frame_id)
 	}
 }
 
@@ -1717,12 +1720,15 @@ var runCaretCallback=function(obj){
 				obj.caret_state=1;
 			}
 			UI.JSDrawWindow(obj)
-			if(Duktape.__ui_seconds_between_ticks(UI.tick_last_refresh,Duktape.__ui_get_tick())>UI.gc_interval){
-				UI.tick_last_refresh=Duktape.__ui_get_tick();
-				if(UI.Platform.BUILD!="debug"){
-					UI.EmptyCache();
-					Duktape.gc();
+			if(Duktape.__ui_seconds_between_ticks(UI.tick_last_refresh,Duktape.__ui_get_tick())>UI.gc_interval&&UI.g_refreshed_since_last_tick){
+				if(UI.enable_timing){
+					print("--- gc ---");
 				}
+				UI.g_refreshed_since_last_tick=0;
+				UI.tick_last_refresh=Duktape.__ui_get_tick();
+				UI.EmptyCache();
+				if(UI.BeforeGC){UI.BeforeGC();}
+				Duktape.gc();
 			}
 			if(obj.caret_w>0&&obj.caret_h>0&&obj.caret_dt>0){
 				obj.has_caret_callback=1;
@@ -1738,6 +1744,14 @@ var runCaretCallback=function(obj){
 UI.m_need_gc_call=0
 UI.CallGCLater=function(){
 	UI.m_need_gc_call=1;
+}
+
+UI.TimingEvent=function(s){
+	var event_timing_tick=Duktape.__ui_get_tick();
+	if(UI.m_timing_tick!=undefined){
+		print("=== after "+(Duktape.__ui_seconds_between_ticks(UI.m_timing_tick,event_timing_tick)*1000).toFixed(2)+"ms: "+s);
+	}
+	UI.m_timing_tick=event_timing_tick;
 }
 
 UI.m_poll_jobs=[]
@@ -1785,13 +1799,23 @@ UI.Run=function(){
 		}else{
 			//only call GC when we become idle
 			if(UI.m_need_gc_call>0){
+				if(UI.enable_timing){
+					print("--- gc ---");
+				}
 				UI.EmptyCache();
+				if(UI.BeforeGC){UI.BeforeGC();}
 				Duktape.gc()
 				UI.m_need_gc_call=0
+			}
+			if(UI.enable_timing){
+				print("--- idle ---");
 			}
 			event=UI.SDL_WaitEvent();
 		}
 		while(event){
+			if(UI.enable_timing){
+				UI.TimingEvent("event "+JSON.stringify(event));
+			}
 			if(event.type==UI.SDL_QUIT){
 				if(UI.SDL_bad_quit>0){
 					UI.SDL_bad_quit--;

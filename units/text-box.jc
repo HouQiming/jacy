@@ -2347,7 +2347,12 @@ class CEditableText
 				fcheck=function(int c0,int c1){return c0!=' '&&c0!='\t'&&c0!='\r'}
 			else
 				fcheck=function(int c0,int c1){return c1!=' '&&c1!='\t'&&c1!='\r'}
-		else if stype=="word_boundary"
+		else if stype=="space_newline":
+			if direction<0:
+				fcheck=function(int c0,int c1){return c0!=' '&&c0!='\t'&&c0!='\r'&&c0!='\n'}
+			else
+				fcheck=function(int c0,int c1){return c1!=' '&&c1!='\t'&&c1!='\r'&&c1!='\n'}
+		else if stype=="word_boundary":
 			fcheck=function(int c0,int c1){return isWordChar(c0)!=isWordChar(c1)}
 		else if stype=="word_boundary_left":
 			fcheck=function(int c0,int c1){return !isWordChar(c0)&&isWordChar(c1)}

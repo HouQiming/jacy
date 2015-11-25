@@ -901,6 +901,7 @@ W.Edit_prototype={
 			this.m_event_hooks[s_key].push(faction)
 		}else{
 			this.m_additional_hotkeys.push({'key':s_key,'action':faction})
+			UI.assert(this.m_additional_hotkeys.length<1000);
 		}
 	},
 	AddTransientHotkey:function(s_key,faction){
@@ -1030,7 +1031,9 @@ W.Edit_prototype={
 			if(this.ProcessHotkeysInput(this.m_transient_hotkeys,event)){return;}
 			if(this.ProcessHotkeysInput(this.m_additional_hotkeys,event)){return;}
 		}
-		this.HookedEdit(ops)
+		if(event.text){
+			this.HookedEdit(ops)
+		}
 		//for hooked case, need to recompute those
 		var lg=Duktape.__byte_length(ops[2]);
 		this.sel0.ccnt=ops[0]+lg;
@@ -1073,13 +1076,16 @@ W.Edit_prototype={
 		var this_outer=this;
 		var sel0_ccnt=sel0.ccnt;
 		var sel1_ccnt=sel1.ccnt;
-		var epilog=function(){
+		var epilog=UI.HackCallback(function(){
 			if(!is_shift){sel0.ccnt=sel1.ccnt;}
 			this_outer.AutoScroll("show");
 			UI.Refresh();
-		};
+		});
+		if(UI.enable_timing){UI.TimingEvent("m_transient_hotkeys "+this.m_transient_hotkeys.length);}//todo
 		if(this.ProcessHotkeysKeyDown(this.m_transient_hotkeys,event)){return;}
+		if(UI.enable_timing){UI.TimingEvent("m_additional_hotkeys "+this.m_additional_hotkeys.length);}//todo
 		if(this.ProcessHotkeysKeyDown(this.m_additional_hotkeys,event)){return;}
+		if(UI.enable_timing){UI.TimingEvent("the rest of OnKeyDown");}//todo
 		if(0){
 		}else if(IsHotkey(event,"UP SHIFT+UP")){
 			var ed_caret=this.GetCaretXY();

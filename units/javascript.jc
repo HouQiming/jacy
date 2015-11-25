@@ -503,10 +503,10 @@ module duktape
 			return debugEval(scode,fnamen)
 		/////////
 		if Platform.BUILD=="debug":
-			i8[iptr] m_is_function_dumped
+			//i8[iptr] m_is_function_dumped
 			auto debugDumpHeap()
-				if !m_is_function_dumped:
-					m_is_function_dumped=new i8[iptr]
+				//if !m_is_function_dumped:
+				m_is_function_dumped=new i8[iptr]
 				__C(int,"@global:
 				static int s7_CB_duktape_is_our_object(duk_context *ctx){
 					int ret=0;
@@ -520,15 +520,28 @@ module duktape
 				duk_next=__c_function(int,"duk_next","duktape.h")
 				duk_get_heapptr=__c_function(__pointer,"duk_get_heapptr","duktape.h")
 				duk_is_ecmascript_function=__c_function(int,"duk_is_ecmascript_function","duktape.h")
+				duk_push_heapptr=__c_function(int,"duk_push_heapptr","duktape.h")
+				duk_get_buffer=__c_function(__pointer,"duk_get_buffer","duktape.h")
 				s_object_path=new string
 				reached=new i8[iptr]
-				auto dfs()
+				//BFS
+				Q=new iptr[]
+				Q_paths=new string[]
+				auto test()
+					if !duk_is_object(_ctx(),-1):return
+					obj_handle=iptr(duk_get_heapptr(_ctx(),-1))
+					if reached[obj_handle]:return
+					reached[obj_handle]=i8(1)
+					Q.push(obj_handle)
+					Q_paths.push(new(s_object_path))
+				auto expand()
 					if duk_is_function(_ctx(),-1):
 						//don't enum into functions
 						if duk_is_ecmascript_function(_ctx(),-1):
 							obj_handle=iptr(duk_get_heapptr(_ctx(),-1))
 							if !m_is_function_dumped[obj_handle]:
 								m_is_function_dumped[obj_handle]=i8(1)
+								///////////
 								s_name0="fileName"
 								duk_push_lstring(_ctx(),s_name0,s_name0.n)
 								duk_get_prop(_ctx(),-2)
@@ -536,8 +549,59 @@ module duktape
 								pstr=iptr(duk_to_lstring(_ctx(),-1,&lg))
 								s_name=new char[lg]
 								__basic_api.memcpy(__pointer(s_name.d),__pointer(pstr),lg)
-								Writeln('fnc ',s_object_path,': JS function in ',s_name)
 								duk_pop(_ctx())
+								///////////
+								//s_name0l="lineNumber"
+								//duk_push_lstring(_ctx(),s_name0l,s_name0l.n)
+								//duk_get_prop(_ctx(),-2)
+								//lg=0L
+								//pstr=iptr(duk_to_lstring(_ctx(),-1,&lg))
+								//s_line=new char[lg]
+								//__basic_api.memcpy(__pointer(s_line.d),__pointer(pstr),lg)
+								//duk_pop(_ctx())
+								//,':',s_line
+								Writeln('fnc ',s_object_path,': JS function in ',s_name)
+								//if iptr==i32:
+								//	//dfs into the function
+								//	hbuffer_data=__memory(iptr,obj_handle+10*sizeof(iptr))
+								//	//Writeln(__memory(__pointer,obj_handle),' ',__memory(__pointer,hbuffer_data))
+								//	duk_push_heapptr(_ctx(),__pointer(hbuffer_data))
+								//	pout_size=[0L]
+								//	pbuf=iptr(duk_get_buffer(_ctx(),-1,pout_size))
+								//	buf_size=pout_size[0]
+								//	duk_pop(_ctx())
+								//	pfuncs=__memory(iptr,obj_handle+11*sizeof(iptr))
+								//	//data_size=__memory(iptr,hbuffer_data+3*sizeof(iptr))
+								//	n0=s_object_path.n
+								//	s_object_path.push('.')
+								//	while pbuf<pfuncs
+								//		tval=__memory(i64,pbuf)
+								//		pbuf+=8
+								//		if u32(u64(tval)>>48)==0xfff8u:
+								//			duk_push_heapptr(_ctx(),__pointer(iptr(tval)))
+								//			dfs()
+								//			duk_pop(_ctx())
+								//		Writeln('>>> ',formatNumber(u64(tval),{align:16,base:16}))
+								//	s_object_path.resize(n0)
+								//dfs into the function
+								s_name1="\xffLexenv"
+								duk_push_lstring(_ctx(),s_name1,s_name1.n)
+								duk_get_prop(_ctx(),-2)
+								n0=s_object_path.n
+								s_object_path.push('._Lexenv')
+								test()
+								s_object_path.resize(n0)
+								duk_pop(_ctx())
+								//////////
+								s_name2="\xffVarenv"
+								duk_push_lstring(_ctx(),s_name2,s_name2.n)
+								duk_get_prop(_ctx(),-2)
+								n0=s_object_path.n
+								s_object_path.push('._Varenv')
+								test()
+								s_object_path.resize(n0)
+								duk_pop(_ctx())
+							return
 						else
 							return
 					if !duk_is_object(_ctx(),-1):return
@@ -559,9 +623,7 @@ module duktape
 							Writeln('err ',s_object_path,': discarded native object')
 					else
 						obj_handle=iptr(duk_get_heapptr(_ctx(),-1))
-						if reached[obj_handle]:return
 						Writeln('jso ',s_object_path,': ',__pointer(obj_handle))
-						reached[obj_handle]=i8(1)
 						DUK_ENUM_INCLUDE_INTERNAL=2
 						duk_enum(_ctx(),-1,DUK_ENUM_INCLUDE_INTERNAL)
 						n0=s_object_path.n
@@ -573,17 +635,29 @@ module duktape
 							s_object_path.resize((n0?n0+1:n0)+lg)
 							__basic_api.memcpy(__pointer(s_object_path.d+(n0?n0+1:n0)),__pointer(pstr),lg)
 							duk_pop(_ctx())
-							dfs()
+							test()
 							duk_pop(_ctx())
 						s_object_path.resize(n0)
 						duk_pop(_ctx())
 				duk_push_global_object(_ctx())
-				dfs()
+				test()
 				duk_pop(_ctx())
 				s_object_path.push("$STASH$")
 				duk_push_heap_stash(_ctx());
-				dfs()
+				test()
 				duk_pop(_ctx())
+				//
+				phead=0L
+				while phead<Q.n
+					q_obj_handle=Q[phead]
+					s_path=Q_paths[phead]
+					s_object_path.resize(s_path.n)
+					copy(s_object_path,s_path)
+					////////////////
+					duk_push_heapptr(_ctx(),__pointer(q_obj_handle));
+					expand()
+					duk_pop(_ctx())
+					phead++
 			auto debugWipeStash()
 				duk_push_heap_stash(_ctx());
 				duk_push_int(_ctx(),0)

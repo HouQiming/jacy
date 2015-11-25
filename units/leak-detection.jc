@@ -6,91 +6,100 @@ __C(int,"@global:
 #define s7_LD_real_free free
 ")
 
+if Platform.BUILD=="debug":
+	__C(int,"@global:
+	extern void* spapGetCallStack();
+	
+	static void* s7_LD_head[2]={(void*)s7_LD_head,(void*)s7_LD_head};
+	static size_t s7_LD_n_ptrs=0;
+	static size_t s7_LD_g_seq_number=0;
+	static size_t s7_LD_g_memsize=0;
+
+	static void* s7_LD_calloc(size_t sz){
+		void* ptr=calloc(1,sz+sizeof(void*)*10);
+		void* w=s7_LD_head[0];
+		void* x=(void*)s7_LD_head;
+		void* stk=spapGetCallStack();
+		int p=4;
+		if(!ptr){return NULL;}
+		((void**)ptr)[0]=w; ((void**)w)[1]=ptr;
+		((void**)ptr)[1]=x; ((void**)x)[0]=ptr;
+		((void**)ptr)[2]=(void*)sz;
+		((void**)ptr)[3]=(void*)(s7_LD_g_seq_number++);
+		while(stk&&p<10){
+			((void**)ptr)[p+0]=((void**)stk)[1];
+			((void**)ptr)[p+1]=((void**)stk)[2];
+			stk=((void**)stk)[0];
+			p+=2;
+		}
+		s7_LD_n_ptrs++;
+		s7_LD_g_memsize+=sz;
+		return (void*)(((void**)ptr)+10);
+	}
+	
+	static void s7_LD_free(void* ptrx){
+		void* ptr=(void*)(((void**)ptrx)-10);
+		void* w=((void**)ptr)[0];
+		void* x=((void**)ptr)[1];
+		//size_t sz=0;
+		((void**)w)[1]=x; ((void**)x)[0]=w;
+		s7_LD_g_memsize-=(size_t)((void**)ptr)[2];
+		s7_LD_n_ptrs--;
+		//sz=(size_t)((void**)ptr)[2]+sizeof(void*)*10;
+		//memset(ptr,0xfd,sz);
+		free(ptr);
+	}
+	
+	static void* s7_LD_realloc(void* ptrx,size_t sz){
+		void* ptr=(void*)(((void**)ptrx)-10);
+		void* w=((void**)ptr)[0];
+		void* x=((void**)ptr)[1];
+		void* stk=spapGetCallStack();
+		int p=4;
+		ptr=realloc(ptr,sz+sizeof(void*)*10);
+		if(!ptr){return NULL;}
+		((void**)w)[1]=x; ((void**)x)[0]=w;
+		w=s7_LD_head[0];
+		x=(void*)s7_LD_head;
+		((void**)ptr)[0]=w; ((void**)w)[1]=ptr;
+		((void**)ptr)[1]=x; ((void**)x)[0]=ptr;
+		s7_LD_g_memsize-=(size_t)((void**)ptr)[2];
+		((void**)ptr)[2]=(void*)sz;
+		s7_LD_g_memsize+=sz;
+		while(p<10){
+			if(stk){
+				((void**)ptr)[p+0]=((void**)stk)[1];
+				((void**)ptr)[p+1]=((void**)stk)[2];
+				stk=((void**)stk)[0];
+			}else{
+				((void**)ptr)[p+0]=NULL;
+				((void**)ptr)[p+1]=NULL;
+			}
+			p+=2;
+		}
+		return (void*)(((void**)ptr)+10);
+	}
+	
+	static void* s7_LD_duk_calloc(void* udata,size_t sz){
+		return s7_LD_calloc(sz);
+	}
+	
+	static void s7_LD_duk_free(void* udata,void* ptrx){
+		if(ptrx){s7_LD_free(ptrx);}
+	}
+	
+	static void* s7_LD_duk_realloc(void* udata,void* ptrx,size_t sz){
+		return ptrx?s7_LD_realloc(ptrx,sz):s7_LD_calloc(sz);;
+	}
+	")
+	
 iptr2=VectorType(iptr,2)
 auto CreateMemorySnapshot()
 	if Platform.BUILD=="debug":
 		//0: prev, 1: next
 		__C(int,"@global:
-		extern void* spapGetCallStack();
-		
-		static void* s7_LD_head[2]={(void*)s7_LD_head,(void*)s7_LD_head};
-		static size_t s7_LD_n_ptrs=0;
-		static size_t s7_LD_g_seq_number=0;
-		static size_t s7_LD_g_memsize=0;
-		
-		static void* s7_LD_calloc(size_t sz){
-			void* ptr=calloc(1,sz+sizeof(void*)*10);
-			void* w=s7_LD_head[0];
-			void* x=(void*)s7_LD_head;
-			void* stk=spapGetCallStack();
-			int p=4;
-			if(!ptr){return NULL;}
-			((void**)ptr)[0]=w; ((void**)w)[1]=ptr;
-			((void**)ptr)[1]=x; ((void**)x)[0]=ptr;
-			((void**)ptr)[2]=(void*)sz;
-			((void**)ptr)[3]=(void*)(s7_LD_g_seq_number++);
-			while(stk&&p<10){
-				((void**)ptr)[p+0]=((void**)stk)[1];
-				((void**)ptr)[p+1]=((void**)stk)[2];
-				stk=((void**)stk)[0];
-				p+=2;
-			}
-			s7_LD_n_ptrs++;
-			s7_LD_g_memsize+=sz;
-			return (void*)(((void**)ptr)+10);
-		}
-		
-		static void s7_LD_free(void* ptrx){
-			void* ptr=(void*)(((void**)ptrx)-10);
-			void* w=((void**)ptr)[0];
-			void* x=((void**)ptr)[1];
-			((void**)w)[1]=x; ((void**)x)[0]=w;
-			s7_LD_g_memsize-=(size_t)((void**)ptr)[2];
-			s7_LD_n_ptrs--;
-			free(ptr);
-		}
-		
-		static void* s7_LD_realloc(void* ptrx,size_t sz){
-			void* ptr=(void*)(((void**)ptrx)-10);
-			void* w=((void**)ptr)[0];
-			void* x=((void**)ptr)[1];
-			void* stk=spapGetCallStack();
-			int p=4;
-			ptr=realloc(ptr,sz+sizeof(void*)*10);
-			if(!ptr){return NULL;}
-			((void**)w)[1]=x; ((void**)x)[0]=w;
-			w=s7_LD_head[0];
-			x=(void*)s7_LD_head;
-			((void**)ptr)[0]=w; ((void**)w)[1]=ptr;
-			((void**)ptr)[1]=x; ((void**)x)[0]=ptr;
-			s7_LD_g_memsize-=(size_t)((void**)ptr)[2];
-			((void**)ptr)[2]=(void*)sz;
-			s7_LD_g_memsize+=sz;
-			while(p<10){
-				if(stk){
-					((void**)ptr)[p+0]=((void**)stk)[1];
-					((void**)ptr)[p+1]=((void**)stk)[2];
-					stk=((void**)stk)[0];
-				}else{
-					((void**)ptr)[p+0]=NULL;
-					((void**)ptr)[p+1]=NULL;
-				}
-				p+=2;
-			}
-			return (void*)(((void**)ptr)+10);
-		}
-		
-		static void* s7_LD_duk_calloc(void* udata,size_t sz){
-			return s7_LD_calloc(sz);
-		}
-		
-		static void s7_LD_duk_free(void* udata,void* ptrx){
-			if(ptrx){s7_LD_free(ptrx);}
-		}
-		
-		static void* s7_LD_duk_realloc(void* udata,void* ptrx,size_t sz){
-			return ptrx?s7_LD_realloc(ptrx,sz):s7_LD_calloc(sz);;
-		}
+		#undef S7_LD_LEAK_DETECTION_ENABLED
+		#define S7_LD_LEAK_DETECTION_ENABLED 1
 		
 		#undef s7_LD_real_free
 		static void s7_LD_real_free(void* p){free(p);} 
@@ -99,8 +108,6 @@ auto CreateMemorySnapshot()
 		#define malloc(a) s7_LD_calloc(a)
 		#define free(a) s7_LD_free(a)
 		#define realloc(a,b) s7_LD_realloc(a,b)
-		#undef S7_LD_LEAK_DETECTION_ENABLED
-		#define S7_LD_LEAK_DETECTION_ENABLED 1
 		
 		")
 		n=__C(iptr,"s7_LD_n_ptrs")
@@ -186,6 +193,61 @@ auto AnalyzeReferer(iptr2[] leaks,iptr2[] state_new)
 	referer_pairs.Unique()
 	return referer_pairs
 
+auto DumpPointer(iptr p)
+	pobj=p+10*sizeof(iptr)
+	sz=__memory(iptr,p+sizeof(iptr)*2)
+	Write(formatNumber(pobj,{align:sizeof(iptr)*2,base:16}),' ',sz,': ')
+	if sz>=16L:
+		for j=0L:15L
+			c=__memory(char,pobj+j)
+			if !(c>=32&&c<127):
+				c='.'
+			Write(c)
+	Writeln()
+	for si=0:2
+		li=__memory(iptr,p+(si*2+5)*sizeof(iptr))
+		for(;li;li=__memory(iptr,li+sizeof(iptr)))
+			s=__memory(iptr,li)
+			if s:detail.printstr(s)
+		s=__memory(iptr,p+(si*2+4)*sizeof(iptr))
+		if s:detail.printstr(s)
+	if sz>=sizeof(iptr)*2:
+		Write('  ')
+		for j=0L:min(8L,sz/sizeof(iptr))-1L
+			word=__memory(iptr,pobj+j*sizeof(iptr))
+			if j==1L:
+				rtti_info=detail.g_rtti_map[word]
+				if rtti_info.name:
+					obj=__cast(__variant,pobj)
+					//Write(rtti_info.name,rtti_info.dump(obj),' ')
+					Write(rtti_info.name,' ')
+					continue
+			Write(formatNumber(uptr(word),{align:sizeof(iptr)*2,base:16}),' ')
+		Writeln()
+		//if iptr==i32:
+		if __memory(iptr,pobj+0*sizeof(iptr))==0x50000042:
+			//duktape object
+			p_props=__memory(iptr,pobj+4*sizeof(iptr))
+			e_size=__memory(i16,pobj+6*sizeof(iptr))
+			Write('  duktape object: {')
+			for j=0:e_size-1
+				p_str=__memory(iptr,p_props+j*sizeof(iptr))
+				if !p_str:continue
+				if j:Write(',')
+				if iptr==i64:
+					p_str+=4*sizeof(iptr)
+				else
+					p_str+=5*sizeof(iptr)
+				for(;;)
+					if !__memory(i8,p_str):break
+					Write(__memory(i8,p_str))
+					p_str++
+			Writeln('}')
+		if __memory(iptr,pobj+0*sizeof(iptr))&0xfff==0x4c2:
+			Writeln('  duktape function')
+	if detail.g_js_rc[pobj]:
+		Writeln('  has ',detail.g_js_rc[pobj],' JS references')
+
 auto DetectLeaks()
 	state_new=CreateMemorySnapshot()
 	if detail.g_previous_state0:
@@ -200,54 +262,8 @@ auto DetectLeaks()
 			foreach lk in leaks
 				p=lk.y
 				pobj=p+10*sizeof(iptr)
-				sz=__memory(iptr,p+sizeof(iptr)*2)
 				if lk.x<0L:Write('(referer) ')
-				Write(formatNumber(pobj,{align:sizeof(iptr)*2,base:16}),' ',sz,': ')
-				if sz>=16L:
-					for j=0L:15L
-						c=__memory(char,pobj+j)
-						if !(c>=32&&c<127):
-							c='.'
-						Write(c)
-				Writeln()
-				for si=0:2
-					li=__memory(iptr,p+(si*2+5)*sizeof(iptr))
-					for(;li;li=__memory(iptr,li+sizeof(iptr)))
-						s=__memory(iptr,li)
-						if s:detail.printstr(s)
-					s=__memory(iptr,p+(si*2+4)*sizeof(iptr))
-					if s:detail.printstr(s)
-				if sz>=sizeof(iptr)*2:
-					Write('  ')
-					for j=0L:min(8L,sz/sizeof(iptr))-1L
-						word=__memory(iptr,pobj+j*sizeof(iptr))
-						if j==1L:
-							rtti_info=detail.g_rtti_map[word]
-							if rtti_info.name:
-								obj=__cast(__variant,pobj)
-								//Write(rtti_info.name,rtti_info.dump(obj),' ')
-								Write(rtti_info.name,' ')
-								continue
-						Write(formatNumber(uptr(word),{align:sizeof(iptr)*2,base:16}),' ')
-					Writeln()
-					if iptr==i32:
-						if __memory(iptr,pobj+0*sizeof(iptr))==0x50000042:
-							//duktape object
-							p_props=__memory(iptr,pobj+4*sizeof(iptr))
-							e_size=__memory(i16,pobj+6*sizeof(iptr))
-							Write('  duktape object: {')
-							for j=0:e_size-1
-								p_str=__memory(iptr,p_props+j*sizeof(iptr))
-								if !p_str:continue
-								if j:Write(',')
-								p_str+=5*sizeof(iptr)
-								for(;;)
-									if !__memory(i8,p_str):break
-									Write(__memory(i8,p_str))
-									p_str++
-							Writeln('}')
-				if detail.g_js_rc[pobj]:
-					Writeln('  has ',detail.g_js_rc[pobj],' JS references')
+				DumpPointer(p)
 				ppref=referer_pairs.InlineBisect(inline(a){return a.x<pobj})
 				if ppref<referer_pairs.n&&referer_pairs[ppref].x==pobj:
 					Write('  referers:')
@@ -258,10 +274,44 @@ auto DetectLeaks()
 		else
 			Writeln('=== no leak, ',state_new.n,' alloced')
 	else
-		Writeln('=== still preparing')
+		Writeln('=== still preparing, ',state_new.n,' alloced')
 	detail.g_previous_state0=detail.g_previous_state1
 	detail.g_previous_state1=state_new
 
+auto AnalyzeFragmentation()
+	/*
+	state=CreateMemorySnapshot()
+	state.Sortby(byMember("y"))
+	Writeln('=== highest-addr allocations')
+	n=0
+	foreach lk in state.ReverseOrder()
+		p=lk.y
+		DumpPointer(p)
+		n++
+		if n>=10:break
+	Writeln('=== around big gaps')
+	ptrs=new iptr[]
+	foreach lk in state
+		p=lk.y
+		pobj=p+10*sizeof(iptr)
+		sz=__memory(iptr,p+sizeof(iptr)*2)
+		ptrs.push(p)
+		ptrs.push(pobj+sz)
+	for i=1:2:ptrs.n-2
+		szgap=ptrs[i+1]-ptrs[i]
+		if szgap>16384&&szgap<262144:
+			Writeln('--')
+			DumpPointer(ptrs[i-1])
+			DumpPointer(ptrs[i+1])
+	*/
+	if Platform.BUILD=='debug'&&Platform.ARCH=='win32':
+		state=CreateMemorySnapshot()
+		state.Sortby(byMember("y"))
+		//todo: vmmap-like visualization, save to image
+		//don't need real vmmap? need it - in case there's anything non-instrumented
+		//could manually compare with vmmap
+		//there does seem to be SOMETHING, the 260k blocks, the zeroes
+	
 inline RegisterRTTI(T)
 	rtti=iptr(__get_rtti(T))
 	if !detail.g_rtti_map[rtti].name:

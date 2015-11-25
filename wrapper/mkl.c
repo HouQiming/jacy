@@ -40,6 +40,27 @@ EXPORT void* createSymmetricSolver(int* p_rows,int n_rows, int* p_columns){
 	return (void*)handle;
 }
 
+EXPORT void* createSymmetricSolverSingle(int* p_rows,int n_rows, int* p_columns){
+	int nnz=p_rows[n_rows]-1;
+	_MKL_DSS_HANDLE_t handle;
+	_INTEGER_t error;
+	int i;
+	MKL_INT v_MKL_DSS_DEFAULTS=MKL_DSS_DEFAULTS;
+	MKL_INT v_opts=(MKL_DSS_DEFAULTS|MKL_DSS_SINGLE_PRECISION);
+	MKL_INT v_MKL_DSS_SYMMETRIC=MKL_DSS_SYMMETRIC;
+	//MKL_INT v_MKL_DSS_SYMMETRIC_STRUCTURE=MKL_DSS_SYMMETRIC_STRUCTURE;
+	MKL_INT v_MKL_DSS_AUTO_ORDER=MKL_DSS_AUTO_ORDER;
+	error=dss_create(handle,v_opts);
+	if(error!=MKL_DSS_SUCCESS){return NULL;}
+	error=dss_define_structure(handle,v_MKL_DSS_SYMMETRIC,p_rows,n_rows,n_rows, p_columns,nnz);
+	//error=dss_define_structure(handle,v_MKL_DSS_SYMMETRIC_STRUCTURE,p_rows,n_rows,n_rows, p_columns,nnz);
+	if(error!=MKL_DSS_SUCCESS){dss_delete(handle,v_MKL_DSS_DEFAULTS);return NULL;}
+	error=dss_reorder(handle,v_MKL_DSS_AUTO_ORDER,0);
+	//error=dss_reorder(handle,v_MKL_DSS_DEFAULTS,0);
+	if(error!=MKL_DSS_SUCCESS){dss_delete(handle,v_MKL_DSS_DEFAULTS);return NULL;}
+	return (void*)handle;
+}
+
 EXPORT void* createNonSymmetricSolver(int* p_rows,int n_rows, int* p_columns){
 	int nnz=p_rows[n_rows]-1;
 	_MKL_DSS_HANDLE_t handle;
@@ -62,7 +83,26 @@ EXPORT int factorPositiveDefinite(void* handle,double* A){
 	MKL_INT v_MKL_DSS_POSITIVE_DEFINITE=MKL_DSS_POSITIVE_DEFINITE;
 	_MKL_DSS_HANDLE_t handlex=(_MKL_DSS_HANDLE_t)handle;
 	_INTEGER_t error=dss_factor_real(handlex,v_MKL_DSS_POSITIVE_DEFINITE,A);
-	if(error!=MKL_DSS_SUCCESS){return 0;}
+	if(error!=MKL_DSS_SUCCESS){
+		#ifndef NDEBUG
+			switch(error){
+			case MKL_DSS_SUCCESS:printf("factorPositiveDefinite: MKL_DSS_SUCCESS\n");break;
+			case MKL_DSS_STATE_ERR:printf("factorPositiveDefinite: MKL_DSS_STATE_ERR\n");break;
+			case MKL_DSS_INVALID_OPTION:printf("factorPositiveDefinite: MKL_DSS_INVALID_OPTION\n");break;
+			case MKL_DSS_OPTION_CONFLICT:printf("factorPositiveDefinite: MKL_DSS_OPTION_CONFLICT\n");break;
+			case MKL_DSS_VALUES_ERR:printf("factorPositiveDefinite: MKL_DSS_VALUES_ERR\n");break;
+			case MKL_DSS_OUT_OF_MEMORY:printf("factorPositiveDefinite: MKL_DSS_OUT_OF_MEMORY\n");break;
+			case MKL_DSS_ZERO_PIVOT:printf("factorPositiveDefinite: MKL_DSS_ZERO_PIVOT\n");break;
+			case MKL_DSS_FAILURE:printf("factorPositiveDefinite: MKL_DSS_FAILURE\n");break;
+			case MKL_DSS_MSG_LVL_ERR:printf("factorPositiveDefinite: MKL_DSS_MSG_LVL_ERR\n");break;
+			case MKL_DSS_TERM_LVL_ERR:printf("factorPositiveDefinite: MKL_DSS_TERM_LVL_ERR\n");break;
+			case MKL_DSS_OOC_MEM_ERR:printf("factorPositiveDefinite: MKL_DSS_OOC_MEM_ERR\n");break;
+			case MKL_DSS_OOC_OC_ERR:printf("factorPositiveDefinite: MKL_DSS_OOC_OC_ERR\n");break;
+			case MKL_DSS_OOC_RW_ERR:printf("factorPositiveDefinite: MKL_DSS_OOC_RW_ERR\n");break;
+			}
+		#endif
+		return 0;
+	}
 	return 1;
 }
 
