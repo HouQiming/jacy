@@ -1615,6 +1615,8 @@ UI.CallNextFrame=function(f){UI.frame_callbacks.push(f)}
 UI.m_frame_tick=Duktape.__ui_get_tick();
 UI.DrawFrame=function(){
 	//the main painting loop
+	//clear message-created invalidation flag
+	UI.m_frame_is_invalid=0;
 	UI.need_to_refresh=0;
 	UI.BeginFrame();
 	UI.m_last_frame_tick=UI.m_frame_tick
@@ -1667,7 +1669,7 @@ UI.DrawFrame=function(){
 		print('DrawFrame=',(UI.frame_time*1000).toFixed(2),'ms')
 		if(!UI.frame_id){UI.frame_id=1}else{UI.frame_id++}
 		//print('BetweenFrames=',(Duktape.__ui_seconds_between_ticks(UI.m_last_frame_tick,UI.m_frame_tick)*1000).toFixed(2),'ms')
-		if(UI.m_frame_is_invalid){print("FRAME INVALIDATED")}
+		if(UI.m_frame_is_invalid){print("FRAME INVALIDATED ")}
 		UI.TimingEvent('Frame #'+UI.frame_id)
 	}
 }

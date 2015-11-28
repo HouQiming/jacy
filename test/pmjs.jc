@@ -88,12 +88,13 @@ auto add_raw_zip(JSContext JS)
 	if !args_1:return JS.ReturnError("need a zip file name")
 	if !spattern:return JS.ReturnError("need a to-add pattern")
 	fzip=System.IO.OpenFile(args_1,System.IO.OPEN_READ|System.IO.OPEN_WRITE)
+	if !fzip:return JS.ReturnError("failed to open the zip file")
 	s_central=new string
 	///////////////////////////////////
 	//parsing the existing zip and copy the central directory
 	///////////////////////////////////
 	ReadTyped=inline(T,n){
-		auto a=sio.Read(sizeof(T))
+		auto a=sio.Read(sizeof(T)*n)
 		if a.n!=sizeof(T)*n:
 			return new T[n]
 		else
@@ -122,6 +123,7 @@ auto add_raw_zip(JSContext JS)
 		return JS.ReturnError("bad central directory offset")
 	//central directory
 	sio.Seek(ofs)
+	//Writeln(nfiles,' files ')
 	for i=0:nfiles-1
 		pos0=sio.Position()
 		if uptr(pos0+46L)>=uptr(szzip):
@@ -129,6 +131,7 @@ auto add_raw_zip(JSContext JS)
 		sio.Seek(pos0+28L)
 		nmk=ReadTyped(u16,3)
 		szcrap=iptr(nmk[0])+iptr(nmk[1])+iptr(nmk[2])
+		//Writeln(i,' ',pos0,' ',s_central.n,' ',szcrap,' ',nmk)
 		sio.Seek(pos0+42L)
 		if uptr(pos0+46L+szcrap)>=uptr(szzip):
 			return JS.ReturnError("bad central directory entry")
@@ -138,7 +141,7 @@ auto add_raw_zip(JSContext JS)
 	//append the content
 	fzip.SeekFromEnd(0L)
 	//spath=System.Env.NormalizeFileName(".")
-	foreach fn0 in System.IO.EnumFiles(spattern+"\\*",System.IO.ENUM_FILE|System.IO.ENUM_RECURSIVE)
+	foreach fn0 in System.IO.EnumFiles(spattern+"/*",System.IO.ENUM_FILE|System.IO.ENUM_RECURSIVE)
 		//fn=System.Env.NormalizeFileName(fn0)
 		fn=fn0
 		fdata=System.IO.ReadAll(fn)
@@ -146,8 +149,7 @@ auto add_raw_zip(JSContext JS)
 		s_local=new("PK\x03\x04\x0A\x00\x00\x00\x00\x00\x0C\x93\xC8D")
 		//CRC-32, size, size, namelen, paddinglen, name, padding
 		//fn_zip=fn[spath.n+1:].ToLower()
-		Writeln(fn)//todo
-		fn_zip=fn.ToLower()
+		fn_zip="assets"+fn[spattern.n:].ToLower()
 		s_local.push([crc,int(fdata.n),int(fdata.n),int(fn_zip.n)].ConvertToAsBinary(char))
 		ppaddings=s_local.n-2
 		s_local.push(fn_zip)

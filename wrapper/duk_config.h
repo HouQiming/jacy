@@ -42,8 +42,6 @@
 #ifndef DUK_CONFIG_H_INCLUDED
 #define DUK_CONFIG_H_INCLUDED
 
-#define DUK_OPT_NO_OCTAL_SUPPORT
-
 /*
  *  Compiler features
  */

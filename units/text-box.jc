@@ -1146,6 +1146,9 @@ class CEditableText
 				nd=nd.pnext
 			if nd.s:
 				handler.AddString(acc,GetPrecomputedStates(handler,nd),GetContextBefore(handler,ccnt_base),nd.s,iptr(ccnt0-ccnt_base))
+				if iptr(ccnt0-ccnt_base)==nd.s.n&&handler.contextSize:
+					//oops, it seems we're at EOF, add an empty string to make sure the trailing token is added properly
+					handler.AddString(acc,GetPrecomputedStates(handler,nd),GetContextBefore(handler,ccnt0),"\n",0L)
 				return acc
 			assert(!!nd.pchild)
 			nd=nd.pchild
@@ -1168,7 +1171,7 @@ class CEditableText
 						s_context=GetContextBefore(handler,ccnt_base)
 						s=nd.s
 						if handler.isLineOnly():
-							//line only renderers need to preprocess the input, and you can't partition the string
+							//line-only renderers need to preprocess the input, and you can't partition the string
 							//for the fancier renderers, it could even be algorithmically impossible
 							for i=p0:p-1
 								acc2=new(acc)
@@ -1180,6 +1183,9 @@ class CEditableText
 							ccnt_base2=ccnt_base
 							for i=p0:p-1
 								ofs=iptr(all_ccnt[i]-ccnt_base2)
+								//note: the code editor colorer will *ignore* the last token in a block
+								//and for accumulation correctness, we can't add it here
+								//the top-level UI shouldn't use GetStateEnMasse for that
 								handler.AddString(acc2,pp,s_context,s,ofs)
 								copy(ret[i*szacc:],acc2)
 								if s_context:

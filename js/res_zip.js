@@ -105,7 +105,7 @@ function call7z(sdir,fnzip0,fnames,sextra_arg){
 	call7z(g_root+"/units",fnzip_temp,s_7z_2)
 	if(DirExists(g_base_dir+"/assets")){
 		//ret=shell([g_root+"/js/rawzip.exe",fnzip0,g_base_dir+"/assets"]);
-		ret=rawzip(fnzip0,g_base_dir+"/assets")//untested
+		ret=rawzip(g_root+"/units/"+fnzip_temp,g_base_dir+"/assets")
 		if(!!ret){throw new Error("rawzip returned an error code '@1'".replace("@1",ret.toString()));}
 	}
 	ret=shell(["mv",g_root+"/units/"+fnzip_temp,fnzip0]);

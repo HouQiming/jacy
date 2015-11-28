@@ -897,11 +897,12 @@ W.Edit_prototype={
 	},
 	/////////////////
 	AddEventHandler:function(s_key,faction){
+		UI.assert(!this.m_transient_hotkeys);
 		if(this.m_event_hooks[s_key]){
 			this.m_event_hooks[s_key].push(faction)
 		}else{
 			this.m_additional_hotkeys.push({'key':s_key,'action':faction})
-			UI.assert(this.m_additional_hotkeys.length<1000);
+			//UI.assert(this.m_additional_hotkeys.length<1000);
 		}
 	},
 	AddTransientHotkey:function(s_key,faction){
@@ -940,6 +941,28 @@ W.Edit_prototype={
 			stext=stext.replace(g_regexp_newline," ");
 		}
 		this.OnTextInput({"text":stext,"is_paste":1})
+	},
+	Undo:function(){
+		var ed=this.ed;
+		var ret=ed.Undo()
+		if(ret&&ret.sz>=0){
+			this.sel0.ccnt=ret.ccnt;
+			this.sel1.ccnt=ret.ccnt+ret.sz;
+			this.AutoScroll("center_if_hidden");
+		}
+		this.CallOnChange();
+		UI.Refresh();
+	},
+	Redo:function(){
+		var ed=this.ed;
+		var ret=ed.Undo("redo")
+		if(ret&&ret.sz>=0){
+			this.sel0.ccnt=ret.ccnt;
+			this.sel1.ccnt=ret.ccnt+ret.sz;
+			this.AutoScroll("center_if_hidden");
+		}
+		this.CallOnChange();
+		UI.Refresh();
 	},
 	////////////////////////////
 	HookedEdit:function(ops){if(this.read_only){return;};this.ed.Edit(ops);},
@@ -1194,7 +1217,7 @@ W.Edit_prototype={
 		}else if(IsHotkey(event,"HOME SHIFT+HOME")){
 			var ed_caret=this.GetCaretXY();
 			var ccnt_lhome=this.SeekXY(0,ed_caret.y);
-			var ccnt_rehome=this.GetEnhancedHome(sel1_ccnt)
+			var ccnt_rehome=this.GetEnhancedHome(ccnt_lhome)//sel1_ccnt
 			var ccnt_ehome=Math.max(ccnt_rehome,ccnt_lhome);
 			if(sel1.ccnt==ccnt_ehome&&ccnt_lhome==ccnt_ehome){
 				sel1.ccnt=ccnt_rehome;
@@ -1210,7 +1233,7 @@ W.Edit_prototype={
 		}else if(IsHotkey(event,"END SHIFT+END")){
 			var ed_caret=this.GetCaretXY();
 			var ccnt_lend=this.SeekXY(1e17,ed_caret.y);
-			var ccnt_reend=this.GetEnhancedEnd(sel1_ccnt)
+			var ccnt_reend=this.GetEnhancedEnd(ccnt_lend)//sel1_ccnt
 			var ccnt_eend=Math.min(ccnt_reend,ccnt_lend);
 			if(sel1.ccnt==ccnt_eend&&ccnt_lend==ccnt_eend){
 				sel1.ccnt=ccnt_reend;
@@ -1249,23 +1272,9 @@ W.Edit_prototype={
 			this.Paste()
 			return;
 		}else if(IsHotkey(event,"CTRL+Z")||IsHotkey(event,"ALT+BACKSPACE")){
-			var ret=ed.Undo()
-			if(ret&&ret.sz>=0){
-				sel0.ccnt=ret.ccnt;
-				sel1.ccnt=ret.ccnt+ret.sz;
-				this.AutoScroll("center_if_hidden");
-			}
-			this.CallOnChange();
-			UI.Refresh();
+			this.Undo();
 		}else if(IsHotkey(event,"SHIFT+CTRL+Z")||IsHotkey(event,"CTRL+Y")){
-			var ret=ed.Undo("redo")
-			if(ret&&ret.sz>=0){
-				sel0.ccnt=ret.ccnt;
-				sel1.ccnt=ret.ccnt+ret.sz;
-				this.AutoScroll("center_if_hidden");
-			}
-			this.CallOnChange();
-			UI.Refresh();
+			this.Redo();
 		}else{
 		}
 		if(sel0_ccnt!=sel0.ccnt||sel1_ccnt!=sel1.ccnt){
