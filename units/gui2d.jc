@@ -318,6 +318,7 @@ class CRenderer
 	m_text_y_snap=1
 	//////////////
 	m_texid=0u
+	m_tex_has_to_be_deleted=0
 	m_texture_packer=CBinPacker.NULL
 	m_texture_width=1024
 	m_texture_height=0
@@ -397,9 +398,8 @@ class CRenderer
 		h_new=xy.y+h
 		texture_height_needed=promoteToTextureSize(h_new)
 		if texture_height_needed>m_texture_height:
-			if m_texid:
-				glDeleteTextures(1,&m_texid)
-				m_texid=0u
+			if !m_tex_has_to_be_deleted:
+				m_tex_has_to_be_deleted=1
 				m_texture_h_downloaded=0
 			m_texture_height=texture_height_needed
 			m_texture_data.resize(m_texture_width*m_texture_height)
@@ -519,6 +519,10 @@ class CRenderer
 				Writeln('-------')
 	auto DrawWindow(__pointer hwnd_onlydraw,float2 translation,float2 scale)
 		TestSRGB()
+		if m_tex_has_to_be_deleted:
+			m_tex_has_to_be_deleted=0
+			glDeleteTextures(1,&m_texid)
+			m_texid=0u
 		if !m_texid:
 			m_texid=glCreateTexture(GL_ALPHA8,m_texture_width,m_texture_height, GL_LINEAR,GL_CLAMP_TO_EDGE,GL_CLAMP_TO_EDGE,NULL)
 		if m_texture_h_downloaded<m_texture_h_packed_to:

@@ -3,20 +3,35 @@
 var UI=require("gui2d/ui");
 var W=exports;
 
-UI.font_name="LucidaGrande,_H_HelveticaNeue,segoeui,Roboto-Regular,Arial"
+UI.font_name="LucidaGrande,_H_HelveticaNeue,segoeui,Roboto-Regular,Arial";
+UI.font_size=24;
 UI.Theme_Minimalistic=function(C){
 	UI.current_theme_color=C[0];
 	var C_dark=UI.lerp_rgba(C[0],0xff000000,0.15)
 	var C_sel=UI.lerp_rgba(C[0],0xffffffff,0.75)
 	UI.default_styles={
 		"label":{
-			font:UI.Font(UI.font_name,24),
+			font:UI.Font(UI.font_name,UI.font_size),
 			color:0xff000000,
+		},
+		tooltip:{
+			font:UI.Font(UI.font_name,UI.font_size,-50),
+			padding:8,
+			spacing:8,
+			color:0xffffffff,
+			round:8,
+			border_color:0xff000000,
+			border_width:1,
+			text_color:0xff000000,
+			shadow_size:6,
+			shadow_color:0xaa000000,
+			triangle_font:UI.Font(UI.font_name,32,0),
+			triangle_font2:UI.Font(UI.font_name,32,250),
 		},
 		button:{
 			transition_dt:0.1,
 			round:16,border_width:3,padding:12,
-			font:UI.Font(UI.font_name,24),
+			font:UI.Font(UI.font_name,UI.font_size),
 			$:{
 				out:{
 					border_color:C[0],color:0xffffffff,
@@ -100,7 +115,7 @@ UI.Theme_Minimalistic=function(C){
 			bgcolor_selection:C_sel,
 		},
 		menu_item:{
-			font:UI.Font(UI.font_name,24),
+			font:UI.Font(UI.font_name,UI.font_size),
 			transition_dt:0.1,
 			round:0,padding:8,
 			icon_color:0xff000000,
@@ -125,8 +140,8 @@ UI.Theme_Minimalistic=function(C){
 			round:4,border_width:2,padding:8,
 			layout_spacing:0,
 			border_color:C[0],icon_color:C[0],text_color:0xff000000,color:0xffffffff,icon_text_align:'left',
-			font:UI.Font(UI.font_name,24),
-			label_font:UI.Font(UI.font_name,24),
+			font:UI.Font(UI.font_name,UI.font_size),
+			label_font:UI.Font(UI.font_name,UI.font_size),
 		},
 		slider:{
 			transition_dt:0.1,
@@ -171,13 +186,14 @@ UI.Theme_Minimalistic=function(C){
 			transition_dt:0.1,
 			round:4,padding:8,
 			color:0xffffffff,
+			hint_color:0xffaaaaaa,
 			border_width:2,
-			border_color:0xffbbbbbb,
-			font:UI.Font(UI.font_name,24),
+			border_color:0xffaaaaaa,
+			font:UI.Font(UI.font_name,UI.font_size),
 			text_color:0xff000000,
 			$:{
 				blur:{
-					border_color:0xffbbbbbb,
+					border_color:0xffaaaaaa,
 				},
 				focus:{
 					border_color:C[0],
@@ -187,7 +203,7 @@ UI.Theme_Minimalistic=function(C){
 		select:{
 			transition_dt:0.1,
 			value_animated:0,
-			font:UI.Font(UI.font_name,24),
+			font:UI.Font(UI.font_name,UI.font_size),
 			padding:12,spacing:12,
 			combo_box_padding:40,
 			slider_style:{
@@ -593,13 +609,17 @@ W.DrawTooltip=function(obj,alpha){
 		}
 		if(tstyle.triangle_font2){
 			if(obj.tooltip_placement=='right'){
+				UI.PushCliprect(x-dim_triangle.w*0.5,obj.y,dim_triangle.w*0.5,obj.h)
 				UI.DrawChar(tstyle.triangle_font2,x-dim_triangle.w*0.5,
 					obj.y+(obj.h-dim_triangle.h)*0.5,
 					UI.fade_rgba(tstyle.border_color,alpha),0x25C0)
+				UI.PopCliprect()
 			}else{
+				UI.PushCliprect(obj.x,y-dim_triangle.h*0.5,obj.w,dim_triangle.h*0.5)
 				UI.DrawChar(tstyle.triangle_font2,obj.x+(obj.w-dim_triangle.w)*0.5,
 					y-dim_triangle.h*0.5,
 					UI.fade_rgba(tstyle.border_color,alpha),0x25B2)
+				UI.PopCliprect()
 			}
 		}
 		UI.RoundRect({
@@ -713,8 +733,12 @@ W.Edit_prototype={
 			this.scroll_x=Math.min(this.scroll_x,Math.min(ed.XYFromCcnt(ccnt0).x,ed_caret.x))
 		}
 		this.scroll_x=Math.min(this.scroll_x,ed_caret.x);
-		if(this.scroll_x&&ed_caret.x<wwidth){
-			this.scroll_x=0
+		if(this.scroll_x>0&&ed_caret.x<wwidth){
+			//aggressive x scroll on short lines
+			var ccnt_lend=this.SeekXY(1e17,ed_caret.y);
+			if(ed.XYFromCcnt(ccnt_lend).x<=wwidth){
+				this.scroll_x=0;
+			}
 		}
 		if(ed_caret.x-this.scroll_x>=wwidth){
 			//going over the right
@@ -735,7 +759,6 @@ W.Edit_prototype={
 		if(this.disable_scrolling_x){this.scroll_x=0;}
 		if(this.disable_scrolling_y){this.scroll_y=0;}
 		//TestTrigger(KEYCODE_ANY_MOVE)
-		//todo: ui animation?
 	},
 	OnMouseWheel:function(event){
 		var ed=this.ed;
@@ -1104,11 +1127,11 @@ W.Edit_prototype={
 			this_outer.AutoScroll("show");
 			UI.Refresh();
 		});
-		if(UI.enable_timing){UI.TimingEvent("m_transient_hotkeys "+this.m_transient_hotkeys.length);}//todo
+		//if(UI.enable_timing){UI.TimingEvent("m_transient_hotkeys "+this.m_transient_hotkeys.length);}
 		if(this.ProcessHotkeysKeyDown(this.m_transient_hotkeys,event)){return;}
-		if(UI.enable_timing){UI.TimingEvent("m_additional_hotkeys "+this.m_additional_hotkeys.length);}//todo
+		//if(UI.enable_timing){UI.TimingEvent("m_additional_hotkeys "+this.m_additional_hotkeys.length);}
 		if(this.ProcessHotkeysKeyDown(this.m_additional_hotkeys,event)){return;}
-		if(UI.enable_timing){UI.TimingEvent("the rest of OnKeyDown");}//todo
+		//if(UI.enable_timing){UI.TimingEvent("the rest of OnKeyDown");}
 		if(0){
 		}else if(IsHotkey(event,"UP SHIFT+UP")){
 			var ed_caret=this.GetCaretXY();
@@ -1365,7 +1388,6 @@ W.Edit=function(id,attrs,proto){
 	}
 	obj.visible_scroll_x=scroll_x
 	obj.visible_scroll_y=scroll_y
-	//todo: hint_text for empty box
 	//Render takes absolute coords
 	//var bkcolor
 	//if(obj.read_only){
@@ -1685,10 +1707,12 @@ W.EditBox_prototype={
 			this.bak_value=this.value;
 			this.focus_state="focus"
 		}else{
-			this.focus_state="blur"
+			this.focus_state="blur";
 		}
 		UI.Refresh()
 	},
+	//OnFocus:function(){this.focus_state="focus";},
+	//OnBlur:function(){this.focus_state="blur";},
 	OnChange:function(value){this.value=value;},
 	GetSubStyle:function(){
 		return this.focus_state;
@@ -1699,10 +1723,10 @@ W.EditBox=function(id,attrs){
 	var obj=UI.StdWidget(id,attrs,"edit_box",W.EditBox_prototype)
 	UI.RoundRect(obj)
 	W.PureRegion(id,obj)
-	var dim_text=UI.MeasureIconText({font:obj.font,text:obj.hint_text||obj.value||"0"})
+	var dim_text=UI.MeasureIconText({font:obj.font,text:obj.value||obj.hint_text||"0"})
 	UI.Begin(obj)
 		if(!obj.OnChange){obj.focus_state="blur";}
-		if(obj.focus_state=="focus"){
+		if(obj.focus_state=="focus"||UI.nd_focus==obj){
 			var is_newly_created=!obj.edit;
 			W.Edit("edit",{
 				anchor:'parent',anchor_align:"left",anchor_valign:"center",
@@ -1728,10 +1752,14 @@ W.EditBox=function(id,attrs){
 					this.OnBlur()
 				},
 			});
+			obj.focus_state="focus";
 			if(is_newly_created){
 				UI.SetFocus(obj.edit)
 				obj.edit.sel0.ccnt=0
 				obj.edit.sel1.ccnt=obj.edit.ed.GetTextSize()
+			}
+			if(obj.tab_stop){
+				UI.TabStop(obj.edit);
 			}
 		}else{
 			//text
@@ -1739,8 +1767,11 @@ W.EditBox=function(id,attrs){
 			W.Text("text",{
 				anchor:'parent',anchor_align:"left",anchor_valign:"center",
 				x:obj.padding,y:0,w:obj.w-obj.padding*2,h:dim_text.h,
-				font:obj.font, color:obj.text_color, text:obj.value,
+				font:obj.font, color:obj.value?obj.text_color:obj.hint_color, text:obj.value||obj.hint_text,
 				});
+			if(obj.tab_stop){
+				UI.TabStop(obj);
+			}
 		}
 	UI.End()
 	return obj;

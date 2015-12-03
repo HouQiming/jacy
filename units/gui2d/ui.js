@@ -1242,6 +1242,7 @@ UI.default_interpolator=function(a,b,t){
 	}
 	return b;
 }
+UI.lerp=lerp;
 UI.lerp_rgba=function(a,b,t){
 	return (lerp(a&0xff,b&0xff,t)|0)+(lerp(a&0xff00,b&0xff00,t)&0xff00)+(lerp(a&0xff0000,b&0xff0000,t)&0xff0000)+((lerp((a>>24)&0xff,(b>>24)&0xff,t)|0)<<24)
 }
@@ -1285,7 +1286,7 @@ UI.StdStyling=function(id,obj,attrs,s_default_style_name,child_style){
 	if(style){
 		//mover / mout / mdown stuff - child styles
 		for(var key in style){
-			if(key!="$"&&!attrs[key]){
+			if(key!="$"&&attrs[key]==undefined){
 				obj[key]=style[key];
 			}
 		}
@@ -1293,7 +1294,7 @@ UI.StdStyling=function(id,obj,attrs,s_default_style_name,child_style){
 			var cstyle=style.$[child_style];
 			if(cstyle){
 				for(var key in cstyle){
-					if(!attrs[key]){
+					if(attrs[key]==undefined){
 						obj[key]=cstyle[key];
 					}
 				}
@@ -1627,6 +1628,7 @@ UI.DrawFrame=function(){
 	UI.context_paint_queue=[];
 	UI.context_hotkeys=[];
 	UI.context_regions=[];
+	UI.context_tabstops=[];
 	UI.context_parent=UI;
 	UI.context_tentative_focus=undefined;
 	var cb0=UI.frame_callbacks
@@ -1661,6 +1663,9 @@ UI.DrawFrame=function(){
 	if(!UI.nd_focus&&UI.context_tentative_focus){
 		UI.SetFocus(UI.context_tentative_focus,1);
 		UI.Refresh();
+	}
+	if(UI.context_tabstops.length>0){
+		UI.FlushTabEvents()
 	}
 	UI.EndFrame();
 	UI.context_tentative_focus=undefined;
@@ -2134,4 +2139,29 @@ UI.DumpCallStack=function(){
 	}catch(error){
 		print(error.stack)
 	}
+}
+
+////////////////////////////////
+//tab stop - start from focus
+UI.TabStop=function(region){
+	UI.context_tabstops.push(region)
+	return region
+}
+
+UI.FlushTabEvents=function(){
+	var stops=UI.context_tabstops;
+	if(!stops.length){return;}
+	var cur_stop=-1;
+	for(var i=0;i<stops.length;i++){
+		if(stops[i]==UI.nd_focus){
+			cur_stop=i;
+			break;
+		}
+	}
+	var prev_stop=cur_stop-1;if(prev_stop<0){prev_stop=stops.length-1;}
+	var next_stop=cur_stop+1;if(next_stop>=stops.length){next_stop=0;}
+	//print(cur_stop);
+	W.Hotkey("",{"key":"SHIFT+TAB","action":UI.SetFocus.bind(undefined,stops[prev_stop])});
+	W.Hotkey("",{"key":"TAB","action":UI.SetFocus.bind(undefined,stops[next_stop])});
+	UI.context_tabstops=[];
 }
