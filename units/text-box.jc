@@ -942,6 +942,7 @@ class CLocator
 		proto.ExportMethod(this,"discard",discard)
 
 HL_DISPLAY_MODE_RECT=0
+HL_DISPLAY_MODE_RECTEX=1
 class CHLRange
 	CLocator p0
 	CLocator p1
@@ -951,6 +952,7 @@ class CHLRange
 	i8 discarded
 	i16 depth
 	i8 display_mode
+	i8 display_param
 	discard=function(JSContext JS){
 		discarded=i8(1)
 		return 0
@@ -963,6 +965,7 @@ class CHLRange
 		proto.ExportProperty(this,"category")
 		proto.ExportProperty(this,"depth")
 		proto.ExportProperty(this,"display_mode")
+		proto.ExportProperty(this,"display_param")
 		proto.ExportMethod(this,"discard",discard)
 
 struct TLocatorUndoItem
@@ -1855,6 +1858,7 @@ class CEditableText
 			else
 				ret=xy
 			return float2(fixed2float(ret.x-x)*scale+scr_x,fixed2float(ret.y-y)*scale+scr_y)
+		rr_styles=new TRRContext[]
 		foreach hl in m_highlights
 			ccnt0=hl.p0.ccnt
 			ccnt1=hl.p1.ccnt
@@ -1863,28 +1867,54 @@ class CEditableText
 				if !hl.invertible:continue
 				(ccnt0,ccnt1)=(ccnt1,ccnt0)
 			if ccnt1<=wnd_ccnt0||ccnt0>=wnd_ccnt1:continue
-			if int(hl.display_mode)!=HL_DISPLAY_MODE_RECT:continue
-			xy0=projectDocumentPosition(ccnt0)
-			xy1=projectDocumentPosition(ccnt1)
-			//Writeln(xy0,' ',xy1,' ',ccnt0,' ',ccnt1,' ',formatNumber(u32(hl.color),{base:16,align:8}))
-			//Writeln(__double_as_longlong(xy0.y)-__double_as_longlong(xy1.y))
-			//Writeln(abs(__double_as_longlong(xy0.y)-__double_as_longlong(xy1.y)))
-			//Writeln('epsEqual')
-			if xy0.y==xy1.y:
-				hc=fixed2float(GetCharacterHeightAt(ccnt1))*scale
-				g_renderer.DrawRectangle(xy0.x,xy0.y,xy1.x-xy0.x,hc, hl.color)
-			else
-				//draw 3 rects, we have a cliprect, don't worry
-				hc=fixed2float(GetCharacterHeightAt(ccnt0))*scale
-				g_renderer.DrawRectangle(xy0.x,xy0.y,max(scr_x+wf*scale-xy0.x,0.f),hc, hl.color)
-				g_renderer.DrawRectangle(scr_x,xy0.y+hc,wf*scale,max(xy1.y-(xy0.y+hc),0.f), hl.color)
-				hc=fixed2float(GetCharacterHeightAt(ccnt1))*scale
-				g_renderer.DrawRectangle(scr_x,xy1.y,max(xy1.x-scr_x,0.f),hc, hl.color)
+			if int(hl.display_mode)==HL_DISPLAY_MODE_RECTEX:
+				style_id=iptr(hl.display_param)
+				while rr_styles.n<=style_id:
+					rr_styles.push(TRRContext())
+				if !rr_styles[style_id].is_valid:
+					rr_styles[style_id]=g_renderer.CreateRRContext(obj["rectex_styles"][style_id].as(JSObject))
+				rr_ctx=rr_styles[style_id]
+				xy0=projectDocumentPosition(ccnt0)
+				xy1=projectDocumentPosition(ccnt1)
+				rr_dx=0.f
+				if rr_ctx.border_width<0.f:
+					rr_dx=-0.25f*rr_ctx.border_width
+				if xy0.y==xy1.y:
+					hc=fixed2float(GetCharacterHeightAt(ccnt1))*scale
+					g_renderer.DrawRR(rr_ctx,xy0.x-rr_dx,xy0.y,xy1.x-xy0.x+rr_dx*2.f,hc)
+				else
+					//draw 3 rects, we have a cliprect, don't worry
+					//coulddo: line-by-line drawing
+					hc=fixed2float(GetCharacterHeightAt(ccnt0))*scale
+					g_renderer.DrawRR(rr_ctx,xy0.x-rr_dx,xy0.y,max(scr_x+wf*scale-xy0.x,0.f)+rr_dx*2.f,hc)
+					for(y_rect=xy0.y+hc;y_rect<xy1.y;y_rect+=hc)
+						if xy1.y-y_rect>1.f:
+							g_renderer.DrawRR(rr_ctx,scr_x-rr_dx,y_rect,wf*scale+rr_dx*2.f,min(xy1.y-y_rect,hc))
+					hc=fixed2float(GetCharacterHeightAt(ccnt1))*scale
+					g_renderer.DrawRR(rr_ctx,scr_x-rr_dx,xy1.y,max(xy1.x-scr_x,0.f)+rr_dx*2.f,hc)
+			else if int(hl.display_mode)==HL_DISPLAY_MODE_RECT:
+				xy0=projectDocumentPosition(ccnt0)
+				xy1=projectDocumentPosition(ccnt1)
+				//Writeln(xy0,' ',xy1,' ',ccnt0,' ',ccnt1,' ',formatNumber(u32(hl.color),{base:16,align:8}))
+				//Writeln(__double_as_longlong(xy0.y)-__double_as_longlong(xy1.y))
+				//Writeln(abs(__double_as_longlong(xy0.y)-__double_as_longlong(xy1.y)))
+				//Writeln('epsEqual')
+				if xy0.y==xy1.y:
+					hc=fixed2float(GetCharacterHeightAt(ccnt1))*scale
+					g_renderer.DrawRectangle(xy0.x,xy0.y,xy1.x-xy0.x,hc, hl.color)
+				else
+					//draw 3 rects, we have a cliprect, don't worry
+					hc=fixed2float(GetCharacterHeightAt(ccnt0))*scale
+					g_renderer.DrawRectangle(xy0.x,xy0.y,max(scr_x+wf*scale-xy0.x,0.f),hc, hl.color)
+					g_renderer.DrawRectangle(scr_x,xy0.y+hc,wf*scale,max(xy1.y-(xy0.y+hc),0.f), hl.color)
+					hc=fixed2float(GetCharacterHeightAt(ccnt1))*scale
+					g_renderer.DrawRectangle(scr_x,xy1.y,max(xy1.x-scr_x,0.f),hc, hl.color)
 		//////////////////////////////
 		if handler.BeginRender:handler.BeginRender(obj)
 		//////////////////////////////
 		//really draw the blocks
 		acc=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
+		acc_temp=new i64[m_state_ofs[hid+1]-m_state_ofs[hid]]
 		if hid_colorer>=0:
 			acc_colorer=new i64[m_state_ofs[hid_colorer+1]-m_state_ofs[hid_colorer]]
 		//auto timer_t0=System.Time.tick64()
@@ -1908,9 +1938,21 @@ class CEditableText
 				else
 					color_ids=u8[].NULL
 				//auto t0=System.Time.tick64()
-				handler.RenderText(this,ccnt_base,acc,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s, color_ids, x,y,w,h,scr_x,scr_y,scale)
-				//Writeln('render a block: ',System.Time.TicksToSeconds(System.Time.tick64()-t0)*1000.0,'ms')
+				if handler.GetXYFromState:
+					xy0=handler.GetXYFromState(this,acc)
+				else
+					xy0=long2(acc[0],acc[1])
+				copy(acc_temp,acc)
 				handler.Add(acc,nd.a[m_state_ofs[hid]:m_state_ofs[hid+1]-1])
+				if handler.GetXYFromState:
+					xy1=handler.GetXYFromState(this,acc)
+				else
+					xy1=long2(acc[0],acc[1])
+				if xy0.y==xy1.y&&(xy0.x>=x+w||xy1.x<=x):
+					//x culled, do nothing
+				else
+					handler.RenderText(this,ccnt_base,acc_temp,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s, color_ids, x,y,w,h,scr_x,scr_y,scale)
+				//Writeln('render a block: ',System.Time.TicksToSeconds(System.Time.tick64()-t0)*1000.0,'ms')
 				if hid_colorer>=0:
 					handler_colorer.Add(acc_colorer,nd.a[m_state_ofs[hid_colorer]:m_state_ofs[hid_colorer+1]-1])
 			else

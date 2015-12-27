@@ -1,3 +1,5 @@
+//Qiming's UI framework
+
 ////////////////////////////////////////
 //native interaction
 var UI=exports;
@@ -1040,24 +1042,13 @@ UI.Keep=function(id,attrs,prototype){
 		ret.__anchored=0;
 	}else{
 		if(prototype){
-			ret=Object.create(prototype);
-			for(var key in attrs){
-				var f=attrs[key];
-				if(typeof f=='function'){f.prototype=undefined;}
-				ret[key]=f;
-			}
-		}else{
-			ret=attrs;
+			Object.setPrototypeOf(attrs,prototype);
 		}
-		ret.__id=id
+		ret=attrs;
+		ret.__id=id;
 		parent[id]=ret;
 	}
 	parent.__children.push(ret)
-	if(ret.OnTextInput||ret.OnKeyDown){
-		if((!UI.context_tentative_focus||(UI.context_tentative_focus.default_focus||0)<(ret.default_focus||0))){
-			UI.context_tentative_focus=ret;
-		}
-	}
 	//parent[id]=attrs;
 	//UI.style_secs+=Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())
 	return ret;
@@ -1285,18 +1276,25 @@ UI.StdStyling=function(id,obj,attrs,s_default_style_name,child_style){
 	var style=obj.style||UI.default_styles[s_default_style_name||"-"];
 	if(style){
 		//mover / mout / mdown stuff - child styles
-		for(var key in style){
-			if(key!="$"&&attrs[key]==undefined){
-				obj[key]=style[key];
-			}
-		}
+		var cstyle=undefined;
 		if(child_style&&style.$){
-			var cstyle=style.$[child_style];
-			if(cstyle){
-				for(var key in cstyle){
-					if(attrs[key]==undefined){
-						obj[key]=cstyle[key];
-					}
+			cstyle=style.$[child_style];
+		}
+		if(cstyle){
+			for(var key in cstyle){
+				if(attrs[key]==undefined){
+					obj[key]=cstyle[key];
+				}
+			}
+			for(var key in style){
+				if(key!="$"&&attrs[key]==undefined&&cstyle[key]==undefined){
+					obj[key]=style[key];
+				}
+			}
+		}else{
+			for(var key in style){
+				if(key!="$"&&attrs[key]==undefined){
+					obj[key]=style[key];
 				}
 			}
 		}
@@ -1691,6 +1689,20 @@ UI.JSDrawWindow=function(obj){
 UI.GLWidget=function(fcall){
 	UI.HackCallback(fcall);
 	UI.InsertJSDrawCall(fcall)
+}
+
+UI.__gl_calls=[];
+UI.GLRun=function(fcall){
+	UI.__gl_calls.push(fcall);
+}
+
+UI.FlushGLCalls=function(){
+	if(UI.__gl_calls.length){
+		for(var i=0;i<UI.__gl_calls.length;i++){
+			UI.GLWidget(UI.__gl_calls[i]);
+		}
+		UI.__gl_calls=[];
+	}
 }
 
 UI.TopMostWidget=function(fcall){

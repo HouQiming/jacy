@@ -18,14 +18,14 @@ var demo_text_animation=function(id,attrs){
 	UI.Begin(attrs);
 		var wnd=UI.Begin(W.Window("app",{title:"GUI hello world",w:1024,h:768,bgcolor:0xff000000,designated_screen_size:1440,flags:UI.SDL_WINDOW_MAXIMIZED|UI.SDL_WINDOW_RESIZABLE,is_main_window:1}))
 			W.Hotkey("",{key:"ALT+F4",action:function(){UI.DestroyWindow(wnd)}});
-			W.FillRect("",{x:attrs.anim_x+10,y:10, w:200,h:100,color:0xff0000ff});
-			W.FillRect("",{x:attrs.anim_x+10,y:120,w:200,h:100,color:0xff00ff00});
-			W.FillRect("",{x:attrs.anim_x+10,y:230,w:200,h:100,color:0xffff0000});
-			W.FillRect("",{x:wnd.w/2,y:0,w:wnd.w/2,h:wnd.h,color:0xffffffff});
+			W.RoundRect("",{x:attrs.anim_x+10,y:10, w:200,h:100,color:0xff0000ff});
+			W.RoundRect("",{x:attrs.anim_x+10,y:120,w:200,h:100,color:0xff00ff00});
+			W.RoundRect("",{x:attrs.anim_x+10,y:230,w:200,h:100,color:0xffff0000});
+			W.RoundRect("",{x:wnd.w/2,y:0,w:wnd.w/2,h:wnd.h,color:0xffffffff});
 			W.RoundRect("",{x:wnd.w/2+attrs.anim_x+10,y:10, w:200,h:100,border_width:0,round:16,color:0xffe0e0ff,border_color:0xff00007f});
 			W.RoundRect("",{x:wnd.w/2+attrs.anim_x+10,y:120,w:200,h:100,border_width:1,round:16,color:0xffe0ffe0,border_color:0xff007f00});
 			W.RoundRect("",{x:wnd.w/2+attrs.anim_x+10,y:230,w:200,h:100,border_width:4.5,round:16,color:[{x:0,y:0,color:0xff7f0000},{x:1,y:1,color:0xffffe0e0}],border_color:0xff7f0000});
-			W.Bitmap("",{x:wnd.w/2+attrs.anim_x+10,y:10,file:"test/res/edico.png"})
+			//W.Bitmap("",{x:wnd.w/2+attrs.anim_x+10,y:10,file:"test/res/edico.png"})
 			W.Button("ok",{
 				x:16,y:wnd.h-110,
 				font:UI.Font("ArialUni",48),text:"OK",

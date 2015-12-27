@@ -319,6 +319,7 @@ W.Window=function(id,attrs){
 	//defer the innards painting to the first OnPaint - need the GL context
 	UI.context_paint_queue.push(obj);
 	UI.BeginPaint(obj.__hwnd,obj);//EndPaint in UI.End()
+	UI.FlushGLCalls();
 	obj.x=0;
 	obj.y=0;
 	obj.caret_is_set=0
@@ -389,6 +390,11 @@ W.Region=function(id,attrs,proto){
 UI.sub_window_offset_x=0
 UI.sub_window_offset_y=0
 W.PureRegion=function(id,obj){
+	if(obj.OnTextInput||obj.OnKeyDown){
+		if(!UI.nd_focus&&(!UI.context_tentative_focus||(UI.context_tentative_focus.default_focus||0)<(obj.default_focus||0))){
+			UI.context_tentative_focus=obj;
+		}
+	}
 	if(obj==UI.nd_focus){
 		UI.context_focus_is_a_region=1
 	}
@@ -425,6 +431,10 @@ W.PureGroup=function(obj,ending_hint){
 	var item_template=obj.item_template||{};
 	var selection=obj.selection;
 	var sel_obj_temps;
+	var item_template_keys=[];
+	for(var key in item_template){
+		item_template_keys.push(key);
+	}
 	//layouting: just set layout_direction and layout_spacing
 	UI.Begin(obj);
 	obj.layout_auto_anchor=null;
@@ -433,9 +443,16 @@ W.PureGroup=function(obj,ending_hint){
 		if(!items_i.id){items_i.id="$"+i.toString();}
 		if(items_i.is_hidden){continue;}
 		var itemobj_i=obj[items_i.id];
-		if(itemobj_i&&itemobj_i.is_hidden){itemobj_i.__kept=1;continue;}
-		var obj_temp=Object.create(item_template);
+		if(itemobj_i&&itemobj_i.is_hidden){
+			itemobj_i.__kept=1;
+			continue;
+		}
+		var obj_temp={}
 		obj_temp.x=0;obj_temp.y=0;//for layouting
+		for(var j=0;j<item_template_keys.length;j++){
+			var key=item_template_keys[j];
+			obj_temp[key]=item_template[key];
+		}
 		for(var key in items_i){
 			obj_temp[key]=items_i[key];
 		}
@@ -490,53 +507,28 @@ W.Button_prototype={
 
 UI.MeasureIconText=function(obj){
 	//size estimation
-	var bmpid=(UI.rc[obj.icon]||0);
-	if(obj.w_icon){
-		obj.w_bmp=obj.w_icon;
-		obj.h_bmp=obj.h_icon;
-	}else{
-		if(bmpid){
-			UI.GetBitmapSize(bmpid,obj);
-		}else{
-			obj.w_bmp=0;
-			obj.h_bmp=0;
-		}
-	}
-	//obj.w=1e17;//for UI.LayoutText
-	//UI.LayoutText(obj);
 	var text_dim=UI.MeasureText(obj.font,obj.text)
 	var padding=(obj.padding||0);
-	return {w:(obj.w_bmp+text_dim.w+padding*2),h:Math.max(obj.h_bmp,text_dim.h)+padding*2};
+	return {w:(text_dim.w+padding*2),h:text_dim.h+padding*2};
 }
 
 W.DrawIconText=function(id,obj,attrs){
 	//size estimation
-	var bmpid=(UI.rc[obj.icon]||0);
-	if(obj.w_icon){
-		obj.w_bmp=obj.w_icon;
-		obj.h_bmp=obj.h_icon;
-	}else{
-		if(bmpid){
-			UI.GetBitmapSize(bmpid,obj);
-		}else{
-			obj.w_bmp=0;
-			obj.h_bmp=0;
-		}
-	}
+	var tmp=obj.w;
 	obj.w=1e17;//for UI.LayoutText
 	UI.LayoutText(obj);
+	obj.w=tmp;
 	var padding=(obj.padding||0);
 	if(obj.use_measured_dims){
-		obj.w=(attrs.w||(obj.w_bmp+obj.w_text+padding*2));
-		obj.h=(attrs.h||(Math.max(obj.h_bmp,obj.h_text)+padding*2));
+		obj.w=(attrs.w||(obj.w_text+padding*2));
+		obj.h=(attrs.h||(obj.h_text+padding*2));
 		UI.StdAnchoring(id,obj);
 	}
-	//print(obj.w,obj.h,obj.w_bmp,obj.h_bmp,obj.w_text,obj.h_text)
 	//////////////////
 	//rendering
 	UI.RoundRect(obj);
 	var alg=(obj.icon_text_align||'center');
-	var inner_w=obj.w_bmp+obj.w_text;
+	var inner_w=obj.w_text;
 	var x;
 	if(alg=='left'){
 		x=obj.x+padding;
@@ -555,8 +547,6 @@ W.DrawIconText=function(id,obj,attrs){
 			return obj.y+(obj.h-inner_h-padding);
 		}
 	}
-	if(bmpid){UI.DrawBitmap(bmpid,x,compute_y(obj.h_bmp),obj.w_bmp,obj.h_bmp,obj.icon_color||0xffffffff);}
-	x+=obj.w_bmp;
 	UI.DrawTextControl(obj,x,compute_y(obj.h_text),obj.text_color||0xffffffff)
 };
 
@@ -672,8 +662,9 @@ UI.RegisterEditorPlugin=function(fplugin){
 	return fplugin
 }
 UI.HL_DISPLAY_MODE_RECT=0
-UI.HL_DISPLAY_MODE_EMBOLDEN=1
-UI.HL_DISPLAY_MODE_TILDE=2
+UI.HL_DISPLAY_MODE_RECTEX=1
+UI.HL_DISPLAY_MODE_EMBOLDEN=2
+UI.HL_DISPLAY_MODE_TILDE=3
 var g_regexp_newline=new RegExp("\n","g")
 var g_regexp_dos2unix=new RegExp("\r\n","g")
 W.Edit_prototype={
@@ -1352,7 +1343,8 @@ W.Edit_prototype={
 		if(!this.is_dragging){return;}
 		var x1=event.x-this.x+this.scroll_x
 		var y1=event.y-this.y+this.scroll_y
-		this.sel1.ccnt=this.SeekXY(x1,y1);
+		var ccnt=this.SeekXY(x1,y1);
+		this.sel1.ccnt=ccnt;
 		this.CallOnSelectionChange()
 		UI.Refresh()
 	},
@@ -2190,18 +2182,21 @@ W.ListView_prototype={
 		var dim=this.dimension
 		var wh_dim=(dim=='y'?'h':'w')
 		var item_sel=this["$"+sel]
-		var pos_sel=item_sel[dim]-this[dim]+this.position
-		var pos_goal=Math.max(Math.min(this.position,pos_sel),pos_sel+item_sel[wh_dim]-this[wh_dim])
-		pos_goal=Math.max(Math.min(pos_goal,this.dim_tot-this[wh_dim]),0)
-		//if(pos_goal!=this.position){
-		//	this.m_autoscroll_goal=pos_goal
-		//}else{
-		//	this.m_autoscroll_goal=undefined
-		//}
-		this.position=(pos_goal||0)
-		UI.Refresh()
+		if(item_sel){
+			var pos_sel=item_sel[dim]-this[dim]+this.position
+			var pos_goal=Math.max(Math.min(this.position,pos_sel),pos_sel+item_sel[wh_dim]-this[wh_dim])
+			pos_goal=Math.max(Math.min(pos_goal,this.dim_tot-this[wh_dim]),0)
+			//if(pos_goal!=this.position){
+			//	this.m_autoscroll_goal=pos_goal
+			//}else{
+			//	this.m_autoscroll_goal=undefined
+			//}
+			this.position=(pos_goal||0)
+			UI.Refresh()
+		}
 	},
 	OnMouseDown:function(event){
+		if(!UI.IS_MOBILE){return;}
 		var obj=this
 		if(!obj.dragging_samples){
 			obj.dragging_samples=[];
@@ -2222,6 +2217,7 @@ W.ListView_prototype={
 		UI.Refresh()
 	},
 	OnMouseUp:function(event){
+		if(!UI.IS_MOBILE){return;}
 		UI.ReleaseMouse(this)
 		var obj=this;
 		var t=Duktape.__ui_seconds_between_ticks(obj.tick0,Duktape.__ui_get_tick());
@@ -2306,6 +2302,7 @@ W.ListView=function(id,attrs){
 		var y0=-obj.position;
 		var items_new=[]
 		var wh_dim=(obj.dimension=='y'?'h':'w')
+		var any_changed=0;
 		for(var i=0;i<items.length;i++){
 			//if(y0>obj[wh_dim]){
 			//	for(var j=i;j<items.length;j++){
@@ -2321,6 +2318,7 @@ W.ListView=function(id,attrs){
 					//do nothing
 					delete obj[item_i.id]
 					id_changed=1
+					any_changed=1;
 				}else{
 					UI.assert(expanded=="keep","you must return 'drop' or 'keep' or an array of offsprings")
 					if(id_changed){
@@ -2331,17 +2329,27 @@ W.ListView=function(id,attrs){
 					y0+=(item_i[wh_dim]||item_template[wh_dim]||0)+(obj.layout_spacing||0)
 				}
 			}else{
-				delete obj[item_i.id]
+				delete obj[item_i.id];
 				if(expanded.length!=1){id_changed=1;}
 				for(var j=0;j<expanded.length;j++){
 					items_new.push(expanded[j])
 					y0+=(expanded[j][wh_dim]||item_template[wh_dim]||0)+(obj.layout_spacing||0)
 				}
+				any_changed=1;
 			}
 		}
 		items=items_new
 		obj.items=items
 		obj.real_items=items
+		if(obj.OnDemandSort&&any_changed){
+			for(var i=0;i<items.length;i++){
+				var item_i=items[i];
+				if(item_i){delete obj[item_i.id];}
+				item_i.id=undefined;
+			}
+			obj.OnDemandSort(obj);
+			id_changed=1;
+		}
 	}
 	var dim_tot=(obj.layout_spacing+1)*items.length
 	if(obj.dimension=="y"){
@@ -2379,6 +2387,7 @@ W.ListView=function(id,attrs){
 			if(!obj.no_region){
 				W.Region(id_click_sel,{x:obj_item_i.x,y:obj_item_i.y,w:obj_item_i.w,h:obj_item_i.h,
 					numerical_id:i,
+					__kept:1,
 					OnClick:function(event){
 						obj.OnChange(this.numerical_id)
 						if(obj.is_single_click_mode||event.clicks>1){
@@ -2387,6 +2396,7 @@ W.ListView=function(id,attrs){
 							UI.SetFocus(obj)
 						}
 						UI.Refresh()
+						return 1;
 					},
 				})
 			}

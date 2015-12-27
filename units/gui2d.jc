@@ -249,7 +249,7 @@ class CUISandbox
 						f=System.IO.fopen(g_log_file,System.IO.OPEN_READ|System.IO.OPEN_WRITE)
 						f.SeekFromEnd(0L)
 					if f:
-						f.Write(err["stack"].or(""))
+						f.Write("\n"+err["stack"].or(""))
 						f.Close()
 
 lanczos_filter=function(int aa,int szwnd,float font_sharpening){
@@ -301,6 +301,16 @@ box_filter=function(int aa){
 
 //note: m_texture_height cannot go over m_texture_width
 //the DC singleton
+struct T3x3ColorDesc
+	float2 p0,p1
+	int C0,C1
+	i8 is_gradient
+struct TRRContext
+	float border_width
+	float eff_radius
+	int bmpid,bmpid2
+	T3x3ColorDesc color,border_color
+	i8 is_valid
 class CRenderer
 	//////////////
 	//current status
@@ -818,6 +828,7 @@ class CRenderer
 					if ret:return ret
 		return CCoreFont.NULL
 	auto CreateCoreFontChain(CCoreFont[] fonts)
+		if fonts.n==1:return fonts[0]
 		ret=CCoreFont(){fallbacks:fonts}
 		y_baseline_per_height=0.f
 		foreach pfnt_i in ret.fallbacks
@@ -908,15 +919,15 @@ class CRenderer
 		return (ret,delta_y)
 	auto DrawChar(TFont fnt, float x,float y,int C, int ch)
 		(gcitem,delta_y)=CacheGlyph(fnt,ch)
-		if !gcitem:
+		if !gcitem||!gcitem.tex_id:
 			//we don't know what it looks like, don't draw
-			return
-		if !gcitem.tex_id:return
+			return 0.f
 		y_final=y+gcitem.y_draw+delta_y
 		if m_text_y_snap:y_final=floor(y_final+0.5f)
 		//Writeln(gcitem.tex_id, ' ',x+gcitem.x_draw,' ',y_final,' ',gcitem.w_draw)
 		DrawBitmap(gcitem.tex_id, x+gcitem.x_draw,y_final,gcitem.w_draw,gcitem.h_draw, C)
 		//Writeln(x,' ',y,' ',char(ch))
+		return gcitem.dx
 	////////////////
 	TFont m_fast_glyph_cache_font
 	TFastGlyphCacheItem[int] m_fast_glyph_cache
@@ -1209,7 +1220,7 @@ class CRenderer
 			ret.tex_id=CreatePackedTexture(buf,ri+2,ri+2)
 			m_glyph_cache[key]=ret
 		return ret.tex_id
-	auto Draw3x3(float x00,float y00,float w,float h,float radius, int bmpid,JSObject obj,string sname,int is_border)
+	auto Draw3x3(float x00,float y00,float w,float h,float radius, int bmpid,T3x3ColorDesc color,int is_border)
 		//the bmp is dynamic
 		//we need 16 points
 		struct T3x3Point
@@ -1228,17 +1239,13 @@ class CRenderer
 				points[y*4+x].y=ys[y]
 				points[y*4+x].u=us[x]
 				points[y*4+x].v=vs[y]
-		if obj[sname].has(0):
+		if color.is_gradient:
 			inline lerp(a,b,t){return a+(b-a)*t}
 			//gradient - compute C at the points
-			p0x=obj[sname][0]["x"].as(float)
-			p0y=obj[sname][0]["y"].as(float)
-			p0=float2(p0x,p0y)
-			p1x=obj[sname][1]["x"].as(float)
-			p1y=obj[sname][1]["y"].as(float)
-			p1=float2(p1x,p1y)
-			C0=obj[sname][0]["color"].or(-1)
-			C1=obj[sname][1]["color"].or(-1)
+			p0=color.p0
+			p1=color.p1
+			C0=color.C0
+			C1=color.C1
 			dt=p1-p0
 			//Writeln(p0,' ',p1,' ',formatNumber(C0,{align:8,base:16}),' ',formatNumber(C1,{align:8,base:16}))
 			dt=dt/(float2(w,h)*sqr(dt))
@@ -1262,7 +1269,7 @@ class CRenderer
 				points[i].C=C_i
 		else
 			//solid color
-			C=obj[sname].or(-1)
+			C=color.C0
 			for i=0:15
 				points[i].C=C
 		//draw the quads
@@ -1345,6 +1352,51 @@ class CRenderer
 				//else
 				vdata=int4(((iy0)<<16)+(ix0),((iy1)<<16)+(ix1),((iv0)<<16)+(iu0),((iv1)<<16)+(iu1))
 				m_StretchDIBits_calls.push(TStretchDIBits(){vdata:vdata,hwnd:m_hwnd,bmpid:bmpid_xy,C:int4(C0,C1,C2,C3)})
+	auto DrawRR(TRRContext ctx,float x,float y,float w,float h)
+		assert(ctx.is_valid)
+		Draw3x3(x,y,w,h,ctx.eff_radius, ctx.bmpid,ctx.color,0)
+		if ctx.border_width>0.f:
+			Draw3x3(x-ctx.border_width*0.5f,y-ctx.border_width*0.5f,w+ctx.border_width,h+ctx.border_width,ctx.eff_radius, ctx.bmpid2,ctx.border_color,1)
+	auto CreateRRColorDesc(JSObject obj,string sname)
+		ret=T3x3ColorDesc()
+		if obj[sname].has(0):
+			//gradient - compute C at the points
+			p0x=obj[sname][0]["x"].as(float)
+			p0y=obj[sname][0]["y"].as(float)
+			ret.p0=float2(p0x,p0y)
+			p1x=obj[sname][1]["x"].as(float)
+			p1y=obj[sname][1]["y"].as(float)
+			ret.p1=float2(p1x,p1y)
+			ret.C0=obj[sname][0]["color"].or(-1)
+			ret.C1=obj[sname][1]["color"].or(-1)
+			ret.is_gradient=i8(1)
+		else
+			ret.C0=obj[sname].or(-1)
+		return ret
+	auto CreateRRContext(JSObject obj)
+		radius=obj["round"].or(0.f)*m_pixels_per_unit
+		border_width=obj["border_width"].or(0.f)*m_pixels_per_unit
+		w=obj["w"].or(0.f)*m_pixels_per_unit
+		h=obj["h"].or(0.f)*m_pixels_per_unit
+		eff_radius=max(min(radius,min(w,h)*0.5f),border_width)
+		if border_width<0.f:
+			//shadowed
+			bmpid=CacheRR(eff_radius,-border_width,2)
+		else
+			bmpid=CacheRR(eff_radius,0.f,0)
+		//x=obj["x"].or(0.f)*m_pixels_per_unit
+		//y=obj["y"].or(0.f)*m_pixels_per_unit
+		if border_width>0.f:
+			bmpid2=CacheRR(eff_radius,border_width,1)
+		else
+			bmpid2=0
+		return TRRContext(){
+			is_valid:i8(1),
+			bmpid:bmpid,bmpid2:bmpid2,
+			border_width:border_width,eff_radius:eff_radius,
+			color:CreateRRColorDesc(obj,"color"),
+			border_color:CreateRRColorDesc(obj,"border_color"),
+		}
 g_renderer=new CRenderer
 
 ////////////////////////////////////////////
@@ -1735,12 +1787,7 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 				y+=hc
 				continue
 			else
-				(gc_I,delta_y)=g_renderer.CacheGlyph(fnt,ch)
-				if gc_I:
-					dx=gc_I.dx
-					g_renderer.DrawChar(fnt,x,y,C,ch)
-				else
-					dx=0.f
+				dx=g_renderer.DrawChar(fnt,x,y,C,ch)
 			if is_underlining:
 				g_renderer.DrawRectangle(x,y+y_underline,dx,h_underline, C)
 				is_underlining=0
@@ -1783,22 +1830,12 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 	JS_UI["RoundRect"]=function(JSContext JS){
 		obj=JS.Param(0).as(JSObject)
 		if !obj:return 0
-		radius=obj["round"].or(0.f)*g_renderer.m_pixels_per_unit
-		border_width=obj["border_width"].or(0.f)*g_renderer.m_pixels_per_unit
-		w=obj["w"].or(0.f)*g_renderer.m_pixels_per_unit
-		h=obj["h"].or(0.f)*g_renderer.m_pixels_per_unit
-		eff_radius=max(min(radius,min(w,h)*0.5f),border_width)
-		if border_width<0.f:
-			//shadowed
-			bmpid=g_renderer.CacheRR(eff_radius,-border_width,2)
-		else
-			bmpid=g_renderer.CacheRR(eff_radius,0.f,0)
+		ctx=g_renderer.CreateRRContext(obj)
 		x=obj["x"].or(0.f)*g_renderer.m_pixels_per_unit
 		y=obj["y"].or(0.f)*g_renderer.m_pixels_per_unit
-		g_renderer.Draw3x3(x,y,w,h,eff_radius, bmpid,obj,"color",0)
-		if border_width>0.f:
-			bmpid=g_renderer.CacheRR(eff_radius,border_width,1)
-			g_renderer.Draw3x3(x-border_width*0.5f,y-border_width*0.5f,w+border_width,h+border_width,eff_radius, bmpid,obj,"border_color",1)
+		w=obj["w"].or(0.f)*g_renderer.m_pixels_per_unit
+		h=obj["h"].or(0.f)*g_renderer.m_pixels_per_unit
+		g_renderer.DrawRR(ctx,x,y,w,h)
 		return JS.Return(obj)
 	}
 	//////////////////

@@ -16,7 +16,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_STATIC
 #define STBI_NO_STDIO
-#define STBI_NO_HDR
+//#define STBI_NO_HDR
 #define STBI_NO_PSD
 #define STBI_NO_PIC
 #define STBI_NO_GIF
@@ -474,7 +474,7 @@ STBIDEF stbi_uc *stbi_load_from_file  (FILE *f,                  int *x, int *y,
 
 #ifndef STBI_NO_LINEAR
    STBIDEF float *stbi_loadf                 (char const *filename,           int *x, int *y, int *comp, int req_comp);
-   STBIDEF float *stbi_loadf_from_memory     (stbi_uc const *buffer, int len, int *x, int *y, int *comp, int req_comp);
+   EXPORT float *stbi_loadf_from_memory     (stbi_uc const *buffer, int len, int *x, int *y, int *comp, int req_comp);
    STBIDEF float *stbi_loadf_from_callbacks  (stbi_io_callbacks const *clbk, void *user, int *x, int *y, int *comp, int req_comp);
 
    #ifndef STBI_NO_STDIO
@@ -1120,7 +1120,7 @@ static float *stbi__loadf_main(stbi__context *s, int *x, int *y, int *comp, int 
    return stbi__errpf("unknown image type", "Image not of any known type, or corrupt");
 }
 
-STBIDEF float *stbi_loadf_from_memory(stbi_uc const *buffer, int len, int *x, int *y, int *comp, int req_comp)
+EXPORT float *stbi_loadf_from_memory(stbi_uc const *buffer, int len, int *x, int *y, int *comp, int req_comp)
 {
    stbi__context s;
    stbi__start_mem(&s,buffer,len);

@@ -32,10 +32,16 @@ module duktape
 	duk_get_pointer=__c_function(__pointer,"duk_get_pointer","duktape.h")
 	duk_get_length=__c_function(iptr,"duk_get_length","duktape.h")
 	duk_get_prototype=__c_function(int,"duk_get_prototype","duktape.h")
+	duk_get_buffer_data=__c_function(__pointer,"duk_get_buffer_data","duktape.h")
 	duk_push_heap_stash=__c_function(int,"duk_push_heap_stash","duktape.h")
 	duk_push_object=__c_function(int,"duk_push_object","duktape.h")
 	duk_push_array=__c_function(int,"duk_push_array","duktape.h")
+	duk_push_buffer=__c_function(int,"duk_push_buffer","duktape.h")
+	duk_push_buffer_object=__c_function(int,"duk_push_buffer_object","duktape.h")
+	duk_push_external_buffer=__c_function(int,"duk_push_external_buffer","duktape.h")
+	duk_config_buffer=__c_function(int,"duk_config_buffer","duktape.h")
 	duk_push_global_object=__c_function(int,"duk_push_global_object","duktape.h")
+	duk_put_prop_string=__c_function(int,"duk_put_prop_string","duktape.h")
 	duk_put_prop_index=__c_function(int,"duk_put_prop_index","duktape.h")
 	duk_put_prop=__c_function(int,"duk_put_prop","duktape.h")
 	//duk_set_magic=__c_function(int,"duk_set_magic","duktape.h")
@@ -328,6 +334,17 @@ module duktape
 			else
 				duk_pop_2(_ctx())
 			return ret
+		inline _pop_pointer(count)
+			if duk_is_null_or_undefined(_ctx(),-1):
+				ret=NULL
+			else
+				sz=0L
+				ret=duk_get_buffer_data(_ctx(),-1,&sz)
+			if count==1:
+				duk_pop(_ctx())
+			else
+				duk_pop_2(_ctx())
+			return ret
 		inline _pop_typed(T,count)
 			if T==double:
 				ret=duk_to_number(_ctx(),-1)
@@ -362,6 +379,15 @@ module duktape
 				//	ret=JSFunction(){"m_jsctx":this,"m_handle":refid}
 			else if T==__pointer:
 				ret=duk_get_pointer(_ctx(),-1)
+			else if readOptionalMember(T.NULL,"IS_ARRAY",0):
+				//reinterpreted buffer
+				sz=0L
+				ptr=duk_get_buffer_data(_ctx(),-1,&sz)
+				if ptr&&sz&&!(sz&(sizeof(T)-1)):
+					ret=T()
+					ret.__bind(1,iptr(ptr),iptr(uptr(sz)/uptr(sizeof(T))))
+				else
+					ret=T.NULL
 			else// if __has_member(__zero(T),"__JS_prototype")
 				if duk_is_null_or_undefined(_ctx(),-1):
 					ret=__zero(T)
@@ -395,6 +421,42 @@ module duktape
 		auto New()
 			duk_push_object(_ctx())
 			return _pop_typed(JSObject,1)
+		//auto NewFixedBuffer(iptr size)
+		//	duk_push_buffer(_ctx(),size,0)
+		//	return _pop_typed(JSObject,1)
+		inline _setBufferType(T,size)
+			if T==i8:
+				flags=__C_pure(int,"DUK_BUFOBJ_INT8ARRAY")
+			else if T==u8:
+				flags=__C_pure(int,"DUK_BUFOBJ_UINT8ARRAY")
+			else if T==i16:
+				flags=__C_pure(int,"DUK_BUFOBJ_INT16ARRAY")
+			else if T==u16:
+				flags=__C_pure(int,"DUK_BUFOBJ_UINT16ARRAY")
+			else if T==i32:
+				flags=__C_pure(int,"DUK_BUFOBJ_INT32ARRAY")
+			else if T==u32:
+				flags=__C_pure(int,"DUK_BUFOBJ_UINT32ARRAY")
+			else if T==f32:
+				flags=__C_pure(int,"DUK_BUFOBJ_FLOAT32ARRAY")
+			else if T==f64:
+				flags=__C_pure(int,"DUK_BUFOBJ_FLOAT64ARRAY")
+			else
+				flags=0
+				__error('invalid type for JS typed array: "@1"',T)
+			duk_push_buffer_object(_ctx(),-1,0L,size*sizeof(T),flags)
+		inline NewTypedArray(T,size)
+			duk_push_buffer(_ctx(),size*sizeof(T),0)
+			_setBufferType(T)
+			return _pop_typed(JSObject,2)
+		inline PushExternalArray(a0)
+			a=a0[0:]
+			duk_push_external_buffer(_ctx())
+			duk_config_buffer(_ctx(),-1,__pointer(a.d),a.n*sizeof(a.T))
+			_setBufferType(a.T,a.n)
+			_push_value(variant(a))
+			duk_put_prop_string(_ctx(),-2,"__native_ref")
+			return _pop_typed(JSObject,2)
 		/////////
 		auto GetThis()
 			duk_push_this(_ctx())
@@ -431,6 +493,13 @@ module duktape
 							return dflt
 					else
 						return dflt
+				},
+				getBufferPointer:inline(){
+					if u32(id)<u32(duk_get_top(_ctx())):
+						duk_dup(_ctx(),id)
+						return _pop_pointer(1);
+					else
+						return NULL
 				},
 				asCString:inline(){
 					if u32(id)<u32(duk_get_top(_ctx())):
@@ -494,7 +563,7 @@ module duktape
 			else
 				return 1
 		auto debugRunFile(string fname)
-			scode=System.IO.ReadAll(fname)
+			scode=new(System.IO.ReadAll(fname))
 			if !scode:
 				System.Console.Writeln("failed to load js file: '@1'".Replace(["@1",fname]))
 				return 0
@@ -709,6 +778,11 @@ module duktape
 			//[object previous-subscript] -> [object value] -> []
 			duk_get_prop(_ctx(),-2)//for the *previous* subscript
 			return m_jsctx._pop_typed(T,2)
+		inline getBufferPointer()
+			if Platform.BUILD=="debug":
+				m_checker.m_completed=1
+			duk_get_prop(_ctx(),-2)
+			return m_jsctx._pop_pointer(2)
 		inline asCString()
 			if Platform.BUILD=="debug":
 				m_checker.m_completed=1
@@ -797,6 +871,9 @@ module duktape
 		inline as(T)
 			m_jsctx._push_object(m_handle)
 			return m_jsctx._pop_typed(T,1)
+		inline getBufferPointer()
+			m_jsctx._push_object(m_handle)
+			return m_jsctx._pop_pointer(1)
 		inline Call(T)
 			m_jsctx._push_object(m_handle)
 			arguments0=arguments

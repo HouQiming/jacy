@@ -86,6 +86,7 @@ auto once(string ver)
 			loadable_names.push(name0)
 			if words[i+1]!=",":break
 		all_names[name]=loadable_names
+	//dangling_traileds=new string[]
 	fhack_trail=function(string trail){
 		foreach pt in pts
 			name=new(words[pt])
@@ -95,9 +96,12 @@ auto once(string ver)
 				if !all_names[sname]:
 					if trail=="NV":continue
 					all_names[sname]=new string[]
+					all_names[sname].push(sname)
 				loadable_names=all_names[name]
 				all_names[sname].push(loadable_names)
 				all_names[name]=string[].NULL
+				//dangling_traileds.push(sname)
+				words[pt]=sname+":"
 	}
 	fhack_trail("OES")
 	fhack_trail("ARB")
@@ -117,14 +121,17 @@ auto once(string ver)
 		if name.EndsWith("SGI")||name.EndsWith("SGIS")||name.EndsWith("SGIX")||name.EndsWith("SUN")||name.EndsWith("SUNX")||name.EndsWith("IBM")||name.EndsWith("HP")||name.EndsWith("INTEL"):continue
 		loadable_names=all_names[name]
 		if !loadable_names:continue
+		loadable_names.Sort()
+		loadable_names.Unique()
+		all_names[name]=string[].NULL
 		sout.push(FormatAsText("__",name,"=NULL;\n"))
 		pname=t.IndexOf("()stdcall")
 		s_c_typename="s7_CT_PFN"+name.ToUpper()
-		g_typedef_code.push(FormatAsText("typedef ",t.Replace(["()stdcall","(__stdcall*"+s_c_typename+")"]),";"))
+		g_typedef_code.push(FormatAsText("typedef ",t.Replace(["()stdcall","(__stdcall*"+s_c_typename+")"]),";\\n"))
 		tret=t[:pname-1]
 		if tret.IndexOf("*")>=0:
 			//Writeln(tret,' ',name)
-			assert(name=='glGetString')
+			assert(name=='glGetString'||name.StartsWith('glMap'))
 			tret="__pointer"
 		//sanitize pointers
 		spap_name=(name=="glGetError"||name=="glClearDepthf"||name=="glClearDepth"?"_":"")+name
@@ -214,6 +221,11 @@ auto once(string ver)
 			param_id++
 		sout.push(FormatAsText(")\n"))
 		sout.push(FormatAsText("}\n\n"))
+	//dangling_traileds.Sort()
+	//dangling_traileds.Unique()
+	//foreach s in dangling_traileds
+	//	if all_names[s]:
+	//		Writeln(s)
 
 auto doSDL()
 	//generate C for better ptr handling
@@ -475,6 +487,8 @@ auto main()
 	once("")
 	//////////////
 	s_code0=System.IO.ReadAllText("test\\glpure_part0.jc")
+	if !s_code0:
+		s_code0=System.IO.ReadAllText("glpure_part0.jc")
 	g_typedef_code=g_typedef_code.Replace([
 		"GLenum","int",
 		"GLboolean","unsigned char",
@@ -502,7 +516,7 @@ auto main()
 	]).Replace(["GLvoid","void"])
 	CreateFile("c:\\tp\\pure\\units\\g-l.jc").Write(s_code0+'__C(int,"@global:'+g_typedef_code+'");\n\n'+g_code)
 	/////////////
-	doSDL()
+	//doSDL()
 	/////////////
 	doVectors()
 

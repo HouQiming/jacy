@@ -384,11 +384,18 @@ class __array(T)
 			}
 		}
 	inline __C_autocast(){return __pointer(d)}
-	inline __JS_autocast(JS)
-		ret=JS.NewArray()
-		for(i=0L;i<n;i++)
-			ret[i]=this[i]
-		return ret
+	if T!=char:
+		__JS_autocast=inline(JS){
+			if __is_type("float",T)||__is_type("int",T)&&T!=i64&&T!=u64:
+				ret=JS.PushExternalArray(this)
+				//ret=JS.NewTypedArray(T,n)
+				//__basic_api.memcpy(ret.getBufferPointer(),__pointer(d),sizeof(T)*n)
+			else
+				ret=JS.NewArray()
+				for(i=0L;i<n;i++)
+					ret[i]=this[i]
+			return ret
+		}
 	/////////////////
 	//aggregated ops, sort and unique
 	auto Bisect(function(T a):int tooSmall)

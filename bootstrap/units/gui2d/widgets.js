@@ -54,7 +54,8 @@ W.Window=function(id,attrs){
 
 W.FillRect=function(id,attrs){
 	UI.StdAnchoring(id,attrs);
-	UI.DrawBitmap(0,attrs.x,attrs.y,attrs.w,attrs.h,attrs.color);
+	//UI.DrawBitmap(0,attrs.x,attrs.y,attrs.w,attrs.h,attrs.color);
+	UI.RoundRect(attrs)
 	return attrs;
 }
 
