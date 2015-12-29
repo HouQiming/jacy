@@ -1790,7 +1790,7 @@ inline formatNumber(a)
 		__detail.FormatDouble(ret.d,lg, force_sign,is_sci,__has_member(options,"frac"),fraction, f64(a))
 		return ret
 	else if __is_type("int",T):
-		align=int(readOptionalMember(options,"align",0))
+		align=int(readOptionalMember(options,"align",1))
 		base=int(readOptionalMember(options,"base",10))
 		if base<2||base>36:
 			return NULL

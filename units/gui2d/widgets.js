@@ -391,7 +391,7 @@ UI.sub_window_offset_x=0
 UI.sub_window_offset_y=0
 W.PureRegion=function(id,obj){
 	if(obj.OnTextInput||obj.OnKeyDown){
-		if(!UI.nd_focus&&(!UI.context_tentative_focus||(UI.context_tentative_focus.default_focus||0)<(obj.default_focus||0))){
+		if(!UI.context_tentative_focus||(UI.context_tentative_focus.default_focus||0)<(obj.default_focus||0)){
 			UI.context_tentative_focus=obj;
 		}
 	}
@@ -1359,6 +1359,7 @@ W.Edit=function(id,attrs,proto){
 	var obj=UI.Keep(id,attrs,proto||W.Edit_prototype);
 	UI.StdStyling(id,obj,attrs, obj.default_style_name,UI.HasFocus(obj)?"focus":"blur");
 	UI.StdAnchoring(id,obj);
+	W.PureRegion(id,obj)
 	if(obj.show_background){
 		UI.DrawBitmap(0,obj.x,obj.y,obj.w,obj.h,obj.bgcolor);
 	}
@@ -1401,7 +1402,7 @@ W.Edit=function(id,attrs,proto){
 			obj.caret_width*scale,obj.GetCharacterHeightAtCaret()*scale,
 			obj.caret_color,obj.caret_flicker);
 	}
-	return W.PureRegion(id,obj);
+	return obj;
 	//}
 };
 

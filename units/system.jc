@@ -6511,6 +6511,7 @@ module IO
 	SEEK_END=2
 	OPEN_READ=1
 	OPEN_WRITE=2
+	OPEN_COPY_ON_WRITE=4
 	ENUM_FILE=1
 	ENUM_DIR=2
 	ENUM_RECURSIVE=4
@@ -6538,7 +6539,7 @@ module IO
 			fd=open(fnz,isrw?O_RDWR:O_RDONLY)
 			if fd==-1:return string.NULL
 			sz=osal_GetFileSize(fd)
-			p=mmap(NULL,sz,isrw?(PROT_READ|PROT_WRITE):PROT_READ,MAP_SHARED,fd,0)
+			p=mmap(NULL,sz,isrw?(PROT_READ|PROT_WRITE):PROT_READ,(mode&OPEN_COPY_ON_WRITE)?MAP_PRIVATE:MAP_SHARED,fd,0)
 			close(fd)
 			if !p:
 				return string.NULL
@@ -6564,11 +6565,13 @@ module IO
 			GetFileSizeEx(hf,__pointer(&sz))
 			hm=CreateFileMappingW(
 				hf,NULL,
-				isrw?PAGE_EXECUTE_READWRITE:PAGE_READONLY,0,0,NULL)
-			//Console.Writeln(hf,' ',sz,' ',hm)//fixes the problem...? stack?
+				(mode&OPEN_COPY_ON_WRITE)?PAGE_WRITECOPY:(isrw?PAGE_EXECUTE_READWRITE:PAGE_READONLY),0,0,NULL)
+			//Console.Writeln(fn,' ',mode)
+			//Console.Writeln(hf,' ',sz,' ',hm)
 			CloseHandle(hf)
 			if !hm||hm==INVALID_HANDLE_VALUE:return char[].NULL
-			p=MapViewOfFile(hm,isrw?FILE_MAP_ALL_ACCESS:FILE_MAP_READ,0,0,0)
+			p=MapViewOfFile(hm,(mode&OPEN_COPY_ON_WRITE)?FILE_MAP_COPY:((mode&OPEN_WRITE)?FILE_MAP_ALL_ACCESS:FILE_MAP_READ),0,0,0)
+			//Console.Writeln(p)
 			CloseHandle(hm)
 			if !p:return char[].NULL
 			//Console.Writeln(fn,' ',p,' ',(char*)p)

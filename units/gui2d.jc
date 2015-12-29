@@ -921,7 +921,7 @@ class CRenderer
 		(gcitem,delta_y)=CacheGlyph(fnt,ch)
 		if !gcitem||!gcitem.tex_id:
 			//we don't know what it looks like, don't draw
-			return 0.f
+			return gcitem?gcitem.dx:0.f
 		y_final=y+gcitem.y_draw+delta_y
 		if m_text_y_snap:y_final=floor(y_final+0.5f)
 		//Writeln(gcitem.tex_id, ' ',x+gcitem.x_draw,' ',y_final,' ',gcitem.w_draw)
@@ -937,7 +937,7 @@ class CRenderer
 			m_fast_glyph_cache=new TFastGlyphCacheItem[int]
 			m_fast_glyph_cache_ascii=new TFastGlyphCacheItem[256]
 		m_fast_glyph_cache_font=fnt
-	auto FastDrawChar(float x,float y,int C, int ch)
+	auto GetFastDrawCharCacheItem(int ch)
 		if u32(ch)<256u:
 			ret=m_fast_glyph_cache_ascii[ch]
 		else
@@ -955,15 +955,21 @@ class CRenderer
 				m_fast_glyph_cache_ascii[ch]=ret
 			else
 				m_fast_glyph_cache[ch]=ret
+		return ret
+	auto FastDrawChar(float x,float y,int C, int ch)
+		ret=GetFastDrawCharCacheItem(ch)
 		///////////
 		gcitem=ret.gcitem
-		if !gcitem:
+		if gcitem:
+			y_final=y+ret.y_final
+			if m_text_y_snap:y_final=floor(y_final+0.5f)
+			DrawBitmap(gcitem.tex_id, x+gcitem.x_draw,y_final,gcitem.w_draw,gcitem.h_draw, C)
+			dx=gcitem.dx
+		else
 			//we don't know what it looks like, don't draw
-			return
-		y_final=y+ret.y_final
-		if m_text_y_snap:y_final=floor(y_final+0.5f)
-		DrawBitmap(gcitem.tex_id, x+gcitem.x_draw,y_final,gcitem.w_draw,gcitem.h_draw, C)
+			dx=0.f
 		//Writeln(x,' ',y,' ',char(ch))
+		return dx
 	////////////////
 	EDT_END_ELLIPSIS=1
 	EDT_EXPANDTABS=2

@@ -383,9 +383,9 @@ module duktape
 				//reinterpreted buffer
 				sz=0L
 				ptr=duk_get_buffer_data(_ctx(),-1,&sz)
-				if ptr&&sz&&!(sz&(sizeof(T)-1)):
+				if ptr&&sz&&!(sz&(sizeof(T.NULL.T)-1)):
 					ret=T()
-					ret.__bind(1,iptr(ptr),iptr(uptr(sz)/uptr(sizeof(T))))
+					ret.__bind(1,iptr(ptr),iptr(uptr(sz)/uptr(sizeof(T.NULL.T))))
 				else
 					ret=T.NULL
 			else// if __has_member(__zero(T),"__JS_prototype")
