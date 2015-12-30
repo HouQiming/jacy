@@ -718,7 +718,7 @@ W.Edit_prototype={
 		if(ed_caret.y-this.scroll_y>=page_height-hc){
 			this.scroll_y=(ed_caret.y-(page_height-hc));
 		}
-		var wwidth=this.w-wc;
+		var wwidth=this.w-wc*(this.right_side_autoscroll_margin||1);
 		if(mode!='show'&&this.sel0.ccnt!=this.sel1.ccnt){
 			//make sure sel0 shows up
 			this.scroll_x=Math.min(this.scroll_x,Math.min(ed.XYFromCcnt(ccnt0).x,ed_caret.x))
@@ -1318,25 +1318,27 @@ W.Edit_prototype={
 			this.sel1.ccnt=this.SnapToValidLocation(this.ed.MoveToBoundary(this.ed.SnapToCharBoundary(Math.min(this.SkipInvisibles(ccnt_clicked,1),this.ed.GetTextSize()),1),1,"word_boundary_right"),1)
 			this.CallOnSelectionChange()
 			this.CallHooks('doubleClick')
-			UI.Refresh()
-			return
-		}
-		if(event.clicks>=3){
+			//UI.Refresh()
+			//return
+		}else if(event.clicks>=3){
 			//triple-click
 			var line=this.GetLC(ccnt_clicked)[0]
 			this.sel0.ccnt=this.SeekLC(line,0)
 			this.sel1.ccnt=this.SeekLC(line+1,0)
 			this.CallOnSelectionChange()
 			this.CallHooks('tripleClick')
-			UI.Refresh()
-			return
+			//UI.Refresh()
+			//return
+		}else{
+			this.sel0.ccnt=ccnt_clicked;
+			this.sel1.ccnt=ccnt_clicked;
+			this.CallOnSelectionChange()
 		}
 		this.is_dragging=1
-		this.sel0.ccnt=ccnt_clicked;
-		this.sel1.ccnt=ccnt_clicked;
+		this.dragging_ccnt0=this.sel0.ccnt;
+		this.dragging_ccnt1=this.sel1.ccnt;
 		UI.SetFocus(this)
 		UI.CaptureMouse(this)
-		this.CallOnSelectionChange()
 		UI.Refresh()
 	},
 	OnMouseMove:function(event){
@@ -1344,7 +1346,17 @@ W.Edit_prototype={
 		var x1=event.x-this.x+this.scroll_x
 		var y1=event.y-this.y+this.scroll_y
 		var ccnt=this.SeekXY(x1,y1);
-		this.sel1.ccnt=ccnt;
+		if(ccnt>=this.dragging_ccnt0&&ccnt<=this.dragging_ccnt1){
+			this.sel0.ccnt=this.dragging_ccnt0;
+			this.sel1.ccnt=this.dragging_ccnt1;
+		}else{
+			if(ccnt<this.dragging_ccnt0){
+				this.sel0.ccnt=this.dragging_ccnt1;
+			}else{
+				this.sel0.ccnt=this.dragging_ccnt0;
+			}
+			this.sel1.ccnt=ccnt;
+		}
 		this.CallOnSelectionChange()
 		UI.Refresh()
 	},

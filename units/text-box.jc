@@ -1948,8 +1948,8 @@ class CEditableText
 					xy1=handler.GetXYFromState(this,acc)
 				else
 					xy1=long2(acc[0],acc[1])
-				if xy0.y==xy1.y&&(xy0.x>=x+w||xy1.x<=x):
-					//x culled, do nothing
+				if xy0.y==xy1.y&&(xy0.x>=x+w||xy1.x<=x)&&(nd.s.n||ccnt_base):
+					//x culled, do nothing, but we can't cull the only node of an empty document
 				else
 					handler.RenderText(this,ccnt_base,acc_temp,nd.a[iptr(ofspp):iptr(ofspp2)-1],nd.s, color_ids, x,y,w,h,scr_x,scr_y,scale)
 				//Writeln('render a block: ',System.Time.TicksToSeconds(System.Time.tick64()-t0)*1000.0,'ms')

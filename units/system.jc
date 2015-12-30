@@ -6565,9 +6565,12 @@ module IO
 			GetFileSizeEx(hf,__pointer(&sz))
 			hm=CreateFileMappingW(
 				hf,NULL,
-				(mode&OPEN_COPY_ON_WRITE)?PAGE_WRITECOPY:(isrw?PAGE_EXECUTE_READWRITE:PAGE_READONLY),0,0,NULL)
+				(mode&OPEN_COPY_ON_WRITE)?PAGE_WRITECOPY:(isrw?PAGE_READWRITE:PAGE_READONLY),0,0,NULL)
+			if !hm:
+				hm=CreateFileMappingW(
+					hf,NULL,
+					(mode&OPEN_COPY_ON_WRITE)?PAGE_EXECUTE_WRITECOPY:(isrw?PAGE_EXECUTE_READWRITE:PAGE_READONLY),0,0,NULL)
 			//Console.Writeln(fn,' ',mode)
-			//Console.Writeln(hf,' ',sz,' ',hm)
 			CloseHandle(hf)
 			if !hm||hm==INVALID_HANDLE_VALUE:return char[].NULL
 			p=MapViewOfFile(hm,(mode&OPEN_COPY_ON_WRITE)?FILE_MAP_COPY:((mode&OPEN_WRITE)?FILE_MAP_ALL_ACCESS:FILE_MAP_READ),0,0,0)
