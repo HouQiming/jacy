@@ -47,6 +47,7 @@ module duktape
 	//duk_set_magic=__c_function(int,"duk_set_magic","duktape.h")
 	duk_is_object=__c_function(int,"duk_is_object","duktape.h")
 	duk_is_function=__c_function(int,"duk_is_function","duktape.h")
+	duk_is_buffer=__c_function(int,"duk_is_buffer","duktape.h")
 	duk_is_undefined=__c_function(int,"duk_is_undefined","duktape.h")
 	duk_is_null_or_undefined=__c_function(int,"duk_is_null_or_undefined","duktape.h")
 	duk_has_prop=__c_function(int,"duk_has_prop","duktape.h")
@@ -381,6 +382,7 @@ module duktape
 				ret=duk_get_pointer(_ctx(),-1)
 			else if readOptionalMember(T.NULL,"IS_ARRAY",0):
 				//reinterpreted buffer
+				//if duk_is_buffer(_ctx(),-1):
 				sz=0L
 				ptr=duk_get_buffer_data(_ctx(),-1,&sz)
 				if ptr&&sz&&!(sz&(sizeof(T.NULL.T)-1)):
@@ -388,6 +390,8 @@ module duktape
 					ret.__bind(1,iptr(ptr),iptr(uptr(sz)/uptr(sizeof(T.NULL.T))))
 				else
 					ret=T.NULL
+				//else
+				//	ret=T.NULL
 			else// if __has_member(__zero(T),"__JS_prototype")
 				if duk_is_null_or_undefined(_ctx(),-1):
 					ret=__zero(T)

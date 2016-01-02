@@ -16,6 +16,7 @@ int symmetricSparseMatrixDenseVector(double* y, int* p_rows,int n_rows, int* p_c
 void* factorizeDense(double* A,int N);
 void deleteDenseFactorization(void* ipiv);
 int solveDense(void* ipiv,double* A,double* b,int N);
+//int SVDf(float* A,int N,int M, float* u,float * vt);
 
 #ifdef __cplusplus
 }

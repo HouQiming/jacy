@@ -6,9 +6,9 @@ var W=exports;
 UI.font_name="LucidaGrande,_H_HelveticaNeue,segoeui,Roboto-Regular,Arial";
 UI.font_size=24;
 UI.Theme_Minimalistic=function(C){
-	UI.current_theme_color=C[0];
-	var C_dark=UI.lerp_rgba(C[0],0xff000000,0.15)
-	var C_sel=UI.lerp_rgba(C[0],0xffffffff,0.75)
+	UI.current_theme_color=C;
+	var C_dark=UI.lerp_rgba(C,0xff000000,0.15)
+	var C_sel=UI.lerp_rgba(C,0xffffffff,0.75)
 	UI.default_styles={
 		"label":{
 			font:UI.Font(UI.font_name,UI.font_size),
@@ -34,12 +34,12 @@ UI.Theme_Minimalistic=function(C){
 			font:UI.Font(UI.font_name,UI.font_size),
 			$:{
 				out:{
-					border_color:C[0],color:0xffffffff,
-					icon_color:C[0],
-					text_color:C[0],
+					border_color:C,color:0xffffffff,
+					icon_color:C,
+					text_color:C,
 				},
 				over:{
-					border_color:C[0],color:C[0],
+					border_color:C,color:C,
 					icon_color:0xffffffff,
 					text_color:0xffffffff,
 				},
@@ -56,11 +56,11 @@ UI.Theme_Minimalistic=function(C){
 			$:{
 				out:{
 					border_color:0x00ffffff,color:0x00ffffff,
-					icon_color:C[0],
-					text_color:C[0],
+					icon_color:C,
+					text_color:C,
 				},
 				over:{
-					border_color:C[0],color:C[0],
+					border_color:C,color:C,
 					icon_color:0xffffffff,
 					text_color:0xffffffff,
 				},
@@ -76,12 +76,12 @@ UI.Theme_Minimalistic=function(C){
 			round:0,border_width:2,padding:12,
 			$:{
 				out:{
-					border_color:C[0]&0x00ffffff,color:0x00ffffff,
+					border_color:C&0x00ffffff,color:0x00ffffff,
 					icon_color:0xff444444,
 					text_color:0xff444444,
 				},
 				over:{
-					border_color:C[0],color:0x00ffffff,
+					border_color:C,color:0x00ffffff,
 					icon_color:0xff444444,
 					text_color:0xff444444,
 				},
@@ -92,12 +92,12 @@ UI.Theme_Minimalistic=function(C){
 				},
 				////////////////////
 				checked_out:{
-					border_color:C[0]&0x00ffffff,color:C_sel,
+					border_color:C&0x00ffffff,color:C_sel,
 					icon_color:0xff444444,
 					text_color:0xff444444,
 				},
 				checked_over:{
-					border_color:C[0],color:C_sel,
+					border_color:C,color:C_sel,
 					icon_color:0xff444444,
 					text_color:0xff444444,
 				},
@@ -113,6 +113,9 @@ UI.Theme_Minimalistic=function(C){
 			transition_dt:0,
 			scroll_transition_dt:0.1,
 			bgcolor_selection:C_sel,
+			caret_width:UI.IS_MOBILE?1:2,
+			caret_color:0xff000000,
+			caret_flicker:500,
 		},
 		menu_item:{
 			font:UI.Font(UI.font_name,UI.font_size),
@@ -123,7 +126,7 @@ UI.Theme_Minimalistic=function(C){
 			color:0x00ffffff,
 			$:{
 				over:{
-					color:C[0],
+					color:C,
 					icon_color:0xffffffff,
 					text_color:0xffffffff,
 				},
@@ -133,13 +136,13 @@ UI.Theme_Minimalistic=function(C){
 			transition_dt:0.1,
 			round:4,border_width:2,padding:8,
 			layout_spacing:0,
-			border_color:C[0],color:0xffffffff,
+			border_color:C,color:0xffffffff,
 		},
 		combobox:{
 			transition_dt:0.1,
 			round:4,border_width:2,padding:8,
 			layout_spacing:0,
-			border_color:C[0],icon_color:C[0],text_color:0xff000000,color:0xffffffff,icon_text_align:'left',
+			border_color:C,icon_color:C,text_color:0xff000000,color:0xffffffff,icon_text_align:'left',
 			font:UI.Font(UI.font_name,UI.font_size),
 			label_font:UI.Font(UI.font_name,UI.font_size),
 		},
@@ -149,12 +152,12 @@ UI.Theme_Minimalistic=function(C){
 			//border_width:2, border_color:0xff444444,
 			h_slider:8,
 			round:8,
-			color:C[0],
+			color:C,
 			padding:0,
 			//label_text:'▲',
 			//label_raise:0.4,
 			//label_font:UI.Font(UI.font_name,32),
-			//label_color:C[0],
+			//label_color:C,
 			middle_bar:{
 				w:8,h:8,
 				round:2,
@@ -170,7 +173,7 @@ UI.Theme_Minimalistic=function(C){
 			middle_bar:{
 				w:8,h:8,
 				round:4,
-				color:C[0], border_color:0,
+				color:C, border_color:0,
 			},
 			$:{
 				out:{},
@@ -196,7 +199,7 @@ UI.Theme_Minimalistic=function(C){
 					border_color:0xffaaaaaa,
 				},
 				focus:{
-					border_color:C[0],
+					border_color:C,
 				},
 			},
 		},
@@ -212,7 +215,7 @@ UI.Theme_Minimalistic=function(C){
 				w:32,h_slider:8,
 				bgcolor:[{x:0,y:0,color:0xffbbbbbb},{x:0,y:1,color:0xffdddddd}],
 				round:8,
-				color:C[0],
+				color:C,
 				padding:0,
 				middle_bar:{
 					w:16,h:8,
@@ -222,11 +225,11 @@ UI.Theme_Minimalistic=function(C){
 			},
 			button_style:{
 				transition_dt:0.1,
-				color:0xffffffff,border_color:C[0],
+				color:0xffffffff,border_color:C,
 				round:8,border_width:1.5,padding:12,
 				$:{
 					out:{
-						text_color:C[0],
+						text_color:C,
 					},
 					over:{
 						text_color:C_dark,
@@ -236,15 +239,15 @@ UI.Theme_Minimalistic=function(C){
 					},
 					////////////////////
 					checked_out:{
-						color:C[0],
+						color:C,
 						text_color:0xffffffff,
 					},
 					checked_over:{
-						color:C[0],
+						color:C,
 						text_color:0xffffffff,
 					},
 					checked_down:{
-						color:C[0],
+						color:C,
 						text_color:0xffffffff,
 					},
 				}
@@ -252,7 +255,6 @@ UI.Theme_Minimalistic=function(C){
 		},
 		animation_node:{transition_dt:0.1},
 	};
-	if(UI.Theme_CustomWidget){UI.Theme_CustomWidget(C)}
 };
 
 UI.SetCaret=function(obj,x,y,w,h,C,dt){
@@ -657,10 +659,6 @@ W.Button=function(id,attrs){
 }
 
 UI.m_editor_plugins=[]
-UI.RegisterEditorPlugin=function(fplugin){
-	UI.m_editor_plugins.push(fplugin)
-	return fplugin
-}
 UI.HL_DISPLAY_MODE_RECT=0
 UI.HL_DISPLAY_MODE_RECTEX=1
 UI.HL_DISPLAY_MODE_EMBOLDEN=2
@@ -678,11 +676,8 @@ W.Edit_prototype={
 	//////////
 	mouse_cursor:"ibeam",
 	default_style_name:"edit",
-	caret_width:UI.IS_MOBILE?1:2,
-	caret_color:0xff000000,
-	caret_flicker:500,
-	color:0xff000000,
-	bgcolor_selection:0xffffe0d0,
+	//color:0xff000000,
+	//bgcolor_selection:0xffffe0d0,
 	caret_is_wrapped:0,
 	GetHandlerID:function(name){
 		return this.ed.m_handler_registration[name];
@@ -837,6 +832,7 @@ W.Edit_prototype={
 			xy0.y-=ed.GetCharacterHeightAt(this.sel1.ccnt);
 			xy0.x=this.displayed_wrap_width
 		}
+		//print(this.caret_is_wrapped,xy0.x,xy0.y)
 		return xy0;
 	},
 	GetIMECaretXY:function(){
@@ -996,6 +992,7 @@ W.Edit_prototype={
 		}
 		return [p0,p1,hl]
 	},
+	AddAdditionalPlugins:function(){},
 	Init:function(){
 		var ed=this.ed;
 		if(!ed){
@@ -1008,16 +1005,13 @@ W.Edit_prototype={
 			this.m_event_hooks['afterRender']=[]
 			this.m_event_hooks['doubleClick']=[]
 			this.m_event_hooks['tripleClick']=[]
-			var plugins=UI.m_editor_plugins;
-			for(var i=0;i<plugins.length;i++){
-				plugins[i].call(this)
-			}
-			plugins=this.plugins;
+			var plugins=this.plugins;
 			if(plugins){
 				for(var i=0;i<plugins.length;i++){
 					plugins[i].call(this)
 				}
 			}
+			this.AddAdditionalPlugins()
 			ed=UI.CreateEditor(this);
 			if(this.text){ed.Edit([0,0,this.text],1);}
 			this.sel0=ed.CreateLocator(0,-1);this.sel0.undo_tracked=1;
@@ -1147,6 +1141,11 @@ W.Edit_prototype={
 				this.caret_is_wrapped=lwmode;
 				epilog();
 			}else{
+				if(this.same_line_only_left_right){
+					if(this.ed.GetUtf8CharNeighborhood(ccnt)[0]==10){
+						return;
+					}
+				}
 				if(ccnt>0){
 					sel1.ccnt=this.SnapToValidLocation(ccnt-1,-1);
 					epilog();
@@ -1166,6 +1165,12 @@ W.Edit_prototype={
 			}else{
 				if(ccnt<ed.GetTextSize()){
 					sel1.ccnt=this.SnapToValidLocation(ccnt+1,1);
+					if(this.same_line_only_left_right){
+						if(this.ed.GetUtf8CharNeighborhood(sel1.ccnt)[0]==10){
+							sel1.ccnt=ccnt;
+							return;
+						}
+					}
 					epilog();
 				}
 				lwmode=ed.IsAtLineWrap(sel1.ccnt);
@@ -1174,14 +1179,14 @@ W.Edit_prototype={
 		}else if(IsHotkey(event,"CTRL+LEFT SHIFT+CTRL+LEFT")){
 			var ccnt=this.SkipInvisibles(sel1.ccnt,-1);
 			if(ccnt>0){
-				sel1.ccnt=this.SnapToValidLocation(ed.MoveToBoundary(ed.SnapToCharBoundary(ccnt-1,-1),-1,"ctrl_lr_stop"),-1)
+				sel1.ccnt=this.SnapToValidLocation(ed.MoveToBoundary(ed.SnapToCharBoundary(ccnt-1,-1),-1,this.precise_ctrl_lr_stop?"precise_ctrl_lr_stop":"ctrl_lr_stop"),-1)
 				this.caret_is_wrapped=ed.IsAtLineWrap(sel1.ccnt);
 				epilog();
 			}
 		}else if(IsHotkey(event,"CTRL+RIGHT SHIFT+CTRL+RIGHT")){
 			var ccnt=this.SkipInvisibles(sel1.ccnt,1);
 			if(ccnt<ed.GetTextSize()){
-				sel1.ccnt=this.SnapToValidLocation(ed.MoveToBoundary(ed.SnapToCharBoundary(ccnt+1,1),1,"ctrl_lr_stop"),1)
+				sel1.ccnt=this.SnapToValidLocation(ed.MoveToBoundary(ed.SnapToCharBoundary(ccnt+1,1),1,this.precise_ctrl_lr_stop?"precise_ctrl_lr_stop":"ctrl_lr_stop"),1)
 				this.caret_is_wrapped=0;
 				epilog();
 			}
@@ -1312,6 +1317,7 @@ W.Edit_prototype={
 		var x0=event.x-this.x+this.scroll_x
 		var y0=event.y-this.y+this.scroll_y
 		var ccnt_clicked=this.SeekXY(x0,y0);
+		this.dragging_shift=0;
 		if(event.clicks==2){
 			//double-click
 			this.sel0.ccnt=this.SnapToValidLocation(this.ed.MoveToBoundary(this.ed.SnapToCharBoundary(Math.max(this.SkipInvisibles(ccnt_clicked,-1),0),-1),-1,"word_boundary_left"),-1)
@@ -1330,7 +1336,11 @@ W.Edit_prototype={
 			//UI.Refresh()
 			//return
 		}else{
-			this.sel0.ccnt=ccnt_clicked;
+			if(!UI.IsPressed("LSHIFT")&&!UI.IsPressed("RSHIFT")){
+				this.sel0.ccnt=ccnt_clicked;
+			}else{
+				this.dragging_shift=1;
+			}
 			this.sel1.ccnt=ccnt_clicked;
 			this.CallOnSelectionChange()
 		}
@@ -1346,14 +1356,16 @@ W.Edit_prototype={
 		var x1=event.x-this.x+this.scroll_x
 		var y1=event.y-this.y+this.scroll_y
 		var ccnt=this.SeekXY(x1,y1);
-		if(ccnt>=this.dragging_ccnt0&&ccnt<=this.dragging_ccnt1){
+		if(!this.dragging_shift&&ccnt>=this.dragging_ccnt0&&ccnt<=this.dragging_ccnt1){
 			this.sel0.ccnt=this.dragging_ccnt0;
 			this.sel1.ccnt=this.dragging_ccnt1;
 		}else{
-			if(ccnt<this.dragging_ccnt0){
-				this.sel0.ccnt=this.dragging_ccnt1;
-			}else{
-				this.sel0.ccnt=this.dragging_ccnt0;
+			if(!this.dragging_shift){
+				if(ccnt<this.dragging_ccnt0){
+					this.sel0.ccnt=this.dragging_ccnt1;
+				}else{
+					this.sel0.ccnt=this.dragging_ccnt0;
+				}
 			}
 			this.sel1.ccnt=ccnt;
 		}
@@ -1762,6 +1774,7 @@ W.EditBox=function(id,attrs){
 				UI.SetFocus(obj.edit)
 				obj.edit.sel0.ccnt=0
 				obj.edit.sel1.ccnt=obj.edit.ed.GetTextSize()
+				UI.InvalidateCurrentFrame()
 			}
 			if(obj.tab_stop){
 				UI.TabStop(obj.edit);

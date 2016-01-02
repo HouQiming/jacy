@@ -9147,6 +9147,8 @@ module Env
 			ename=ename[idx+1:]
 			pdot=ename.LastIndexOf('.')
 			if pdot>=0:ename=ename[:pdot-1]
+			if Platform.BUILD=="debug":
+				ename=ename+"_debug"
 			sret=s_userdir+string("/.")+ename
 			if !System.IO.DirExists(sret):System.IO.CreateDirectory(sret)
 			return sret

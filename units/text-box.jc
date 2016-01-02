@@ -125,7 +125,8 @@ inline isInCharSet(uint4 cset,int ch)
 auto isWordChar(int ch)
 	if ch>=128:
 		return int(g_unicode_wordchars.Bisect(function(int c0){return c0<=ch})&1)
-	return isInCharSet(g_ascii_wordchars,ch)
+	else
+		return isInCharSet(g_ascii_wordchars,ch)
 
 auto GreedyLayoutParagraph(TFont fnt,string s,float w_line, float w_tab)
 	//todo: also replace ComputeTextLayout with this
@@ -2408,6 +2409,10 @@ class CEditableText
 			fcheck=function(int c0,int c1){return isWordChar(c0)&&!isWordChar(c1)}
 		else if stype=="ctrl_lr_stop":
 			fcheck=function(int c0,int c1){return !isWordChar(c0)&&isWordChar(c1)||isCJK(c0)&&!isCJK(c1)&&isWordChar(c1)||c1=='\n'}
+		else if stype=="precise_ctrl_lr_stop":
+			fcheck=function(int c0,int c1){
+				return isWordChar(c0)!=isWordChar(c1)||isCJK(c0)&&!isCJK(c1)&&isWordChar(c1)||isCJK(c1)&&!isCJK(c0)&&isWordChar(c0)||c1=='\n'||c0=='\n'
+			}
 		else if stype=="invisible_boundary":
 			hid=m_handler_registration["renderer"].as(int)
 			handler=m_handlers[hid]

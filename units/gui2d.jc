@@ -181,9 +181,12 @@ struct TFont
 	pfnt=CCoreFont.NULL
 	h=0.f
 	embolden=0
+	//inline SmartEmbolden(int m_color)
+	//	//nothing
 	auto SmartEmbolden(int m_color)
 		//avoid creating too many glyphs during text fading
 		embolden+=((int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*3000.f/h)+8)&-16)
+		//embolden+=((int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*2000.f/h)+8)&-16)
 
 //struct TGlyphCacheItem
 class CGlyphCacheItem
@@ -1004,7 +1007,7 @@ class CRenderer
 	auto GetCharacterAdvance(TFont fnt,int ch)
 		(pfnt,gid)=SearchGlyph(fnt.pfnt,ch)
 		if pfnt:
-			return FTW_GetGlyphAdvance(pfnt.hfnt,fnt.h,gid)
+			return max(FTW_GetGlyphAdvance(pfnt.hfnt,fnt.h,gid),0.f)
 		else
 			return 0.f
 	auto GetKerning(TFont fnt,int ch0,int ch1)

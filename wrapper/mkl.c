@@ -151,3 +151,22 @@ EXPORT int solveDense(MKL_INT* ipiv,double* A,double* b,int N){
 	MKL_INT n=N, nrhs = 1, lda = N, ldb=1;
 	return LAPACKE_dgetrs( LAPACK_ROW_MAJOR,'N',n,nrhs,A,lda,ipiv,b,ldb);
 }
+
+//EXPORT int SVDf(float* A,int N,int M, float* u,float * vt){
+//	int m = M, n = N, lda = M, ldu = M, ldvt = N, info, lwork;
+//	//float* u=(float*)calloc(1,ldu*M*sizeof(float));
+//	//float* vt=(float*)calloc(1,ldvt*N*sizeof(float));
+//	float wkopt=0.f;
+//	float* work=NULL;
+//	int info=0;
+//	int lwork=-1;
+//	sgesvd( "All", "All", &m, &n, a, &lda, s, u, &ldu, vt, &ldvt, &wkopt, &lwork,
+//	        &info );
+//	lwork = (int)wkopt;
+//	work = (float*)malloc( lwork*sizeof(float) );
+//	/* Compute SVD */
+//	sgesvd( "All", "All", &m, &n, a, &lda, s, u, &ldu, vt, &ldvt, work, &lwork,
+//	        &info );
+//	free(work);
+//	return info==0;
+//}
