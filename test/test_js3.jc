@@ -1,0 +1,20 @@
+import "system.jc"
+import "javascript.jc"
+import System.Console.*
+import Javascript.*
+
+(function(){
+	JS=new JSContext
+	///////////
+	a=new int[10]
+	for i=0:9
+		a[i]=i;
+	JS["g_array"]=a;
+	//a.resize(20);
+	JS.debugEval("print(g_array.length,g_array[16],g_array[7]);g_array=undefined;","<eval>")
+	a.resize(20);
+	JS.debugEval("print(g_array);","<eval>")
+	JS["g_array"]=a;
+	JS.debugEval("print(g_array.length,g_array[16],g_array[7]);","<eval>")
+	Writeln('----------------')
+})()

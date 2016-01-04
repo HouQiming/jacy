@@ -1336,6 +1336,15 @@ W.Edit_prototype={
 			//UI.Refresh()
 			//return
 		}else{
+			if(event.button==UI.SDL_BUTTON_RIGHT&&this.OnRightClick){
+				//prevent sel when right clicking selected text
+				var sel=this.GetSelection();
+				if(ccnt_clicked>=sel[0]&&ccnt_clicked<=sel[1]){
+					UI.SetFocus(this)
+					UI.Refresh()
+					return;
+				}
+			}
 			if(!UI.IsPressed("LSHIFT")&&!UI.IsPressed("RSHIFT")){
 				this.sel0.ccnt=ccnt_clicked;
 			}else{

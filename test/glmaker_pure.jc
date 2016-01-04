@@ -72,6 +72,7 @@ auto FormatCCode(string feed)
 
 g_code=new string
 g_typedef_code=new string
+g_did=new int[string]
 auto once(string ver)
 	words=[s foreach s in ReadAllText("c:\\tp\\kara\\units\\glload"+ver+".i").Tokenize('"\r\n:') if s!="__PARSE_GLLOADER"]
 	pts=[I foreach s,I in words if s.n>1&&s.back()==',']
@@ -121,6 +122,8 @@ auto once(string ver)
 		if name.EndsWith("SGI")||name.EndsWith("SGIS")||name.EndsWith("SGIX")||name.EndsWith("SUN")||name.EndsWith("SUNX")||name.EndsWith("IBM")||name.EndsWith("HP")||name.EndsWith("INTEL"):continue
 		loadable_names=all_names[name]
 		if !loadable_names:continue
+		if g_did[name]:continue
+		g_did[name]=1
 		loadable_names.Sort()
 		loadable_names.Unique()
 		all_names[name]=string[].NULL
