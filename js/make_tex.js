@@ -3,7 +3,7 @@ g_action_handlers.make=function(){
 	var ret=fname.match(g_regexp_chopext)
 	var fname_pdf=(ret?ret[1]:fname)+".pdf"
 	if(IsNewerThan(fname,fname_pdf)){
-		var cmdline=["texify","--tex-option=--max-print-line=9999","--pdf"]
+		var cmdline=["texify","--tex-option=--max-print-line=9999","-q","--pdf"]
 		if(g_json.m_latex_sync){
 			cmdline.push("--tex-option=--synctex=1")
 		}

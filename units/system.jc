@@ -9160,12 +9160,16 @@ module Env
 			prealpath=new char[osal_GetUnixPathMax()+4]
 			srealpath=realpath(fnn,prealpath)
 			if !srealpath||!prealpath[0]:
-				return fn
-			pzero=prealpath.IndexOf('\0')
-			if pzero>=0:
-				return new(prealpath[:pzero-1])
+				ret=fn
 			else
-				return prealpath
+				pzero=prealpath.IndexOf('\0')
+				if pzero>=0:
+					ret=new(prealpath[:pzero-1])
+				else
+					ret=prealpath
+				if fn.n&&fn[fn.n-1]=='/'&&(!ret.n||ret[ret.n-1]!='/'):
+					ret.push('/')
+			return ret
 		else
 			ret=new i16[MAX_PATH+4]
 			fnw=toNativeString(fn.Replace(["/","\\"]))

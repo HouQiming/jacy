@@ -823,12 +823,14 @@ class CRenderer
 			if ret:return ret
 		foreach spath in m_font_paths
 			//Writeln(spath,' ',sname)
-			foreach fnfont in System.IO.EnumFiles(spath+sname+".*",System.IO.ENUM_FILE)
+			foreach fnfont in System.IO.EnumFiles(spath+(sname.IndexOf('.')>=0?sname:sname+".*"),System.IO.ENUM_FILE)
 				//Writeln('>>> ',fnfont)
 				sdata=System.IO.ReadAll(fnfont)
 				if sdata:
+					//Writeln('font found: ',fnfont)
 					ret=CreateCoreFontFromData(sdata)
 					if ret:return ret
+		//Writeln('font not found: ',sname)
 		return CCoreFont.NULL
 	auto CreateCoreFontChain(CCoreFont[] fonts)
 		if fonts.n==1:return fonts[0]

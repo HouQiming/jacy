@@ -905,6 +905,12 @@ W.Edit_prototype={
 		this.OnSelectionChange(this);
 		this.m_user_just_typed_char=0
 	},
+	UserTypedChar:function(){
+		if(!this.m_user_just_typed_char){
+			this.m_user_just_typed_char=1;
+			this.CallHooks('userTypeChar');
+		}
+	},
 	/////////////////
 	AddEventHandler:function(s_key,faction){
 		UI.assert(!this.m_transient_hotkeys);
@@ -999,6 +1005,8 @@ W.Edit_prototype={
 			//don't allow plugins to extend state_handlers for now
 			this.m_additional_hotkeys=(this.additional_hotkeys||[])
 			if(!this.m_event_hooks){this.m_event_hooks={}}
+			//userTypeChar differs from text input in that 'paste' doesn't count
+			this.m_event_hooks['userTypeChar']=[]
 			this.m_event_hooks['selectionChange']=[]
 			this.m_event_hooks['change']=[]
 			this.m_event_hooks['editorCreate']=[]
@@ -1071,7 +1079,7 @@ W.Edit_prototype={
 		this.sel1.ccnt=ops[0]+lg;
 		this.AutoScroll("show");
 		this.CallOnChange();
-		this.m_user_just_typed_char=1;
+		this.UserTypedChar();
 		this.ed.m_IME_overlay=undefined;
 		UI.Refresh()
 	},
@@ -1207,7 +1215,10 @@ W.Edit_prototype={
 				this.HookedEdit([ccnt0,ccnt1-ccnt0,null])
 				this.CallOnChange()
 				if(is_backspace){
-					this.m_user_just_typed_char=bk_m_user_just_typed_char
+					//this.m_user_just_typed_char=bk_m_user_just_typed_char
+					if(bk_m_user_just_typed_char){
+						this.UserTypedChar();
+					}
 				}
 				UI.Refresh();
 				return;
@@ -1387,54 +1398,61 @@ W.Edit_prototype={
 		this.is_dragging=0
 		UI.Refresh()
 	},
+	RenderAsWidget:function(id,x,y,w,h){
+		this.x=x;
+		this.y=y;
+		this.w=w;
+		this.h=h;
+		W.PureRegion(id,this)
+		if(this.show_background){
+			UI.DrawBitmap(0,this.x,this.y,this.w,this.h,this.bgcolor);
+		}
+		if(!this.ed){this.Init();}
+		this.m_transient_hotkeys=[]
+		this.sel_hl.color=this.bgcolor_selection;
+		var scale=this.scale*UI.pixels_per_unit;
+		var scroll_x=this.scroll_x;
+		var scroll_y=this.scroll_y;
+		var ed=this.ed;
+		if(this.scroll_transition_dt>0){
+			UI.Begin(this)
+				var anim=W.AnimationNode("scrolling_animation",{transition_dt:this.scroll_transition_dt,
+					scroll_x:scroll_x,
+					scroll_y:scroll_y})
+			UI.End()
+			scroll_x=anim.scroll_x
+			scroll_y=anim.scroll_y
+		}
+		this.visible_scroll_x=scroll_x
+		this.visible_scroll_y=scroll_y
+		//Render takes absolute coords
+		//var bkcolor
+		//if(this.read_only){
+		//	bkcolor=this.sel_hl.color
+		//	this.sel_hl.color=0
+		//}
+		ed.Render({x:scroll_x,y:scroll_y,w:this.w/this.scale,h:this.h/this.scale, scr_x:this.x*UI.pixels_per_unit,scr_y:this.y*UI.pixels_per_unit, scale:scale, obj:this});
+		this.CallHooks('afterRender')
+		//if(this.read_only){
+		//	this.sel_hl.color=bkcolor
+		//	return this
+		//}else{
+		if(UI.HasFocus(this)){
+			var ed_caret=this.GetIMECaretXY();
+			var x_caret=this.x*UI.pixels_per_unit+(ed_caret.x-scroll_x)*scale;
+			var y_caret=this.y*UI.pixels_per_unit+(ed_caret.y-scroll_y)*scale;
+			UI.SetCaret(UI.context_window,
+				x_caret,y_caret,
+				this.caret_width*scale,this.GetCharacterHeightAtCaret()*scale,
+				this.caret_color,this.caret_flicker);
+		}
+	},
 };
 W.Edit=function(id,attrs,proto){
 	var obj=UI.Keep(id,attrs,proto||W.Edit_prototype);
 	UI.StdStyling(id,obj,attrs, obj.default_style_name,UI.HasFocus(obj)?"focus":"blur");
 	UI.StdAnchoring(id,obj);
-	W.PureRegion(id,obj)
-	if(obj.show_background){
-		UI.DrawBitmap(0,obj.x,obj.y,obj.w,obj.h,obj.bgcolor);
-	}
-	if(!obj.ed){obj.Init()}
-	obj.m_transient_hotkeys=[]
-	obj.sel_hl.color=obj.bgcolor_selection;
-	var scale=obj.scale*UI.pixels_per_unit;
-	var scroll_x=obj.scroll_x;
-	var scroll_y=obj.scroll_y;
-	var ed=obj.ed;
-	if(obj.scroll_transition_dt>0){
-		UI.Begin(obj)
-			var anim=W.AnimationNode("scrolling_animation",{transition_dt:obj.scroll_transition_dt,
-				scroll_x:scroll_x,
-				scroll_y:scroll_y})
-		UI.End()
-		scroll_x=anim.scroll_x
-		scroll_y=anim.scroll_y
-	}
-	obj.visible_scroll_x=scroll_x
-	obj.visible_scroll_y=scroll_y
-	//Render takes absolute coords
-	//var bkcolor
-	//if(obj.read_only){
-	//	bkcolor=obj.sel_hl.color
-	//	obj.sel_hl.color=0
-	//}
-	ed.Render({x:scroll_x,y:scroll_y,w:obj.w/obj.scale,h:obj.h/obj.scale, scr_x:obj.x*UI.pixels_per_unit,scr_y:obj.y*UI.pixels_per_unit, scale:scale, obj:obj});
-	obj.CallHooks('afterRender')
-	//if(obj.read_only){
-	//	obj.sel_hl.color=bkcolor
-	//	return obj
-	//}else{
-	if(UI.HasFocus(obj)){
-		var ed_caret=obj.GetIMECaretXY();
-		var x_caret=obj.x*UI.pixels_per_unit+(ed_caret.x-scroll_x)*scale;
-		var y_caret=obj.y*UI.pixels_per_unit+(ed_caret.y-scroll_y)*scale;
-		UI.SetCaret(UI.context_window,
-			x_caret,y_caret,
-			obj.caret_width*scale,obj.GetCharacterHeightAtCaret()*scale,
-			obj.caret_color,obj.caret_flicker);
-	}
+	obj.RenderAsWidget(id,obj.x,obj.y,obj.w,obj.h)
 	return obj;
 	//}
 };
@@ -2420,7 +2438,17 @@ W.ListView=function(id,attrs){
 			if(!obj_item_i||obj_item_i.no_click_selection){continue;}
 			var id_click_sel="$C"+i.toString();
 			if(!obj.no_region){
-				W.Region(id_click_sel,{x:obj_item_i.x,y:obj_item_i.y,w:obj_item_i.w,h:obj_item_i.h,
+				var rx0=obj_item_i.x;
+				var ry0=obj_item_i.y;
+				var rx1=rx0+obj_item_i.w;
+				var ry1=ry0+obj_item_i.h;
+				if(!obj.no_clipping){
+					rx0=Math.max(rx0,obj.x);
+					ry0=Math.max(ry0,obj.y);
+					rx1=Math.min(rx1,obj.x+obj.w);
+					ry1=Math.min(ry1,obj.y+obj.h);
+				}
+				W.Region(id_click_sel,{x:rx0,y:ry0,w:rx1-rx0,h:ry1-ry0,
 					numerical_id:i,
 					__kept:1,
 					OnClick:function(event){
