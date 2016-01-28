@@ -517,9 +517,12 @@ UI.MeasureIconText=function(obj){
 W.DrawIconText=function(id,obj,attrs){
 	//size estimation
 	var tmp=obj.w;
+	var tmph=obj.h
 	obj.w=1e17;//for UI.LayoutText
+	obj.h=1e17;//for UI.LayoutText
 	UI.LayoutText(obj);
 	obj.w=tmp;
+	obj.h=tmph;
 	var padding=(obj.padding||0);
 	if(obj.use_measured_dims){
 		obj.w=(attrs.w||(obj.w_text+padding*2));
@@ -539,17 +542,17 @@ W.DrawIconText=function(id,obj,attrs){
 	}else{
 		x=obj.x+(obj.w-inner_w-padding);
 	}
-	var compute_y=function(inner_h){
-		var alg=(obj.icon_text_valign||'center');
-		if(alg=='up'){
-			return obj.y+padding;
-		}else if(alg=='center'){
-			return obj.y+(obj.h-inner_h)*0.5;
-		}else{
-			return obj.y+(obj.h-inner_h-padding);
-		}
+	var inner_h=obj.h_text;
+	var y;
+	alg=(obj.icon_text_valign||'center');
+	if(alg=='up'){
+		y=obj.y+padding;
+	}else if(alg=='center'){
+		y=obj.y+(obj.h-inner_h)*0.5;
+	}else{
+		y=obj.y+(obj.h-inner_h-padding);
 	}
-	UI.DrawTextControl(obj,x,compute_y(obj.h_text),obj.text_color||0xffffffff)
+	UI.DrawTextControl(obj,x,y,obj.text_color||0xffffffff)
 };
 
 var g_icon_text_from_style=["w_icon","h_icon","padding","icon_text_align","icon_text_valign","icon_color","text_color","x","y","w","h","font"];
@@ -658,7 +661,6 @@ W.Button=function(id,attrs){
 	return W.PureRegion(id,obj);
 }
 
-UI.m_editor_plugins=[]
 UI.HL_DISPLAY_MODE_RECT=0
 UI.HL_DISPLAY_MODE_RECTEX=1
 UI.HL_DISPLAY_MODE_EMBOLDEN=2
@@ -779,36 +781,6 @@ W.Edit_prototype={
 	GetLC:function(ccnt){
 		var ed=this.ed;
 		return ed.GetStateAt(ed.m_handler_registration["line_column"],ccnt,"ll");
-	},
-	SeekAllLinesBetween:function(line0,line1_exclusive,is_valid_only){
-		var ed=this.ed;
-		var ret=[this.SeekLC(line0,0)]
-		var ccnt=ret[0];
-		for(var i=line0+1;i<line1_exclusive;i++){
-			ccnt=ed.Bisect(ed.m_handler_registration["line_column"],[i,0, i-1,ccnt],"llll")
-			if(is_valid_only){
-				var ccnt2=this.SnapToValidLocation(ccnt,1)
-				if(ccnt2>ccnt&&this.SnapToValidLocation(ccnt,-1)<ccnt){
-					var ln_real=this.GetLC(ccnt2)[0]
-					if(ln_real>i){
-						//some lines are hidden
-						if(ln_real>line1_exclusive){
-							ln_real=line1_exclusive
-						}
-						ccnt2=ed.Bisect(ed.m_handler_registration["line_column"],[ln_real,0, i,ccnt],"llll")
-						while(i<ln_real){
-							ret.push(-1)
-							i++;
-						}
-						ret.push(-1)
-						ccnt=ccnt2
-						continue;
-					}
-				}
-			}
-			ret.push(ccnt)
-		}
-		return ret;
 	},
 	GetEnhancedHome:function(ccnt){
 		var ccnt_lhome=this.SeekLC(this.GetLC(ccnt)[0],0);
@@ -2292,9 +2264,21 @@ W.ListView_prototype={
 		var n=this.items.length
 		var value=this.value
 		if(UI.IsHotkey(event,this.dimension=="y"?"UP":"LEFT")){
-			if(value>0){this.OnChange(value-1);}
+			var p_goal=value;
+			for(var p=value-1;p>=0;p--){
+				if(this.items[p].is_hidden){continue;}
+				p_goal=p
+				break;
+			}
+			if(value!=p_goal){this.OnChange(p_goal);}
 		}else if(UI.IsHotkey(event,this.dimension=="y"?"DOWN":"RIGHT")){
-			if(value<n-1){this.OnChange(value+1);}
+			var p_goal=value;
+			for(var p=value+1;p<n;p++){
+				if(this.items[p].is_hidden){continue;}
+				p_goal=p
+				break;
+			}
+			if(value!=p_goal){this.OnChange(p_goal);}
 		}else if(UI.IsHotkey(event,"PGUP")&&this.items.length){
 			var obj_sel=this["$"+value]
 			var dim=this.dimension
@@ -2302,7 +2286,13 @@ W.ListView_prototype={
 			var delta=this[wh_dim]
 			var p_goal=0
 			for(var p=value-1;p>=0;p--){
-				delta-=this["$"+p][wh_dim]
+				var item_p=this["$"+p];
+				if(!item_p){
+					p_goal=p
+					break;
+				}
+				if(item_p.is_hidden){continue;}
+				delta-=item_p[wh_dim]
 				if(delta<=0){
 					p_goal=p
 					break;
@@ -2316,7 +2306,13 @@ W.ListView_prototype={
 			var delta=this[wh_dim]
 			var p_goal=this.items.length-1
 			for(var p=value;p<this.items.length;p++){
-				delta-=this["$"+p][wh_dim]
+				var item_p=this["$"+p];
+				if(!item_p){
+					p_goal=p
+					break;
+				}
+				if(item_p.is_hidden){continue;}
+				delta-=item_p[wh_dim]
 				if(delta<=0){
 					p_goal=p
 					break;

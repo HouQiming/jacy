@@ -1505,7 +1505,6 @@ UI.Refresh=function(){
 	UI.need_to_refresh=1;
 	UI.tick_last_refresh=Duktape.__ui_get_tick();
 	UI.g_refreshed_since_last_tick=1;
-	//print(new Error("UI.Refresh").stack);
 }
 UI.InvalidateCurrentFrame=function(){UI.m_frame_is_invalid=1;}
 
@@ -1533,6 +1532,10 @@ UI.SetFocus=function(obj,is_own_call){
 			if(!is_own_call){
 				UI.context_focus_is_a_region=1;
 			}//if it's set explicitly, assume it's valid for the current frame
+			if(UI.nd_focus!=obj){
+				//focus changed in OnFocus, skip the text input stuff
+				return;
+			}
 		}
 	}
 	if(obj&&obj.OnTextInput){

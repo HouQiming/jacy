@@ -977,6 +977,24 @@ inline __reduce_Sum(container,fmap,got_if)
 	__internal_run_metalist(container,fmap,fcallback)
 	return ret
 
+inline __reduce_Min(container,fmap,got_if,value0)
+	ret=value0
+	fcallback=inline(val_i){
+		if ret>val_i:
+			ret=val_i
+	}
+	__internal_run_metalist(container,fmap,fcallback)
+	return ret
+
+inline __reduce_Max(container,fmap,got_if,value0)
+	ret=value0
+	fcallback=inline(val_i){
+		if ret<val_i:
+			ret=val_i
+	}
+	__internal_run_metalist(container,fmap,fcallback)
+	return ret
+
 inline __reduce_First(container,fmap,got_if)
 	T=__uninit()
 	ret=__zero(T)
