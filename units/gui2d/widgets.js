@@ -2284,17 +2284,17 @@ W.ListView_prototype={
 			var dim=this.dimension
 			var wh_dim=(dim=='y'?'h':'w')
 			var delta=this[wh_dim]
-			var p_goal=0
+			var p_goal=value
 			for(var p=value-1;p>=0;p--){
+				if(this.items[p].is_hidden){continue;}
 				var item_p=this["$"+p];
 				if(!item_p){
 					p_goal=p
 					break;
 				}
-				if(item_p.is_hidden){continue;}
+				p_goal=p
 				delta-=item_p[wh_dim]
 				if(delta<=0){
-					p_goal=p
 					break;
 				}
 			}
@@ -2304,17 +2304,17 @@ W.ListView_prototype={
 			var dim=this.dimension
 			var wh_dim=(dim=='y'?'h':'w')
 			var delta=this[wh_dim]
-			var p_goal=this.items.length-1
+			var p_goal=value
 			for(var p=value;p<this.items.length;p++){
+				if(this.items[p].is_hidden){continue;}
 				var item_p=this["$"+p];
 				if(!item_p){
 					p_goal=p
 					break;
 				}
-				if(item_p.is_hidden){continue;}
+				p_goal=p;
 				delta-=item_p[wh_dim]
 				if(delta<=0){
-					p_goal=p
 					break;
 				}
 			}
@@ -2400,10 +2400,13 @@ W.ListView=function(id,attrs){
 			id_changed=1;
 		}
 	}
-	var dim_tot=(obj.layout_spacing+1)*items.length
+	var dim_tot=obj.layout_spacing*(items.length+1)
 	if(obj.dimension=="y"){
 		for(var i=0;i<items.length;i++){
 			dim_tot+=items[i].h;
+			if(items[i].is_hidden){
+				dim_tot-=obj.layout_spacing;
+			}
 		}
 		dim_tot=Math.max(dim_tot,0)
 		obj.layout_direction="down"
@@ -2412,6 +2415,9 @@ W.ListView=function(id,attrs){
 	}else{
 		for(var i=0;i<items.length;i++){
 			dim_tot+=items[i].w;
+			if(items[i].is_hidden){
+				dim_tot-=obj.layout_spacing;
+			}
 		}
 		dim_tot=Math.max(dim_tot,0)
 		obj.layout_direction="right"

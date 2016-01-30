@@ -512,6 +512,9 @@ class CRenderer
 			//Writeln(!!SDL.detail.SDL_GL_ExtensionSupported("GL_EXT_sRGB"))
 			//Writeln(!!(SDL.detail.SDL_GL_ExtensionSupported("GL_EXT_texture_sRGB")))
 			//Writeln(!!(SDL.detail.SDL_GL_ExtensionSupported("GL_ARB_framebuffer_sRGB")))
+			if Platform.IS_WINDOWS&&System.IO.FileExists(System.Env.GetExecutablePath()+"/opengl32.dll"):
+				//hack: LLVMPipe doesn't support it but lies about its extensions
+				m_srgb_supported=0
 			if Platform.ARCH=="mac":
 				//hack: Mac supports it but lies about the extensions
 				m_srgb_supported=1

@@ -2180,3 +2180,7 @@ UI.FlushTabEvents=function(){
 	W.Hotkey("",{"key":"TAB","action":UI.SetFocus.bind(undefined,stops[next_stop])});
 	UI.context_tabstops=[];
 }
+
+UI.SDL_GLInitErrorCallback=function(){
+	throw new Error("failed to initialize OpenGL")
+}

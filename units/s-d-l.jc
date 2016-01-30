@@ -7,6 +7,8 @@ basic win emulation
 we could do the entire Gui.Managed layer in js
 leave the ugly platform key hacking to js
 */
+import "javascript.jc"
+import "g-l.jc"
 import Javascript.*
 import GL.*
 import System.Console.*
@@ -1053,6 +1055,24 @@ module detail
 			SDL_GetWindowSize(hwnd,&w_lying,&h_lying)
 			if !g_sdl_gl_context:
 				g_sdl_gl_context=SDL_GL_CreateContext(hwnd)
+				if Platform.IS_WINDOWS:
+					if System.IO.FileExists(System.Env.GetExecutablePath()+"/opengl32.dll"):
+						//prevent SDL from unloading the llvmpipe dll
+						LoadLibraryW=__c_function(int,"LoadLibraryW","windows.h")
+						su=System.Algorithm.Utf8ToUnicode((System.Env.GetExecutablePath()+"/opengl32.dll").Replace(["/","\\"]))
+						su.push(i16(0))
+						LoadLibraryW(su)
+						su.discard()
+					//else
+					//	prg=glCreateProgram()
+					//	if prg:
+					//		programs=[prg]
+					//		glDeletePrograms(1,__pointer(programs.d))
+					//		programs.discard()
+					//	else
+					//		g_sdl_gl_context=NULL
+				if !g_sdl_gl_context:
+					JS_SDL.CallMethod(int,"SDL_GLInitErrorCallback")
 			if PLATFORM_DEBUG:
 				Writeln('before initial drawable size')
 			SDL_GL_MakeCurrent(hwnd,g_sdl_gl_context)
@@ -1226,6 +1246,9 @@ module detail
 			return JS.Return(cur)	
 		}
 		JS_SDL["SDL_Quit"]=function(JSContext JS){
+			if Platform.IS_WINDOWS&&System.IO.FileExists(System.Env.GetExecutablePath()+"/opengl32.dll"):
+				//don't unload llvmpipe's opengl32.dll
+				return 0
 			SDL_Quit()
 			return 0
 		}

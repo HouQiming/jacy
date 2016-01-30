@@ -16,7 +16,7 @@ VC.Detect=function(){
 		}
 	}
 	if(!VC.compiler_path){
-		VC.compiler_path=(testbat("%VS110COMNTOOLS%")||testbat("%VS100COMNTOOLS%")||testbat("%VS90COMNTOOLS%")||testbat("%VS80COMNTOOLS%"));
+		VC.compiler_path=(testbat("%VS120COMNTOOLS%")||testbat("%VS110COMNTOOLS%")||testbat("%VS100COMNTOOLS%")||testbat("%VS90COMNTOOLS%")||testbat("%VS80COMNTOOLS%"));
 	}
 	if(!VC.compiler_path){return 0;}
 	var compiler_path=VC.compiler_path;
