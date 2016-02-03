@@ -9174,7 +9174,7 @@ module Env
 			ret=new i16[MAX_PATH+4]
 			fnw=toNativeString(fn.Replace(["/","\\"]))
 			sfn=NULL
-			succ=GetFullPathNameW(fnn,MAX_PATH,ret,__C(__pointer,"(short**)@1",&sfn))
+			succ=GetFullPathNameW(fnw,MAX_PATH,ret,__C(__pointer,"(short**)@1",&sfn))
 			if !succ:return fn
 			for lg=0:ret.n-1
 				if !ret[lg]:

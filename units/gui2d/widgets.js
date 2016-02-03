@@ -2266,7 +2266,8 @@ W.ListView_prototype={
 		if(UI.IsHotkey(event,this.dimension=="y"?"UP":"LEFT")){
 			var p_goal=value;
 			for(var p=value-1;p>=0;p--){
-				if(this.items[p].is_hidden){continue;}
+				var item_p=this.items[p];
+				if(item_p.is_hidden||item_p.no_selection){continue;}
 				p_goal=p
 				break;
 			}
@@ -2274,7 +2275,8 @@ W.ListView_prototype={
 		}else if(UI.IsHotkey(event,this.dimension=="y"?"DOWN":"RIGHT")){
 			var p_goal=value;
 			for(var p=value+1;p<n;p++){
-				if(this.items[p].is_hidden){continue;}
+				var item_p=this.items[p];
+				if(item_p.is_hidden||item_p.no_selection){continue;}
 				p_goal=p
 				break;
 			}
@@ -2286,8 +2288,9 @@ W.ListView_prototype={
 			var delta=this[wh_dim]
 			var p_goal=value
 			for(var p=value-1;p>=0;p--){
-				if(this.items[p].is_hidden){continue;}
-				var item_p=this["$"+p];
+				var item_p=this.items[p];
+				if(item_p.is_hidden||item_p.no_selection){continue;}
+				item_p=this["$"+p];
 				if(!item_p){
 					p_goal=p
 					break;
@@ -2306,8 +2309,9 @@ W.ListView_prototype={
 			var delta=this[wh_dim]
 			var p_goal=value
 			for(var p=value;p<this.items.length;p++){
-				if(this.items[p].is_hidden){continue;}
-				var item_p=this["$"+p];
+				var item_p=this.items[p];
+				if(item_p.is_hidden||item_p.no_selection){continue;}
+				item_p=this["$"+p];
 				if(!item_p){
 					p_goal=p
 					break;
@@ -2340,7 +2344,8 @@ W.ListView_prototype={
 		this.position=Math.max(Math.min(this.position-event.y*this.mouse_wheel_speed,this.dim_tot-this[wh_dim]),0)
 		UI.Refresh()
 	},
-}
+};
+
 W.ListView=function(id,attrs){
 	var obj=UI.StdWidget(id,attrs,"list_view",W.ListView_prototype)
 	var items=obj.items
@@ -2352,6 +2357,7 @@ W.ListView=function(id,attrs){
 		var items_new=[]
 		var wh_dim=(obj.dimension=='y'?'h':'w')
 		var any_changed=0;
+		var value_new=obj.value;
 		for(var i=0;i<items.length;i++){
 			//if(y0>obj[wh_dim]){
 			//	for(var j=i;j<items.length;j++){
@@ -2362,6 +2368,7 @@ W.ListView=function(id,attrs){
 			var item_i=items[i]
 			if(!item_i){continue;}
 			var expanded=obj.OnDemand.call(item_i)
+			if(i==obj.value){value_new=items_new.length;}
 			if((typeof(expanded))=="string"){
 				if(expanded=="drop"){
 					//do nothing
@@ -2390,6 +2397,9 @@ W.ListView=function(id,attrs){
 		items=items_new
 		obj.items=items
 		obj.real_items=items
+		if(id_changed&&value_new<items.length){
+			obj.value=value_new;
+		}
 		if(obj.OnDemandSort&&any_changed){
 			for(var i=0;i<items.length;i++){
 				var item_i=items[i];
@@ -2399,6 +2409,10 @@ W.ListView=function(id,attrs){
 			obj.OnDemandSort(obj);
 			id_changed=1;
 		}
+	}
+	while(obj.value<items.length&&items[obj.value].no_selection){
+		obj.value++;
+		id_changed=1;
 	}
 	var dim_tot=obj.layout_spacing*(items.length+1)
 	if(obj.dimension=="y"){
