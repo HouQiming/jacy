@@ -2448,12 +2448,12 @@ W.ListView=function(id,attrs){
 	var bk_layout_direction=obj.layout_direction
 	obj.layout_direction=undefined
 	UI.Begin(obj)
-		for(var i=0;i<items.length;i++){
-			var id_i="$"+i.toString();
-			var obj_item_i=obj[id_i]
-			if(!obj_item_i||obj_item_i.no_click_selection){continue;}
-			var id_click_sel="$C"+i.toString();
-			if(!obj.no_region){
+		if(!obj.no_region){
+			for(var i=0;i<items.length;i++){
+				var id_i="$"+i.toString();
+				var obj_item_i=obj[id_i]
+				if(!obj_item_i||obj_item_i.no_click_selection){continue;}
+				var id_click_sel="$C"+i.toString();
 				var rx0=obj_item_i.x;
 				var ry0=obj_item_i.y;
 				var rx1=rx0+obj_item_i.w;
@@ -2485,6 +2485,31 @@ W.ListView=function(id,attrs){
 	obj.layout_direction=bk_layout_direction
 	W.PureGroup(obj,"temp")
 	obj.layout_direction=undefined
+	if(!obj.no_region){
+		for(var i=0;i<items.length;i++){
+			var id_i="$"+i.toString();
+			var obj_item_i=obj[id_i]
+			if(!obj_item_i||obj_item_i.no_click_selection){continue;}
+			var id_click_sel="$C"+i.toString();
+			var rx0=obj_item_i.x;
+			var ry0=obj_item_i.y;
+			var rx1=rx0+obj_item_i.w;
+			var ry1=ry0+obj_item_i.h;
+			if(!obj.no_clipping){
+				rx0=Math.max(rx0,obj.x);
+				ry0=Math.max(ry0,obj.y);
+				rx1=Math.min(rx1,obj.x+obj.w);
+				ry1=Math.min(ry1,obj.y+obj.h);
+			}
+			var rgn=obj[id_click_sel];
+			if(rgn){
+				rgn.x=rx0;
+				rgn.y=ry0;
+				rgn.w=rx1-rx0;
+				rgn.h=ry1-ry0;
+			}
+		}
+	}
 	//but before the scrollbars
 	UI.Begin(obj)
 		if(obj.has_scroll_bar){
