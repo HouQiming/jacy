@@ -55,7 +55,9 @@ VC.Compile=function(fnsrc,soutput){
 	if(g_json.c_include_paths){
 		for(var i=0;i<g_json.c_include_paths.length;i++){
 			var s_include_path=g_json.c_include_paths[i];
-			if(DirExists(s_include_path)){
+			if(DirExists(g_work_dir+"/"+s_include_path)){
+				sopt0=sopt0+' /I "'+g_work_dir+"/"+s_include_path+'"';
+			}else if(DirExists(s_include_path)){
 				sopt0=sopt0+' /I "'+s_include_path+'"';
 			}
 		}
