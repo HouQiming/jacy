@@ -1,3 +1,5 @@
+import "system.jc"
+import "javascript.jc"
 import System.Console.*
 import System.Algorithm.*
 import System.Math.*
@@ -545,6 +547,19 @@ auto jszip(JSContext JS)
 		ndnew=ndxml.Add(sndname)
 		if svalue&&svalue.n:ndnew.Attr("")=svalue
 		return JS.Return(ndnew)
+	}
+	//////////////
+	global["Duktape"]["modSearch"]=function(JSContext JS){
+		s_modname=JS.Param(0).or("")
+		s_fname=(s_modname+".js").ToLower()
+		if !System.IO.FileExists(s_fname):
+			s_fname=global["g_root"].as(string)+"/js/"+s_fname
+		sret=System.IO.ReadAll(s_fname);
+		//sret=sbox.UIReadAll(s_fname)
+		if !sret:
+			return JS.ReturnError("cannot find module '@1'".Replace(["@1",s_modname]))
+		else
+			return JS.Return(sret)
 	}
 	//////////////
 	global["debugEval"]=function(JSContext JS){

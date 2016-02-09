@@ -2113,7 +2113,6 @@ auto setupModuleSystem(JSContext JS,int is_real)
 		sbox.m_ui_search_paths.push(s_path+"/")
 		return 0
 	}
-	//todo: sandbox search paths
 	global["Duktape"]["modSearch"]=function(JSContext JS){
 		s_modname=JS.Param(0).or("")
 		s_fname=(s_modname+".js").ToLower()

@@ -100,6 +100,14 @@ GetMainFileName=function(fname){
 	return main_name;
 };
 
+RemoveExtension=function(fname){
+	var ret=fname.match(g_regexp_chopext);
+	if(ret){
+		fname=ret[1];
+	}
+	return fname;
+};
+
 RemovePath=function(fname){
 	var ret=fname.match(g_regexp_chopdir);
 	var main_name=null;
@@ -129,6 +137,32 @@ CopyToWorkDir=function(c_files,sprefix){
 		var fnh=sprefix_real+RemovePath(fn);
 		UpdateTo(fnh,fn);
 	}
+};
+
+var g_regexp_is_absolute_path=new RegExp("^(([a-zA-Z]:[\\\\/])|[\\\\/]|(pm_tmp/)).*$");
+CreateProjectForFileSet=function(c_files,s_target_dir){
+	if(!c_files){return undefined;}
+	var ret=[];
+	for(var i=0;i<c_files.length;i++){
+		var fn_relative=c_files[i];
+		var fn=SearchForFile(fn_relative);
+		if(fn_relative.match(g_regexp_is_absolute_path)){
+			fn_relative=RemovePath(fn_relative);
+		}
+		var subdirs=fn_relative.split("/")
+		if(subdirs.length>1){
+			mkdir(s_target_dir+subdirs.slice(0,subdirs.length-1).join("/"));
+		}
+		var fnh=s_target_dir+fn_relative;
+		UpdateToCLike(fnh,fn);
+		ret.push(fn_relative)
+	}
+	return ret;
+};
+
+CreateProjectForStandardFiles=function(s_target_dir){
+	CreateProjectForFileSet(g_json.h_files,s_target_dir);
+	return CreateProjectForFileSet(g_json.c_files,s_target_dir);
 };
 
 g_action_handlers.ssh=function(){

@@ -31,7 +31,7 @@ VC.Detect=function(){
 	return VC
 };
 VC.Compile=function(fnsrc,soutput){
-	if(IsNewerThan(soutput,fnsrc)){return -1;}
+	if(!IsNewerThan(fnsrc,soutput)){return -1;}
 	var compiler_path=VC.compiler_path;
 	var sbatname=VC.sbatname;
 	var sopt0=" "
@@ -131,22 +131,35 @@ g_action_handlers.make=function(){
 		s_final_output=g_json.output_file[0];
 	}
 	VC.Detect();
-	//sync the header files
-	var c_files=g_json.c_files;
-	for(var i=0;i<g_json.h_files.length;i++){
-		var fn=SearchForFile(g_json.h_files[i]);
-		var fnh=g_work_dir+"/"+RemovePath(fn)
-		UpdateToCLike(fnh,fn);
-	}
-	//sync and compile the C/C++ files
+	////sync the header files
+	//var c_files=g_json.c_files;
+	//for(var i=0;i<g_json.h_files.length;i++){
+	//	var fn=SearchForFile(g_json.h_files[i]);
+	//	var fnh=g_work_dir+"/"+RemovePath(fn)
+	//	UpdateToCLike(fnh,fn);
+	//}
+	////sync and compile the C/C++ files
+	//var sopt1=[];
+	//var need_link=0;
+	//for(var i=0;i<c_files.length;i++){
+	//	//VC.Compile checks date
+	//	var fn=SearchForFile(c_files[i]);
+	//	var fnc=g_work_dir+"/"+RemovePath(fn)
+	//	UpdateToCLike(fnc,fn);
+	//	var fnobj=g_work_dir+"/"+GetMainFileName(fn)+".obj"
+	//	var ret=VC.Compile(fnc,fnobj)
+	//	if(ret>0||IsNewerThan(fnobj,s_final_output)){
+	//		need_link=1;
+	//	}
+	//	sopt1.push(' "'+fnobj+'"')
+	//}
+	var c_files=CreateProjectForStandardFiles(g_work_dir+"/")
 	var sopt1=[];
 	var need_link=0;
 	for(var i=0;i<c_files.length;i++){
 		//VC.Compile checks date
-		var fn=SearchForFile(c_files[i]);
-		var fnc=g_work_dir+"/"+RemovePath(fn)
-		UpdateToCLike(fnc,fn);
-		var fnobj=g_work_dir+"/"+GetMainFileName(fn)+".obj"
+		var fnc=g_work_dir+"/"+c_files[i];
+		var fnobj=g_work_dir+"/"+RemoveExtension(c_files[i])+".obj"
 		var ret=VC.Compile(fnc,fnobj)
 		if(ret>0||IsNewerThan(fnobj,s_final_output)){
 			need_link=1;

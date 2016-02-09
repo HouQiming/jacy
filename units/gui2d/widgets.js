@@ -590,7 +590,9 @@ W.DrawTooltip=function(obj,alpha){
 			}else{
 				y=obj.y+obj.h+tstyle.spacing
 			}
-			x=Math.max(Math.min(x,UI.context_window.w-dim.w),0)
+			//x=Math.max(Math.min(x,UI.context_window.w-dim.w),0)
+			var subwin=UI.sub_window_stack[UI.sub_window_stack.length-1];
+			x=Math.max(Math.min(x,subwin[2]/subwin[4]-dim.w),0);
 		}
 		UI.RoundRect({
 			x:x,y:y,w:dim.w+tstyle.shadow_size,h:dim.h+tstyle.shadow_size,

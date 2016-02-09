@@ -7,7 +7,7 @@
 var UI=require("gui2d/ui");
 var W=require("gui2d/widgets");
 
-UI.Theme_Minimalistic([0xffcc7733])
+UI.Theme_Minimalistic(0xffcc7733)
 
 var demo_text_animation=function(id,attrs){
 	attrs=UI.Keep(id,attrs);
