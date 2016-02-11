@@ -1308,7 +1308,6 @@ W.Edit_prototype={
 			this.sel0.ccnt=this.SnapToValidLocation(this.ed.MoveToBoundary(this.ed.SnapToCharBoundary(Math.max(this.SkipInvisibles(ccnt_clicked,-1),0),-1),-1,"word_boundary_left"),-1)
 			this.sel1.ccnt=this.SnapToValidLocation(this.ed.MoveToBoundary(this.ed.SnapToCharBoundary(Math.min(this.SkipInvisibles(ccnt_clicked,1),this.ed.GetTextSize()),1),1,"word_boundary_right"),1)
 			this.CallOnSelectionChange()
-			this.CallHooks('doubleClick')
 			//UI.Refresh()
 			//return
 		}else if(event.clicks>=3){
@@ -1317,7 +1316,6 @@ W.Edit_prototype={
 			this.sel0.ccnt=this.SeekLC(line,0)
 			this.sel1.ccnt=this.SeekLC(line+1,0)
 			this.CallOnSelectionChange()
-			this.CallHooks('tripleClick')
 			//UI.Refresh()
 			//return
 		}else{
@@ -1343,6 +1341,11 @@ W.Edit_prototype={
 		this.dragging_ccnt1=this.sel1.ccnt;
 		UI.SetFocus(this)
 		UI.CaptureMouse(this)
+		if(event.clicks>=3){
+			this.CallHooks('tripleClick')
+		}else if(event.clicks==2){
+			this.CallHooks('doubleClick')
+		}
 		UI.Refresh()
 	},
 	OnMouseMove:function(event){

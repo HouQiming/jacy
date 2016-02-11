@@ -570,6 +570,29 @@ auto jszip(JSContext JS)
 	}
 	global["zip"]=jszip
 	global["rawzip"]=add_raw_zip
+	global["zip2c"]=function(JSContext JS){
+		fn_zip=JS.Param(0).as(string)
+		fn_C=JS.Param(1).as(string)
+		zip_data=System.IO.ReadAll(fn_zip)
+		if zip_data:
+			s_ret=new('#include "wrapper_defines.h"\nstatic const unsigned char g_res_zip[]={')
+			foreach ch,I in zip_data
+				if !(I&1023):
+					s_ret.push('\n')
+				SWrite(s_ret,int(u8(ch)),',')
+			s_ret.push("};
+			void* osal_mmap_res_zip(iptr* psize){
+				*psize=sizeof(g_res_zip);
+				return (void*)g_res_zip;
+			}
+			")
+			f=System.IO.CreateFile(fn_C)
+			if f:
+				f.Write(s_ret)
+				f.Close()
+				return JS.Return(1)
+		return 0
+	}
 	//////////////
 	//default js
 	global["g_action"]=args[1]

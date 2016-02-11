@@ -4,6 +4,8 @@ import System.Console.*
 __C(int,"@global:
 #define S7_LD_LEAK_DETECTION_ENABLED 0
 #define s7_LD_real_free free
+#undef SDL_free
+#define SDL_free s7_LD_real_free
 ")
 
 if Platform.BUILD=="debug":

@@ -139,7 +139,7 @@ CopyToWorkDir=function(c_files,sprefix){
 	}
 };
 
-var g_regexp_is_absolute_path=new RegExp("^(([a-zA-Z]:[\\\\/])|[\\\\/]|(pm_tmp/)).*$");
+var g_regexp_is_absolute_path=new RegExp("^(([a-zA-Z]:[\\\\/])|[\\\\/]|(pm_tmp/)|(.*/pm_tmp/)).*$");
 CreateProjectForFileSet=function(c_files,s_target_dir){
 	if(!c_files){return undefined;}
 	var ret=[];

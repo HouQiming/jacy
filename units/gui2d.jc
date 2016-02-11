@@ -222,6 +222,14 @@ class CUISandbox
 		if m_ui_zip:
 			return m_ui_zip.ReadAll(s_fname)
 		return string.NULL
+	auto UILoadStaticZip()
+		__generate_json("use_static_res","1")
+		sz=0L
+		pzip=osal_mmap_res_zip(&sz)
+		if pzip:
+			arr_res_zip=new string
+			arr_res_zip.__bind(1,iptr(pzip),iptr(sz))
+			m_ui_zip=ParseZip(arr_res_zip)
 	auto UILoadZip(string szipname)
 		arr_res_zip=szipname
 		if !arr_res_zip||!arr_res_zip.n:
@@ -1923,6 +1931,10 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 		ret["srgb_supported"]=g_renderer.m_srgb_supported
 		return JS.Return(ret)
 	}
+	JS_UI["SetSRGBEnabling"]=function(JSContext JS){
+		g_renderer.m_srgb_supported=JS.Param(0).as(int);
+		return JS.Return(g_renderer.m_srgb_supported)
+	}
 	///////////////////////////////////
 	JS_UI["GetCharacterHeight"]=function(JSContext JS){
 		fnt=JS.Param(0).as(TFont)
@@ -2103,11 +2115,11 @@ auto setupModuleSystem(JSContext JS,int is_real)
 			__C(int,"SDL_SetEventFilter(s7_CB_SDLEventFilter,NULL)")
 		return 0
 	}
-	global["Duktape"]["__ui_load_zip"]=function(JSContext JS){
-		s_path=JS.Param(0).or("")
-		sbox.UILoadZip(s_path)
-		return 0
-	}
+	//global["Duktape"]["__ui_load_zip"]=function(JSContext JS){
+	//	s_path=JS.Param(0).or("")
+	//	sbox.UILoadZip(s_path)
+	//	return 0
+	//}
 	global["Duktape"]["__ui_add_path"]=function(JSContext JS){
 		s_path=JS.Param(0).or("")
 		sbox.m_ui_search_paths.push(s_path+"/")
