@@ -1505,6 +1505,7 @@ UI.Refresh=function(){
 	UI.need_to_refresh=1;
 	UI.tick_last_refresh=Duktape.__ui_get_tick();
 	UI.g_refreshed_since_last_tick=1;
+	//UI.DumpCallStack()
 }
 UI.InvalidateCurrentFrame=function(){UI.m_frame_is_invalid=1;}
 

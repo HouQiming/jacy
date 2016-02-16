@@ -528,6 +528,9 @@ module duktape
 			//duk_push_error_object(_ctx(),1,"%s",s)
 			duk_push_error_object_raw(_ctx(),1,__FILE__,__LINE__,"%s",s)
 			return -1
+		inline VCall(T,n_args)
+			duk_pcall(_ctx(),n_args)
+			return _pop_typed(T,1)
 		auto debugError(string serr)
 			s=new(serr)
 			s.push(char(0))
@@ -822,6 +825,12 @@ module duktape
 					m_jsctx._push_value(arguments0[i])
 			duk_pcall(_ctx(),arguments0.length-1)
 			return m_jsctx._pop_typed(T,2)
+		inline PushAsFunction()
+			if Platform.BUILD=="debug":
+				m_checker.m_completed=1
+			duk_get_prop(_ctx(),-2)//for the *previous* subscript
+			duk_swap_top(_ctx(),-2)
+			duk_pop(_ctx())
 		inline CallAsMethod(T,arg_this)
 			if Platform.BUILD=="debug":
 				m_checker.m_completed=1
@@ -886,6 +895,8 @@ module duktape
 					m_jsctx._push_value(arguments0[i])
 			duk_pcall(_ctx(),arguments0.length-1)
 			return m_jsctx._pop_typed(T,1)
+		inline PushAsFunction()
+			m_jsctx._push_object(m_handle)
 		inline CallAsMethod(T,arg_this)
 			m_jsctx._push_object(m_handle)
 			m_jsctx._push_value(arg_this)

@@ -7316,7 +7316,7 @@ module Algorithm
 			auto svcalls=new int[]
 			stss=new RegexNfaState[]
 			stss.push(sts)
-			budget=1024+bcode.n*cset_size
+			budget=65536+bcode.n*cset_size*16
 			szsave=1+((nsave+31)>>5)
 			auto max_nsaves=0
 			for(id0=0;id0<maxid;id0++)
@@ -8649,6 +8649,8 @@ module Console
 		s=FormatAsText.call(arguments)
 		s.push('\n')
 		_write_string(s)
+		//if Platform.BUILD=="debug":
+		System.IO.stdout().Flush()
 	auto GetCommandLine()
 		if Platform.IS_MOBILE:
 			return [new string]
@@ -9513,12 +9515,16 @@ module Processes
 				pipes[isout].Close()
 			//call the process
 			if path:
-				pathu=detail.toNativeString(path)
+				pathu=detail.toNativeString(path.Replace(["/","\\"]))
 			pinfo=__C(__pointer,"@decl:PROCESS_INFORMATION @1={0}")
 			if new_job:
 				flags|=CREATE_SUSPENDED|CREATE_BREAKAWAY_FROM_JOB
 			cmdu=detail.toNativeString(cmd)
 			ret=CreateProcessW(NULL,cmdu,NULL,NULL,IS_PIPED||inherit_handles,flags,NULL,pathu?__pointer(pathu.d):NULL,sinfo,pinfo)
+			//if Platform.BUILD=="debug":
+			//	if !ret:
+			//		GetLastError=__c_function(int,"GetLastError","windows.h")
+			//		System.Console.Writeln(cmd,' ',GetLastError())
 			if ret&&new_job:
 				hjob=CreateJobObjectW(NULL,NULL)
 				AssignProcessToJobObject(hjob,__C(__pointer,"((PROCESS_INFORMATION*)@1)->hProcess",pinfo))

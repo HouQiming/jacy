@@ -1068,7 +1068,9 @@ class CEditableText
 				ccnt_context0=max(ccnt_base-i64(context_size),0LL)
 				s_context=GetText(ccnt_context0,min(ccnt_base-ccnt_context0,m_skiplist.ccnt))
 				if s_context.n<context_size:
-					s_context=(new char[context_size-s_context.n])+s_context
+					s_context=(['\n' for i=0:context_size-s_context.n-1])+s_context
+				//if s_context.n<context_size:
+				//	s_context="\n"+s_context;
 			else
 				s_context=string.NULL
 			RecomputeStatesLeaf(s_context,nd)
@@ -1151,6 +1153,8 @@ class CEditableText
 			context_size=handler.contextSize()
 			ccnt_context0=max(ccnt_base-i64(context_size),0LL)
 			s_context=GetText(ccnt_context0,min(ccnt_base-ccnt_context0,m_skiplist.ccnt))
+			if s_context.n<context_size:
+				s_context="\n"+s_context;
 			//if s_context.n<context_size:
 			//	s_context=(new char[context_size-s_context.n])+s_context
 		else

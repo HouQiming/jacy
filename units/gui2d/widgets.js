@@ -264,10 +264,17 @@ UI.SetCaret=function(obj,x,y,w,h,C,dt){
 			UI.DrawCaret(obj.caret_x,obj.caret_y,obj.caret_w,obj.caret_h,obj.caret_C)
 		}
 	}))
+	var clip_rect=UI.GetCliprect();
+	var x1=x+w;
+	var y1=y+h;
+	x=Math.max(x,clip_rect.x*UI.pixels_per_unit);
+	y=Math.max(y,clip_rect.y*UI.pixels_per_unit);
+	x1=Math.min(x1,(clip_rect.x+clip_rect.w)*UI.pixels_per_unit);
+	y1=Math.min(y1,(clip_rect.y+clip_rect.h)*UI.pixels_per_unit);
 	obj.caret_x=x;
 	obj.caret_y=y;
-	obj.caret_w=w;
-	obj.caret_h=h;
+	obj.caret_w=Math.max(x1-x,0);
+	obj.caret_h=Math.max(y1-y,0);
 	obj.caret_C=C;
 	obj.caret_state=2;
 	obj.caret_dt=dt;
@@ -315,7 +322,9 @@ W.Window=function(id,attrs){
 	if(!obj.__hwnd){
 		//no default event handler for the window
 		obj.__hwnd=UI.SDL_CreateWindow(obj.title||"untitled",obj.x||UI.SDL_WINDOWPOS_CENTERED,obj.y||UI.SDL_WINDOWPOS_CENTERED,obj.w*UI.pixels_per_unit,obj.h*UI.pixels_per_unit, obj.flags);
-		if(obj.icon){UI.SDL_SetWindowIcon(obj.__hwnd,obj.icon);}
+		if(obj.icon){
+			UI.SDL_SetWindowIcon(obj.__hwnd,obj.icon);
+		}
 		UI.m_window_map[obj.__hwnd.toString()]=obj
 	}
 	//defer the innards painting to the first OnPaint - need the GL context
@@ -702,10 +711,20 @@ W.Edit_prototype={
 		var y_original=this.scroll_y;
 		var ccnt_tot=ed.GetTextSize();
 		var ytot=ed.XYFromCcnt(ccnt_tot).y+ed.GetCharacterHeightAt(ccnt_tot);
-		var wc=UI.GetCharacterAdvance(ed.GetDefaultFont(),' ');
+		var wc=UI.GetCharacterAdvance(ed.GetDefaultFont(),32);
 		var hc=this.GetCharacterHeightAtCaret();
 		var page_height=this.h;
 		var h_top_hint=(this.h_top_hint||0);
+		if(mode=='bound'){
+			var x0=this.scroll_x;
+			var y0=this.scroll_y;
+			this.scroll_x=Math.max(this.scroll_x,0);
+			this.scroll_y=Math.max(Math.min(this.scroll_y,ytot-page_height),0);
+			if(this.scroll_x!=x0||this.scroll_y!=y0){
+				this.scrolling_animation=undefined;
+			}
+			return;
+		}
 		if(mode!='show'){
 			//print(ed_caret,this.sel1.ccnt,this.ed.GetTextSize())
 			if(this.scroll_y>ed_caret.y||this.scroll_y<=ed_caret.y-page_height||mode=='center'){
@@ -1418,10 +1437,12 @@ W.Edit_prototype={
 			var ed_caret=this.GetIMECaretXY();
 			var x_caret=this.x*UI.pixels_per_unit+(ed_caret.x-scroll_x)*scale;
 			var y_caret=this.y*UI.pixels_per_unit+(ed_caret.y-scroll_y)*scale;
+			UI.PushCliprect(this.x,this.y,this.w,this.h)
 			UI.SetCaret(UI.context_window,
 				x_caret,y_caret,
 				this.caret_width*scale,this.GetCharacterHeightAtCaret()*scale,
 				this.caret_color,this.caret_flicker);
+			UI.PopCliprect()
 		}
 	},
 };

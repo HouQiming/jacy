@@ -457,7 +457,8 @@ auto jszip(JSContext JS)
 		if !w_goal:
 			//ico
 			//\x10\x10\x00\x00\x00\x00 \x00h\x04\x00\x006\x00\x00\x00  \x00\x00\x00\x00 \x00\xA8\x10\x00\x00\x9E\x04\x00\x0000\x00\x00\x00\x00 \x00\xA8%\x00\x00F\x15\x00\x00
-			sizes=[16,20,32,48]
+			//sizes=[16,20,32,48]
+			sizes=[16,32,48,64]
 			ico_header=new("\x00\x00\x01\x00\x05\x00")
 			ofsimg=6+sizes.n*16
 			foreach sz in sizes
@@ -584,8 +585,7 @@ auto jszip(JSContext JS)
 			void* osal_mmap_res_zip(iptr* psize){
 				*psize=sizeof(g_res_zip);
 				return (void*)g_res_zip;
-			}
-			")
+			}")
 			f=System.IO.CreateFile(fn_C)
 			if f:
 				f.Write(s_ret)

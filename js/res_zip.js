@@ -6,6 +6,7 @@ function call7z(sdir,fnzip0,fnames,sextra_arg){
 	}
 	s_7z_2.push(fnzip0);
 	s_7z_2=s_7z_2.concat(fnames);
+	s_7z_2.push(">NUL")
 	var scmd="@echo off\n"+shellcmd(["cd","/d",sdir])+"\n"+shellcmd(s_7z_2)+"\n";
 	var scall7z=g_work_dir+"/call7z.bat";
 	if(!CreateFile(scall7z,scmd)){
@@ -59,7 +60,13 @@ function call7z(sdir,fnzip0,fnames,sextra_arg){
 			}
 		}
 	}
-	if(!needed){return;}
+	if(!needed){
+		if(is_static){
+			var fn_res_zip_c=g_work_dir+"/s7res.c";
+			g_json.c_files.push(fn_res_zip_c)
+		}
+		return;
+	}
 	var fnzip0=(is_static?g_work_dir+"/raw_res.zip":g_bin_dir+"/res.zip");
 	var fnzip_temp="__temp__.zip";
 	if(FileExists(fnzip)){
