@@ -997,9 +997,10 @@ auto coreInit()
 					if pe_return_store:
 						assert(isBuiltin(pe_return_store,g_id_store))
 						if isBuiltin(pe_return_store,g_id_store):
-							pe_return_store=readPool(pe_return_store+EXPR_OFS_ARGS+1)
-							if isExpr(pe_return_store,EFLAG_VARIABLE):
-								pobj_return_store_replace=getVariable(pe_return_store)
+							//pe_return_store_var is the returned "value", not the parent store target
+							pe_return_store_var=readPool(pe_return_store+EXPR_OFS_ARGS+1)
+							if isExpr(pe_return_store_var,EFLAG_VARIABLE):
+								pobj_return_store_replace=getVariable(pe_return_store_var)
 								if do_optimization[pobj_return_store_replace]:
 									/*
 									direct param returner, cancel the whole thing - it should have been already optimized
@@ -1021,6 +1022,9 @@ auto coreInit()
 							else
 								pobj_return_store_replace=0
 				if pobj_return_store_replace:
+					//pobj_return_store_replace is the (temp variable) return target of the inline function
+					//pobj_return_store_replace_with is the return variable of the original store
+					//detect inline code / param expr's internal use of the return variable
 					pobj_return_store_replace_with=getVariable(readPool(pecaller_original+EXPR_OFS_ARGS+0))
 					fdetect_return_var_use=function(PExpression pe){
 						if readPool(pe)==EFLAG_VARIABLE+pobj_return_store_replace_with:
@@ -1039,6 +1043,23 @@ auto coreInit()
 							dumpObject(pobj_return_store_replace),' ',dumpObject(pobj_return_store_replace_with),' ',
 							dumpFunction(pobjfn),' ',
 							pe_return_store?dumpExpr(pe_return_store,__zero(fcolorer_callback)):'(*)')
+				else if do_optimization&&do_optimization[pvar_return]:
+					//we decided that we cannot fully optimize this inline return by pulling in the parent store target
+					//for whatever reason, we should also check whether the parent store variable has appeared as a param
+					//if that happens, we should disable single-ass optimization on pvar_return here
+					pobj_return_store_replace_with=getVariable(readPool(pecaller_original+EXPR_OFS_ARGS+0))
+					fdetect_return_var_use2=function(PExpression pe){
+						if readPool(pe)==EFLAG_VARIABLE+pobj_return_store_replace_with:
+							auto pe_no_more_setnop=do_optimization[pvar_return]
+							foreach pe_ass,I in setnop_jobs
+								if pe_ass==pe_no_more_setnop:
+									setnop_jobs[I]=0
+									break
+							do_optimization[pvar_return]=0
+							return 0
+						return !!do_optimization[pvar_return]
+					}
+					dfsExpr(pe_expanded,fdetect_return_var_use2)
 		pe_final=transformCode(pecall,__zero(ftransformer_callback), as_before,pe_return_value,PExpression[].NULL)
 		//somehow we're needing this - test_js0.spap
 		if testUserFlag(pecaller_original,QUEUE_FLAG_REACH):
@@ -1086,7 +1107,8 @@ auto coreInit()
 			}
 			dfsExpr(pe_final,foptimize_single_ass)
 			foreach pe in setnop_jobs
-				setnop(pe)
+				if pe:
+					setnop(pe)
 		setnop(pecall)
 		if DEBUG_EVAL_LOG:
 			if is_inline_return_optimized:

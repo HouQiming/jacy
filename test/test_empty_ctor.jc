@@ -4,6 +4,11 @@ import System.Algorithm.*
 import System.Math.*
 
 (function(){
+	dt_self_ref=float2(2.f,3.f)
+	dt_self_ref+=float2(2.f,3.f)
+	Writeln('dt_self_ref=',dt_self_ref)
+	dt_self_ref=dt_self_ref*float2(100.f,10.f)
+	Writeln('dt_self_ref=',dt_self_ref)
 	for i=0:3
 		empty_ctor_accumulator=float3()
 		Writeln('---------')

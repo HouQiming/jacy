@@ -310,7 +310,11 @@ auto main()
 				if Platform.BUILD=="debug":
 					System.IO.stderr().Write(FormatAsText('>>> launching ',fn_output_exe,'\n'))
 				scmdline.push(char(0))
+				__C(int,"fflush(stderr)")
+				__C(int,"fflush(stdout)")
 				exit_code=c_system(scmdline)
+				__C(int,"fflush(stderr)")
+				__C(int,"fflush(stdout)")
 				if exit_code!=0:return 0
 			return 1
 		else
