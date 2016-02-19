@@ -1,0 +1,140 @@
+import "system.jc"
+import System.Console.*
+import System.Algorithm.*
+
+/*
+real pb value:
+	storage (pointer / array)
+	type desc struct
+	methods:
+		operator[]
+		set_operator[]
+		compile-time map would help tremendously for structs...
+			but it's unlikely for us to have too many members
+type desc struct methods:
+	create value
+	GetSubscriptOffset
+*/
+
+PBBasicType=inline(T){
+	return {
+		IS_PB_BUILTIN:1,
+		PB_builtin_type:T,
+	};
+}
+
+PBFloat=PBBasicType(float)
+PBInt=PBBasicType(int)
+
+inline PBValue(type_desc,iptr ptr)
+	if readOptionalMember(type_desc,"IS_PB_BUILTIN",0):
+		return __memory(type_desc.PB_builtin_type,ptr)
+	else
+		T=struct{
+			iptr m_ptr
+			typeof(type_desc) m_type_desc
+			operator[]=inline(a){
+				return m_type_desc.getSubscript(m_ptr,a)
+			}
+			set_operator[]=inline(a,value){
+				return m_type_desc.setSubscript(m_ptr,a,value)
+			}
+		}
+		return T(){
+			m_ptr:ptr,
+			m_type_desc:type_desc,
+		}
+
+inline set_PBValue(type_desc,iptr ptr,value)
+	if readOptionalMember(type_desc,"IS_PB_BUILTIN",0):
+		__memory(type_desc.PB_builtin_type,ptr)=value
+	else if readOptionalMember(value,"IS_ARRAY",0):
+		assert(value.n*sizeof(value[0])==PBSizeof(type_desc))
+		__basic_api.memcpy(__pointer(ptr),__pointer(value.d),PBSizeof(type_desc))
+	else
+		//assert(typeof(type_desc)==typeof(value.m_type_desc))
+		assert(PBSizeof(type_desc)==PBSizeof(value.m_type_desc))
+		__basic_api.memcpy(__pointer(ptr),__pointer(value.m_ptr),PBSizeof(type_desc))
+
+inline PBSizeof(type_desc)
+	if readOptionalMember(type_desc,"IS_PB_BUILTIN",0):
+		return sizeof(type_desc.PB_builtin_type)
+	else
+		return type_desc.size()
+
+inline PBStruct()
+	if (arguments.length&1):
+		__error("PBStruct has to take an even number of args, not @1",arguments.length)
+	else if !arguments.length:
+		__error("an empty PBStruct does not make sense")
+	arguments0=arguments
+	n_members=(arguments0.length>>1)
+	T=struct{
+		m_offsets=__tuple(n_members+1);
+		m_types=__tuple(n_members);
+		size=inline(){
+			return m_offsets[n_members]
+		}
+		getSubscript=inline(iptr ptr,a){
+			if typeof(a)!=string:
+				__error("invalid subscript type @1",typeof(a))
+			else
+				auto ret=__uninit()
+				for i in crange(n_members)
+					if a==arguments0[i*2+1]:
+						ret=PBValue(m_types[i],ptr+m_offsets[i])
+				return ret
+		}
+		setSubscript=inline(iptr ptr,a,value){
+			if typeof(a)!=string:
+				__error("invalid subscript type @1",typeof(a))
+			else
+				for i in crange(n_members)
+					if a==arguments0[i*2+1]:
+						PBValue(m_types[i],ptr+m_offsets[i])=value
+		}
+	}
+	auto ret=T()
+	ret.m_offsets[0]=0L
+	for i in crange(n_members)
+		sz_i=PBSizeof(arguments0[i*2])
+		ret.m_offsets[i+1]=ret.m_offsets[i]+sz_i
+		ret.m_types[i]=arguments0[i*2]
+	return ret
+
+inline PBArray(t0,iptr n)
+	T=struct{
+		m_n_elements=__uninit();
+		m_t0=__uninit();
+		m_szele=__uninit();
+		size=inline(){
+			return m_n_elements*m_szele
+		}
+		getSubscript=inline(iptr ptr,a){
+			if !__is_type("int",typeof(a)):
+				__error("invalid subscript type @1",typeof(a))
+			else
+				assert(a>=0)
+				assert(a<m_n_elements)
+				return PBValue(m_t0,ptr+a*m_szele)
+		}
+		setSubscript=inline(iptr ptr,a,value){
+			if !__is_type("int",typeof(a)):
+				__error("invalid subscript type @1",typeof(a))
+			else
+				assert(a>=0)
+				assert(a<m_n_elements)
+				PBValue(m_t0,ptr+a*m_szele)=value
+		}
+	}
+	return T(){
+		m_n_elements:n,
+		m_t0:t0,
+		m_szele:PBSizeof(t0),
+	}
+
+inline PBFromArray(type_desc,value)
+	if !readOptionalMember(value,"IS_ARRAY",0):
+		__error("PBBind has to take an array, not @1",typeof(value))
+	assert(value.n*sizeof(value[0])==PBSizeof(type_desc))
+	return PBValue(type_desc,value.d)

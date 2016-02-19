@@ -1,0 +1,8 @@
+import "system.jc"
+import System.Console.*
+import System.Algorithm.*
+import System.Math.*
+
+(function(){
+	Writeln(u32(0xff000000)>>24)
+})()

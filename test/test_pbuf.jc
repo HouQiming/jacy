@@ -1,0 +1,41 @@
+import "system.jc"
+import "packed-buf.jc"
+import System.Console.*
+import System.Algorithm.*
+import System.Math.*
+import PackedBuf.*
+
+(function(){
+	//Writeln(PBSizeof(PBStruct(PBFloat,"x",PBFloat,"y")))
+	//Writeln(PBSizeof(PBArray(PBFloat,3)))
+	////////////
+	//PBTArray=PBArray(PBFloat,3)
+	//data0=new float[3]
+	//pb_value=PBFromArray(PBTArray,data0)
+	//pb_value[0]=77.f
+	//pb_value[2]=300.f
+	//Writeln(pb_value[2])
+	//Writeln(data0)
+	////////////
+	//PBTStruct=PBStruct(PBFloat,"x",PBFloat,"y")
+	//data0=new float[2]
+	//pb_value=PBFromArray(PBTStruct,data0)
+	//pb_value["x"]=77.f
+	//pb_value["y"]=300.f
+	//Writeln(pb_value["y"])
+	//Writeln(data0)
+	////////////
+	PBTDataSet=PBStruct(
+		PBArray(PBFloat,4),"rot",
+		PBArray(PBFloat,3),"tr",
+		PBArray(PBFloat,2*7),"lm")
+	data=new float[7+2*7]
+	//Writeln(PBTDataSet.m_offsets)
+	//Writeln(PBTDataSet.m_types)
+	pb_value=PBFromArray(PBTDataSet,data)
+	pb_value["rot"]=[-1.f,0.f,0.f,1.f]
+	pb_value["tr"][2]=300.f
+	pb_value["lm"][5]=77.f
+	Writeln('data=',data)
+	Writeln('pb_value["tr"][2]=',pb_value["tr"][2])
+})()
