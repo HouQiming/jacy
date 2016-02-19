@@ -1,0 +1,13 @@
+import "system.jc"
+import System.Console.*
+import System.Algorithm.*
+import System.Math.*
+
+(function(){
+	for i=0:3
+		empty_ctor_accumulator=float3()
+		Writeln('---------')
+		for j=0:3
+			empty_ctor_accumulator+=float3(1.f,0.f,0.f)
+			Writeln(empty_ctor_accumulator)
+})()

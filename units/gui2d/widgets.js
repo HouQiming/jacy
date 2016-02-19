@@ -2465,7 +2465,7 @@ W.ListView=function(id,attrs){
 		obj.layout_scroll_y=0
 	}
 	obj.dim_tot=dim_tot
-	obj.selection={};obj.selection['$'+obj.value]=1
+	obj.selection={};if(obj.value!=undefined){obj.selection['$'+obj.value]=1}
 	UI.RoundRect(obj);
 	if(!obj.no_region){W.PureRegion(id,obj)}//region goes before children
 	if(!obj.no_clipping){UI.PushCliprect(obj.x,obj.y,obj.w,obj.h)}
@@ -2477,20 +2477,20 @@ W.ListView=function(id,attrs){
 		if(!obj.no_region){
 			for(var i=0;i<items.length;i++){
 				var id_i="$"+i.toString();
-				var obj_item_i=obj[id_i]
-				if(!obj_item_i||obj_item_i.no_click_selection){continue;}
+				//var obj_item_i=obj[id_i]
+				//if(!obj_item_i||obj_item_i.no_click_selection){continue;}
 				var id_click_sel="$C"+i.toString();
-				var rx0=obj_item_i.x;
-				var ry0=obj_item_i.y;
-				var rx1=rx0+obj_item_i.w;
-				var ry1=ry0+obj_item_i.h;
-				if(!obj.no_clipping){
-					rx0=Math.max(rx0,obj.x);
-					ry0=Math.max(ry0,obj.y);
-					rx1=Math.min(rx1,obj.x+obj.w);
-					ry1=Math.min(ry1,obj.y+obj.h);
-				}
-				W.Region(id_click_sel,{x:rx0,y:ry0,w:rx1-rx0,h:ry1-ry0,
+				//var rx0=obj_item_i.x;
+				//var ry0=obj_item_i.y;
+				//var rx1=rx0+obj_item_i.w;
+				//var ry1=ry0+obj_item_i.h;
+				//if(!obj.no_clipping){
+				//	rx0=Math.max(rx0,obj.x);
+				//	ry0=Math.max(ry0,obj.y);
+				//	rx1=Math.min(rx1,obj.x+obj.w);
+				//	ry1=Math.min(ry1,obj.y+obj.h);
+				//}
+				W.Region(id_click_sel,{x:0,y:0,w:0,h:0,
 					numerical_id:i,
 					__kept:1,
 					OnClick:function(event){

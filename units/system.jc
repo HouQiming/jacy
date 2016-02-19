@@ -7679,7 +7679,7 @@ module Algorithm
 			if IS_EX:
 				if mode==PARSE_EXACT:
 					if best!=s.n-1:
-						bstsv=NULL
+						bstsv=iptr[].NULL
 				if !bstsv:
 					if IS_EX==2:
 						return iptr[].NULL

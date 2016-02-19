@@ -8,33 +8,6 @@ import System.Math.*
 import Util.*
 import Ctobj.*
 
-/*
-we say
-	expressions are type PExpression
-	expressions are called pe*
-	call expressions have: isExpr(pecall,EFLAG_FCALL)
-	var expressions have: isExpr(pevar,EFLAG_VARIABLE)
-	functions are type PCTObject
-	functions are called pf*
-	functions are called pobjfn*
-	functions have: pf!=0
-	functions have: readPool(pf)==g_tid_TFunction
-	variables are type PCTObject
-	variables are called pvar*
-	variables are called pobj_var*
-	objects are type PCTObject
-	counts are type int
-	numbers are type int
-	values are type TSCCPValue
-	values are called val*
-	arg means argument
-	arg means parameter
-	expr means expression
-	func means function
-	to get arg expression given number i and call expression: readPool(pecall+EXPR_OFS_ARGS+i)
-	to get func expression given call expression: readPool(pecall+EXPR_OFS_FUNCTION)
-*/
-
 ENABLE_FEM_DSL=1
 ENABLE_GVN=1
 ENABLE_DEADELIM=1
@@ -45,7 +18,7 @@ DEBUG_EVAL_LOG=0
 DEBUG_DUMP_FIX_CONSTANT_TYPES=0
 DEBUG_DUMP_LAMBDA=0
 DEBUG_DUMP_RC=0
-DEBUG_DUMP_FLATTEN=0
+DEBUG_DUMP_FLATTEN=1//todo
 DEBUG_DUMP_USER_FLAGS=0
 DEBUG_DUMP_DERIV=0
 DEBUG_TRAP_MEMBER_NOT_FOUND=0
@@ -1658,7 +1631,7 @@ auto coreInit()
 					genType(targi)
 			if g_code_buffer.back()==',':
 				g_code_buffer.pop()
-			g_code_buffer.push(');')
+			g_code_buffer.push(');\n')
 			g_code_buffer=sbk
 		//definition
 		if !is_type_only:
@@ -6777,7 +6750,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 	VAR_USER_UNFLATTENABLE=1
 	VAR_USER_GOT_NEW=2
 	VAR_USER_KEEP_ORIGINAL=4
-	VAR_USER_FLATTENED_VAR_IS_WRITTEN=8
+	//VAR_USER_FLATTENED_VAR_IS_WRITTEN=8
 	USER_FLAG_EMPTY_NEW_TESTED=1
 	USER_FLAG_IS_EMPTY_NEW=2
 	//which-function-accesses-what-member analysis... useless - passing in a class usually accesses its member
@@ -7002,8 +6975,8 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 					writePool(pobj_ret+1,t)
 					setUserFlag(pobj_ret,VAR_FLAG_FLATTENED_STRUCT_MEMBER)
 			//all_flattened_members.push(TFlattenedMember(){'pobj_var':pobj_ret;'t':t})
-		if is_write:
-			setUserFlag(pobj_ret,VAR_USER_FLATTENED_VAR_IS_WRITTEN)
+		//if is_write:
+		//	setUserFlag(pobj_ret,VAR_USER_FLATTENED_VAR_IS_WRITTEN)
 		return pobj_ret
 	//tbegin(tm_flatten_step1)
 	empty_news=new PExpression[]
@@ -7344,7 +7317,9 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 			vtid=readPool(pobj_member)
 			if vtid!=g_vtid_RTVAR:continue
 			pobj_flattened=getFlattenedVariable(pobj_tar,pobj_member,0)
-			if !testUserFlag(pobj_flattened,VAR_USER_FLATTENED_VAR_IS_WRITTEN)&&readPool(pobj_member)==g_vtid_RTVAR:
+			//!testUserFlag(pobj_flattened,VAR_USER_FLATTENED_VAR_IS_WRITTEN)
+			//the VAR_USER_FLATTENED_VAR_IS_WRITTEN test is idiocy
+			if readPool(pobj_member)==g_vtid_RTVAR:
 				//zero it out
 				t_member=readPool(pobj_member+1)
 				if tisbuiltin(t_member):
@@ -9992,7 +9967,6 @@ auto fixConstantTypes()
 		ps=n_real_chars
 		foreach ch in s
 			genChar(g_global_strings_code,int(u8(ch)))
-			pprev_line++
 			if g_global_strings_code.n-pprev_line>=16000://1048000:
 				g_global_strings_code.push('"\n"')
 				pprev_line=g_global_strings_code.n-1
@@ -12489,7 +12463,7 @@ auto genAllCode()
 		if ft.t_ret&&tisstruct(ft.t_ret):
 			g_code_buffer.push(',')
 			genType(ft.t_ret)
-		g_code_buffer.push(');')
+		g_code_buffer.push(');\n')
 	if g_s7_TF_rtti_dtor_used:
 		g_code_buffer.push("typedef void(*s7_TF_rtti_dtor)(int,void*);")
 	s_headers.push(g_code_buffer)
