@@ -18,12 +18,12 @@ DEBUG_EVAL_LOG=0
 DEBUG_DUMP_FIX_CONSTANT_TYPES=0
 DEBUG_DUMP_LAMBDA=0
 DEBUG_DUMP_RC=0
-DEBUG_DUMP_FLATTEN=1//todo: 0
+DEBUG_DUMP_FLATTEN=0
 DEBUG_DUMP_USER_FLAGS=0
 DEBUG_DUMP_DERIV=0
 DEBUG_TRAP_MEMBER_NOT_FOUND=0
 DEBUG_DUMP_SSA=0
-DEBUG_DUMP_DEADELIM=1//todo: 0
+DEBUG_DUMP_DEADELIM=0
 DEBUG_DUMP_PASSES=(Platform.BUILD=="debug")
 DEBUG_DUMP_GVN_DETAILS=0
 DEBUG_DUMP_SCCP=0
@@ -7360,9 +7360,10 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 				t_member=readPool(pobj_member+1)
 				if tisbuiltin(t_member):
 					pecns=exprcns(getid_const(readPool(t_member+1),0LL))
-				else
-					//pecns=exprcns(getid_const(CTYPE_TYPED_NULL,i64(t_member)))
+				else if tisstruct(t_member):
 					pecns=indcall([exprctval(t_member)])
+				else
+					pecns=exprcns(getid_const(CTYPE_TYPED_NULL,i64(t_member)))
 				as.push(call(g_id_store,exprvar(pobj_flattened),pecns))
 				//Writeln('zero out, cid=',cid,' type=',t_member,':',dumpType(t_member),' ',getBuiltinType(const_type(CTYPE_FLOAT,64)),' ',dumpExpr(as.back(),__zero(fcolorer_callback)))
 		if !testUserFlag(pobj_tar,VAR_USER_KEEP_ORIGINAL):
