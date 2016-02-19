@@ -6731,9 +6731,8 @@ auto isCtorEmpty(PCTObject t_tar,int do_caching)
 	is_empty=1
 	f_test_emptiness=function(PExpression pe){
 		if isExpr(pe,EFLAG_FCALL):
-			if isBuiltin(pe,g_id_block):return 1
-			if isBuiltin(pe,g_id_nop)||isBuiltin(pe,g_id_callstack):return 0
-			if isBuiltin(pe,g_id_C_return):return 1
+			if isBuiltin(pe,g_id_block)||isBuiltin(pe,g_id_C_return):return 1
+			if isBuiltin(pe,g_id_nop)||isBuiltin(pe,g_id_callstack)||isBuiltin(pe,g_id_function)||isBuiltin(pe,g_id_assert_ctval):return 0
 			//only allow zero-valued stores and the standard getcontext / return
 			//and methods
 			//do not recurse into valid stores
@@ -6752,7 +6751,7 @@ auto isCtorEmpty(PCTObject t_tar,int do_caching)
 			auto pe_value=readPool(pe+EXPR_OFS_ARGS+1)
 			if isBuiltin(pe_value,g_id_force_var):
 				pe_value=readPool(pe_value+EXPR_OFS_ARGS+0)
-			if isBuiltin(pe_value,g_id_get_lambda_context)||isBuiltin(pe_value,g_id_ldparam):return 0
+			if isBuiltin(pe_value,g_id_get_lambda_context)||isBuiltin(pe_value,g_id_ldparam)||isBuiltin(pe_value,g_id_tuple):return 0
 			if readPool(pe_var)==EFLAG_VARIABLE+pvret_t_tar:return 0
 			var_value=getExprValue(pe_var)
 			if var_value.tid!=g_vtid_RTVAR:
@@ -7358,10 +7357,11 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 				//zero it out
 				t_member=readPool(pobj_member+1)
 				if tisbuiltin(t_member):
-					cid=getid_const(readPool(t_member+1),0LL)
+					pecns=exprcns(getid_const(readPool(t_member+1),0LL))
 				else
-					cid=getid_const(CTYPE_TYPED_NULL,i64(t_member))
-				as.push(call(g_id_store,exprvar(pobj_flattened),exprcns(cid)))
+					//pecns=exprcns(getid_const(CTYPE_TYPED_NULL,i64(t_member)))
+					pecns=indcall([exprctval(t_member)])
+				as.push(call(g_id_store,exprvar(pobj_flattened),pecns))
 				//Writeln('zero out, cid=',cid,' type=',t_member,':',dumpType(t_member),' ',getBuiltinType(const_type(CTYPE_FLOAT,64)),' ',dumpExpr(as.back(),__zero(fcolorer_callback)))
 		if !testUserFlag(pobj_tar,VAR_USER_KEEP_ORIGINAL):
 			if isBuiltin(pe_func,g_id_function):

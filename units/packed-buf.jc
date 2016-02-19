@@ -31,8 +31,8 @@ inline PBValue(type_desc,iptr ptr)
 		return __memory(type_desc.PB_builtin_type,ptr)
 	else
 		T=struct{
-			iptr m_ptr
-			typeof(type_desc) m_type_desc
+			m_ptr=__uninit()
+			m_type_desc=__uninit()
 			operator[]=inline(a){
 				return m_type_desc.getSubscript(m_ptr,a)
 			}
@@ -70,8 +70,8 @@ inline PBStruct()
 	arguments0=arguments
 	n_members=(arguments0.length>>1)
 	T=struct{
-		m_offsets=__tuple(n_members+1);
-		m_types=__tuple(n_members);
+		m_offsets=__uninit();
+		m_types=__uninit();
 		size=inline(){
 			return m_offsets[n_members]
 		}
@@ -95,6 +95,8 @@ inline PBStruct()
 		}
 	}
 	auto ret=T()
+	ret.m_offsets=__tuple(n_members+1);
+	ret.m_types=__tuple(n_members);
 	ret.m_offsets[0]=0L
 	for i in crange(n_members)
 		sz_i=PBSizeof(arguments0[i*2])
