@@ -8,6 +8,7 @@ import Util.*
 PExpression=int
 PCTObject=int
 DEBUG_TRAP_VARIABLE=0
+DEBUG_TRAP_OBJECT=0
 ////////
 EFLAG_MULTIPLIER=0x20000000
 EFLAG_MASK=-EFLAG_MULTIPLIER
@@ -115,6 +116,7 @@ g_ctobject_pool=[0,0,0,0]
 inline poolCode(auto a)
 	T=typeof(a)
 	ret=int(g_ctobject_pool.n)
+	assert(ret!=DEBUG_TRAP_OBJECT)
 	if T==TExpression:
 		a.v_tid=g_vtid_UNINIT
 	else if T==TCnsExpression||T==TVarExpression:
@@ -131,6 +133,7 @@ inline poolObject(auto a0)
 	a=a0
 	T=typeof(a)
 	ret=int(g_ctobject_pool.n)
+	assert(ret!=DEBUG_TRAP_OBJECT)
 	if T==TDynamicObject:
 		a.tid=g_tid_TDynamicObject
 	else if T==TFunction:
@@ -446,6 +449,7 @@ auto cloneExprEx(PExpression pe,PCTObject[PCTObject] var_map,int flags)
 		break
 	}
 	n0=int(g_ctobject_pool.n)
+	assert(n0!=DEBUG_TRAP_OBJECT)
 	g_ctobject_pool.resize(n0+n)
 	for i=0:n-1
 		g_ctobject_pool[n0+i]=g_ctobject_pool[pe+i]

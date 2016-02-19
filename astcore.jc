@@ -18,7 +18,7 @@ DEBUG_EVAL_LOG=0
 DEBUG_DUMP_FIX_CONSTANT_TYPES=0
 DEBUG_DUMP_LAMBDA=0
 DEBUG_DUMP_RC=0
-DEBUG_DUMP_FLATTEN=1//todo
+DEBUG_DUMP_FLATTEN=0
 DEBUG_DUMP_USER_FLAGS=0
 DEBUG_DUMP_DERIV=0
 DEBUG_TRAP_MEMBER_NOT_FOUND=0
@@ -5420,9 +5420,18 @@ auto coreInit()
 							//don't even eval
 							skip_eval=2
 					if !skip_eval:
+						n_bits=((ct_result&~CTYPE_MASK)+1)*8
 						if (ct_result&CTYPE_MASK)==CTYPE_INT:
+							if n_bits<64:
+								mask=(i64(1)<<n_bits)-1
+								ca.val_bin=(ca.val_bin&mask)|-(ca.val_bin&(i64(1)<<(n_bits-1)))
+								cb.val_bin=(cb.val_bin&mask)|-(cb.val_bin&(i64(1)<<(n_bits-1)))
 							ca.val_bin=i64(fop(ca.val_bin,cb.val_bin))
 						else
+							if n_bits<64:
+								mask=(i64(1)<<n_bits)-1
+								ca.val_bin&=mask
+								cb.val_bin&=mask
 							ca.val_bin=i64(fop(u64(ca.val_bin),u64(cb.val_bin)))
 				if skip_eval!=2:
 					//if g_const_values.n>2:
@@ -6058,6 +6067,10 @@ auto sccpQueueEval(PExpression pecaller)
 		//g_sccp_queue.push(pecaller)
 		return 0
 	if !testUserFlag(pecaller,QUEUE_FLAG_EVAL)
+		if !testUserFlag(pecaller,QUEUE_FLAG_REACH):
+			//inline param optimization has put evaled-param into unreached ifs
+			//wait until it's reached
+			return 0
 		if DEBUG_EVAL_LOG:
 			Writeln('>> sccpQueueEval ',pecaller)
 			if !testUserFlag(pecaller,QUEUE_FLAG_REACH):
