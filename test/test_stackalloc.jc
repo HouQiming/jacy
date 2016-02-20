@@ -46,4 +46,7 @@ class CThing2
 		Writeln(e)
 	})()
 	Writeln(g_leak_target)
+	//Writeln(a[0:].ConvertToAsBinary(u32))
+	//Writeln(a[0:].ConvertToAsBinary(char))
+	//Writeln(a.ConvertToAsBinary(u32))
 })()

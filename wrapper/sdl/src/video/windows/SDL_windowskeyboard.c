@@ -875,26 +875,29 @@ IME_HandleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM *lParam, SDL_VideoD
             break;
         case IMN_OPENCANDIDATE:
         case IMN_CHANGECANDIDATE:
-            if (videodata->ime_uiless)
-                break;
-
-            trap = SDL_TRUE;
-            IME_ShowCandidateList(videodata);
-            himc = ImmGetContext(hwnd);
-            if (!himc)
-                break;
-
-            IME_GetCandidateList(himc, videodata);
-            ImmReleaseContext(hwnd, himc);
+            trap = SDL_FALSE;
             break;
+            //if (videodata->ime_uiless)
+            //    break;
+            //trap = SDL_TRUE;
+            //IME_ShowCandidateList(videodata);
+            //himc = ImmGetContext(hwnd);
+            //if (!himc)
+            //    break;
+            //IME_GetCandidateList(himc, videodata);
+            //ImmReleaseContext(hwnd, himc);
+            //break;
         case IMN_CLOSECANDIDATE:
-            trap = SDL_TRUE;
-            IME_HideCandidateList(videodata);
+            trap = SDL_FALSE;
             break;
+            //trap = SDL_TRUE;
+            //IME_HideCandidateList(videodata);
+            //break;
         case IMN_PRIVATE:
             {
-                DWORD dwId = IME_GetId(videodata, 0);
+                //DWORD dwId = IME_GetId(videodata, 0);
                 IME_GetReadingString(videodata, hwnd);
+                /*
                 switch (dwId)
                 {
                 case IMEID_CHT_VER42:
@@ -918,7 +921,7 @@ IME_HandleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM *lParam, SDL_VideoD
                         || *lParam == 28)
                         trap = SDL_TRUE;
                     break;
-                }
+                }*/
             }
             break;
         default:

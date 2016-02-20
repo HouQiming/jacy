@@ -31,18 +31,19 @@ inline PBValue(type_desc,iptr ptr)
 		return __memory(type_desc.PB_builtin_type,ptr)
 	else
 		T=struct{
-			m_ptr=__uninit()
-			m_type_desc=__uninit()
+			d=__uninit()
+			T=__uninit()
 			operator[]=inline(a){
-				return m_type_desc.getSubscript(m_ptr,a)
+				return T.getSubscript(d,a)
 			}
 			set_operator[]=inline(a,value){
-				return m_type_desc.setSubscript(m_ptr,a,value)
+				return T.setSubscript(d,a,value)
 			}
+			__C_autocast=inline(){return __pointer(d)}
 		}
 		return T(){
-			m_ptr:ptr,
-			m_type_desc:type_desc,
+			d:ptr,
+			T:type_desc,
 		}
 
 inline set_PBValue(type_desc,iptr ptr,value)
@@ -52,9 +53,9 @@ inline set_PBValue(type_desc,iptr ptr,value)
 		assert(value.n*sizeof(value[0])==PBSizeof(type_desc))
 		__basic_api.memcpy(__pointer(ptr),__pointer(value.d),PBSizeof(type_desc))
 	else
-		//assert(typeof(type_desc)==typeof(value.m_type_desc))
-		assert(PBSizeof(type_desc)==PBSizeof(value.m_type_desc))
-		__basic_api.memcpy(__pointer(ptr),__pointer(value.m_ptr),PBSizeof(type_desc))
+		//assert(typeof(type_desc)==typeof(value.T))
+		assert(PBSizeof(type_desc)==PBSizeof(value.T))
+		__basic_api.memcpy(__pointer(ptr),__pointer(value.d),PBSizeof(type_desc))
 
 inline PBSizeof(type_desc)
 	if readOptionalMember(type_desc,"IS_PB_BUILTIN",0):
@@ -106,18 +107,18 @@ inline PBStruct()
 
 inline PBArray(t0,iptr n)
 	T=struct{
-		m_n_elements=__uninit();
+		n=__uninit();
 		m_t0=__uninit();
 		m_szele=__uninit();
 		size=inline(){
-			return m_n_elements*m_szele
+			return n*m_szele
 		}
 		getSubscript=inline(iptr ptr,a){
 			if !__is_type("int",typeof(a)):
 				__error("invalid subscript type @1",typeof(a))
 			else
 				assert(a>=0)
-				assert(a<m_n_elements)
+				assert(a<n)
 				return PBValue(m_t0,ptr+a*m_szele)
 		}
 		setSubscript=inline(iptr ptr,a,value){
@@ -125,12 +126,12 @@ inline PBArray(t0,iptr n)
 				__error("invalid subscript type @1",typeof(a))
 			else
 				assert(a>=0)
-				assert(a<m_n_elements)
+				assert(a<n)
 				PBValue(m_t0,ptr+a*m_szele)=value
 		}
 	}
 	return T(){
-		m_n_elements:n,
+		n:n,
 		m_t0:t0,
 		m_szele:PBSizeof(t0),
 	}
@@ -140,3 +141,8 @@ inline PBFromArray(type_desc,value)
 		__error("PBBind has to take an array, not @1",typeof(value))
 	assert(value.n*sizeof(value[0])==PBSizeof(type_desc))
 	return PBValue(type_desc,value.d)
+
+inline PBArrayFromArray(type_desc,value)
+	n=value.n*sizeof(value[0])/PBSizeof(type_desc)
+	assert(n*PBSizeof(type_desc)==value.n*sizeof(value[0]))
+	return PBValue(PBArray(type_desc,n),value.d)
