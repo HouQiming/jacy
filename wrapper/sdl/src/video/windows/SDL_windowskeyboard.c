@@ -206,6 +206,11 @@ WIN_SetTextInputRect(_THIS, SDL_Rect *rect)
         cf2.dwStyle=CFS_CANDIDATEPOS;
         cf2.ptCurrentPos.x=rect->x;
         cf2.ptCurrentPos.y=rect->y;
+        if(videodata->ime_hwnd_current){
+	        CreateCaret(videodata->ime_hwnd_current,NULL,1,1);
+	        SetCaretPos(rect->x,rect->y);
+	        ShowCaret(videodata->ime_hwnd_current);
+        }
         ImmSetCompositionWindow(videodata->ime_himc,&cf);
         ImmSetCandidateWindow(videodata->ime_himc,&cf2);
     }
@@ -925,7 +930,8 @@ IME_HandleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM *lParam, SDL_VideoD
             }
             break;
         default:
-            trap = SDL_TRUE;
+            //trap = SDL_TRUE;
+            trap = SDL_FALSE;
             break;
         }
         break;

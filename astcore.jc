@@ -5311,7 +5311,8 @@ auto coreInit()
 		g_code_buffer.push(')))')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
-	registerPrimitive(g_id_stackzero,__zero(fcompiler_callback),fstackzero_oneval,fstackzero_oncgen,FFLAG_SPECIAL)
+	//stackzero has RC side effect - it zeroes out "allocated" pointers
+	registerPrimitive(g_id_stackzero,__zero(fcompiler_callback),fstackzero_oneval,fstackzero_oncgen,FFLAG_SPECIAL|FFLAG_RC_HAS_SIDE_EFFECT)
 	//fstack_force_slot_oncgen=function(PExpression pecall,int expr_oplevel){
 	//	pe_target=readPool(pecall+EXPR_OFS_ARGS+0)
 	//	pobj_var=getExprValueAs(pe_target,g_vtid_CTVAL)
@@ -9283,8 +9284,9 @@ USER_FLAG_RC_SLOTID_MASK=0x00ffffff
 USER_FLAG_RC_IS_SAFE_STORE=0x02000000
 //USER_FLAG_RC_IS_GENERATED_STORE=0x02000000
 USER_FLAG_RC_STORE_WITHOUT_ADDREF=0x01000000
-VAR_USER_FLAG_RC_SLOTID_MASK=0x01ffffff
+VAR_USER_FLAG_RC_SLOTID_MASK=0x00ffffff
 VAR_USER_FLAG_RC_SLOT_ALLOCATED=0x02000000
+VAR_USER_FLAG_RC_IS_GENERATED_PULLOUT=0x01000000
 famcallback=function(int):int
 auto ancestorMerge(const is_death,PExpression pe_old0,PExpression pe_new0,famcallback fgetdepth,famcallback fgetbirthid)
 	//return the merged and whether the new one can be considered as a safe-store
@@ -11509,6 +11511,7 @@ auto genRefcnt()
 					t_temp=t_return
 					writePool(pv_temp,g_vtid_RTVAR)
 					writePool(pv_temp+1,t_temp)
+					setUserFlag(pv_temp,VAR_USER_FLAG_RC_IS_GENERATED_PULLOUT)
 					pe_recurse_into=pe
 					fstore_temp=function(PExpression pe){
 						pe_temp_store=call(g_id_store,exprvar(pv_temp),pe);
@@ -11815,8 +11818,16 @@ auto genRefcnt()
 							all_rcs.back().debug_id_source=getid('post_store_addref')
 					if !testUserFlag(pe,USER_FLAG_RC_IS_SAFE_STORE):
 						is_released_before=0
-						if isBuiltin(pe,g_id_store):
-							if isBuiltin(pe_value,g_id_stackzero)||isExpr(pe_value,EFLAG_FCALL)&&tisrealclass(getExprFunction(pe_value)):
+						pe_real_value=pe_value
+						if isExpr(pe_real_value,EFLAG_VARIABLE):
+							pv_real_value=getVariable(pe_real_value)
+							if testUserFlag(pv_real_value,VAR_USER_FLAG_RC_IS_GENERATED_PULLOUT):
+								pe_pullout_store=readPool(pv_real_value+VAR_OFS_DEFINING_STORE)
+								assert(isBuiltin(pe_pullout_store,g_id_store))
+								pe_real_value=readPool(pe_pullout_store+EXPR_OFS_ARGS+1)
+						if(isBuiltin(pe_real_value,g_id_stackzero)||
+						isExpr(pe_real_value,EFLAG_FCALL)&&tisrealclass(getExprFunction(pe_real_value))):
+							if isBuiltin(pe,g_id_store):
 								//if pe_value is from a new, we should release first for stackalloc and general efficiency
 								assert(as_backup.n==1)
 								if DEBUG_DUMP_STACKALLOC:
@@ -11827,7 +11838,25 @@ auto genRefcnt()
 								all_rcs.push(TRefcntLine(){'pe':pe_nop,"v":pobj_var,'delta':-1})
 								if Platform.BUILD=="debug":
 									all_rcs.back().debug_id_source=getid('pre_store_release')
-								is_released_before=1
+							else
+								if DEBUG_DUMP_STACKALLOC:
+									Writeln('release before stlambda ',dumpExpr(pe,fcolor_abbrv_blocks))
+								pe_nop=call(g_id_nop)
+								as_backup.push(pe_nop)
+								debug_hacked_store=0
+								for i=as_backup.n-1:-1:1
+									as_backup[i]=as_backup[i-1]
+									if isBuiltin(as_backup[i],g_id_store)&&getVariable(readPool(as_backup[i]+EXPR_OFS_ARGS+0))==pv_temp:
+										as_backup[i]=pe_nop
+										debug_hacked_store=1
+										break
+								assert(debug_hacked_store)
+								if !debug_hacked_store:
+									as_backup[0]=pe_nop
+								all_rcs.push(TRefcntLine(){'pe':pe_nop,"v":pv_temp,'delta':-1})
+								if Platform.BUILD=="debug":
+									all_rcs.back().debug_id_source=getid('pre_store_release')
+							is_released_before=1
 						if !is_released_before:
 							all_rcs.push(TRefcntLine(){'pe':pe,"v":pv_temp,'delta':-1})
 							if Platform.BUILD=="debug":

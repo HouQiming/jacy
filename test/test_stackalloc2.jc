@@ -1,0 +1,42 @@
+import "system.jc"
+import System.Console.*
+import System.Math.*
+import System.Algorithm.*
+
+struct TTonguePair
+	int image_id
+	float3 lm_src
+	float2 V_src
+	float2 V_tar
+	float r_scale,g_scale,b_scale
+(function(){
+	tpairs=new TTonguePair[100]
+	FEATURE_RANGE=float3(30.f,20.f,0.f)
+	N_TONGUE_FEATURES=500
+	N_TONGUE_STAGES=15
+	for stage_id=0:N_TONGUE_STAGES-1
+		dx_dys=[tp.V_tar-tp.V_src for tp in tpairs]
+		err_all=float2(0.f,0.f)
+		for delta in dx_dys
+			err_all=delta*delta
+		err_all/=float(dx_dys.n)
+		Writeln('stage #',stage_id,', input error: ',formatNumber(sqrt(err_all.x+err_all.y),{frac:2}))
+		dx_dys=[tp.V_tar-tp.V_src for tp in tpairs]
+		ss=[float3(Random(f32)-0.5f,Random(f32)-0.5f,Random(f32)-0.5f)*FEATURE_RANGE for i=0:N_TONGUE_FEATURES-1]
+		auto lambdaFunction()
+			ss_serialized=new float[ss.n*3]
+			for V,I in ss
+				ss_serialized[I*3+0]=V.x
+				ss_serialized[I*3+1]=V.y
+				ss_serialized[I*3+2]=V.z
+			Writeln(ss_serialized[3])
+		lambdaFunction()
+	{
+		auto dx_dys=[tp.V_tar-tp.V_src for tp in tpairs]
+		auto err_all=float2(0.f,0.f)
+		for delta in dx_dys
+			err_all=delta*delta
+		err_all/=float(dx_dys.n)
+		Writeln('done, input error: ',formatNumber(sqrt(err_all.x+err_all.y),{frac:2}))
+	}
+})()
