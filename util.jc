@@ -316,13 +316,16 @@ auto tnew(string s)
 	timer_names.push(s)
 	return int(timer_names.n)-1
 inline tbegin(int id)
-	if g_enable_timing:timers[id]-=System.Time.tick64()
+	if Platform.IS_WINDOWS:
+		if g_enable_timing:timers[id]-=System.Time.tick64()
 inline tend(int id)
-	if g_enable_timing:timers[id]+=System.Time.tick64()
+	if Platform.IS_WINDOWS:
+		if g_enable_timing:timers[id]+=System.Time.tick64()
 auto tprint()
-	if g_enable_timing:
-		foreach sname,I in timer_names
-			System.IO.stderr().Write(FormatAsText(sname,'=',string(System.Time.TicksToSeconds(timers[I])*1000.,2),'ms\n'))
+	if Platform.IS_WINDOWS:
+		if g_enable_timing:
+			foreach sname,I in timer_names
+				System.IO.stderr().Write(FormatAsText(sname,'=',string(System.Time.TicksToSeconds(timers[I])*1000.,2),'ms\n'))
 
 g_is_console=-1
 g_c_id_allowed=[
