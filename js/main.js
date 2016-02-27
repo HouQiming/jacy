@@ -134,7 +134,8 @@ CopyToWorkDir=function(c_files,sprefix){
 	var sprefix_real=g_work_dir+"/"+(sprefix||"");
 	for(var i=0;i<c_files.length;i++){
 		var fn=SearchForFile(c_files[i]);
-		var fnh=sprefix_real+RemovePath(fn);
+		//var fnh=sprefix_real+RemovePath(fn);
+		var fnh=sprefix_real+c_files[i];
 		UpdateTo(fnh,fn);
 	}
 };
@@ -162,6 +163,7 @@ CreateProjectForFileSet=function(c_files,s_target_dir){
 
 CreateProjectForStandardFiles=function(s_target_dir){
 	CreateProjectForFileSet(g_json.h_files,s_target_dir);
+	CreateProjectForFileSet(g_json.lib_files,s_target_dir);
 	return CreateProjectForFileSet(g_json.c_files,s_target_dir);
 };
 

@@ -1306,9 +1306,9 @@ auto coreInit()
 			if readPool(pobjfn+FUNCTION_OFS_NAME)==g_id_array_template:
 				setFFlag(pobjfn_insted,FFLAG_IS_ARRAY_CLASS)
 				//Writeln('ARRAY! ',pobjfn_insted)
-			else if readPool(pobjfn+FUNCTION_OFS_NAME)==g_id_ConvertToAsBinary:
-				setFFlag(pobjfn_insted,FFLAG_IS_CONVERT_TO_AS_BINARY)
-				//Writeln('FFLAG_IS_CONVERT_TO_AS_BINARY! ',pobjfn_insted)
+			//else if readPool(pobjfn+FUNCTION_OFS_NAME)==g_id_ConvertToAsBinary:
+			//	setFFlag(pobjfn_insted,FFLAG_IS_CONVERT_TO_AS_BINARY)
+			//	//Writeln('FFLAG_IS_CONVERT_TO_AS_BINARY! ',pobjfn_insted)
 			//if g_readable_c_code:
 			sname=new(getIdString(readPool(pobjfn+FUNCTION_OFS_NAME)))
 			sname.push('<')
@@ -9736,7 +9736,8 @@ auto doStackAllocs()
 			pobj_fn=getExprValueAs(pe_member,g_vtid_CTVAL)
 		id_call=readPool(pobj_member+VAR_OFS_ID)
 		//Writeln('>>> ',pobj_fn,' ',dumpObject(pobj_member),' ',dumpExpr(pe,fcolor_abbrv_blocks))
-		if id_call!=g_id_resize&&!(pobj_fn&&(getFFlag(pobj_fn)&FFLAG_IS_CONVERT_TO_AS_BINARY)):return 1
+		//&&!(pobj_fn&&(getFFlag(pobj_fn)&FFLAG_IS_CONVERT_TO_AS_BINARY))
+		if id_call!=g_id_resize:return 1
 		if DEBUG_DUMP_STACKALLOC:
 			Writeln('resize-like call ',dumpExpr(pe,fcolor_abbrv_blocks))
 		setVarExprLeak(peobj,FLAG_IS_RESIZED)

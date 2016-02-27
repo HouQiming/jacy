@@ -952,7 +952,8 @@ UI.SDLK_ESC=UI.SDLK_ESCAPE
 UI.SDLK_PGDN=UI.SDLK_PAGEDOWN
 UI.SDLK_PGUP=UI.SDLK_PAGEUP
 UI.SDLK_INS=UI.SDLK_INSERT
-UI.SDLK_DEL=UI.SDLK_DELETE
+UI.SDLK_DEL=UI.SDLK_DELETE;
+UI.SDLK_BREAK=UI.SDLK_PAUSE
 
 UI.HackCallback=function(f){
 	f.prototype=undefined;
@@ -2023,10 +2024,18 @@ UI.Run=function(){
 				if(!UI.nd_captured){
 					for(var i=lg-1;i>=0;i--){
 						var attrs=regions[i];
-						var dx=(event.x-attrs.sub_window_offset_x)/attrs.sub_window_scale-attrs.x;
-						var dy=(event.y-attrs.sub_window_offset_y)/attrs.sub_window_scale-attrs.y;
+						var x0=attrs.x;
+						var y0=attrs.y;
+						var x1=x0+attrs.w;
+						var y1=y0+attrs.h;
+						x0=Math.max(x0,attrs.region_clip_rect.x);
+						y0=Math.max(y0,attrs.region_clip_rect.y);
+						x1=Math.min(x1,x0+attrs.region_clip_rect.w);
+						y1=Math.min(y1,y0+attrs.region_clip_rect.h);
+						var dx=(event.x-attrs.sub_window_offset_x)/attrs.sub_window_scale-x0;
+						var dy=(event.y-attrs.sub_window_offset_y)/attrs.sub_window_scale-y0;
 						//print(attrs.sub_window_scale,dx,dy,attrs.sub_window_offset_x,attrs.sub_window_offset_y,attrs.x,attrs.y)
-						if(dx>=0&&dx<attrs.w&&dy>=0&&dy<attrs.h){
+						if(dx>=0&&dx<(x1-x0)&&dy>=0&&dy<(y1-y0)){
 							nd_mouse_receiver=attrs;
 							break;
 						}
@@ -2074,7 +2083,7 @@ UI.Run=function(){
 					}
 					UI.CallIfAvailable(nd_mouse_receiver,"OnMouseMove",event);
 				}else{
-					//do dragging in a higher level abstraction
+					//coulddo: do dragging in a higher level abstraction
 					if(event.type==UI.SDL_MOUSEBUTTONDOWN){
 						UI.nd_mouse_down[event.button]=nd_mouse_receiver;
 						UI.CallIfAvailable(nd_mouse_receiver,"OnMouseDown",event);

@@ -415,6 +415,7 @@ W.PureRegion=function(id,obj){
 	obj.sub_window_offset_x=UI.sub_window_offset_x
 	obj.sub_window_offset_y=UI.sub_window_offset_y
 	obj.sub_window_scale=UI.pixels_per_unit
+	obj.region_clip_rect=UI.GetCliprect()
 	UI.context_regions.push(obj);
 	obj.region___hwnd=UI.context_window.__hwnd;
 	return obj;
@@ -1273,7 +1274,7 @@ W.Edit_prototype={
 			var hc=this.GetCharacterHeightAtCaret();
 			var bk=this.x_updown;
 			var ed_caret=this.GetCaretXY();
-			this.MoveCursorToXY(this.x_updown,ed_caret.y-Math.floor(this.h/hc)*hc);
+			this.MoveCursorToXY(this.x_updown,ed_caret.y-Math.max(Math.floor(this.h/hc-(this.page_guard_lines||0)),1)*hc);
 			var ed_caret2=this.GetCaretXY();
 			this.scroll_y+=ed_caret2.y-ed_caret.y
 			epilog();
@@ -1282,7 +1283,7 @@ W.Edit_prototype={
 			var hc=this.GetCharacterHeightAtCaret();
 			var bk=this.x_updown;
 			var ed_caret=this.GetCaretXY();
-			this.MoveCursorToXY(this.x_updown,ed_caret.y+Math.floor(this.h/hc)*hc);
+			this.MoveCursorToXY(this.x_updown,ed_caret.y+Math.max(Math.floor(this.h/hc-(this.page_guard_lines||0)),1)*hc);
 			var ed_caret2=this.GetCaretXY();
 			this.scroll_y+=ed_caret2.y-ed_caret.y
 			epilog();

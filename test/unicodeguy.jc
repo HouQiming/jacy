@@ -132,22 +132,24 @@ auto makeCaseTable(int2[] src)
 	FLAG_RUBBER=0x04000000
 	ret=new int[65536]
 	foreach ch in spaces
-		ret[ch]=FLAG_BAD_BOL
+		ret[ch]|=FLAG_BAD_BOL
 	foreach ch in generic_symbols
 		if ch<65536:
-			ret[ch]=FLAG_BAD_BOL
+			ret[ch]|=FLAG_BAD_BOL
 	//opening parenthesis / quotation
 	foreach ch in opening_brackets
-		ret[ch]=FLAG_BAD_EOL
+		ret[ch]|=FLAG_BAD_EOL
 	//closing parenthesis / quotation
 	foreach ch in closing_brackets
-		ret[ch]=FLAG_BAD_BOL
+		ret[ch]|=FLAG_BAD_BOL
 	//non-breaking stuff and non-paired quotation masks
 	foreach ch in no_breaks
 		//just bad as both BOL and EOL
-		ret[ch]=(FLAG_BAD_BOL|FLAG_BAD_EOL)
+		ret[ch]|=(FLAG_BAD_BOL|FLAG_BAD_EOL)
+	foreach ch in ['"','\'']
+		ret[ch]|=(FLAG_BAD_BOL|FLAG_BAD_EOL)
 	//spaces
 	foreach ch in spaces
-		ret[ch]=FLAG_IS_SPACE|FLAG_CAN_PAD_AFTER
+		ret[ch]|=FLAG_IS_SPACE|FLAG_CAN_PAD_AFTER
 	System.IO.CreateFile("charflag.bin").Write(ret[0:].ConvertToAsBinary(char))
 })()

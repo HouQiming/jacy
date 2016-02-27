@@ -285,7 +285,7 @@ class __array(T)
 					//safety precaution
 					d=0L
 				//for dtor_id==1, leave d around so that later accesses happen to work
-	auto ConvertToAsBinary(const T2)
+	inline ConvertToAsBinary(const T2)
 		//checks are ignored...
 		if T2==__variant:
 			__force_alive(variant(__zero(T)))
@@ -299,8 +299,8 @@ class __array(T)
 		sz2=szbytes/esz2
 		if nbytes!=n2*esz2:
 			if Platform.BUILD=="debug":
-				__basic_api.spapReportError("in Array.ConvertToAsBinary, the input dat size isn't a multiply of the output element size\0")
-			return Array(T2).NULL
+				__basic_api.spapReportError("in Array.ConvertToAsBinary, the input data size isn't a multiply of the output element size\0")
+			//return Array(T2).NULL
 		//if destructor_nbound_or_slice_reference&1:
 		ret=new Array(T2)
 		ret.d=d

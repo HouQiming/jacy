@@ -19,9 +19,10 @@ g_action_handlers.make=function(){
 			'exit');
 	}
 	var sbuildtmp=ReadFile(g_work_dir+"/buildtmp_ready");
-	CopyToWorkDir(g_json.c_files,"upload/")
-	CopyToWorkDir(g_json.h_files,"upload/")
-	CopyToWorkDir(g_json.lib_files,"upload/")
+	//CopyToWorkDir(g_json.c_files,"upload/")
+	//CopyToWorkDir(g_json.h_files,"upload/")
+	//CopyToWorkDir(g_json.lib_files,"upload/")
+	var c_files=CreateProjectForStandardFiles(g_work_dir+"/upload/")
 	if(FileExists(g_bin_dir+"/res.zip")){
 		UpdateTo(g_work_dir+"/upload/res.zip",g_bin_dir+"/res.zip")
 	}
@@ -42,9 +43,9 @@ g_action_handlers.make=function(){
 	if(g_json.c_include_paths){
 		for(var i=0;i<g_json.c_include_paths.length;i++){
 			var s_include_path=g_json.c_include_paths[i];
-			if(DirExists(s_include_path)){
-				smakefile_array.push(' "-I'+s_include_path+'"');
-			}
+			//if(DirExists(s_include_path)){
+			smakefile_array.push(' "-I'+s_include_path+'"');
+			//}
 		}
 	}
 	if(g_json.cflags){
@@ -60,15 +61,13 @@ g_action_handlers.make=function(){
 		s_linux_output=RemovePath(g_json.output_file[0]);
 	}
 	smakefile_array.push("\n"+s_linux_output+":");
-	for(var i=0;i<g_json.c_files.length;i++){
-		var scfile=RemovePath(g_json.c_files[i])
-		var smain=GetMainFileName(scfile)
+	for(var i=0;i<c_files.length;i++){
+		var smain=RemoveExtension(c_files[i])
 		smakefile_array.push(" "+smain+".o");
 	}
 	smakefile_array.push("\n\t$(LD) $(LDFLAGS) -o $@")
-	for(var i=0;i<g_json.c_files.length;i++){
-		var scfile=RemovePath(g_json.c_files[i])
-		var smain=GetMainFileName(scfile)
+	for(var i=0;i<c_files.length;i++){
+		var smain=RemoveExtension(c_files[i])
 		smakefile_array.push(" "+smain+".o");
 	}
 	if(g_json.ldflags){
@@ -79,9 +78,9 @@ g_action_handlers.make=function(){
 	}
 	smakefile_array.push("\n")
 	//////////////////////////
-	for(var i=0;i<g_json.c_files.length;i++){
-		var scfile=RemovePath(g_json.c_files[i]);
-		var smain=GetMainFileName(scfile)
+	for(var i=0;i<c_files.length;i++){
+		var scfile=c_files[i];
+		var smain=RemoveExtension(scfile)
 		smakefile_array.push("\n"+smain+".o: "+scfile+"\n\t$(CC) $(CFLAGS0) $(CFLAGS1) -c $< -o $@\n")
 	}
 	CreateIfDifferent(g_work_dir+"/upload/Makefile",smakefile_array.join(""))

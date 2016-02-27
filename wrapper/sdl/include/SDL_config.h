@@ -51,6 +51,29 @@
 #include "SDL_config_android.h"
 #elif defined(__PSP__)
 #include "SDL_config_psp.h"
+#elif defined(JC_SDL_USE_LINUX)
+#include <wchar.h>
+#include <stdint.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <math.h>
+#define SDL_LOADSO_DLOPEN 1
+/* Enable various threading systems */
+#define SDL_THREAD_PTHREAD 1
+#define SDL_THREAD_PTHREAD_RECURSIVE_MUTEX_NP 1
+/* Enable various timer systems */
+#define SDL_TIMER_UNIX 1
+/* Enable various video drivers */
+#define SDL_VIDEO_DRIVER_X11 1
+#define SDL_VIDEO_DRIVER_X11_DPMS 1
+#define SDL_VIDEO_DRIVER_X11_XINERAMA 1
+#define SDL_VIDEO_DRIVER_X11_XME 1
+#define SDL_MAIN_DUMMY 1
+#define SDL_VIDEO_DRIVER_X11_DYNAMIC "libX11.so.6"
+#define SDL_VIDEO_DRIVER_X11_DYNAMIC_XEXT "libXext.so.6"
+#define SDL_VIDEO_DRIVER_X11_DYNAMIC_XRANDR "libXrandr.so.2"
+#define SDL_VIDEO_DRIVER_X11_DYNAMIC_XRENDER "libXrender.so.1"
+#define SDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS 1
 #else
 /* This is a minimal configuration just to get SDL running on new platforms */
 #include "SDL_config_minimal.h"

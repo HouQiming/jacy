@@ -1,5 +1,6 @@
 
 module Camera
+	//int osal_TurnOnCamera(int cam_id,int w,int h,int fps)
 	osal_GetCameraImage=__c_function(int*,"osal_GetCameraImage","osal_camera.h")
 	osal_TurnOnCamera=__c_function(int,"osal_TurnOnCamera","osal_camera.h")
 	osal_TurnOffCamera=__c_function(int,"osal_TurnOffCamera","osal_camera.h")

@@ -679,7 +679,7 @@ FFLAG_IS_EMPTY_CTOR=1<<22
 FFLAG_IS_EMPTY_CTOR_TESTED=1<<23
 FFLAG_LAMBDA_LEAKED=1<<24
 FFLAG_IS_ARRAY_CLASS=1<<25
-FFLAG_IS_CONVERT_TO_AS_BINARY=1<<26
+//FFLAG_IS_CONVERT_TO_AS_BINARY=1<<26
 FFLAG_TEMP_IMPURE=0x80000000
 FFLAG_TEMP_UNFLATTENABLE=0x80000000
 FFLAG_CGEN_QUEUED=0x80000000
@@ -1122,7 +1122,7 @@ g_id_array_template=getid("__array")
 g_id_array_malloc=getid("__array_malloc")
 g_id_destructor_nbound_or_slice_reference=getid("destructor_nbound_or_slice_reference")
 g_id_resize=getid("resize")
-g_id_ConvertToAsBinary=getid("ConvertToAsBinary")
+//g_id_ConvertToAsBinary=getid("ConvertToAsBinary")
 g_id_set_slice=getid("__set_slice")
 ////////////////////
 g_id_if=getid("if")//switch also goes here
