@@ -3447,6 +3447,59 @@ auto glCreateTexture(int format,int w,int h, int filter,int wraps,int wrapt,__po
 		tex=0u
 	return tex
 
+class CJSGLRenderToTextureContext
+	GLuint m_tex
+	GLuint m_rbo
+	GLuint m_fbo
+	auto __done__()
+		if m_fbo:
+			objid=m_fbo
+			glDeleteFramebuffers(1,&objid)
+		if m_rbo:
+			objid=m_rbo
+			glDeleteRenderbuffers(1,&objid)
+		if m_tex:
+			objid=m_tex
+			glDeleteTextures(1,&objid)
+GL_RTT_MIPMAP=1
+GL_RTT_DEPTH=2
+inline glCreateFramebuffer()
+	ret=[0u]
+	glGenFramebuffers(1,__pointer(ret.d))
+	return ret[0]
+
+inline glCreateBuffer(what,data)
+	buf_ret=[0u]
+	glGenBuffers(1,__pointer(buf_ret.d))
+	ret=buf_ret[0]
+	glBindBuffer(what,ret)
+	glBufferData(what,data.n*sizeof(data[0]),__pointer(data.d),GL_STATIC_DRAW)
+	glBindBuffer(what,0u)
+	return ret
+
+auto glCreateRenderToTextureContext(GLenum format,int w,int h,int flags)
+	tex=glCreateTexture(
+		format,w,h,
+		GL_LINEAR,GL_CLAMP_TO_EDGE,GL_CLAMP_TO_EDGE,
+		NULL)
+	if flags&GL_RTT_MIPMAP:
+		glBindTexture(GL_TEXTURE_2D,tex)
+		glGenerateMipmap(GL_TEXTURE_2D)
+		glBindTexture(GL_TEXTURE_2D,0u)
+	fbo=glCreateFramebuffer()
+	rbo=0u
+	if flags&GL_RTT_DEPTH:
+		glGenRenderbuffers(1,&rbo);
+		glBindRenderbuffer(GL_RENDERBUFFER,rbo);
+		glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH24_STENCIL8,w,h);
+		glBindRenderbuffer(GL_RENDERBUFFER,0u);
+	glBindFramebuffer(GL_FRAMEBUFFER,fbo);
+	glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,tex,0);
+	if flags&GL_RTT_DEPTH:
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_STENCIL_ATTACHMENT,GL_RENDERBUFFER,rbo);
+	glBindFramebuffer(GL_FRAMEBUFFER,0u);
+	return new CJSGLRenderToTextureContext(){m_tex:tex,m_rbo:rbo,m_fbo:fbo}
+
 auto createGLJSObject(JSObject JS_GL)
 	JS_GL["glCreateTechnique"]=function(JSContext JS){
 		return JS.Return(new GLTechnique)

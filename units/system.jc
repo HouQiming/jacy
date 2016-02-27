@@ -9,9 +9,9 @@ module OS_API
 	if Platform.IS_UNIX:
 		__generate_json("ldflags","-lm")
 		if Platform.ARCH=="rasppi"||Platform.ARCH=="linux32"||Platform.ARCH=="linux64"||Platform.ARCH=="mac":
-			//__generate_json("cflags","-I/usr/include/SDL2")
-			//__generate_json("cflags","-I/usr/local/include/SDL2")
-			//__generate_json("ldflags","-lSDL2")
+			__generate_json("cflags","-I/usr/include/SDL2")
+			__generate_json("cflags","-I/usr/local/include/SDL2")
+			__generate_json("ldflags","-lSDL2")
 			__generate_json("ldflags","-lpthread")
 			__generate_json("ldflags","-ldl")
 		PROT_READ=0x1

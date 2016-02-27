@@ -22,9 +22,9 @@ var clean=function(dir){
 	mkdir("../jc/bin/win32_release")
 	UpdateTo("../jc/bin/win32_release/jc.exe","bin/win32_release/main.exe")
 	UpdateTo("../jc/bin/win32_release/pmjs.exe","test/bin/win32_release/pmjs.exe")
-	UpdateTo("../jc/bin/win32_release/mo.exe","mo/bin/win32_release/mo.exe")
-	UpdateTo("../jc/bin/win32_release/res.zip","mo/bin/win32_release/res.zip")
-	UpdateTo("../jc/bin/win32_release/sdl2.dll","mo/bin/win32_release/sdl2.dll")
+	//UpdateTo("../jc/bin/win32_release/mo.exe","mo/bin/win32_release/mo.exe")
+	//UpdateTo("../jc/bin/win32_release/res.zip","mo/bin/win32_release/res.zip")
+	//UpdateTo("../jc/bin/win32_release/sdl2.dll","mo/bin/win32_release/sdl2.dll")
 	//the units
 	copydir("units")
 	copydir("js")

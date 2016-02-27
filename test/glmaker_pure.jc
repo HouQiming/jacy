@@ -489,9 +489,9 @@ auto main()
 	once("0")
 	once("")
 	//////////////
-	s_code0=System.IO.ReadAllText("test\\glpure_part0.jc")
-	if !s_code0:
-		s_code0=System.IO.ReadAllText("glpure_part0.jc")
+	//s_code0=System.IO.ReadAllText("test\\glpure_part0.jc")
+	//if !s_code0:
+	s_code0=System.IO.ReadAllText("glpure_part0.jc")
 	g_typedef_code=g_typedef_code.Replace([
 		"GLenum","int",
 		"GLboolean","unsigned char",
@@ -517,10 +517,11 @@ auto main()
 		"GLfixed","int",
 		"GLvoidptr","__pointer",
 	]).Replace(["GLvoid","void"])
-	CreateFile("c:\\tp\\pure\\units\\g-l.jc").Write(s_code0+'__C(int,"@global:'+g_typedef_code+'");\n\n'+g_code)
+	CreateFile("../units/g-l.jc").Write(s_code0+'__C(int,"@global:'+g_typedef_code+'");\n\n'+g_code)
 	/////////////
 	//doSDL()
 	/////////////
 	doVectors()
+	Writeln('g-l.jc updated')
 
 main()
