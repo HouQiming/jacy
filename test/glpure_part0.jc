@@ -3265,12 +3265,12 @@ class GLTechnique
 		return 0
 	}
 	//////////
-	CJSNativeBuffer m_js_cpu_vbo
+	u8[] m_js_cpu_vbo
 	int2[] m_js_offset_checker
 	JS_SetVBO=function(JSContext JS){
 		if m_js_offset_checker:
 			return JS.ReturnError("you can only specify one VBO for each draw call")
-		buf=JS.Param(0).as(CJSNativeBuffer)
+		buf=JS.Param(0).as(u8[])
 		//allow nulling it out
 		m_js_cpu_vbo=buf
 		return 0
@@ -3322,30 +3322,6 @@ class GLTechnique
 
 /////////////////////////////////////////////////////////
 //JS buffer object, f32 and i32 array writes
-class CJSNativeBuffer
-	int[] buf
-	JS_Write=function(JSContext JS){
-		ofs=JS.Param(0).or(0)
-		stype=JS.Param(1).or("int")
-		arr=JS.Param(2).as(JSObject)
-		if !arr:return 0
-		if ofs&3:return JS.ReturnError("unaligned write of nativebuffers")
-		ofs>>=2
-		n=arr.length()
-		if !(u32(ofs)<u32(buf.n)&&u32(ofs+n)<=u32(buf.n)&&u32(ofs)<u32(ofs+n)):
-			return JS.ReturnError("out-of-bound write of nativebuffers")
-		if stype.StartsWith("i"):
-			for i=ofs:ofs+n-1
-				buf[i]=arr[i-ofs].as(int)
-		else
-			for i=ofs:ofs+n-1
-				buf[i]=System.Algorithm.__float_as_int(arr[i-ofs].as(float))
-		return 0
-	}
-	__JS_prototype=function(JSObject proto){
-		proto.ExportMethod(this,"Write",JS_Write)
-	}
-
 class CJSGLTexture
 	GLuint m_texid
 	auto __done__()
@@ -3504,11 +3480,6 @@ auto createGLJSObject(JSObject JS_GL)
 	JS_GL["glCreateTechnique"]=function(JSContext JS){
 		return JS.Return(new GLTechnique)
 	}
-	JS_GL["glCreateCPUBuffer"]=function(JSContext JS){
-		n=JS.Param(0).or(0L)
-		if n<=0L:return 0
-		return JS.Return(new CJSNativeBuffer(){buf:new int[(n+3)>>2]})
-	}
 	JS_GL["glEnable"]=function(JSContext JS){
 		what=JS.Param(0).or(0)
 		glEnable(what)
@@ -3526,8 +3497,8 @@ auto createGLJSObject(JSObject JS_GL)
 		filter=JS.Param(3).or(GL_LINEAR)
 		wraps=JS.Param(4).or(GL_CLAMP_TO_EDGE)
 		wrapt=JS.Param(5).or(GL_CLAMP_TO_EDGE)
-		buf=JS.Param(6).as(CJSNativeBuffer)
-		texid=glCreateTexture(format,w,h,filter,wraps,wrapt,__pointer(buf?buf.buf.d:0L))
+		buf=JS.Param(6).as(u8[])
+		texid=glCreateTexture(format,w,h,filter,wraps,wrapt,__pointer(buf?buf.d:0L))
 		if texid:
 			return JS.Return(new CJSGLTexture(){m_texid:texid})
 		else
@@ -3543,10 +3514,10 @@ auto createGLJSObject(JSObject JS_GL)
 		height=JS.Param(5).as(GLsizei)
 		format=JS.Param(6).as(GLenum)
 		type=JS.Param(7).as(GLenum)
-		pixels_buf=JS.Param(8).as(CJSNativeBuffer)
+		pixels_buf=JS.Param(8).as(u8[])
 		if !texobj:return JS.ReturnError("bad pixel bufer")
 		glBindTexture(GL_TEXTURE_2D,texobj.m_texid)
-		glTexSubImage2D(GL_TEXTURE_2D,level,xoffset,yoffset,width,height,format,type,__pointer(pixels_buf.buf.d))
+		glTexSubImage2D(GL_TEXTURE_2D,level,xoffset,yoffset,width,height,format,type,__pointer(pixels_buf.d))
 		return 0
 	}
 	JS_GL["glGetViewport"]=function(JSContext JS){

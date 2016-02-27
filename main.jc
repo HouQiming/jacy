@@ -13,8 +13,10 @@ COMPILER_VERSION=0x101
 c_system=__c_function(int,"system","stdlib.h")
 exit=__c_function(int,"exit","stdlib.h")
 
-if Platform.ARCH=="win32"||Platform.ARCH=="win64":
+if Platform.IS_WINDOWS:
 	__generate_json("ldflags","/STACK:67108864")
+if (Platform.ARCH=="rasppi"||Platform.ARCH=='linux32'||Platform.ARCH=='linux64')&&Platform.BUILD!="debug":
+	__generate_json("cflags","-g")
 
 auto dumpAllErrors()
 	if Platform.BUILD=="debug":

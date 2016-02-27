@@ -11984,10 +11984,12 @@ auto genRefcnt()
 		current_rcs_merged.Sortby(inline(rci){
 			//positive goes first, temp id goes first, v disambiguities
 			//nullout goes last
+			//160227: avoid the self-compile rc bug
+			auto delta_key=(rci.delta<0?2:((rci.delta==0)?1:0))
 			return u32(
 				(int(rci.need_null_out)<<31)+
-				((rci.delta<=0)<<30)+
-				((rci.v&&!isTempId(readPool(rci.v+VAR_OFS_ID)))<<29)+
+				(delta_key<<29)+
+				((rci.v&&!isTempId(readPool(rci.v+VAR_OFS_ID)))<<28)+
 				rci.v)
 		})
 		as_rc_current=new PExpression[]

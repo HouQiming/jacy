@@ -6,13 +6,27 @@ function call7z(sdir,fnzip0,fnames,sextra_arg){
 	}
 	s_7z_2.push(fnzip0);
 	s_7z_2=s_7z_2.concat(fnames);
-	s_7z_2.push(">NUL")
-	var scmd="@echo off\n"+shellcmd(["cd","/d",sdir])+"\n"+shellcmd(s_7z_2)+"\n";
-	var scall7z=g_work_dir+"/call7z.bat";
-	if(!CreateFile(scall7z,scmd)){
-		throw new Error("can't create call7z.bat");
+	if(g_current_arch=="win32"||g_current_arch=="win64"){
+		s_7z_2.push(">NUL")
+		var scmd="@echo off\n"+shellcmd(["cd","/d",sdir])+"\n"+shellcmd(s_7z_2)+"\n";
+		var scall7z=g_work_dir+"/call7z.bat";
+		if(!CreateFile(scall7z,scmd)){
+			throw new Error("can't create call7z.bat");
+		}
+		var ret=shell([scall7z]);
+		if(!!ret){shell(["rm",fnzip0]);throw new Error("7z returned an error code '@1'".replace("@1",ret.toString()));}
+	}else{
+		var scmd="#!/bin/sh\n"+shellcmd(["cd",sdir])+"\n"+shellcmd(s_7z_2)+"\n";
+		var scall7z=g_work_dir+"/call7z.sh";
+		if(!CreateFile(scall7z,scmd)){
+			throw new Error("can't create call7z.sh");
+		}
+		var ret=shell(["/bin/sh",scall7z]);
+		if(!!ret){
+			shell(["rm",fnzip0]);
+			throw new Error("7z returned an error code '@1'".replace("@1",ret.toString()));
+		}
 	}
-	ret=shell([scall7z]);if(!!ret){shell(["rm",fnzip0]);throw new Error("7z returned an error code '@1'".replace("@1",ret.toString()));}
 }
 
 (function(){

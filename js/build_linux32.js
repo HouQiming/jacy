@@ -34,11 +34,11 @@ g_action_handlers.make=function(){
 	//create a makefile
 	//-ffast-math
 	//var smakefile_array=["CC = gcc\nLD = gcc\nCFLAGS0 = -I$(HOME)/pmenv/SDL2-2.0.3/include -I$(HOME)/pmenv/include -DLINUX\nLDFLAGS = -s -L$(HOME)/pmenv/SDL2-2.0.3/build/.libs -L$(HOME)/pmenv/SDL2-2.0.3/build"];
-	var smakefile_array=["CC = ",g_json.linux_cc?g_json.linux_cc[0]:'gcc',"\nLD = ",g_json.linux_ld?g_json.linux_ld[0]:'gcc',"\nCFLAGS0 = -DLINUX\nLDFLAGS = -s "];
+	var smakefile_array=["CC = ",g_json.linux_cc?g_json.linux_cc[0]:'gcc',"\nLD = ",g_json.linux_ld?g_json.linux_ld[0]:'gcc',"\nCFLAGS0 = -DLINUX\nLDFLAGS = "];
 	if(g_build!="debug"){
-		smakefile_array.push('\nCFLAGS1= -O3 -fno-var-tracking-assignments -fno-exceptions -fno-rtti -fno-unwind-tables -fno-strict-aliasing -w -static-libgcc -DPM_RELEASE ');
+		smakefile_array.push('\nCFLAGS1= -O2 -fno-var-tracking-assignments -fno-exceptions -fno-rtti -fno-unwind-tables -fno-strict-aliasing -w -static-libgcc -DPM_RELEASE ');
 	}else{
-		smakefile_array.push('\nCFLAGS1= -fno-var-tracking-assignments -fno-exceptions -fno-rtti -fno-unwind-tables -fno-strict-aliasing -w -static-libgcc ');
+		smakefile_array.push('\nCFLAGS1= -g -fno-var-tracking-assignments -fno-exceptions -fno-rtti -fno-unwind-tables -fno-strict-aliasing -w -static-libgcc ');
 	}
 	if(g_json.c_include_paths){
 		for(var i=0;i<g_json.c_include_paths.length;i++){
