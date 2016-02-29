@@ -48,6 +48,9 @@ g_action_handlers.make=function(){
 			//}
 		}
 	}
+	if(g_json.linux_gtk_hack){
+		smakefile_array.push(" `pkg-config --cflags gtk+-3.0`")
+	}
 	if(g_json.cflags){
 		for(var i=0;i<g_json.cflags.length;i++){
 			var smain=g_json.cflags[i]
@@ -75,6 +78,9 @@ g_action_handlers.make=function(){
 			var smain=g_json.ldflags[i]
 			smakefile_array.push(" "+smain);
 		}
+	}
+	if(g_json.linux_gtk_hack){
+		smakefile_array.push(" `pkg-config --libs gtk+-3.0`")
 	}
 	smakefile_array.push("\n")
 	//////////////////////////

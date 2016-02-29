@@ -3,20 +3,36 @@ die=function(){
 	throw new Error(Array.prototype.slice.call(arguments,0).join(""))
 };
 
-UpdateTo=function(fn_old,fn_new){
+UpdateTo=function(fn_old,fn_new,use_symlink){
 	if(!FileExists(fn_new))return 0;
 	if(FileExists(fn_old)&&!IsNewerThan(fn_new,fn_old))return 0;
-	if(!!shell(["cp",fn_new,fn_old])){
-		print("can't update '@1' to '@2'".replace("@1",fn_old).replace("@2",fn_new));
-		return 0;
+	if(use_symlink){
+		shell(["rm","-f",fn_old])
+		if(!!shell(["cp","-s",fn_new,fn_old])){
+			print("can't update '@1' to '@2'".replace("@1",fn_old).replace("@2",fn_new));
+			return 0;
+		}
+	}else{
+		if(!!shell(["cp",fn_new,fn_old])){
+			print("can't update '@1' to '@2'".replace("@1",fn_old).replace("@2",fn_new));
+			return 0;
+		}
 	}
 	return 1;
 };
 
-UpdateToCLike=function(fn_old,fn_new){
+UpdateToCLike=function(fn_old,fn_new,use_symlink){
 	if(!FileExists(fn_new))return 0;
 	if(FileExists(fn_old)&&!IsNewerThan(fn_new,fn_old))return 0;
-	CreateFile(fn_old,['#line 1 "',fn_new,'"\n',ReadFile(fn_new)].join(""))
+	if(use_symlink){
+		shell(["rm","-f",fn_old])
+		if(!!shell(["cp","-s",fn_new,fn_old])){
+			print("can't update '@1' to '@2'".replace("@1",fn_old).replace("@2",fn_new));
+			return 0;
+		}
+	}else{
+		CreateFile(fn_old,['#line 1 "',fn_new,'"\n',ReadFile(fn_new)].join(""))
+	}
 	return 1;
 };
 
@@ -141,7 +157,7 @@ CopyToWorkDir=function(c_files,sprefix){
 };
 
 var g_regexp_is_absolute_path=new RegExp("^(([a-zA-Z]:[\\\\/])|[\\\\/]|(pm_tmp/)|(.*/pm_tmp/)).*$");
-CreateProjectForFileSet=function(c_files,s_target_dir){
+CreateProjectForFileSet=function(is_c_like,c_files,s_target_dir,use_symlink){
 	if(!c_files){return undefined;}
 	var ret=[];
 	for(var i=0;i<c_files.length;i++){
@@ -155,16 +171,20 @@ CreateProjectForFileSet=function(c_files,s_target_dir){
 			mkdir(s_target_dir+subdirs.slice(0,subdirs.length-1).join("/"));
 		}
 		var fnh=s_target_dir+fn_relative;
-		UpdateToCLike(fnh,fn);
+		if(is_c_like){
+			UpdateToCLike(fnh,fn,use_symlink);
+		}else{
+			UpdateTo(fnh,fn,use_symlink);
+		}
 		ret.push(fn_relative)
 	}
 	return ret;
 };
 
-CreateProjectForStandardFiles=function(s_target_dir){
-	CreateProjectForFileSet(g_json.h_files,s_target_dir);
-	CreateProjectForFileSet(g_json.lib_files,s_target_dir);
-	return CreateProjectForFileSet(g_json.c_files,s_target_dir);
+CreateProjectForStandardFiles=function(s_target_dir,use_symlink){
+	CreateProjectForFileSet(1,g_json.h_files,s_target_dir,use_symlink);
+	CreateProjectForFileSet(0,g_json.lib_files,s_target_dir,use_symlink);
+	return CreateProjectForFileSet(1,g_json.c_files,s_target_dir,use_symlink);
 };
 
 g_action_handlers.ssh=function(){

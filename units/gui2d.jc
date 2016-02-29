@@ -2196,6 +2196,7 @@ auto DoFileDialog(int is_save,string filterList,string defaultPath)
 	else if Platform.ARCH=="mac":
 		__generate_json("objc_files","nfd/nfd_cocoa.m")
 	else if Platform.IS_LINUX:
+		__generate_json("linux_gtk_hack","1")
 		__generate_json("c_files","nfd/nfd_gtk.c")
 	if filterList:
 		sfilters=new(filterList)
