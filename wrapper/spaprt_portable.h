@@ -46,7 +46,7 @@ iptr osal_GetUnixPathMax();
 void *osal_mmap(void *addr, iptr length, int prot, int flags,int fd);
 int osal_errno();
 
-int osal_CreateProcess(int* ret, char** zargv,int flags);
+int osal_CreateProcess(int* ret, char** zargv,char* spath,int flags);
 
 void* osal_mmap_res_zip(iptr* psize);
 char* osal_getStoragePath();

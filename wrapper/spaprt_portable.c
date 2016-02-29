@@ -1833,7 +1833,7 @@ EXPORT int osal_EndFind(void* handle){
 #define OSAL_CP_PIPE_STDIN 1
 #define OSAL_CP_PIPE_STDOUT 2
 #define OSAL_CP_PIPE_STDERR 4
-EXPORT int osal_CreateProcess(int* ret, char** zargv,int flags){
+EXPORT int osal_CreateProcess(int* ret, char** zargv,char* spath,int flags){
 	int pipes[4];
 	int pid=0;
 	pipes[0]=-1;pipes[1]=-1;
@@ -1844,10 +1844,11 @@ EXPORT int osal_CreateProcess(int* ret, char** zargv,int flags){
 	//if(flags&OSAL_CP_PIPE_STDERR){pipe(pipes+4);}
 	pid=fork();
 	if(pid==0){
+		chdir(spath);
 		//child
-		if(flags&OSAL_CP_PIPE_STDIN){dup2(pipes+0+0, STDIN_FILENO);close(pipes[0+0]);close(pipes[0+1]);}
-		if(flags&OSAL_CP_PIPE_STDOUT){dup2(pipes+2+1, STDOUT_FILENO);}
-		if(flags&OSAL_CP_PIPE_STDERR){dup2(pipes+2+1, STDERR_FILENO);}
+		if(flags&OSAL_CP_PIPE_STDIN){dup2(pipes[0+0], STDIN_FILENO);close(pipes[0+0]);close(pipes[0+1]);}
+		if(flags&OSAL_CP_PIPE_STDOUT){dup2(pipes[2+1], STDOUT_FILENO);}
+		if(flags&OSAL_CP_PIPE_STDERR){dup2(pipes[2+1], STDERR_FILENO);}
 		if(flags&(OSAL_CP_PIPE_STDOUT|OSAL_CP_PIPE_STDERR)){close(pipes[2+0]);close(pipes[2+1]);}
 		execvp(zargv[0],zargv);
 		_exit(1);
@@ -1855,6 +1856,8 @@ EXPORT int osal_CreateProcess(int* ret, char** zargv,int flags){
 		//parent
 		if(pid<0){return 0;}
 		ret[0]=pid;
+		ret[1]=-1;
+		ret[2]=-1;
 		if(flags&OSAL_CP_PIPE_STDIN){close(pipes[0+0]);ret[1]=pipes[0+1];}
 		if(flags&(OSAL_CP_PIPE_STDOUT|OSAL_CP_PIPE_STDERR)){close(pipes[2+1]);ret[2]=pipes[2+0];}
 	}

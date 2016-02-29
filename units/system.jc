@@ -9648,14 +9648,14 @@ module Processes
 				pool.push(s)
 				pool.push(i8(0))
 			zargv[args.n]=0L
-			pool.push(i8(0))
 			for i=0:args.n-1
 				zargv[i]+=pool.d
+			su=detail.toNativeString(path)
 			ret=new int[3]
-			scwd=IO.CurrentDirectory()
-			IO.SetCurrentDirectory(path)
-			succ=osal_CreateProcess(ret, __pointer(zargv.d),pipe_flags);
-			IO.SetCurrentDirectory(scwd)
+			succ=osal_CreateProcess(ret, zargv,su,pipe_flags);
+			pool.discard()
+			//zargv.discard()
+			//su.discard()
 			if !succ:
 				pret=CProcess.NULL
 			else
