@@ -9647,9 +9647,9 @@ module Processes
 				zargv[I]=pool.n
 				pool.push(s)
 				pool.push(i8(0))
-			zargv[args.n]=pool.n
+			zargv[args.n]=0L
 			pool.push(i8(0))
-			for i=0:zargv.n-1
+			for i=0:args.n-1
 				zargv[i]+=pool.d
 			ret=new int[3]
 			scwd=IO.CurrentDirectory()
