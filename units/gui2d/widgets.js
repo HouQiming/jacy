@@ -1787,8 +1787,9 @@ W.EditBox=function(id,attrs){
 					UI.Refresh()
 				}}],
 				OnBlur:function(){
-					obj.OnChange(obj.edit.ed.GetText())
+					if(obj.focus_state=="blur"){return;}
 					obj.focus_state="blur"
+					obj.OnChange(obj.edit.ed.GetText())
 					UI.Refresh()
 				},
 				OnEnter:function(){
