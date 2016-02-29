@@ -1,0 +1,6 @@
+import "system.jc"
+import System.Console.*
+
+(function(){
+	Writeln(System.IO.DirExists("/home/houqiming/tp/qpad"))
+})()

@@ -6957,7 +6957,7 @@ module IO
 		if Platform.IS_UNIX:
 			fnz=new(dir)
 			fnz.push(char(0))
-			attr=(osal_GetFileAttributes(fnz)!=-1)
+			attr=osal_GetFileAttributes(fnz)
 			return attr!=-1&&(attr&FILE_ATTRIBUTE_DIRECTORY)
 		else
 			su=toNativeString(dir.Replace(["/","\\"]))
