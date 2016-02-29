@@ -48,8 +48,9 @@ int osal_errno();
 
 int osal_CreateProcess(int* ret, char** zargv,int flags);
 
-
 void* osal_mmap_res_zip(iptr* psize);
 char* osal_getStoragePath();
+
+void osal_LinuxXIOErrorWorkaround();
 
 #endif

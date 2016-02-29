@@ -1849,7 +1849,8 @@ EXPORT int osal_CreateProcess(int* ret, char** zargv,int flags){
 		if(flags&OSAL_CP_PIPE_STDOUT){dup2(pipes+2+1, STDOUT_FILENO);}
 		if(flags&OSAL_CP_PIPE_STDERR){dup2(pipes+2+1, STDERR_FILENO);}
 		if(flags&(OSAL_CP_PIPE_STDOUT|OSAL_CP_PIPE_STDERR)){close(pipes[2+0]);close(pipes[2+1]);}
-		execv(zargv[0],zargv);
+		execvp(zargv[0],zargv);
+		_exit(1);
 	}else{
 		//parent
 		if(pid<0){return 0;}
