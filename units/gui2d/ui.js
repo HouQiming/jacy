@@ -1926,6 +1926,10 @@ UI.Run=function(){
 				if(UI.inside_IME){break;}
 				var obj_window=UI.m_window_map[event.windowID.toString()];
 				event.keymod&=~(UI.KMOD_CAPS|UI.KMOD_NUM)//get rid of the bogus SDL flags
+				if((event.keymod&UI.KMOD_ALT)&&event.keysym==UI.SDLK_TAB){
+					//ignore alt+tab
+					break;
+				}
 				if(obj_window&&UI.Platform.ARCH!="mac"){
 					if(event.keysym==UI.SDLK_LALT||event.keysym==UI.SDLK_RALT){
 						//alt-menu case

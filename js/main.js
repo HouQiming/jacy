@@ -8,7 +8,7 @@ UpdateTo=function(fn_old,fn_new,use_symlink){
 	if(FileExists(fn_old)&&!IsNewerThan(fn_new,fn_old))return 0;
 	if(use_symlink){
 		shell(["rm","-f",fn_old])
-		if(!!shell(["cp","-s",fn_new,fn_old])){
+		if(!!shell(["cp","-s","`realpath "+fn_new+"`",fn_old])){
 			print("can't update '@1' to '@2'".replace("@1",fn_old).replace("@2",fn_new));
 			return 0;
 		}
@@ -26,7 +26,7 @@ UpdateToCLike=function(fn_old,fn_new,use_symlink){
 	if(FileExists(fn_old)&&!IsNewerThan(fn_new,fn_old))return 0;
 	if(use_symlink){
 		shell(["rm","-f",fn_old])
-		if(!!shell(["cp","-s",fn_new,fn_old])){
+		if(!!shell(["cp","-s","`realpath "+fn_new+"`",fn_old])){
 			print("can't update '@1' to '@2'".replace("@1",fn_old).replace("@2",fn_new));
 			return 0;
 		}
