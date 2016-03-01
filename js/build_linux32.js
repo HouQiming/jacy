@@ -22,7 +22,8 @@ g_action_handlers.make=function(){
 	//CopyToWorkDir(g_json.c_files,"upload/")
 	//CopyToWorkDir(g_json.h_files,"upload/")
 	//CopyToWorkDir(g_json.lib_files,"upload/")
-	var c_files=CreateProjectForStandardFiles(g_work_dir+"/upload/")
+	var c_files=CreateProjectForStandardFiles(g_work_dir+"/upload/",!g_need_ssh_for_linux)
+	//var c_files=CreateProjectForStandardFiles(g_work_dir+"/upload/"		)
 	if(FileExists(g_bin_dir+"/res.zip")){
 		UpdateTo(g_work_dir+"/upload/res.zip",g_bin_dir+"/res.zip")
 	}

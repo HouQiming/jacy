@@ -1037,6 +1037,7 @@ W.Edit_prototype={
 	ProcessHotkeysInput:function(hk,event){
 		var sel0_ccnt=this.sel0.ccnt;
 		var sel1_ccnt=this.sel1.ccnt;
+		if(!hk){return 0;}
 		for(var i=hk.length-1;i>=0;i--){
 			var hki=hk[i]
 			if(event.text==hki.key){
@@ -1081,6 +1082,7 @@ W.Edit_prototype={
 		var sel0_ccnt=this.sel0.ccnt;
 		var sel1_ccnt=this.sel1.ccnt;
 		var IsHotkey=UI.IsHotkey
+		if(!hk){return 0;}
 		for(var i=hk.length-1;i>=0;i--){
 			var hki=hk[i]
 			if(hki.key.length!=1&&IsHotkey(event,hki.key)){
