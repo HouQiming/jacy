@@ -9,6 +9,7 @@ if(g_current_arch=="linux32"||g_current_arch=="linux64"){
 //default: windows
 return {
 	"DEFAULT_SEARCH_PATHS":[g_root+"/wrapper"],
+	"OSSLIB_PATH":g_root+"/osslib",
 	"ADK_PATH":g_root+"/osslib/android",
 	"SDL_PATH":g_root+"/osslib",
 	"IOS_SKELETON_PATH":g_root+"/osslib/ios/skeleton_project",
@@ -23,6 +24,7 @@ return {
 	//"SSH_SERVER_LINUX":"pi@192.168.85.105",
 	//"SSH_SERVER_LINUX":"ubuntu@192.168.85.111",
 	//"SSH_SERVER_LINUX":"ubuntu@192.168.85.108",
+	"SSH_SERVER_RASPPI":"pi@192.168.85.105",
 	"SSH_SERVER_LINUX":"houqiming@192.168.85.114",
 	"SSH_SERVER_MAC":"HouQiming@192.168.85.104",
 }

@@ -1,7 +1,7 @@
 
 module Camera
 	//int osal_TurnOnCamera(int cam_id,int w,int h,int fps)
-	osal_GetCameraImage=__c_function(int*,"osal_GetCameraImage","osal_camera.h")
+	osal_GetCameraImage=__c_function(__pointer,"osal_GetCameraImage","osal_camera.h")
 	osal_TurnOnCamera=__c_function(int,"osal_TurnOnCamera","osal_camera.h")
 	osal_TurnOffCamera=__c_function(int,"osal_TurnOffCamera","osal_camera.h")
 	osal_GetFrontCameraId=__c_function(int,"osal_GetFrontCameraId","osal_camera.h")
@@ -17,6 +17,7 @@ module Camera
 			__generate_json("ios_frameworks","System/Library/Frameworks/CoreVideo.framework")
 		else
 			__generate_json("c_files","camera_desktop.c")
+			__generate_json("search_paths","OSSLIB_PATH")
 			if Platform.ARCH=="win32":
 				__generate_json("dll_files","opencv/build/x86/vc10/bin/msvcp100.dll")
 				__generate_json("dll_files","opencv/build/x86/vc10/bin/msvcr100.dll")
@@ -33,7 +34,7 @@ module Camera
 				__generate_json("lib_files","opencv/build/x64/vc10/lib/opencv_highgui249.lib")
 		w=0
 		h=0
-		ret=osal_GetCameraImage(cam_id,&w,&h)
+		ret=iptr(osal_GetCameraImage(cam_id,&w,&h))
 		if ret:
 			aret=new int[]
 			aret.__bind(1,ret,w*h)

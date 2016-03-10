@@ -212,9 +212,13 @@ g_action_handlers.make=function(){
 		}
 		sopt1.push(' "'+fn_res+'"')
 	}
-	if(g_json.lib_files){
-		for(var i=0;i<g_json.lib_files.length;i++){
-			sopt1.push(' "'+SearchForFile(g_json.lib_files[i])+'"');
+	if(g_lib_files){
+		for(var i=0;i<g_lib_files.length;i++){
+			if(FileExists(g_work_dir+"/"+g_lib_files[i])){
+				sopt1.push(' "'+g_work_dir+"/"+g_lib_files[i]+'"');
+			}else{
+				sopt1.push(' "'+g_lib_files[i]+'"');
+			}
 		}
 	}
 	if(need_link||!FileExists(s_final_output)){

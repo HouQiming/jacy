@@ -263,6 +263,10 @@ UI.SetCaret=function(obj,x,y,w,h,C,dt){
 		if(obj.caret_state>0&&obj.m_window_has_focus){
 			UI.DrawCaret(obj.caret_x,obj.caret_y,obj.caret_w,obj.caret_h,obj.caret_C)
 		}
+		if(obj.m_window_has_focus&&obj.caret_input_rect){
+			UI.SDL_SetTextInputRect(
+				obj.caret_input_rect[0],obj.caret_input_rect[1],obj.caret_input_rect[2],obj.caret_input_rect[3]);
+		}
 	}))
 	var clip_rect=UI.GetCliprect();
 	var x1=x+w;
@@ -273,16 +277,18 @@ UI.SetCaret=function(obj,x,y,w,h,C,dt){
 	y1=Math.min(y1,(clip_rect.y+clip_rect.h)*UI.pixels_per_unit);
 	obj.caret_x=x;
 	obj.caret_y=y;
-	obj.caret_w=Math.max(x1-x,0);
-	obj.caret_h=Math.max(y1-y,0);
+	obj.caret_w=Math.max(x1-x,0)/UI.pixels_per_unit;
+	obj.caret_h=Math.max(y1-y,0)/UI.pixels_per_unit;
 	obj.caret_C=C;
 	obj.caret_state=2;
 	obj.caret_dt=dt;
 	obj.caret_is_set=1
-	UI.SDL_SetTextInputRect(
+	obj.caret_input_rect=[
 		(UI.sub_window_offset_x+x)/UI.SDL_bad_coordinate_corrector,
 		(UI.sub_window_offset_y+y)/UI.SDL_bad_coordinate_corrector,
-		w/UI.SDL_bad_coordinate_corrector,h/UI.SDL_bad_coordinate_corrector)
+		w/UI.SDL_bad_coordinate_corrector,h/UI.SDL_bad_coordinate_corrector];
+	UI.SDL_SetTextInputRect(
+		obj.caret_input_rect[0],obj.caret_input_rect[1],obj.caret_input_rect[2],obj.caret_input_rect[3]);
 };
 
 UI.ChooseScalingFactor=function(obj){
@@ -1443,7 +1449,7 @@ W.Edit_prototype={
 			UI.PushCliprect(this.x,this.y,this.w,this.h)
 			UI.SetCaret(UI.context_window,
 				x_caret,y_caret,
-				this.caret_width*scale,this.GetCharacterHeightAtCaret()*scale,
+				this.caret_width*UI.pixels_per_unit*scale,this.GetCharacterHeightAtCaret()*UI.pixels_per_unit*scale,
 				this.caret_color,this.caret_flicker);
 			UI.PopCliprect()
 		}

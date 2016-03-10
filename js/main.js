@@ -181,9 +181,10 @@ CreateProjectForFileSet=function(is_c_like,c_files,s_target_dir,use_symlink){
 	return ret;
 };
 
+g_lib_files=undefined;
 CreateProjectForStandardFiles=function(s_target_dir,use_symlink){
 	CreateProjectForFileSet(1,g_json.h_files,s_target_dir,use_symlink);
-	CreateProjectForFileSet(0,g_json.lib_files,s_target_dir,use_symlink);
+	g_lib_files=CreateProjectForFileSet(0,g_json.lib_files,s_target_dir,use_symlink);
 	return CreateProjectForFileSet(1,g_json.c_files,s_target_dir,use_symlink);
 };
 

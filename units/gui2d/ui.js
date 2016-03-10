@@ -1541,10 +1541,10 @@ UI.SetFocus=function(obj,is_own_call){
 		}
 	}
 	if(obj&&obj.OnTextInput){
-		UI.SDL_StartTextInput()
+		UI.SDL_StartTextInput();
 	}else{
-		UI.SDL_StopTextInput()
-		UI.inside_IME=0
+		UI.SDL_StopTextInput();
+		UI.inside_IME=0;
 	}
 }
 

@@ -18,7 +18,7 @@ if Platform.BUILD=="debug":
 	static size_t s7_LD_g_memsize=0;
 
 	static void* s7_LD_calloc(size_t sz){
-		void* ptr=calloc(1,sz+sizeof(void*)*10);
+		void* ptr=calloc(1,sz+sizeof(void*)*12);
 		void* w=s7_LD_head[0];
 		void* x=(void*)s7_LD_head;
 		void* stk=spapGetCallStack();
@@ -28,7 +28,7 @@ if Platform.BUILD=="debug":
 		((void**)ptr)[1]=x; ((void**)x)[0]=ptr;
 		((void**)ptr)[2]=(void*)sz;
 		((void**)ptr)[3]=(void*)(s7_LD_g_seq_number++);
-		while(stk&&p<10){
+		while(stk&&p<12){
 			((void**)ptr)[p+0]=((void**)stk)[1];
 			((void**)ptr)[p+1]=((void**)stk)[2];
 			stk=((void**)stk)[0];
@@ -36,29 +36,29 @@ if Platform.BUILD=="debug":
 		}
 		s7_LD_n_ptrs++;
 		s7_LD_g_memsize+=sz;
-		return (void*)(((void**)ptr)+10);
+		return (void*)(((void**)ptr)+12);
 	}
 	
 	static void s7_LD_free(void* ptrx){
-		void* ptr=(void*)(((void**)ptrx)-10);
+		void* ptr=(void*)(((void**)ptrx)-12);
 		void* w=((void**)ptr)[0];
 		void* x=((void**)ptr)[1];
 		//size_t sz=0;
 		((void**)w)[1]=x; ((void**)x)[0]=w;
 		s7_LD_g_memsize-=(size_t)((void**)ptr)[2];
 		s7_LD_n_ptrs--;
-		//sz=(size_t)((void**)ptr)[2]+sizeof(void*)*10;
+		//sz=(size_t)((void**)ptr)[2]+sizeof(void*)*12;
 		//memset(ptr,0xfd,sz);
 		free(ptr);
 	}
 	
 	static void* s7_LD_realloc(void* ptrx,size_t sz){
-		void* ptr=(void*)(((void**)ptrx)-10);
+		void* ptr=(void*)(((void**)ptrx)-12);
 		void* w=((void**)ptr)[0];
 		void* x=((void**)ptr)[1];
 		void* stk=spapGetCallStack();
 		int p=4;
-		ptr=realloc(ptr,sz+sizeof(void*)*10);
+		ptr=realloc(ptr,sz+sizeof(void*)*12);
 		if(!ptr){return NULL;}
 		((void**)w)[1]=x; ((void**)x)[0]=w;
 		w=s7_LD_head[0];
@@ -68,7 +68,7 @@ if Platform.BUILD=="debug":
 		s7_LD_g_memsize-=(size_t)((void**)ptr)[2];
 		((void**)ptr)[2]=(void*)sz;
 		s7_LD_g_memsize+=sz;
-		while(p<10){
+		while(p<12){
 			if(stk){
 				((void**)ptr)[p+0]=((void**)stk)[1];
 				((void**)ptr)[p+1]=((void**)stk)[2];
@@ -79,7 +79,7 @@ if Platform.BUILD=="debug":
 			}
 			p+=2;
 		}
-		return (void*)(((void**)ptr)+10);
+		return (void*)(((void**)ptr)+12);
 	}
 	
 	static void* s7_LD_duk_calloc(void* udata,size_t sz){
@@ -160,7 +160,7 @@ auto CompareLeaks(iptr2[] a0,iptr2[] a1,int mask)
 		else
 			//increment p1 - newly allocated pointer
 			if mask==2:
-				p_leak=a1[p1].y+sizeof(iptr)*10
+				p_leak=a1[p1].y+sizeof(iptr)*12
 				if p_leak!=__cast(iptr,a1)&&p_leak!=a1.d&&p_leak!=__cast(iptr,a0)&&p_leak!=a0.d:
 					leaks.push(a1[p1])
 			p1++
@@ -171,11 +171,11 @@ auto AnalyzeReferer(iptr2[] leaks,iptr2[] state_new)
 	referer_pairs=new iptr2[]
 	foreach lk in leaks
 		p=lk.y
-		pobj=p+10*sizeof(iptr)
+		pobj=p+12*sizeof(iptr)
 		check_needed[pobj]=i8(1)
 	foreach st in state_new
 		p=st.y
-		pobj=p+10*sizeof(iptr)
+		pobj=p+12*sizeof(iptr)
 		if pobj==state_new.d:continue
 		if pobj==detail.g_previous_state0.d:continue
 		if pobj==detail.g_previous_state1.d:continue
@@ -196,7 +196,7 @@ auto AnalyzeReferer(iptr2[] leaks,iptr2[] state_new)
 	return referer_pairs
 
 auto DumpPointer(iptr p)
-	pobj=p+10*sizeof(iptr)
+	pobj=p+12*sizeof(iptr)
 	sz=__memory(iptr,p+sizeof(iptr)*2)
 	Write(formatNumber(pobj,{align:sizeof(iptr)*2,base:16}),' ',sz,': ')
 	if sz>=16L:
@@ -263,7 +263,7 @@ auto DetectLeaks()
 			Writeln('=== ',leaks.n,' leaks, ',state_new.n,' alloced')
 			foreach lk in leaks
 				p=lk.y
-				pobj=p+10*sizeof(iptr)
+				pobj=p+12*sizeof(iptr)
 				if lk.x<0L:Write('(referer) ')
 				DumpPointer(p)
 				ppref=referer_pairs.InlineBisect(inline(a){return a.x<pobj})
@@ -290,12 +290,12 @@ auto AnalyzeFragmentation()
 		p=lk.y
 		DumpPointer(p)
 		n++
-		if n>=10:break
+		if n>=12:break
 	Writeln('=== around big gaps')
 	ptrs=new iptr[]
 	foreach lk in state
 		p=lk.y
-		pobj=p+10*sizeof(iptr)
+		pobj=p+12*sizeof(iptr)
 		sz=__memory(iptr,p+sizeof(iptr)*2)
 		ptrs.push(p)
 		ptrs.push(pobj+sz)

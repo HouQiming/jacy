@@ -14871,13 +14871,13 @@ glGetClipPlanef=function(GLenum plane,__pointer equation){
 }
 
 __glClearDepthf=NULL;
-_glClearDepthf=function(GLclampd depth){
+_glClearDepthf=function(GLclampf depth){
 	ret=__pointer(SDL_GL_GetProcAddress('glClearDepthf'));
 	if !ret:ret=__pointer(SDL_GL_GetProcAddress('glClearDepthfOES'));
 	if Platform.BUILD=='debug'&&!ret:System.Console.Writeln('failed to load glClearDepthf');
 	if !ret:return
 	__glClearDepthf=ret;
-	_glClearDepthf=function(GLclampd depth){
+	_glClearDepthf=function(GLclampf depth){
 		__C(int,"((s7_CT_PFNGLCLEARDEPTHF)@1)(@2)",__glClearDepthf,depth)
 		if Platform.BUILD=='debug':{err=_glGetError();__g_error_buf=err;__g_has_error_buf=1;if err:System.Console.Writeln('glClearDepthf returned error: ',mygluGetErrorString(err))}
 	}

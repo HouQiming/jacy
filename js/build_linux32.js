@@ -1,17 +1,19 @@
 var g_need_ssh_for_linux=(g_current_arch!="linux32"&&g_current_arch!="linux64");
+var g_ssh_target=undefined;
 
 g_action_handlers.make=function(){
 	var ssh_addr,ssh_port;
+	g_ssh_target=(g_arch=='rasppi'?'rasppi':'linux');
 	if(g_need_ssh_for_linux){
-		if(g_json.verbose){print("building for Linux on a @1 machine, doing ssh".replace("@1",g_current_arch));}
-		ssh_addr=GetServerSSH('linux');
-		ssh_port=GetPortSSH('linux');
+		if(g_json.verbose){print("building for @2 on a @1 machine, doing ssh".replace("@1",g_current_arch).replace("@2",g_arch));}
+		ssh_addr=GetServerSSH(g_ssh_target);
+		ssh_port=GetPortSSH(g_ssh_target);
 	}
 	mkdir(g_work_dir+"/upload/");
 	if(g_need_ssh_for_linux&&!FileExists(g_work_dir+"/buildtmp_ready")){
 		var sbuildtmp=SHA1(g_work_dir,8);
 		CreateFile(g_work_dir+"/buildtmp_ready",sbuildtmp);
-		envssh('linux',
+		envssh(g_ssh_target,
 			'echo "----cleanup----";'+
 			'chmod -R 777 ~/_buildtmp/'+sbuildtmp+';'+
 			'rm -rf ~/_buildtmp/'+sbuildtmp+';'+
@@ -109,7 +111,7 @@ g_action_handlers.make=function(){
 		}
 		sshell_array.push("exit")
 		if(g_json.verbose){print("=== making on remote machine")}
-		envssh('linux',sshell_array.join(""))
+		envssh(g_ssh_target,sshell_array.join(""))
 		shell(["rm",s_qualified_linux_output]);
 		shell(["scp","-P"+ssh_port,ssh_addr+':_buildtmp/'+sbuildtmp+'/'+s_linux_output,s_qualified_linux_output])
 		if(!FileExists(s_qualified_linux_output)){
@@ -126,6 +128,7 @@ g_action_handlers.make=function(){
 };
 
 g_action_handlers.run=function(sdir_target){
+	g_ssh_target=(g_arch=='rasppi'?'rasppi':'linux');
 	if(g_need_ssh_for_linux){
 		print("running Linux program on a @1 machine, doing ssh".replace("@1",g_current_arch));
 		var sbuildtmp=ReadFile(g_work_dir+"/buildtmp_ready")
@@ -142,7 +145,7 @@ g_action_handlers.run=function(sdir_target){
 		sshell_array.push('~/_buildtmp/'+sbuildtmp+'/'+s_linux_output+' ')
 		sshell_array.push((g_json.run_args||[]).join(" "))
 		sshell_array.push(';exit')
-		envssh('linux',sshell_array.join(""))
+		envssh(g_ssh_target,sshell_array.join(""))
 	}else{
 		var s_final_output;
 		if(!g_json.output_file){
