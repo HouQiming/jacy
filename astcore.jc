@@ -1631,9 +1631,9 @@ auto coreInit()
 			if id_ccnv==g_id_class:
 				//pre-allocated pointer
 				g_code_buffer.push('void*,')
-			else if id_ccnv==g_id_dtor_hack_ccnv:
-				//need-free-ness
-				g_code_buffer.push('int,')
+			//else if id_ccnv==g_id_dtor_hack_ccnv:
+			//	//need-free-ness
+			//	g_code_buffer.push('int,')
 			pf_parent=0
 			if fn.flags&FFLAG_LAMBDA_NEEDS_PARENT_POINTER_ARG:
 				pf_parent=getOwningFunction(readPool(fn.pe_decl+EXPR_OFS_CALLER))
@@ -1667,9 +1667,9 @@ auto coreInit()
 			if id_ccnv==g_id_class:
 				//pre-allocated pointer
 				g_code_buffer.push('void* s7_BA,')
-			else if id_ccnv==g_id_dtor_hack_ccnv:
-				//need-free-ness
-				g_code_buffer.push('int s7_BF,')
+			//else if id_ccnv==g_id_dtor_hack_ccnv:
+			//	//need-free-ness
+			//	g_code_buffer.push('int s7_BF,')
 			if fn.flags&FFLAG_LAMBDA_NEEDS_PARENT_POINTER_ARG:
 				genClassName(pf_parent)
 				g_code_buffer.push("* s7_BP,")
@@ -1703,6 +1703,7 @@ auto coreInit()
 			g_code_buffer.push('){')
 		//for is_type_only, the context is never actually used, but we need to generate the type anyway
 		assert(!(fn.flags&FFLAG_LAMBDA_NEEDS_PARENT_POINTER)||(fn.flags&FFLAG_LAMBDA_NEEDS_CONTEXT))
+		stack_alloc_checked=0
 		if is_type_only||(fn.flags&FFLAG_LAMBDA_NEEDS_CONTEXT):
 			//generate the lambda struct decl, and new it
 			sbk=g_code_buffer
@@ -1764,7 +1765,7 @@ auto coreInit()
 				pobjfn_dtor=readPool(pobjfn+FUNCTION_OFS_FINALIZER)
 				foreach citem,I in g_c_str_consts
 					//s7rc
-					g_global_strings_code.push('{1')
+					g_global_strings_code.push('{2')
 					if fn.flags&FFLAG_LAMBDA_NEEDS_RTTI:
 						g_global_strings_code.push(',')
 						genFunctionName(pobjfn_dtor)
@@ -1812,6 +1813,7 @@ auto coreInit()
 						g_code_buffer.push(')),s7_BA):calloc(1,sizeof(')
 						genClassName(pobjfn)
 						g_code_buffer.push(')));')
+						stack_alloc_checked=1
 					else if ENABLE_STACK_ALLOCS&&!(fn.flags&FFLAG_LAMBDA_LEAKED):
 						g_code_buffer.push('(memset(&s7_BSA,0,sizeof(')
 						genClassName(pobjfn)
@@ -1827,6 +1829,8 @@ auto coreInit()
 		cgPushScope()
 		if g_enable_debug_instrumentation&&(fn.flags&FFLAG_EXPORTED):
 			g_code_buffer.push('spapDebugV2Start();')
+		if stack_alloc_checked:
+			g_code_buffer.push('s7_BL->s7rc=-!s7_BA;')
 		if (fn.flags&FFLAG_LAMBDA_NEEDS_CONTEXT)&&(fn.flags&FFLAG_LAMBDA_NEEDS_PARENT_POINTER):
 			//lambda arg -> lambda parent pointer
 			g_code_buffer.push('s7_BL->p=s7_BP;')
@@ -2743,13 +2747,13 @@ auto coreInit()
 				genVar(pobj_var)
 			else
 				g_code_buffer.push('err!')
-		if delta==0x3fffffff&&!check_finalize:
+		if delta==0x3ffffffe&&!check_finalize:
 			//pre-destruction setref
 			genVar(pobj_var)
 			if Util.bitSize()==64:
-				g_code_buffer.push('->s7rc=0x3fffffffffffffffLL')
+				g_code_buffer.push('->s7rc+=0x3ffffffffffffffeLL')
 			else
-				g_code_buffer.push('->s7rc=0x3fffffff')
+				g_code_buffer.push('->s7rc+=0x3ffffffe')
 			return
 		//need_bracket=0
 		//if expr_oplevel&&expr_oplevel<=70:
@@ -2773,7 +2777,7 @@ auto coreInit()
 				//	g_code_buffer.push(')')
 				genObject()
 				g_code_buffer.push('->s7rc+=')
-				g_code_buffer.push(string(delta))//*2
+				g_code_buffer.push(string(delta*2))
 			else
 				//only need to finalize if there's a dtor
 				pf_dtor=readPool(t+FUNCTION_OFS_FINALIZER)
@@ -2796,7 +2800,8 @@ auto coreInit()
 					g_code_buffer.push('if((')
 					genObject()
 					g_code_buffer.push('->s7rc')
-					g_code_buffer.push(FormatAsText('+=',delta))//*2
+					if delta:
+						g_code_buffer.push(FormatAsText('+=',delta*2))
 					g_code_buffer.push(')<=0)')
 					if g_enable_debug_instrumentation:
 						g_code_buffer.push('(')
@@ -2804,7 +2809,7 @@ auto coreInit()
 						g_code_buffer.push(',')
 					fgenerate_C_fcall(pecall,pf_dtor,0, 1)
 					g_code_buffer.pop()//')'
-					g_code_buffer.push('0,')
+					//g_code_buffer.push('0,')
 					genObject()
 					g_code_buffer.push(')')
 					if g_enable_debug_instrumentation:
@@ -2818,7 +2823,7 @@ auto coreInit()
 		genObject()
 		g_code_buffer.push('->s7rc')
 		if delta:
-			g_code_buffer.push(FormatAsText('+=',delta))//*2
+			g_code_buffer.push(FormatAsText('+=',delta*2))
 		if check_finalize:
 			g_code_buffer.push(')<=0)')
 			pf_dtor=readPool(t+FUNCTION_OFS_FINALIZER)
@@ -2829,7 +2834,7 @@ auto coreInit()
 			if pf_dtor:
 				fgenerate_C_fcall(pecall,pf_dtor,0, 1)
 				g_code_buffer.pop()//')'
-				g_code_buffer.push('1,')
+				//g_code_buffer.push('1,')
 			else
 				g_code_buffer.push('free(')
 			genObject()
@@ -2874,12 +2879,14 @@ auto coreInit()
 			g_s7_TF_rtti_dtor_used=1
 			g_code_buffer.push('((s7_TF_rtti_dtor)')
 			genCode(readPool(pecall+EXPR_OFS_ARGS),LEVEL_POSTFIX)
-			g_code_buffer.push('->s7rtti)(1,(void*)')
+			g_code_buffer.push('->s7rtti)((void*)')
 			genCode(readPool(pecall+EXPR_OFS_ARGS),LEVEL_PREFIX)
 			g_code_buffer.push(')')
 		else
 			assert(readPool(pecall+0)==1+EFLAG_FCALL)
-			g_code_buffer.push('if(s7_BF){free(')
+			g_code_buffer.push('if(')
+			genCode(readPool(pecall+EXPR_OFS_ARGS),LEVEL_ASSIGNMENT)
+			g_code_buffer.push('->s7rc&1){free(')
 			genCode(readPool(pecall+EXPR_OFS_ARGS),LEVEL_ASSIGNMENT)
 			g_code_buffer.push(');}')
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
@@ -3426,7 +3433,6 @@ auto coreInit()
 		SWrite(g_code_buffer,g_c_str_idmap[id])
 		if need_bracket:
 			g_code_buffer.push(')')
-		//s7rc++ is handled in the inline
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_global_string_cns,__zero(fcompiler_callback),fstrcns_oneval,fstrcns_cgen,FFLAG_SPECIAL)
@@ -11219,7 +11225,7 @@ auto translateLambdas()
 		pobj_var_done=lookupFunctionVariable(pobjfn,g_id_finalizer)
 		if pobj_var_done:
 			//set a big refcnt before the dtor
-			as.push(call(g_id_addref,exprvar(pv_this),expriptr(0x3fffffff)))
+			as.push(call(g_id_addref,exprvar(pv_this),expriptr(0x3ffffffe)))
 			as.push(indcall([call(g_id_ldlambda,exprvar(pv_this),exprctval(pobj_var_done))]))
 		//recurse into structs
 		str_member_list=new PCTObject[]
@@ -12536,7 +12542,7 @@ auto genAllCode()
 			genType(ft.t_ret)
 		g_code_buffer.push(');\n')
 	if g_s7_TF_rtti_dtor_used:
-		g_code_buffer.push("typedef void(*s7_TF_rtti_dtor)(int,void*);")
+		g_code_buffer.push("typedef void(*s7_TF_rtti_dtor)(void*);")
 	s_headers.push(g_code_buffer)
 	g_code_buffer=sbk
 	/////////
