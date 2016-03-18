@@ -6620,7 +6620,7 @@ module IO
 			ret.resize(n)
 			return ret
 		/**
-		 * \brief Write a file
+		 * \brief Write things to a file
 		 *
 		 * @param s is the content to write
 		 * @return An integer representing the number of bytes written
@@ -6630,6 +6630,24 @@ module IO
 			ret_all=0L
 			for i=0:BLOCK_SIZE:s.n-1
 				sz=min(s.n-i,BLOCK_SIZE)
+				ret=fwrite(__pointer(iptr(s.d)+i),1,sz,_gethf())
+				ret_all+=ret
+				if ret!=sz:break
+			return ret_all
+		/**
+		 * \brief Write things to a file
+		 *
+		 * @param s is the content to write
+		 * @return An integer representing the number of bytes written
+		*/
+		inline WriteBinary(s)
+			if !readOptionalMember(s,"IS_ARRAY",0):
+				__error("WriteBinary takes an array, not @1",typeof(s))
+			sztot=s.n*sizeof(s[0])
+			BLOCK_SIZE=iptr(128<<20)
+			ret_all=0L
+			for i=0:BLOCK_SIZE:sztot-1
+				sz=min(sztot-i,BLOCK_SIZE)
 				ret=fwrite(__pointer(iptr(s.d)+i),1,sz,_gethf())
 				ret_all+=ret
 				if ret!=sz:break
@@ -6770,13 +6788,24 @@ module IO
 		has_dir+=has_dd
 		paths=new string[]
 		paths.push(path)
+		class CHandleWrapper
+			__pointer handle
+			auto __done__()
+				if Platform.IS_UNIX:
+					if handle:
+						osal_EndFind(handle)
+				else
+					if handle!=INVALID_HANDLE_VALUE&&handle:
+						FindClose(handle)
+				handle=NULL
+		handle_wrapper=new CHandleWrapper
 		if Platform.IS_UNIX:
 			fnbuf=new char[1024]
-			handle=NULL
 			return function(){
 				fibuf0=__C(__pointer,"@decl:OSAL_TFileInfo @1={0}")
 				fnret=string.NULL
 				firet=TFileInfo()
+				auto handle=handle_wrapper.handle
 				for(;;)
 					if !handle||!osal_FindNext(handle, fnbuf,__C(__pointer,"((OSAL_TFileInfo*)@1)",fibuf0)):
 						if paths.n:
@@ -6813,6 +6842,7 @@ module IO
 						fnret=iname
 						firet=fibuf
 						break
+				handle_wrapper.handle=handle
 				return (fnret,firet)
 			}
 		else
@@ -6821,6 +6851,7 @@ module IO
 				fd=__C(__pointer,"@decl:WIN32_FIND_DATAW @1={0}")
 				fnret=string.NULL
 				firet=TFileInfo()
+				auto handle=handle_wrapper.handle
 				for(;;)
 					if handle==INVALID_HANDLE_VALUE||!handle||!FindNextFileW(handle,fd):
 						if paths.n:
@@ -6859,6 +6890,7 @@ module IO
 						fnret=iname.Replace(["\\","/"])
 						firet=fi
 						break
+				handle_wrapper.handle=handle
 				return (fnret,firet)
 			}
 	/**
@@ -8501,7 +8533,6 @@ module Algorithm
 		ret=new string
 		foreach chi in s0
 			if chi>=65536:
-				//surrogate pair - 2nd
 				ret.push(char(((chi>>18)&0xf)+0xf0))
 				ret.push(char(0x80+((chi>>12)&63)))
 				ret.push(char(0x80+((chi>>6)&63)))
@@ -9189,11 +9220,11 @@ module Env
 			GetTempPathW(MAX_PATH,bpath)
 			spath=Algorithm.UnicodeToUtf8(pwcharToString(__pointer(bpath.d),MAX_PATH)).Replace(["\\","/"])
 		else
-			spath="/tmp"
+			spath="/tmp/"
 		tick=System.Time.tick64()
 		for(;;)
 			idrand=(Algorithm.Random(u64)^u64(tick))
-			sfile=spath+string("/s7tmp")+string(idrand)+"."+sext
+			sfile=spath+string("s7tmp")+string(idrand)+"."+sext
 			if !IO.FileExists(sfile):return sfile
 
 module Time

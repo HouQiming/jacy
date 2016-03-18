@@ -1782,6 +1782,8 @@ UI.m_poll_jobs=[]
 UI.NextTick=function(f){UI.m_poll_jobs.push(UI.HackCallback(f))}
 UI.SDL_bad_coordinate_corrector=1;
 UI.SDL_bad_quit=0;
+UI.wheel_message_mode="focus";
+UI.unify_enters_versions=1;
 UI.Run=function(){
 	if(!UI.is_real){return;}
 	var event=undefined;
@@ -1924,6 +1926,11 @@ UI.Run=function(){
 			case UI.SDL_KEYDOWN:
 			case UI.SDL_KEYUP:
 				if(UI.inside_IME){break;}
+				if(UI.unify_enters_versions){
+					if(event.keysym==UI.SDLK_RETURN2||event.keysym==UI.SDLK_KP_ENTER){
+						event.keysym=UI.SDLK_RETURN;
+					}
+				}
 				var obj_window=UI.m_window_map[event.windowID.toString()];
 				event.keymod&=~(UI.KMOD_CAPS|UI.KMOD_NUM)//get rid of the bogus SDL flags
 				if((event.keymod&UI.KMOD_ALT)&&event.keysym==UI.SDLK_TAB){
@@ -1996,8 +2003,14 @@ UI.Run=function(){
 				UI.inside_IME=0
 				break
 			case UI.SDL_MOUSEWHEEL:
-				if(UI.nd_focus){
-					UI.CallIfAvailable(UI.nd_focus,"OnMouseWheel",event);
+				if(UI.wheel_message_mode=="focus"){
+					if(UI.nd_focus){
+						UI.CallIfAvailable(UI.nd_focus,"OnMouseWheel",event);
+					}
+				}else{
+					if(UI.nd_mouse_over){
+						UI.CallIfAvailable(UI.nd_mouse_over,"OnMouseWheel",event);
+					}
 				}
 				break
 			//UI.nd_mouse_over, UI.nd_key_focus, UI.nd_captured
@@ -2135,7 +2148,7 @@ UI.Format=function(s){
 	var args0=arguments
 	return UI._(s).replace(g_regex_format,function(smatch,sid){
 		var value=args0[sid];
-		if(!value){
+		if(value==undefined){
 			throw new Error("insufficient number of parameters")
 		}
 		return value;

@@ -845,6 +845,21 @@ class __array(T)
 					else if a<0L:
 						__reportRangeCheckError(a,n)
 				return __memory(T,d+a)
+		inline PushUnicode(int chi)
+			if chi>=65536:
+				this.push(char(((chi>>18)&0xf)+0xf0))
+				this.push(char(0x80+((chi>>12)&63)))
+				this.push(char(0x80+((chi>>6)&63)))
+				this.push(char(0x80+(chi&63)))
+			else if chi>=2048:
+				this.push(char(((chi>>12)&0xf)+0xe0))
+				this.push(char(0x80+((chi>>6)&63)))
+				this.push(char(0x80+(chi&63)))
+			else if chi>=128:
+				this.push(char((chi>>6)+0xc0))
+				this.push(char(0x80+(chi&63)))
+			else
+				this.push(char(chi))
 	else
 		__init__=__builtin_ctor
 

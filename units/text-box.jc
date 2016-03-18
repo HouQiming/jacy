@@ -71,6 +71,7 @@ class ITextStateHandler
 	//apply to pre-char locations
 	function(i64[] a,i64[] da, i64[] b):int hasValidResult
 	function(i64[] a,i64[] pp,string s_context,string s, i64[] b):i8[] QueryPerCharValidity
+	function():i64 GetWrapWidth
 	////////////////////
 	//for JS operations
 	__variant __this
@@ -1896,6 +1897,9 @@ class CEditableText
 				ret=xy
 			return float2(fixed2float(ret.x-x)*scale+scr_x,fixed2float(ret.y-y)*scale+scr_y)
 		rr_styles=new TRRContext[]
+		wf_hl=wf
+		if handler.GetWrapWidth:
+			wf_hl=min(wf_hl,fixed2float(handler.GetWrapWidth()))
 		foreach hl in m_highlights
 			ccnt0=hl.p0.ccnt
 			ccnt1=hl.p1.ccnt
@@ -1923,10 +1927,10 @@ class CEditableText
 					//draw 3 rects, we have a cliprect, don't worry
 					//coulddo: line-by-line drawing
 					hc=fixed2float(GetCharacterHeightAt(ccnt0))*scale
-					g_renderer.DrawRR(rr_ctx,xy0.x-rr_dx,xy0.y,max(scr_x+wf*scale-xy0.x,0.f)+rr_dx*2.f,hc)
+					g_renderer.DrawRR(rr_ctx,xy0.x-rr_dx,xy0.y,max(scr_x+wf_hl*scale-xy0.x,0.f)+rr_dx*2.f,hc)
 					for(y_rect=xy0.y+hc;y_rect<xy1.y;y_rect+=hc)
 						if xy1.y-y_rect>1.f:
-							g_renderer.DrawRR(rr_ctx,scr_x-rr_dx,y_rect,wf*scale+rr_dx*2.f,min(xy1.y-y_rect,hc))
+							g_renderer.DrawRR(rr_ctx,scr_x-rr_dx,y_rect,wf_hl*scale+rr_dx*2.f,min(xy1.y-y_rect,hc))
 					hc=fixed2float(GetCharacterHeightAt(ccnt1))*scale
 					g_renderer.DrawRR(rr_ctx,scr_x-rr_dx,xy1.y,max(xy1.x-scr_x,0.f)+rr_dx*2.f,hc)
 			else if int(hl.display_mode)==HL_DISPLAY_MODE_RECT:
@@ -1942,8 +1946,8 @@ class CEditableText
 				else
 					//draw 3 rects, we have a cliprect, don't worry
 					hc=fixed2float(GetCharacterHeightAt(ccnt0))*scale
-					g_renderer.DrawRectangle(xy0.x,xy0.y,max(scr_x+wf*scale-xy0.x,0.f),hc, hl.color)
-					g_renderer.DrawRectangle(scr_x,xy0.y+hc,wf*scale,max(xy1.y-(xy0.y+hc),0.f), hl.color)
+					g_renderer.DrawRectangle(xy0.x,xy0.y,max(scr_x+wf_hl*scale-xy0.x,0.f),hc, hl.color)
+					g_renderer.DrawRectangle(scr_x,xy0.y+hc,wf_hl*scale,max(xy1.y-(xy0.y+hc),0.f), hl.color)
 					hc=fixed2float(GetCharacterHeightAt(ccnt1))*scale
 					g_renderer.DrawRectangle(scr_x,xy1.y,max(xy1.x-scr_x,0.f),hc, hl.color)
 		//////////////////////////////

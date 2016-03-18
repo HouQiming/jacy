@@ -76950,8 +76950,9 @@ DUK_INTERNAL void duk_lexer_parse_re_ranges(duk_lexer_ctx *lex_ctx, duk_re_range
 				/* IdentityEscape */
 				ch = x;
 			} else {
-				DUK_ERROR(lex_ctx->thr, DUK_ERR_SYNTAX_ERROR,
-				          "invalid regexp escape");
+				/*DUK_ERROR(lex_ctx->thr, DUK_ERR_SYNTAX_ERROR,
+				          "invalid regexp escape");*/
+				ch = x;
 			}
 		} else {
 			/* character represents itself */

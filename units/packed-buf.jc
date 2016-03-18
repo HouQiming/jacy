@@ -14,7 +14,47 @@ real pb value:
 type desc struct methods:
 	create value
 	GetSubscriptOffset
+this is a simpler, but less optimizable struct system
+	it can easily support union
+	if it does so, it cannot be easily flattened
 */
+
+/*
+robust serialization:
+	we want: fast same-type detection, fast different type readback
+	same-type detection would be a simple string ==
+	for struct, we should have an offset-to-offset memcpy
+	we also want the type desc to be easily *consumable*
+differentiate const-sized array and var-length array?
+	they are different when serialized
+	do we want to be *THAT* robust? yes
+		the item-day-tick array
+		varsized element
+	separate per-instance-offset-table-needing things into a different series of PB types
+	confusing mess
+		PBArray
+		PBStruct
+		PBVArray
+		(X) PBArrayV
+			is this even useful? if the elements are variable-sized, we need an offset table anyway
+			a const n won't make it faster?
+				how do we pack the offset tables?
+		PBVArrayV
+		PBStructV
+			is offset table even a good idea here?
+				it is indeed faster for read-only data
+			but, a class member is worth it when you do frequent pushes
+	just use normal jc structs / arrays
+		could bridge array / PB interpretation with u8[]
+			each PB type is a struct with a unique jc type and ideally, no real member
+		PB is still needed for low level arrays - fast + predictable layout (type desc more likely to match exactly)
+	offset-table-based 2D array with small secondary dimension is frequently used though
+		a dedicated type for this
+		VArrayOfSmallVArray
+*/
+PB_SERIAL_TYPE_BASIC=0L
+PB_SERIAL_TYPE_STRUCT=0x10000L
+PB_SERIAL_TYPE_ARRAY=0x20000L
 
 PBBasicType=inline(T){
 	return {
@@ -129,6 +169,45 @@ inline PBArray(t0,iptr n)
 				assert(a<n)
 				PBValue(m_t0,ptr+a*m_szele)=value
 		}
+		//serializeType=inline(iptr[] stype){
+		//	//int format could work better
+		//	nout0=stype.n
+		//	stype.push(0L)
+		//	stype.push(this.size())
+		//	stype.push(PB_SERIAL_TYPE_ARRAY)
+		//	stype.push(n)
+		//	m_t0.serializeType(stype)
+		//	stype[nout0]=stype.n-nout0
+		//}
+		//createUnserializer=inline(iptr[] memcpy_map, iptr ofs_tar, iptr ofs_src,string stype_src){
+		//	//here we actually *WANT* errors in release mode
+		//	assert(stype_src[0]=='[')
+		//	if stype_src[0]!='[':
+		//		//just zero out everything if the type doesn't match
+		//		return
+		//	prb=stype_src.indexOf(']')
+		//	assert(prb>0)
+		//	if !(prb>0):
+		//		//just zero out everything if the type doesn't match
+		//		return
+		//	n_src=parseInt(stype_src[1:prb-1])
+		//	if n_src!=this.n:
+		//		return
+		//	if readOptionalMember(m_t0,"IS_PB_BUILTIN",0):
+		//		memcpy_map.push(ofs_tar)
+		//		memcpy_map.push(ofs_src)
+		//		memcpy_map.push(this.size())
+		//	else
+		//		nout0=memcpy_map.n
+		//		m_t0.createUnserializer(memcpy_map,ofs_tar,ofs_src,stype_src)
+		//		nout1=memcpy_map.n
+		//		for i=1:n-1
+		//			delta=m_szele*i
+		//			for j=nout0:3:nout1-3
+		//				memcpy_map.push(memcpy_map[j+0]+delta)
+		//				memcpy_map.push(memcpy_map[j+1]+!?) //todo: the src type SIZE - just serialize it
+		//				memcpy_map.push(memcpy_map[j+2])
+		//}
 	}
 	return T(){
 		n:n,

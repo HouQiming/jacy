@@ -277,8 +277,8 @@ UI.SetCaret=function(obj,x,y,w,h,C,dt){
 	y1=Math.min(y1,(clip_rect.y+clip_rect.h)*UI.pixels_per_unit);
 	obj.caret_x=x;
 	obj.caret_y=y;
-	obj.caret_w=Math.max(x1-x,0)/UI.pixels_per_unit;
-	obj.caret_h=Math.max(y1-y,0)/UI.pixels_per_unit;
+	obj.caret_w=Math.max(x1-x,0);//UI.pixels_per_unit;
+	obj.caret_h=Math.max(y1-y,0);//UI.pixels_per_unit;
 	obj.caret_C=C;
 	obj.caret_state=2;
 	obj.caret_dt=dt;
@@ -2092,7 +2092,14 @@ W.ScrollBar_prototype={
 	},
 	///////////////
 	value:0,
-	OnChange:function(value){this.value=value;}
+	OnChange:function(value){this.value=value;},
+	OnClick:function(event){
+		if(this.bar){
+			var y_bar=this.bar.y+this.bar.h*0.5;
+			this.OnChange(Math.min(Math.max(this.value+
+				(event.y<y_bar?-1:1)*this.page_size/Math.max(this.total_size-this.page_size,1e-15),0),1))
+		}
+	},
 }
 W.ScrollBarThingy_prototype={
 	dimension:'y',
@@ -2158,6 +2165,9 @@ W.ScrollBar=function(id,attrs){
 			}
 			UI.RoundRect(rect)
 			W.Region("bar",{x:rect.x,y:rect.y,w:rect.w,h:rect.h,factor:rect.factor,owner:obj},W.ScrollBarThingy_prototype)
+			if(obj.OnMouseWheel){
+				obj.bar.OnMouseWheel=obj.OnMouseWheel;
+			}
 		}
 	UI.End()
 	return obj;
