@@ -18,11 +18,11 @@ DEBUG_EVAL_LOG=0
 DEBUG_DUMP_FIX_CONSTANT_TYPES=0
 DEBUG_DUMP_LAMBDA=0
 DEBUG_DUMP_RC=0
-DEBUG_DUMP_FLATTEN=1//todo: 0
+DEBUG_DUMP_FLATTEN=0
 DEBUG_DUMP_USER_FLAGS=0
 DEBUG_DUMP_DERIV=0
 DEBUG_TRAP_MEMBER_NOT_FOUND=0
-DEBUG_DUMP_SSA=1//todo: 0
+DEBUG_DUMP_SSA=0
 DEBUG_DUMP_DEADELIM=0
 DEBUG_DUMP_PASSES=(Platform.BUILD=="debug")
 DEBUG_DUMP_GVN_DETAILS=0
@@ -2523,13 +2523,13 @@ auto coreInit()
 	fdot_oneval=function(PExpression pecall,int expr_oplevel){
 		//__dot(obj,"member")
 		//hack for template
-		pe_id_name=readPool(pecall+EXPR_OFS_ARGS+1)
-		if isExpr(pe_id_name,EFLAG_CTVAL):
-			val=getExprValueAs(pe_id_name,g_vtid_CTVAL)
+		pe_member_name=readPool(pecall+EXPR_OFS_ARGS+1)
+		if isExpr(pe_member_name,EFLAG_CTVAL):
+			val=getExprValueAs(pe_member_name,g_vtid_CTVAL)
 			if !isVariable(val):
 				return TSCCPValue(){'tid':g_vtid_CTVAL,'val':val}
 		//hack for special members: array new, tuple[], function.call
-		id_member=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+1),g_vtid_STR)
+		id_member=getExprValueAs(pe_member_name,g_vtid_STR)
 		if id_member==g_id_operator_bracket||id_member==g_id_set_operator_bracket:
 			pecaller=readPool(pecall+EXPR_OFS_CALLER)
 			if readPool(pecaller+EXPR_OFS_FUNCTION)==pecall:
@@ -2565,8 +2565,13 @@ auto coreInit()
 					pe_arg=readPool(pecaller+EXPR_OFS_ARGS+0)
 					replaceExpr(pecaller,call(g_id_tuple_call,peobj,pe_arg))
 					return TSCCPValue(){'tid':g_vtid_UNINIT}
+		if id_member==g_id_n:
+			//const string length
+			pe_object=readPool(pecall+EXPR_OFS_ARGS+0)
+			id_cnsstr=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS),g_vtid_STR)
+			if id_cnsstr:
+				return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,Util.bitSize()),i64(g_symbols[id_cnsstr].n))}
 		//actual member handling
-		pe_member_name=readPool(pecall+EXPR_OFS_ARGS+1)
 		if getExprValue(pe_member_name).tid==g_vtid_UNINIT:
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
 		pobj_member=getDotMember(pecall,1)
@@ -9924,6 +9929,10 @@ auto fixConstantTypes()
 		val=getExprValue(pe)
 		pecaller=readPool(pe+EXPR_OFS_CALLER)
 		if pecaller:
+			if val.tid==g_vtid_CNS&&isBuiltin(pe,g_id_dot)&&getExprValue(readPool(pe+EXPR_OFS_ARGS+0)).tid==g_vtid_STR:
+				//const string length, replace with real const to avoid confusing later steps
+				replaceExpr(pe,exprcns(val.val))
+				return 0
 			if val.tid==g_vtid_CTVAL:
 				if readPool(pecaller+EXPR_OFS_FUNCTION)==pe:
 					//ordinary function, ignore
@@ -11510,6 +11519,13 @@ auto genRefcnt()
 		if (eflags&EFLAG_MASK)==EFLAG_FCALL:
 			t_return=0
 			is_ldlambda=0
+			//else if isBuiltin(pe,g_id_global_string_cns):
+			//	//there is no type, we won't get into the if, but remove the addref anyway
+			//	pecaller=readPool(pe+EXPR_OFS_CALLER)
+			//	if isBuiltin(pecaller,g_id_store)&&pe==readPool(pecaller+EXPR_OFS_ARGS+1):
+			//		queue_no_addref.push(pecaller)
+			//		//hack to remove the release
+			//		writePool(getVariable(readPool(pecaller+EXPR_OFS_ARGS+0))+VAR_OFS_DEFINING_STORE,pecaller)
 			if isBuiltin(pe,g_id_ldlambda):
 				pobj_var=getExprValueAs(readPool(pe+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
 				if pobj_var:
@@ -11955,6 +11971,10 @@ auto genRefcnt()
 		if readPool(vslot.pobj_var+VAR_OFS_ID)==g_id_return:
 			//the return value doesn't die
 			continue
+		//pe_store=readPool(vslot.pobj_var+VAR_OFS_DEFINING_STORE)
+		//if pe_store&&isBuiltin(pe_store,g_id_store)&&isBuiltin(readPool(pe_store+EXPR_OFS_ARGS+1),g_id_global_string_cns):
+		//	//global string consts don't die
+		//	continue
 		assert(vslot.pe_death_merged>=0)
 		all_rcs.push(TRefcntLine(){'pe':vslot.pe_death_merged,"v":vslot.pobj_var,'delta':-1})
 		if Platform.BUILD=="debug":
