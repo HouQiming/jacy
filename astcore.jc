@@ -664,8 +664,10 @@ g_id__=getid("_")
 g_id_powd=getid("powd")
 g_id_gvn_ctunique=getid("<gvn_ctunique>")
 g_id_assert_type=getid("__assert_type")
+//these are initialized later
 g_fakectval_gvn_cns=0
 g_fakectval_gvn_str=0
+g_fakectval_gvn_extvar=0
 
 g_cid_null=getid_const(CTYPE_POINTER,0LL)
 
@@ -674,6 +676,7 @@ auto coreInit()
 	g_inited_astcore=1
 	g_fakectval_gvn_cns=int(g_ctobject_pool.n);g_ctobject_pool.push(0)
 	g_fakectval_gvn_str=int(g_ctobject_pool.n);g_ctobject_pool.push(0)
+	g_fakectval_gvn_extvar=int(g_ctobject_pool.n);g_ctobject_pool.push(0)
 	//g_builtin_scope=ONew()
 	/////////////////////
 	freach_fn_only=function(PExpression pecall,int expr_oplevel){
@@ -7631,6 +7634,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 	//is_different_from_code is made global on purpose - it's manipulated during recursion but only saved at impure-pure boundaries
 	is_different_from_code=0
 	is_referring_to_unpredictable=0
+	volatile_value_time_extvar=0
 	pf_curblock=0
 	p_newly_generated_point=0
 	as_just_generated_cse=new PExpression[]
@@ -7644,6 +7648,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 		tentative_backing_gvnid.clear()
 		is_different_from_code=0
 		is_referring_to_unpredictable=0
+		volatile_value_time_extvar=0
 		pf_curblock=getOwningFunction(pe)
 		removable_stores.clear()
 		the_single_use.clear()
@@ -7672,8 +7677,13 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 			if gvn_id_value&UNPREDICTABLE_VID_BASE:
 				return isCopyPropFriendlyExpr(g_unpredictable_values[gvn_id_value-UNPREDICTABLE_VID_BASE])
 			else
-				return g_gvn_values[gvn_id_value].pv_backing>0
-		return isCopyPropFriendlyExpr(pe_value)
+				if g_gvn_values[gvn_id_value].key.x==g_fakectval_gvn_extvar:
+					//g_fakectval_gvn_extvar is not a normal copyprop
+					return 0
+				else
+					return g_gvn_values[gvn_id_value].pv_backing>0
+		else
+			return isCopyPropFriendlyExpr(pe_value)
 	auto getGvnVariable(PExpression pe,int gvn_id)
 		if !ENABLE_GVN:
 			return getVariable(pe)
@@ -7734,6 +7744,8 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 				pe_ret=exprcns(gvn_key.y)
 			else if gvn_key.x==g_fakectval_gvn_str:
 				pe_ret=exprstr(gvn_key.y)
+			else if gvn_key.x==g_fakectval_gvn_extvar:
+				pe_ret=exprvar(gvn_key.y)
 			else
 				if gvn_key.y==-1:
 					args=new(g_ctunique_items[gvn_key.z].key)
@@ -8085,8 +8097,22 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 							//for the queue
 							if DEBUG_DUMP_SSA:
 								Writeln('var rename: ',dumpObject(pobj_var),' -> ',dumpObject(pobj_var_renamed))
-							replaceExpr(pe,exprvar(pobj_var_renamed))
-						return ssa_names[ssa_vid].gvn_id
+							//we gotta replace pe for the queue
+							pe_renamed=exprvar(pobj_var_renamed)
+							replaceExpr(pe,pe_renamed)
+							pe=pe_renamed
+							//writePool(pe,EFLAG_VARIABLE+pobj_var_renamed)
+						gvn_id_ret=ssa_names[ssa_vid].gvn_id
+						if !(gvn_id_ret&UNPREDICTABLE_VID_BASE)&&g_gvn_values[gvn_id_ret].key.x==g_fakectval_gvn_extvar&&g_gvn_values[gvn_id_ret].key.z!=volatile_value_time_extvar:
+							//stale external variables become unpredictable
+							return make_unpredictable(pe)
+						else
+							return ssa_names[ssa_vid].gvn_id
+				else
+					gvn_id_ret=get_gvn_id(int3(g_fakectval_gvn_extvar,pobj_var,volatile_value_time_extvar),readPool(pe+EXPR_OFS_EPOS))
+					if g_gvn_values[gvn_id_ret].pv_backing<=0:
+						g_gvn_values[gvn_id_ret].pv_backing=pobj_var
+					return gvn_id_ret
 		else if isExpr(pe,EFLAG_FCALL):
 			is_store=0
 			is_pure=0
@@ -8193,6 +8219,12 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 								//	//wipe it out so that no one CSEs the shit
 								//	//if is_different_from_code:
 								//	wipeoutStaleBackingExpr(pe_value)
+								if g_gvn_values[gvn_id_value].key.x==g_fakectval_gvn_extvar:
+									//it's an optimization opportunity
+									if DEBUG_DUMP_SSA:
+										//if !is_different_from_code:
+										Writeln('extvar store ',gvn_id_value,' ',dumpExpr(pe,__zero(fcolorer_callback)))
+									is_different_from_code=1
 								if g_gvn_values[gvn_id_value].pv_backing<=0:
 									//avoid replacing the backing var
 									g_gvn_values[gvn_id_value].pv_backing=ssa_names[ssa_vid].pv_current
@@ -8202,7 +8234,9 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 									if DEBUG_DUMP_SSA:
 										Writeln('backing-var remained as ',dumpObject(g_gvn_values[gvn_id_value].pv_backing)," even though it's assigned to ",dumpObject(ssa_names[ssa_vid].pv_current))
 						else
+							volatile_value_time_extvar++
 							if DEBUG_DUMP_SSA:
+								Writeln('extvar time increased')
 								Writeln('SSA-hostile store ',dumpExpr(pe,__zero(fcolorer_callback)))
 					gvn_id_ret=make_unpredictable(pe)
 				else if is_pure&&n_args<=2:
@@ -8246,6 +8280,11 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 						is_different_from_code=bk
 					is_referring_to_unpredictable=1
 					gvn_id_ret=make_unpredictable(pe)
+				//increase value times after the call
+				if !pobjfn||!(getFFlag(pobjfn)&(FFLAG_BUILTIN|FFLAG_IMPORTED)):
+					volatile_value_time_extvar++
+					if DEBUG_DUMP_SSA:
+						Writeln('extvar time increased: ',dumpExpr(pe,__zero(fcolorer_callback)))
 			else
 				for i=-1:n_args-1
 					peargi=readPool(pe+EXPR_OFS_ARGS+i)

@@ -757,7 +757,7 @@ module duktape
 				if !m_completed:
 					__basic_api.spapReportError("JS object property read must be completed with .as, .or, .Call. If you're expecting an object, use .as(JSObject)")
 	struct _IncompleteJSPropertyAccess
-		m_jsctx=JSContext.NULL
+		JSContext m_jsctx
 		if Platform.BUILD=="debug":
 			m_checker=_IncompleteJSPropertyAccess_Checker()
 		inline _ctx()
