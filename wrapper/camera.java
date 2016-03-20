@@ -47,6 +47,7 @@ public class camera implements Camera.PreviewCallback,SurfaceTexture.OnFrameAvai
 			my_camera.setPreviewTexture(st);
 			params=my_camera.getParameters();
 			params.setPreviewFormat(ImageFormat.NV21);
+			//params.setRecordingHint(false);
 			if(w!=0&&h!=0){params.setPreviewSize(w,h);}
 			if(fps!=0){params.setPreviewFrameRate(fps);}//the new api sucks, use the existing one
 			//if(fps!=0){params.setPreviewFpsRange(fps*1000,fps*1000);}

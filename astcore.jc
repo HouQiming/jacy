@@ -18,11 +18,11 @@ DEBUG_EVAL_LOG=0
 DEBUG_DUMP_FIX_CONSTANT_TYPES=0
 DEBUG_DUMP_LAMBDA=0
 DEBUG_DUMP_RC=0
-DEBUG_DUMP_FLATTEN=0
+DEBUG_DUMP_FLATTEN=1//todo: 0
 DEBUG_DUMP_USER_FLAGS=0
 DEBUG_DUMP_DERIV=0
 DEBUG_TRAP_MEMBER_NOT_FOUND=0
-DEBUG_DUMP_SSA=0
+DEBUG_DUMP_SSA=1//todo: 0
 DEBUG_DUMP_DEADELIM=0
 DEBUG_DUMP_PASSES=(Platform.BUILD=="debug")
 DEBUG_DUMP_GVN_DETAILS=0
@@ -1822,6 +1822,7 @@ auto coreInit()
 						g_code_buffer.push('calloc(1,sizeof(')
 						genClassName(pobjfn)
 						g_code_buffer.push('));')
+						stack_alloc_checked=2
 		if is_type_only:
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
 		sbak=g_code_buffer
@@ -1829,8 +1830,10 @@ auto coreInit()
 		cgPushScope()
 		if g_enable_debug_instrumentation&&(fn.flags&FFLAG_EXPORTED):
 			g_code_buffer.push('spapDebugV2Start();')
-		if stack_alloc_checked:
+		if stack_alloc_checked==1:
 			g_code_buffer.push('s7_BL->s7rc=-!s7_BA;')
+		else if stack_alloc_checked==2:
+			g_code_buffer.push('s7_BL->s7rc=-1;')
 		if (fn.flags&FFLAG_LAMBDA_NEEDS_CONTEXT)&&(fn.flags&FFLAG_LAMBDA_NEEDS_PARENT_POINTER):
 			//lambda arg -> lambda parent pointer
 			g_code_buffer.push('s7_BL->p=s7_BP;')
@@ -6742,6 +6745,18 @@ auto isCtorEmpty(PCTObject t_tar,int do_caching)
 		if isExpr(pe,EFLAG_FCALL):
 			if isBuiltin(pe,g_id_block)||isBuiltin(pe,g_id_C_return):return 1
 			if isBuiltin(pe,g_id_nop)||isBuiltin(pe,g_id_callstack)||isBuiltin(pe,g_id_function)||isBuiltin(pe,g_id_assert_ctval):return 0
+			if isBuiltin(pe,g_id_if):
+				pe_cond=readPool(pe+EXPR_OFS_ARGS+0)
+				val_cond=getExprValue(pe_cond)
+				if val_cond.tid==g_vtid_CNS||val_cond.tid==g_vtid_STR:
+					n_args=getExprNArgs(pe)
+					for i=1:2:n_args-1
+						peargi=readPool(pe+EXPR_OFS_ARGS+i)
+						if testUserFlag(peargi,QUEUE_FLAG_REACH):
+							dfsExpr(peargi,f_test_emptiness)
+				else
+					is_empty=0
+				return 0
 			//only allow zero-valued stores and the standard getcontext / return
 			//and methods
 			//do not recurse into valid stores
@@ -7561,6 +7576,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 	//just do the basic block thing - split basic blocks first
 	//if DEBUG_DUMP_SSA:
 	//	Writeln('=== before SSA\n',dumpExpr(pe_top,fcolor_ssa))
+	//note: we only allow variables for which all assignments are in the same block
 	clearUserFlags(pe_top,0)
 	all_bbs=new PExpression[]
 	auto fcreatebb(PExpression pe,int block_id)
@@ -8036,6 +8052,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 							gvn_key.z=tmp
 		gvn_id_ret=get_gvn_id(gvn_key,epos)
 		return gvn_id_ret
+	//in-basic-block SSA
 	auto bbssa(PExpression pe0)
 		pe=pe0
 		if !testUserFlag(pe,QUEUE_FLAG_REACH)&&isExpr(pe,EFLAG_FCALL):
@@ -8111,7 +8128,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 						bid=(flag0&USER_FLAG_MASK)
 						if bid!=USER_FLAG_MASK&&bid:
 							if DEBUG_DUMP_SSA:
-								Writeln('SSA-friendly store ',dumpExpr(pe,__zero(fcolorer_callback)))
+								Writeln('SSA-friendly store ',dumpExpr(pe,__zero(fcolorer_callback)),' ',gvn_id_value)
 							if !(bid&FLAG_SSA_RENAMED):
 								//mode switch to SSA, but the variable name remains unchanged
 								bid--
