@@ -82,6 +82,7 @@ JNIEXPORT void JNICALL Java_com_spap_wrapper_camera_sendresult(JNIEnv* env,jclas
 			u32 val;
 			//pt=out+i3;
 			pt=out+i;
+			//coulddo: neon?
 			#define convertYUVtoARGB(y,u,v) val=0xff000000u;\
 				tmp=y+((116130*v)>>16);			val+=(u32)(!(tmp2=tmp>>8)?tmp:(0xff^(tmp2>>24)));\
 				tmp=y-((22544*v+46793*u)>>16);	val+=(u32)(!(tmp2=tmp>>8)?tmp:(0xff^(tmp2>>24)))<<8;\

@@ -2739,6 +2739,7 @@ auto coreInit()
 	auto genRefcntCCode(PExpression pecall,int expr_oplevel,int check_finalize)
 		delta=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+1),g_vtid_CNS)
 		pe_var=readPool(pecall+EXPR_OFS_ARGS+0)
+		is_this=0
 		if isExpr(pe_var,EFLAG_CONST):
 			pobj_var=0
 			t=getOwningFunction(pecall)
@@ -2748,6 +2749,7 @@ auto coreInit()
 			assert(isExpr(readPool(pecall+EXPR_OFS_ARGS+0),EFLAG_VARIABLE))
 			pobj_var=getVariable(pe_var)
 			t=getVariableType(pobj_var)
+			is_this=(readPool(pobj_var+VAR_OFS_ID)==g_id_this)
 		auto genObject()
 			if !pobj_var:
 				g_code_buffer.push('s7_BL')
@@ -2826,9 +2828,11 @@ auto coreInit()
 					if g_enable_debug_instrumentation:
 						g_code_buffer.push(')')
 			return
-		g_code_buffer.push('if(')
-		genObject()
-		g_code_buffer.push(')')
+		if is_this&&!delta:return
+		if !is_this:
+			g_code_buffer.push('if(')
+			genObject()
+			g_code_buffer.push(')')
 		if check_finalize:
 			g_code_buffer.push('if((')
 		genObject()
@@ -7536,6 +7540,7 @@ struct TGVNValue
 	//function, a, b
 	int3 key
 	PCTObject pv_backing
+	int volatile_value_time_extvar
 	int epos
 class TTraitGVNValue
 	TKey=int3
@@ -7559,10 +7564,11 @@ g_gvn_values=[TGVNValue()]
 g_gvn_unique=new CUniqueIDProvider(TTraitGVNValue)
 //g_gvn_backing_var=new int[1]
 
-inline get_gvn_id(int3 key,int epos)
+inline get_gvn_id(int3 key,int epos,int volatile_value_time_extvar)
 	ret=g_gvn_unique._find(1,key)
 	if ret==int(g_gvn_values.n-1):
-		g_gvn_values.back().epos=epos
+		g_gvn_values[ret].epos=epos
+		g_gvn_values[ret].volatile_value_time_extvar=volatile_value_time_extvar
 	return int(ret)
 
 inline test_gvn_id(int3 key)
@@ -7639,7 +7645,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 	//is_different_from_code is made global on purpose - it's manipulated during recursion but only saved at impure-pure boundaries
 	is_different_from_code=0
 	is_referring_to_unpredictable=0
-	volatile_value_time_extvar=0
+	volatile_value_time_extvar=1
 	pf_curblock=0
 	p_newly_generated_point=0
 	as_just_generated_cse=new PExpression[]
@@ -7653,7 +7659,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 		tentative_backing_gvnid.clear()
 		is_different_from_code=0
 		is_referring_to_unpredictable=0
-		volatile_value_time_extvar=0
+		volatile_value_time_extvar=1
 		pf_curblock=getOwningFunction(pe)
 		removable_stores.clear()
 		the_single_use.clear()
@@ -7807,6 +7813,10 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 		else
 			//aggressive_linear_coalescing should disable that?
 			if gvn_id&UNPREDICTABLE_VID_BASE:return
+			if (g_gvn_values[gvn_id].volatile_value_time_extvar&&
+			g_gvn_values[gvn_id].volatile_value_time_extvar!=volatile_value_time_extvar):
+				//cannot replace things with stale volatile
+				return
 			if !isExpr(pe,EFLAG_FCALL):
 				if isExpr(pe,EFLAG_VARIABLE)&&is_different_from_code:
 					//variable renaming case
@@ -7840,32 +7850,48 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 	inline gvnkeyIsBuiltin(int3 gvn_key,int id)
 		return gvn_key.x==getBuiltin(id)
 	inline gvnIsBuiltin(int gvn_id,int id)
-		if gvn_id&UNPREDICTABLE_VID_BASE:return 0
-		gvn_key=g_gvn_values[gvn_id].key
-		return gvn_key.x==getBuiltin(id)
+		if gvn_id&UNPREDICTABLE_VID_BASE:
+			return 0
+		else
+			gvn_key=g_gvn_values[gvn_id].key
+			return gvn_key.x==getBuiltin(id)
 	inline gvnIsCns(int gvn_id)
-		if gvn_id&UNPREDICTABLE_VID_BASE:return 0
-		gvn_key=g_gvn_values[gvn_id].key
-		return gvn_key.x==g_fakectval_gvn_cns
+		if gvn_id&UNPREDICTABLE_VID_BASE:
+			return 0
+		else
+			gvn_key=g_gvn_values[gvn_id].key
+			return gvn_key.x==g_fakectval_gvn_cns
 	inline gvnIsZero(int gvn_id)
-		if gvn_id&UNPREDICTABLE_VID_BASE:return 0
-		gvn_key=g_gvn_values[gvn_id].key
-		return gvn_key.x==g_fakectval_gvn_cns&&isConstZero(ctNumber(gvn_key.y))
+		if gvn_id&UNPREDICTABLE_VID_BASE:
+			return 0
+		else
+			gvn_key=g_gvn_values[gvn_id].key
+			return gvn_key.x==g_fakectval_gvn_cns&&isConstZero(ctNumber(gvn_key.y))
 	inline gvnIsOne(int gvn_id)
-		if gvn_id&UNPREDICTABLE_VID_BASE:return 0
-		gvn_key=g_gvn_values[gvn_id].key
-		return gvn_key.x==g_fakectval_gvn_cns&&isConstOne(ctNumber(gvn_key.y))
+		if gvn_id&UNPREDICTABLE_VID_BASE:
+			return 0
+		else
+			gvn_key=g_gvn_values[gvn_id].key
+			return gvn_key.x==g_fakectval_gvn_cns&&isConstOne(ctNumber(gvn_key.y))
 	inline gvnIsNegOne(int gvn_id)
-		if gvn_id&UNPREDICTABLE_VID_BASE:return 0
-		gvn_key=g_gvn_values[gvn_id].key
-		return gvn_key.x==g_fakectval_gvn_cns&&isConstNegOne(ctNumber(gvn_key.y))
+		if gvn_id&UNPREDICTABLE_VID_BASE:
+			return 0
+		else
+			gvn_key=g_gvn_values[gvn_id].key
+			return gvn_key.x==g_fakectval_gvn_cns&&isConstNegOne(ctNumber(gvn_key.y))
+	inline getValueVolatileTime(int gvn_id)
+		if gvn_id&UNPREDICTABLE_VID_BASE:
+			return 0
+		else
+			return g_gvn_values[gvn_id].volatile_value_time_extvar
 	auto gvn_peephole(int3 gvn_key0,PExpression pe)
 		n_args=getExprNArgs(pe)
 		gvn_key=gvn_key0
 		pe_arg0=0
 		pe_arg1=1
-		if n_args>0:{pe_arg0=readPool(pe+EXPR_OFS_ARGS+0);gvn_key.y=bbssa(pe_arg0)}
-		if n_args>1:{pe_arg1=readPool(pe+EXPR_OFS_ARGS+1);gvn_key.z=bbssa(pe_arg1)}
+		arg_vvtime=0
+		if n_args>0:{pe_arg0=readPool(pe+EXPR_OFS_ARGS+0);gvn_key.y=bbssa(pe_arg0);arg_vvtime=max(arg_vvtime,getValueVolatileTime(gvn_key.y))}
+		if n_args>1:{pe_arg1=readPool(pe+EXPR_OFS_ARGS+1);gvn_key.z=bbssa(pe_arg1);arg_vvtime=max(arg_vvtime,getValueVolatileTime(gvn_key.z))}
 		epos=readPool(pe+EXPR_OFS_EPOS)
 		if ENABLE_GVN:
 			if pe_arg0:
@@ -7910,7 +7936,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 												cb.val_bin-=cc.val_bin
 										is_different_from_code=1
 										gvn_key.x=getBuiltin(g_id_operator_mul)
-										gvn_key.y=get_gvn_id(int3(g_fakectval_gvn_cns,getid_const(cb.type,cb.val_bin),0),epos)
+										gvn_key.y=get_gvn_id(int3(g_fakectval_gvn_cns,getid_const(cb.type,cb.val_bin),0),epos,0)
 										gvn_key.z=key_arg0.z
 								else if key_arg1.x==g_id_operator_mul&&key_arg1.z==gvn_key.y&&gvnIsCns(key_arg1.y):
 									//a+b*a
@@ -7931,7 +7957,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 											cb.val_bin=1LL-cb.val_bin
 									is_different_from_code=1
 									gvn_key.x=getBuiltin(g_id_operator_mul)
-									gvn_key.z=get_gvn_id(int3(g_fakectval_gvn_cns,getid_const(cb.type,cb.val_bin),0),epos)
+									gvn_key.z=get_gvn_id(int3(g_fakectval_gvn_cns,getid_const(cb.type,cb.val_bin),0),epos,0)
 							//negation canonicalization: a+-(-b), (-a)+b, -a-b, -a*-b
 							key_arg0=g_gvn_values[gvn_key.y].key
 							key_arg1=g_gvn_values[gvn_key.z].key
@@ -8051,11 +8077,11 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 						if gvnkeyIsBuiltin(gvn_key,g_id_operator_add):
 							is_different_from_code=1
 							gvn_key.x=getBuiltin(g_id_operator_mul)
-							gvn_key.z=get_gvn_id(int3(g_fakectval_gvn_cns,idCastConstI32(2,t),0),epos)
+							gvn_key.z=get_gvn_id(int3(g_fakectval_gvn_cns,idCastConstI32(2,t),0),epos,0)
 						else if gvnkeyIsBuiltin(gvn_key,g_id_operator_sub)||gvnkeyIsBuiltin(gvn_key,g_id_operator_xor):
 							is_different_from_code=1
 							gvn_key.x=g_fakectval_gvn_cns
-							gvn_key.y=get_gvn_id(int3(g_fakectval_gvn_cns,idCastConstI32(0,t),0),epos)
+							gvn_key.y=get_gvn_id(int3(g_fakectval_gvn_cns,idCastConstI32(0,t),0),epos,0)
 							gvn_key.z=0
 						else if gvnkeyIsBuiltin(gvn_key,g_id_operator_and)||gvnkeyIsBuiltin(gvn_key,g_id_operator_or):
 							is_different_from_code=1
@@ -8067,7 +8093,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 							tmp=gvn_key.y
 							gvn_key.y=gvn_key.z
 							gvn_key.z=tmp
-		gvn_id_ret=get_gvn_id(gvn_key,epos)
+		gvn_id_ret=get_gvn_id(gvn_key,epos,arg_vvtime)
 		return gvn_id_ret
 	//in-basic-block SSA
 	auto bbssa(PExpression pe0)
@@ -8108,13 +8134,15 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 							pe=pe_renamed
 							//writePool(pe,EFLAG_VARIABLE+pobj_var_renamed)
 						gvn_id_ret=ssa_names[ssa_vid].gvn_id
-						if !(gvn_id_ret&UNPREDICTABLE_VID_BASE)&&g_gvn_values[gvn_id_ret].key.x==g_fakectval_gvn_extvar&&g_gvn_values[gvn_id_ret].key.z!=volatile_value_time_extvar:
+						if (!(gvn_id_ret&UNPREDICTABLE_VID_BASE)&&
+						g_gvn_values[gvn_id_ret].volatile_value_time_extvar&&
+						g_gvn_values[gvn_id_ret].volatile_value_time_extvar!=volatile_value_time_extvar):
 							//stale external variables become unpredictable
 							return make_unpredictable(pe)
 						else
 							return ssa_names[ssa_vid].gvn_id
 				else
-					gvn_id_ret=get_gvn_id(int3(g_fakectval_gvn_extvar,pobj_var,volatile_value_time_extvar),readPool(pe+EXPR_OFS_EPOS))
+					gvn_id_ret=get_gvn_id(int3(g_fakectval_gvn_extvar,pobj_var,volatile_value_time_extvar),readPool(pe+EXPR_OFS_EPOS),volatile_value_time_extvar)
 					if g_gvn_values[gvn_id_ret].pv_backing<=0:
 						g_gvn_values[gvn_id_ret].pv_backing=pobj_var
 					return gvn_id_ret
@@ -8130,9 +8158,9 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 				if ENABLE_GVN:
 					val=getExprValue(pe)
 					if val.tid==g_vtid_CNS:
-						return get_gvn_id(int3(g_fakectval_gvn_cns,val.val,0),readPool(pe+EXPR_OFS_EPOS))
+						return get_gvn_id(int3(g_fakectval_gvn_cns,val.val,0),readPool(pe+EXPR_OFS_EPOS),0)
 					else if val.tid==g_vtid_STR:
-						return get_gvn_id(int3(g_fakectval_gvn_str,val.val,0),readPool(pe+EXPR_OFS_EPOS))
+						return get_gvn_id(int3(g_fakectval_gvn_str,val.val,0),readPool(pe+EXPR_OFS_EPOS),0)
 			gvn_key=int3(pobjfn,0,0)
 			n_args=getExprNArgs(pe)
 			if !isSSAStatementHost(pe):
@@ -8150,6 +8178,14 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 					gvn_id_value=bbssa(pe_value)
 					pe_value=readPool(pe+EXPR_OFS_ARGS+1)//var renaming may have changed it
 					remove_single_use=(!is_referring_to_unpredictable)
+					if remove_single_use&&((gvn_id_value&UNPREDICTABLE_VID_BASE)||
+					g_gvn_values[gvn_id_value].volatile_value_time_extvar&&
+					g_gvn_values[gvn_id_value].volatile_value_time_extvar):
+						//can't just remove single use if it involves volatile stuff
+						//this holds even if the value is currently valid
+						//coulddo: make it more precise and only remove it when it's still valid
+						//it's not that frequent anyway
+						remove_single_use=0
 					gvn_replace(pe_value,gvn_id_value)
 					pe_value=readPool(pe+EXPR_OFS_ARGS+1)
 					is_referring_to_unpredictable=bk2
@@ -8225,7 +8261,7 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 								//	//if is_different_from_code:
 								//	wipeoutStaleBackingExpr(pe_value)
 								if g_gvn_values[gvn_id_value].key.x==g_fakectval_gvn_extvar:
-									//it's an optimization opportunity
+									//it's an optimization opportunity: de facto copy prop from extvar
 									if DEBUG_DUMP_SSA:
 										//if !is_different_from_code:
 										Writeln('extvar store ',gvn_id_value,' ',dumpExpr(pe,__zero(fcolorer_callback)))
@@ -8259,16 +8295,18 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 				else if is_pure:
 					arg_values=new int[]
 					arg_values.push(g_id_gvn_ctunique)
+					arg_vvtime=0
 					for i=-1:n_args-1
 						bk2=is_referring_to_unpredictable
 						val_i=bbssa(readPool(pe+EXPR_OFS_ARGS+i))
 						if i>=0:
+							arg_vvtime=max(arg_vvtime,getValueVolatileTime(val_i))
 							arg_values.push(val_i)
 						else
 							is_referring_to_unpredictable=bk2
 					gvn_key.y=-1
 					gvn_key.z=ctUnique(arg_values)
-					gvn_id_ret=get_gvn_id(gvn_key,readPool(pe+EXPR_OFS_EPOS))
+					gvn_id_ret=get_gvn_id(gvn_key,readPool(pe+EXPR_OFS_EPOS),arg_vvtime)
 					if DEBUG_DUMP_SSA:
 						Writeln('GVN number ',gvn_id_ret,' ',dumpExpr(pe,__zero(fcolorer_callback)))
 				else
@@ -8305,6 +8343,9 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 						is_different_from_code=bk
 				is_referring_to_unpredictable=1
 				gvn_id_ret=make_unpredictable(pe)
+				volatile_value_time_extvar++
+				if DEBUG_DUMP_SSA:
+					Writeln('extvar time increased (nested block): ',dumpExpr(pe,fcolor_abbrv_blocks))
 			if !(gvn_id_ret&UNPREDICTABLE_VID_BASE):
 				tentative_backing_gvnid[pe]=gvn_id_ret//set this no matter what - needed for the wipe check
 				if !g_gvn_values[gvn_id_ret].pv_backing:
@@ -8325,9 +8366,9 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 		if ENABLE_GVN:
 			val=getExprValue(pe)
 			if val.tid==g_vtid_CNS:
-				return get_gvn_id(int3(g_fakectval_gvn_cns,val.val,0),readPool(pe+EXPR_OFS_EPOS))
+				return get_gvn_id(int3(g_fakectval_gvn_cns,val.val,0),readPool(pe+EXPR_OFS_EPOS),0)
 			else if val.tid==g_vtid_STR:
-				return get_gvn_id(int3(g_fakectval_gvn_str,val.val,0),readPool(pe+EXPR_OFS_EPOS))
+				return get_gvn_id(int3(g_fakectval_gvn_str,val.val,0),readPool(pe+EXPR_OFS_EPOS),0)
 		is_referring_to_unpredictable=1
 		return make_unpredictable(pe)
 	auto countUsesSSA(PExpression pe)
@@ -11419,7 +11460,7 @@ auto createCallGraph()
 			assert(pobjfn_called>0)
 			if pobjfn_called<0:continue
 			if DEBUG_DUMP_CALL_GRAPH:
-				Writeln('DEBUG_DUMP_CALL_GRAPH loop2 ',dumpObject(pobjfn_called))//todo
+				Writeln('DEBUG_DUMP_CALL_GRAPH loop2 ',dumpObject(pobjfn_called))
 			pinv=readPool(pobjfn_called+FUNCTION_OFS_PINV_CALL_GRAPH_EDGES)-1
 			if pinv<0:
 				assert(0)
