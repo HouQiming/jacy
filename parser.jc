@@ -1280,6 +1280,15 @@ auto parseC0(int id_fn_current,TToken[] toks)
 			if lv==LEVEL_ASSIGNMENT:break
 		return ea
 	//////////////////////////////////
+	//auto autoReleaseWrap(PExpression pe)
+	//	epos0=readPool(pe+1)
+	//	epos1=readPool(pe+2)
+	//	pe_wrapped=call(g_id_block,
+	//		call(g_id_auto_release_barrier,expriptr(0)),
+	//		pe,
+	//		call(g_id_auto_release_barrier,expriptr(1)))
+	//	return fillepos(pe_wrapped,epos0,epos1)
+	//////////////////////////////////
 	auto statement_end()
 		if ptr>0&&toks[ptr-1].tok=='}':
 			//a {} ender shouldn't go any further
@@ -1293,6 +1302,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 	auto statement()
 		//code_before=0
 		//code_after=0
+		//coulddo: autoReleaseWrap on the bigger statements
 		epos0_statement=toks[ptr].epos0
 		skip_statement_end=0
 		auto id=wantid()
@@ -1545,7 +1555,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 				skip_statement_end=1
 			else
 				pe=expr(LEVEL_MAX)
-				//C-like declaration, assign to typed zeroes
+				//C-like declaration, pe is a type, translate to __zero assignment
 				if ptr&&toks[ptr-1].tok!='}':
 					id_var=wantid()
 					if id_var:
@@ -1572,6 +1582,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 								break
 						epos1_all=toks[ptr-1].epos1
 						pe=fillepos(vcall(g_id_block,as),epos0_all,epos1_all)
+				//pe=autoReleaseWrap(pe)
 		//the terminating ;
 		//pe=fillepos()
 		if !skip_statement_end:
