@@ -150,7 +150,7 @@ module duktape
 		inline _ctx()
 			return __C(__pointer,"(duk_context*)@1",m_hctx)
 		auto __done__()
-			duk_destroy_heap(m_hctx)
+			duk_destroy_heap(_ctx())
 		///////////
 		//init the ref-holding stash
 		auto _init_stash()
@@ -360,7 +360,7 @@ module duktape
 					ret=string.NULL
 				else
 					lg=0L
-					pstr=iptr(duk_to_lstring(_ctx(),-1,&lg))
+					pstr=iptr(duk_to_lstring(_ctx(),-1,__C_pure(__pointer,"(duk_size_t*)@1",&lg)))
 					ret=__ptrToString(pstr,lg)
 			else if T==JSObject:
 				if duk_is_null_or_undefined(_ctx(),-1):
@@ -622,7 +622,7 @@ module duktape
 								duk_push_lstring(_ctx(),s_name0,s_name0.n)
 								duk_get_prop(_ctx(),-2)
 								lg=0L
-								pstr=iptr(duk_to_lstring(_ctx(),-1,&lg))
+								pstr=iptr(duk_to_lstring(_ctx(),-1,__C_pure(__pointer,"(duk_size_t*)@1",&lg)))
 								s_name=new char[lg]
 								__basic_api.memcpy(__pointer(s_name.d),__pointer(pstr),lg)
 								duk_pop(_ctx())
@@ -707,7 +707,7 @@ module duktape
 						while duk_next(_ctx(),-1,1):
 							duk_swap_top(_ctx(),-2)
 							lg=0L
-							pstr=iptr(duk_to_lstring(_ctx(),-1,&lg))
+							pstr=iptr(duk_to_lstring(_ctx(),-1,__C_pure(__pointer,"(duk_size_t*)@1",&lg)))
 							s_object_path.resize((n0?n0+1:n0)+lg)
 							__basic_api.memcpy(__pointer(s_object_path.d+(n0?n0+1:n0)),__pointer(pstr),lg)
 							duk_pop(_ctx())
@@ -742,12 +742,12 @@ module duktape
 		/////////
 		_init_stash()
 	///////
-	inline _push_subscript(ctx,name)
+	inline _push_subscript(holder,name)
 		T=typeof(name)
 		if T==string:
-			duk_push_lstring(ctx,name,name.n)
+			duk_push_lstring(holder._ctx(),name,name.n)
 		else if __is_type("int",T):
-			duk_push_int(ctx,int(name))
+			duk_push_int(holder._ctx(),int(name))
 		else
 			__error("invalid Javascript subscript type '@1': only int and string are allowed",T)
 	if Platform.BUILD=="debug":
@@ -767,7 +767,7 @@ module duktape
 				m_checker.m_completed=1
 			duk_get_prop(_ctx(),-2)//for the *previous* subscript
 			if duk_is_object(_ctx(),-1):
-				_push_subscript(_ctx(),name)
+				_push_subscript(this,name)
 				ret=duk_has_prop(_ctx(),-2)
 			else
 				ret=0
@@ -777,7 +777,7 @@ module duktape
 			//[object previous-subscript] -> [child current-subscript]
 			duk_get_prop(_ctx(),-2)//for the *previous* subscript
 			duk_remove(_ctx(),-2)
-			_push_subscript(_ctx(),name)
+			_push_subscript(this,name)
 			return this
 		inline as(T)
 			if Platform.BUILD=="debug":
@@ -813,7 +813,7 @@ module duktape
 				m_checker.m_completed=1
 			duk_get_prop(_ctx(),-2)//for the *previous* subscript
 			duk_remove(_ctx(),-2)
-			_push_subscript(_ctx(),name)
+			_push_subscript(this,name)
 			m_jsctx._put_prop_and_pop(value)
 		inline Call(T)
 			if Platform.BUILD=="debug":
@@ -858,7 +858,7 @@ module duktape
 		inline has(name)
 			m_jsctx._push_object(m_handle)
 			if duk_is_object(_ctx(),-1):
-				_push_subscript(_ctx(),name)
+				_push_subscript(this,name)
 				ret=duk_has_prop(_ctx(),-2)
 			else
 				ret=0
@@ -875,11 +875,11 @@ module duktape
 				if !m_jsctx:
 					__basic_api.spapReportError("JSObject must not be created through new")
 			m_jsctx._push_object(m_handle)
-			_push_subscript(_ctx(),name)
+			_push_subscript(this,name)
 			return _IncompleteJSPropertyAccess(){"m_jsctx":m_jsctx}
 		inline set_operator[](name,value)
 			m_jsctx._push_object(m_handle)
-			_push_subscript(_ctx(),name)
+			_push_subscript(this,name)
 			m_jsctx._put_prop_and_pop(value)
 		inline as(T)
 			m_jsctx._push_object(m_handle)
@@ -908,7 +908,7 @@ module duktape
 			return m_jsctx._pop_typed(T,1)
 		inline CallMethod(T,string fname)
 			m_jsctx._push_object(m_handle)
-			_push_subscript(_ctx(),fname)
+			_push_subscript(this,fname)
 			duk_get_prop(_ctx(),-2)
 			duk_swap_top(_ctx(),-2)
 			arguments0=arguments

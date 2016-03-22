@@ -8613,9 +8613,10 @@ module Console
 				g_is_console_utf8=1
 				SetConsoleCP(CP_UTF8)
 			u=Algorithm.Utf8ToUnicode(str)
-			na=WideCharToMultiByte(CP_ACP,0,u,u.n,NULL,0, NULL,NULL)
+			na=WideCharToMultiByte(CP_ACP,0,__C(__pointer,"(LPCWCH)@1",u.d),u.n,NULL,0, NULL,NULL)
 			s=char[na+1]
-			na=WideCharToMultiByte(CP_ACP,0,u,u.n,s,s.n, NULL,NULL)
+			na=WideCharToMultiByte(CP_ACP,0,__C(__pointer,"(LPCWCH)@1",u.d),u.n,s,s.n, NULL,NULL)
+			u=i16[].NULL
 			//printf("%s",s)
 			fwrite(s,1,na,__C(__pointer,"stdout"))
 		else

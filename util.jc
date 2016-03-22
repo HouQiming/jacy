@@ -14,6 +14,7 @@ CSharedMemberHash=new int[int2]
 /////////////////////////////
 g_bit_size=32
 inline bitSize(){return g_bit_size}
+g_is_cpp=0
 
 //////////////////////////////////////
 //global object id

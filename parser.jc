@@ -1280,14 +1280,14 @@ auto parseC0(int id_fn_current,TToken[] toks)
 			if lv==LEVEL_ASSIGNMENT:break
 		return ea
 	//////////////////////////////////
-	//auto autoReleaseWrap(PExpression pe)
-	//	epos0=readPool(pe+1)
-	//	epos1=readPool(pe+2)
-	//	pe_wrapped=call(g_id_block,
-	//		call(g_id_auto_release_barrier,expriptr(0)),
-	//		pe,
-	//		call(g_id_auto_release_barrier,expriptr(1)))
-	//	return fillepos(pe_wrapped,epos0,epos1)
+	auto autoReleaseWrap(PExpression pe)
+		epos0=readPool(pe+1)
+		epos1=readPool(pe+2)
+		pe_wrapped=call(g_id_block,
+			call(g_id_auto_release_barrier,expriptr(0)),
+			pe,
+			call(g_id_auto_release_barrier,expriptr(1)))
+		return fillepos(pe_wrapped,epos0,epos1)
 	//////////////////////////////////
 	auto statement_end()
 		if ptr>0&&toks[ptr-1].tok=='}':

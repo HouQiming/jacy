@@ -17,10 +17,14 @@ typedef struct _TCallStackItemEx{
 	const TLineInfoItemEx* li;
 }TCallStackItemEx;
 
+#ifdef __cplusplus
+extern "C"{
+#endif
 void spapDebugV2Start();
 void spapPushCallStack(TCallStackItemEx* p);
 void spapPopCallStack();
 void spapReportError(char* s);
+void spapReportErrorf(char* fmt,...);
 void osal_WriteLog(char* buf);
 void spapBlockYielding();
 void spapUnblockYielding();
@@ -52,5 +56,8 @@ void* osal_mmap_res_zip(iptr* psize);
 char* osal_getStoragePath();
 
 void osal_LinuxXIOErrorWorkaround();
+#ifdef __cplusplus
+}
+#endif
 
 #endif

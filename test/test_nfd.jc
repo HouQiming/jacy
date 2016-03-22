@@ -1,0 +1,56 @@
+import "system.jc"
+import "leak-detection.jc"
+import System.Console.*
+
+auto DoFileDialog(int is_save,string filterList,string defaultPath)
+	NFD_ERROR=0
+	NFD_OKAY=1
+	NFD_CANCEL=2
+	__generate_json("c_files","nfd/nfd_common.c")
+	__generate_json("h_files","nfd/nfd_common.h")
+	__generate_json("h_files","nfd/common.h")
+	NFD_OpenDialog=__c_function(int,"NFD_OpenDialog","nfd/nfd.h")
+	NFD_SaveDialog=__c_function(int,"NFD_SaveDialog","nfd/nfd.h")
+	if Platform.IS_WINDOWS:
+		__generate_json("c_files","nfd/nfd_win.cpp")
+	else if Platform.ARCH=="mac":
+		__generate_json("objc_files","nfd/nfd_cocoa.m")
+	else if Platform.IS_LINUX:
+		__generate_json("c_files","nfd/nfd_gtk.c")
+	if filterList:
+		sfilters=new(filterList)
+		sfilters.push(char(0))
+	if defaultPath:
+		spath=(Platform.IS_WINDOWS?defaultPath.Replace(["/","\\"]):new(defaultPath))
+		spath.push(char(0))
+	pptr_ret=[0L]
+	if is_save:
+		succ=(NFD_SaveDialog(__pointer(sfilters?sfilters.d:0L),__pointer(spath?spath.d:0L),pptr_ret)==NFD_OKAY)
+	else
+		succ=(NFD_OpenDialog(__pointer(sfilters?sfilters.d:0L),__pointer(spath?spath.d:0L),pptr_ret)==NFD_OKAY)
+	ptr_ret=__pointer(pptr_ret[0])
+	if succ:
+		lg=System.OS_API.strlen(ptr_ret)
+		ret=new string
+		if Platform.BUILD=="debug"&&LeakDetection.isEnabled():
+			ret.resize(lg)
+			__basic_api.memcpy(__pointer(ret.d),ptr_ret,lg)
+			LeakDetection.realFree(ptr_ret)
+		else
+			ret.d=iptr(ptr_ret)
+			ret.n=lg
+			ret.sz=ret.n
+		if Platform.IS_WINDOWS:
+			ret=ret.Replace(["\\","/"])
+	else
+		ret=string.NULL
+	return ret
+
+OpenDialog=inline(filterList,defaultPath){return DoFileDialog(0,filterList,defaultPath)}
+SaveDialog=inline(filterList,defaultPath){return DoFileDialog(1,filterList,defaultPath)}
+
+(function(){
+	//DoFileDialog
+	Writeln(OpenDialog("txt;png,jpg;pdf","c:/h/_nix"))
+	Writeln(SaveDialog("txt;png,jpg;pdf","c:/h/_nix"))
+})()

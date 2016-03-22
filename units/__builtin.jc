@@ -8,6 +8,7 @@ module __basic_api
 	memcmp=__c_function(int,"memcmp","string.h")
 	memchr=__c_function(__pointer,"memchr","string.h")
 	spapReportError=__c_function(__pointer,"spapReportError","spaprt_portable.h")
+	spapReportErrorf=__c_function(__pointer,"spapReportErrorf","spaprt_portable.h")
 	//spapReportError=__c_function(__pointer,"puts","stdio.h")
 	printf=__c_function(int,"printf","stdio.h")
 	///////
@@ -187,7 +188,7 @@ class __array(T)
 				d=iptr(__basic_api.realloc(__pointer(d),szbytes))
 			if Platform.BUILD=="debug":
 				if !d:
-					__basic_api.spapReportError("failed to allocate an array of @1 bytes\0".Replace(["@1",string(szbytes)]))
+					__basic_api.spapReportErrorf("failed to allocate an array of %zu bytes\0",szbytes)
 			szold=sizeof(T)*n
 			__basic_api.memset(__pointer(d+szold),0,szbytes-szold)
 			sz=sz_new
@@ -346,12 +347,9 @@ class __array(T)
 	inline slice(iptr a0,iptr b)
 		a=a0
 		if Platform.BUILD=="debug":
-			if uptr(a)>uptr(b+1):
-				__basic_api.spapReportError("the slice range @1:@2 is invalid\0".Replace(["@1",string(a),"@2",string(b)]))
-			if b>=n:
-				__basic_api.spapReportError("the slice range @1:@2 is out of bound 0:@3\0".Replace(["@1",string(a),"@2",string(b),"@3",string(n-1)]))
-			if !this:
-				__basic_api.spapReportError("slicing a NULL array at @1:@2 is invalid\0".Replace(["@1",string(a),"@2",string(b)]))
+			if uptr(a)>uptr(b+1):__basic_api.spapReportErrorf(Platform.IS_WINDOWS?"the slice range %Id:%Id is invalid\0":"the slice range %zd:%zd is invalid\0",a,b)
+			if b>=n:__basic_api.spapReportErrorf(Platform.IS_WINDOWS?"the slice range %Id:%Id is out of bound 0:%Id\0":"the slice range %zd:%zd is out of bound 0:%zd\0",a,b,n-1)
+			if !this:__basic_api.spapReportErrorf(Platform.IS_WINDOWS?"slicing a NULL array at %Id:%Id is invalid\0":"slicing a NULL array at %zd:%zd is invalid\0",a,b)
 		ret=Array(T)();
 		if a<b+1:
 			ret.__set_slice(this,a,b)
@@ -383,7 +381,26 @@ class __array(T)
 					fbody(this[i],i)
 			}
 		}
-	inline __C_autocast(){return __pointer(d)}
+	if T==i8:
+		inline __C_autocast(){
+			return __C(__pointer,"(char*)@1",d)
+		}
+	else if T==u8:
+		inline __C_autocast(){
+			return __C(__pointer,"(unsigned char*)@1",d)
+		}
+	else if T==i16:
+		inline __C_autocast(){
+			return __C(__pointer,"(short*)@1",d)
+		}
+	else if T==u16:
+		inline __C_autocast(){
+			return __C(__pointer,"(unsigned short*)@1",d)
+		}
+	else
+		inline __C_autocast(){
+			return __pointer(d)
+		}
 	if T!=char:
 		__JS_autocast=inline(JS){
 			if __is_type("float",T)||__is_type("int",T)&&T!=i64&&T!=u64:
@@ -1196,7 +1213,8 @@ if Platform.BUILD=="debug":
 	auto __reportRangeCheckError(iptr i,iptr n)
 		//__basic_api.printf("subscript [%d] is out of bound: array size is %d\n",i,n);
 		//if i>0:__basic_api.spapReportError("rangecheck")
-		__basic_api.spapReportError("subscript [@1] is out of bound: array size is @2\0".Replace(["@1",string(i),"@2",string(n)]))
+		__basic_api.spapReportErrorf(
+			Platform.IS_WINDOWS?"subscript [%Id] is out of bound: array size is %Id\0":"subscript [%zd] is out of bound: array size is %zd\0",i,n)
 
 inline __compare(a,b,cb_less,cb_equal,cb_greater)
 	T=typeof(a)

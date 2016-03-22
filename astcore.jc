@@ -1623,6 +1623,8 @@ auto coreInit()
 			g_code_buffer=g_forward_buffer
 			if !(fn.flags&FFLAG_EXPORTED):
 				g_code_buffer.push('static ')
+			else if g_is_cpp:
+				g_code_buffer.push('extern "C" ')
 			if !treturn||tisstruct(treturn):
 				g_code_buffer.push(FormatAsText("void"))
 			else
@@ -2391,6 +2393,7 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	registerPrimitive(g_id_assert_ctval,__zero(fcompiler_callback),fassert_ctval_oneval,__zero(fcompiler_callback),FFLAG_SPECIAL)
+	registerPrimitive(g_id_auto_release_barrier,__zero(fcompiler_callback),fdummy_callback,__zero(fcompiler_callback),FFLAG_SPECIAL)
 	////////////
 	fldparam_oneval=function(PExpression pecall,int expr_oplevel){
 		n_args=getExprNArgs(pecall)
@@ -2888,6 +2891,7 @@ auto coreInit()
 	}
 	registerPrimitive(g_id_explicit_rc,__zero(fcompiler_callback),fexplicitrc_oneval,__zero(fcompiler_callback),FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
 	registerPrimitive(g_id_rc_barrier,__zero(fcompiler_callback),fdummy_callback,fdummy_callback,FFLAG_SPECIAL|FFLAG_RC_HAS_SIDE_EFFECT|FFLAG_IS_PRELIVE)
+	registerPrimitive(g_id_force_death,__zero(fcompiler_callback),fdummy_callback,fdummy_callback,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
 	fcfree_oncgen=function(PExpression pecall,int expr_oplevel){
 		if readPool(pecall+0)==2+EFLAG_FCALL:
 			//variant free - rtti call
@@ -6950,8 +6954,8 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 			if isBuiltin(pecaller,g_id_stdot)&&readPool(pecaller+EXPR_OFS_ARGS+2)==pe&&tisstruct(t):
 				//struct stdot copy is fine
 				return 0
-			if isBuiltin(pecaller,g_id_typeof)||isBuiltin(pecaller,g_id_has_member):
-				//typeof/has_member are fine
+			if isBuiltin(pecaller,g_id_typeof)||isBuiltin(pecaller,g_id_has_member)||isBuiltin(pecaller,g_id_force_death):
+				//typeof/has_member/__force_death are fine
 				return 0
 			if DEBUG_DUMP_FLATTEN:
 				Writeln('unflattenable (used in unrecognized function): '+dumpExpr(pe,__zero(fcolorer_callback))+" "+dumpExpr(pecaller,__zero(fcolorer_callback)))
@@ -7154,7 +7158,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 						enableNameLookup(t_tar)
 						p_members=readPool(t_tar+FUNCTION_OFS_PMEMBER_LIST)
 						n_members=readPool(t_tar+FUNCTION_OFS_NMEMBER_LIST)
-						as=new PExpression[]
+						auto as=new PExpression[]
 						for i=0:n_members-1
 							id_member=readPool(p_members+i)
 							if id_member==g_id_this||id_member==g_id_return:continue
@@ -7198,7 +7202,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 							if DEBUG_DUMP_FLATTEN:
 								Writeln('flat-memcpy(tar-only-from-var): ',dumpExpr(pe,__zero(fcolorer_callback)))
 							assert(tisstruct(t_tar))
-							as=new PExpression[]
+							auto as=new PExpression[]
 							enableNameLookup(t_tar)
 							p_members=readPool(t_tar+FUNCTION_OFS_PMEMBER_LIST)
 							n_members=readPool(t_tar+FUNCTION_OFS_NMEMBER_LIST)
@@ -7233,7 +7237,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 						setUserFlag(pobj_tar,VAR_USER_KEEP_ORIGINAL)
 						if DEBUG_DUMP_FLATTEN:
 							Writeln(FormatAsText('keep-original ',dumpExpr(pe,fcolor_abbrv_blocks)))
-						as=new PExpression[]
+						auto as=new PExpression[]
 						//Writeln(dumpObject(t_tar))
 						enableNameLookup(t_tar)
 						p_members=readPool(t_tar+FUNCTION_OFS_PMEMBER_LIST)
@@ -7260,7 +7264,7 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 					if DEBUG_DUMP_FLATTEN:
 						Writeln('flat-memcpy(src-only): ',dumpExpr(pe,__zero(fcolorer_callback)),' ',dumpType(t_src))
 					//directly write to tar
-					as=new PExpression[]
+					auto as=new PExpression[]
 					if isBuiltin(pe,g_id_stdot):
 						//tempify and generate pe_var
 						pv_temp=makevar(readPool(pobj_src+VAR_OFS_OWNER))
@@ -7288,6 +7292,30 @@ auto strflatten(PExpression pe_top,PExpression monitoring_base)
 		else if isBuiltin(pe,g_id_assert_ctval):
 			//ignore assert_ctval
 			return 0
+		else if isBuiltin(pe,g_id_force_death):
+			//flatten force_death to members... if the parent var still matches
+			pe_tar=readPool(pe+EXPR_OFS_ARGS+0)
+			if isExpr(pe_tar,EFLAG_VARIABLE):
+				pobj_tar=getVariable(pe_tar)
+				if pobj_tar==getExprValueAs(readPool(pe+EXPR_OFS_ARGS+1),g_vtid_CNS)&&!testUserFlag(pobj_tar,VAR_USER_UNFLATTENABLE):
+					assert(readPool(pobj_tar)==g_vtid_RTVAR)
+					t_tar=readPool(pobj_tar+1)
+					enableNameLookup(t_tar)
+					p_members=readPool(t_tar+FUNCTION_OFS_PMEMBER_LIST)
+					n_members=readPool(t_tar+FUNCTION_OFS_NMEMBER_LIST)
+					auto as=new PExpression[]
+					if tisstruct(t_tar):
+						as.push(call(g_id_force_death,exprvar(pobj_tar),expriptr(pobj_tar)))
+					for i=0:n_members-1
+						id_member=readPool(p_members+i)
+						if id_member==g_id_this||id_member==g_id_return:continue
+						pobj_member=lookupFunctionVariable(t_tar,id_member)
+						vtid=readPool(pobj_member)
+						if vtid!=g_vtid_RTVAR:continue//&&vtid!=g_vtid_UNINIT
+						if tisclass(readPool(pobj_member+1)):
+							pv_tar=getFlattenedVariable(pobj_tar,pobj_member,1)
+							as.push(call(g_id_force_death,exprvar(pv_tar),expriptr(pv_tar)))
+					transformCode(pe,__zero(ftransformer_callback), as,expriptr(0),PExpression[].NULL)
 		else if isBuiltin(pe,g_id_typeof)||isBuiltin(pe,g_id_has_member):
 			val=getExprValue(pe)
 			if val.tid==g_vtid_CTVAL||val.tid==g_vtid_CNS:
@@ -7458,6 +7486,17 @@ auto grandsccp()
 		sccp(0)
 		if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
 		if !g_has_untranslated_cdf:break
+	////////////////////
+	//if DEBUG_DUMP_PASSES:{WriteErr(formatNumber(System.Time.t(),{frac:2}),' resolveAutoRelease: ')}
+	//if g_enable_dump:
+	//	Writeln('>>> before resolving auto-release')
+	//	Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
+	//resolveAutoRelease()
+	//if DEBUG_DUMP_PASSES:{WriteErr('done\n')}
+	//if g_enable_dump:
+	//	Writeln('>>> after resolving auto-release')
+	//	Writeln(dumpCode(g_pe_top,fcolor_reach_eval))
+	////////////////////
 	if DEBUG_DUMP_PASSES:{WriteErr(formatNumber(System.Time.t(),{frac:2}),' fixConstantTypes: ')}
 	if g_enable_dump&&DEBUG_DUMP_FIX_CONSTANT_TYPES:
 		Writeln('>>> before fixing constant types')
@@ -9602,7 +9641,7 @@ auto doStackAllocs()
 	dfsExpr(g_pe_top,fprescan_for_lambdas)
 	///////////////////////////////////////////////////
 	//mark leaking variables / param leakness flags
-	//todo: members - store(?,dot()) case - middle state - "leaked" from stack but is a static member
+	//coulddo: members - store(?,dot()) case - middle state - "leaked" from stack but is a static member
 	//find leak roots
 	funarg_leaks=new i8[i64]
 	Q=new PCTObject[]
@@ -9944,6 +9983,92 @@ auto doStackAllocs()
 	//////////////////////
 	clearUserFlags(g_pe_top,0)
 	if changed:
+		sccp(0)
+
+////////////////////////////
+auto resolveAutoRelease()
+	queue_var=new PCTObject[]
+	queue_ofs=new iptr[]
+	arvar_slots=new int2[]
+	did=0
+	t_auto_release=1
+	fmark_auto_release=function(PExpression pe){
+		if isExpr(pe,EFLAG_FCALL)&&!testUserFlag(pe,QUEUE_FLAG_REACH):return 0
+		if isExpr(pe,EFLAG_VARIABLE):
+			pobj_var=getVariable(pe)
+			if pobj_var&&readPool(pobj_var)==g_vtid_RTVAR&&isTempId(readPool(pobj_var+VAR_OFS_ID))&&tisclass(getVariableType(pobj_var)):
+				flag0=readPool(pobj_var+VAR_OFS_USER_FLAGS)
+				slotid=(flag0&VAR_USER_FLAG_MASK)
+				if !slotid:
+					arvar_slots.push(int2(t_auto_release,t_auto_release))
+					slotid=int(arvar_slots.n)
+					writePool(pobj_var+VAR_OFS_USER_FLAGS,(flag0&~VAR_USER_FLAG_MASK)|slotid)
+				arvar_slots[slotid-1].y=t_auto_release
+			return 0
+		if isBuiltin(pe,g_id_auto_release_barrier):
+			t_auto_release++
+		return 1
+	}
+	dfsExpr(g_pe_top,fmark_auto_release)
+	//////////////////////
+	t_auto_release=1
+	fresolve_auto_release=function(PExpression pe){
+		if isExpr(pe,EFLAG_FCALL)&&!testUserFlag(pe,QUEUE_FLAG_REACH):return 0
+		if isBuiltin(pe,g_id_function):
+			queue_ofs.push(queue_var.n)
+			for i=0:(readPool(pe)&~EFLAG_MASK)-1
+				dfsExpr(readPool(pe+EXPR_OFS_ARGS+i),fresolve_auto_release)
+			queue_var.resize(queue_ofs.pop())
+			return 0
+		if isBuiltin(pe,g_id_store):
+			pobj_var=getVariable(readPool(pe+EXPR_OFS_ARGS+0))
+			if pobj_var&&readPool(pobj_var)==g_vtid_RTVAR&&isTempId(readPool(pobj_var+VAR_OFS_ID))&&tisclass(getVariableType(pobj_var)):
+				//verify whether each var is ONLY accessed inside between the ranges
+				//could have a temp from an outer nesting level of inline call
+				queue_var.push(pobj_var)
+			return 1
+		if !isBuiltin(pe,g_id_auto_release_barrier):return 1
+		t_auto_release++
+		side=getExprValueAs(readPool(pe+EXPR_OFS_ARGS+0),g_vtid_CNS)
+		if side==0:
+			//push
+			setnop(pe)
+			queue_ofs.push(t_auto_release)
+			queue_ofs.push(queue_var.n)
+			return 1
+		//pop
+		setnop(pe)
+		pend=queue_var.n
+		pstart=queue_ofs.pop()
+		t0_auto_release=queue_ofs.pop()
+		if pstart>=pend:return 1
+		//we have things
+		did=1
+		auto_release_vars=queue_var[pstart:pend-1]
+		auto_release_vars.Sort()
+		as=new PExpression[]
+		for pobj_var in auto_release_vars.Groupby(inline(a){return a})
+			//if the variable is dropped during optimization, we no longer need the force_death
+			flag0=readPool(pobj_var+VAR_OFS_USER_FLAGS)
+			slotid=(flag0&VAR_USER_FLAG_MASK)
+			t_range=arvar_slots[slotid-1]
+			if t0_auto_release<=t_range.x&&t_range.y<t_auto_release:
+				//it's entirely contained in the *current* release range
+				//Writeln(pobj_var,': ',t0_auto_release,' ',t_range,' ',t_auto_release)
+				as.push(call(g_id_force_death,exprvar(pobj_var),expriptr(pobj_var)))
+				//we should only generate the innermost "scope", so smash the t range
+				arvar_slots[slotid-1]=int2(0,0x3fffffff)
+		if as.n:
+			replaceExpr(pe,vcall(g_id_block,as))
+		auto_release_vars.discard()
+		//can't resize - need to keep the vars until they gets processed at the correct layer
+		//the complexity should be ... managable -- we reset on function
+		//queue_var.resize(pstart)
+		return 1
+	}
+	dfsExpr(g_pe_top,fresolve_auto_release)
+	clearUserFlags(g_pe_top,0)
+	if did:
 		sccp(0)
 
 ////////////////////////////
@@ -10294,6 +10419,7 @@ auto translateLambdas()
 					if tid_var==g_vtid_CTVAL:
 						//it's OK to call returned constant functions... as long as it's not lambdaed, we assume so
 						return 1
+					//Writeln(dumpExpr(readPool(pe+EXPR_OFS_CALLER),__zero(fcolorer_callback)))
 					errorAtExpr(ETYPE_ERROR,pe,"in '@3', one cannot access '@1' from non-parent function '@2'".Replace([
 						"@1",citeexpr(pe),
 						"@2",dumpObject(pfowner),
@@ -11749,6 +11875,7 @@ auto genRefcnt()
 		PExpression pe_store_unsafe_beyond
 	rc_var_slots=new TRCVarSlot[]
 	fgetdepth=function(int slotid){return rc_slots[slotid].depth}
+	//could use the autorelease scopes as hierarchy
 	auto rcdfsComputeSafeStoreAndVarDeath(PExpression pe,int is_safe_store_possible, PExpression pe_loop)
 		auto flags=readPool(pe)
 		auto is_safe_store_possible_recurse=is_safe_store_possible
@@ -11831,6 +11958,20 @@ auto genRefcnt()
 		pf_owner_recurse=pf_owner
 		if isBuiltin(pe,g_id_function):
 			pf_owner_recurse=getExprValueAs(pe,g_vtid_CTVAL)
+		else if isBuiltin(pe,g_id_force_death)
+			//pack force death check here to avoid adding an extra pass
+			pobj_var=getExprValueAs(readPool(pe+EXPR_OFS_ARGS+1),g_vtid_CNS)
+			if readPool(readPool(pe+EXPR_OFS_ARGS+0))==EFLAG_VARIABLE+pobj_var:
+				//do the force death
+				vflags=readPool(pobj_var+VAR_OFS_USER_FLAGS)
+				if (vflags&VAR_USER_FLAG_RC_SLOT_ALLOCATED)
+					vslotid=(vflags&VAR_USER_FLAG_RC_SLOTID_MASK)
+					rc_var_slots[vslotid].pe_death_merged=pe
+					if DEBUG_DUMP_RC:
+						Writeln('forced death: ',dumpExpr(pe,fcolor_reach_eval))
+			else
+				//again, if the variable is dropped during optimization, we no longer need the force_death
+			setnop(pe)
 		else if isBuiltin(pe,g_id_explicit_rc):
 			n_args=getExprNArgs(pe)
 			assert(n_args==2)
@@ -12222,7 +12363,7 @@ auto instrumentForDebugging()
 	//tempify crashable call args
 	auto ftempify_args(PExpression pe,PCTObject pf_owner){
 		if isExpr(pe,EFLAG_FCALL):
-			if isBuiltin(pe,g_id_C_wrap):
+			if isBuiltin(pe,g_id_C_wrap)||isBuiltin(pe,g_id_C_wrap_pure):
 				//ignore __C arguments - they can be whole-expr replacements and should not be tempified
 				return 0
 			pobjfn=getExprFunction(pe)
@@ -12237,6 +12378,9 @@ auto instrumentForDebugging()
 					if !isExpr(pe_argi,EFLAG_FCALL):continue
 					val=getExprValue(pe_argi)
 					if val.tid!=g_vtid_RTVAR:continue
+					if isBuiltin(pe_argi,g_id_C_wrap)||isBuiltin(pe_argi,g_id_C_wrap_pure):
+						//__C stuff may contain type hacks, don't tempify
+						continue
 					pv_temp=makevar(pf_owner)
 					writePool(pv_temp+0,val.tid)
 					writePool(pv_temp+1,val.val)
@@ -12321,13 +12465,18 @@ auto genConst(int cid)
 			else
 				mask=(i64(1)<<n_bits)-1
 				mask_sgn=(i64(1)<<(n_bits-1))
-			if n_bits==32&&i32(cns.val_bin)==0x80000000:
-				sval="0x80000000"
+			if cns.type==CTYPE_POINTER&&!((cns.val_bin&mask)|-(cns.val_bin&mask_sgn)):
+				//it's NULL
+				g_code_buffer.n-=7
+				g_code_buffer.push('NULL')
 			else
-				sval=string((cns.val_bin&mask)|-(cns.val_bin&mask_sgn))
-			if sval[0]=='-':
-				g_code_buffer.push(' ')
-			g_code_buffer.push(sval)
+				if n_bits==32&&i32(cns.val_bin)==0x80000000:
+					sval="0x80000000"
+				else
+					sval=string((cns.val_bin&mask)|-(cns.val_bin&mask_sgn))
+				if sval[0]=='-':
+					g_code_buffer.push(' ')
+				g_code_buffer.push(sval)
 		else if ((cns.type&CTYPE_MASK)==CTYPE_UINT):
 			if n_bits>=64:
 				mask=-1LL

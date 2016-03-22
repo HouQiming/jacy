@@ -557,6 +557,7 @@ EXPORT void spapReportErrorf(char* fmt,...){
 		#else
 			vfprintf(stderr,fmt,v);
 			fprintf(stderr,"\n");
+			fflush(stderr);
 		#endif
 		dump_call_stack("runtime error\n");
 		exit(1);

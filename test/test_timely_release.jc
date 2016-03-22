@@ -1,0 +1,10 @@
+import "system.jc"
+import System.Console.*
+
+(function(){
+	s=new("Hello world")
+	for i=0:s.n-1
+		Writeln(i,' ',s[i:])
+		__rc_barrier()
+		s.push('.')
+})()

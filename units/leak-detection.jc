@@ -10,7 +10,11 @@ __C(int,"@global:
 
 if Platform.BUILD=="debug":
 	__C(int,"@global:
+	#ifdef __cplusplus
+	extern \"C\" void* spapGetCallStack();
+	#else
 	extern void* spapGetCallStack();
+	#endif
 	
 	static void* s7_LD_head[2]={(void*)s7_LD_head,(void*)s7_LD_head};
 	static size_t s7_LD_n_ptrs=0;

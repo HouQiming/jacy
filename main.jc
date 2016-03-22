@@ -151,13 +151,14 @@ auto main()
 	args=GetCommandLine()
 	s_arch=Platform.ARCH//"win32"
 	s_mode="debug"
-	s_epilog="\n#undef main\nint real_main(){s7_main();return 0;}"
+	s_epilog="\n#undef main\n#ifdef __cplusplus\nextern \"C\"\n#endif\nint real_main(){s7_main();return 0;}"
 	fn_output_exe=""
 	fn_output_c=""
 	fn_output_json=new string
 	call_pmjs=1
 	force_rebuild=0
 	run_after_build=0
+	g_is_cpp=0
 	//if Platform.BUILD=="debug":
 	//	s_mode="release"
 	//if Platform.BUILD=="debug":
@@ -225,6 +226,8 @@ auto main()
 				ids=new int[]
 				g_json_pool[id_name]=ids
 				ids.push(id_value)
+		else if s.StartsWith("--cpp")
+			g_is_cpp=1
 		else if s.StartsWith("-"):
 			Writeln('warning: unrecognized option @1'.Replace(["@1",s]))
 			continue
@@ -248,6 +251,7 @@ auto main()
 	coreInit()
 	registerConst(getid("__env_arch"),g_vtid_STR,getid(s_arch))
 	registerConst(getid("__env_build"),g_vtid_STR,getid(s_mode))
+	registerConst(getid("__env_cplusplus"),g_vtid_CNS,getid_const(const_type(CTYPE_INT,32),i64(g_is_cpp)))
 	registerConst(getid("__env_compiler_version"),g_vtid_CNS,getid_const(const_type(CTYPE_INT,32),i64(COMPILER_VERSION)))
 	tbegin(tm_parser)
 	if !files.n:
@@ -280,7 +284,10 @@ auto main()
 		if !fn_output_json.n:
 			fn_output_json=s_tempdir+"/s7main.json"
 		if !fn_output_c.n:
-			fn_output_c=s_tempdir+"/s7main.c"
+			if g_is_cpp:
+				fn_output_c=s_tempdir+"/s7main.cpp"
+			else
+				fn_output_c=s_tempdir+"/s7main.c"
 		if !fn_output_exe.n:
 			s_bindir=s_basedir+"bin/"+s_dirname
 			CreateDirectoryX(s_bindir)
@@ -304,6 +311,8 @@ auto main()
 			//if Platform.BUILD=="debug":
 			//	Writeln(scmdline)
 			scmdline.push(char(0))
+			__C(int,"fflush(stderr)")
+			__C(int,"fflush(stdout)")
 			exit_code=c_system(scmdline)
 			if exit_code!=0:return 0
 			if run_after_build:
@@ -315,8 +324,6 @@ auto main()
 				__C(int,"fflush(stderr)")
 				__C(int,"fflush(stdout)")
 				exit_code=c_system(scmdline)
-				__C(int,"fflush(stderr)")
-				__C(int,"fflush(stdout)")
 				if exit_code!=0:return 0
 			return 1
 		else
