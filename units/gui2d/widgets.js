@@ -2523,12 +2523,16 @@ W.ListView=function(id,attrs){
 						UI.Refresh()
 						return 1;
 					},
+					OnMouseWheel:obj.OnMouseWheel.bind(obj),
 				})
 			}
 		}
 	UI.End("temp")
 	//do group after the regions
 	obj.layout_direction=bk_layout_direction
+	if(UI.enable_timing){
+		UI.TimingEvent("starting listview rendering");
+	}
 	W.PureGroup(obj,"temp")
 	obj.layout_direction=undefined
 	if(!obj.no_region){
@@ -2567,6 +2571,7 @@ W.ListView=function(id,attrs){
 						dimension:'y',
 						x:0,y:0,w:obj.size_scroll_bar,
 						value:obj.position/(dim_tot-obj.h),page_size:obj.h,total_size:dim_tot,
+						OnMouseWheel:obj.OnMouseWheel.bind(obj),
 						OnChange:function(value){
 							obj.position=value*(obj.dim_tot-obj.h)
 							UI.Refresh()
@@ -2579,6 +2584,7 @@ W.ListView=function(id,attrs){
 						dimension:'x',
 						x:0,y:0,h:obj.size_scroll_bar,
 						value:obj.position/(dim_tot-obj.w),page_size:obj.w,total_size:dim_tot,
+						OnMouseWheel:obj.OnMouseWheel.bind(obj),
 						OnChange:function(value){
 							obj.position=value*(obj.dim_tot-obj.w)
 							UI.Refresh()

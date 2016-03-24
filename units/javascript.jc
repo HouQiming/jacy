@@ -454,6 +454,8 @@ module duktape
 			_setBufferType(T)
 			return _pop_typed(JSObject,2)
 		inline PushExternalArray(a0)
+			__force_leak(a0)
+			variant(a0)
 			a=a0[0:]
 			duk_push_external_buffer(_ctx())
 			duk_config_buffer(_ctx(),-1,__pointer(a.d),a.n*sizeof(a.T))

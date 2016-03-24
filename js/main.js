@@ -51,6 +51,9 @@ mkdir=function(sdir){
 };
 
 GetServerSSH=function(server){
+	if(g_json.ssh_server){
+		return g_json.ssh_server[0];
+	}
 	var ret=g_config["SSH_SERVER_"+server.toUpperCase()];
 	var fn_config=g_root+"/js/config.json";
 	if(!ret){
@@ -61,6 +64,9 @@ GetServerSSH=function(server){
 };
 
 GetPortSSH=function(server){
+	if(g_json.ssh_port){
+		return parseInt(g_json.ssh_port[0]);
+	}
 	return (g_config["SSH_PORT_"+server.toUpperCase()]||22);
 };
 

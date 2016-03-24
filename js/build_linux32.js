@@ -109,6 +109,9 @@ g_action_handlers.make=function(){
 		if(FileExists(g_work_dir+"/upload/ic_launcher.png")){
 			sshell_array.push('mkdir -p ~/.icons/hicolor/48x48/apps;cp ic_launcher.png ~/.icons/hicolor/48x48/apps/'+s_linux_output+".png;")
 		}
+		if(g_json.ssh_remote_target){
+			sshell_array.push('cp ~/_buildtmp/',sbuildtmp,'/',s_linux_output,' ',g_json.ssh_remote_target[0],';')
+		}
 		sshell_array.push("exit")
 		if(g_json.verbose){print("=== making on remote machine")}
 		envssh(g_ssh_target,sshell_array.join(""))
