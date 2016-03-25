@@ -1,4 +1,7 @@
 //sharpening filter for font -- just downsample it differently... would it even work?
+import "javascript.jc"
+import "s-d-l.jc"
+import "g-l.jc"
 import "leak-detection.jc"
 import Javascript.*
 import SDL.*
@@ -171,14 +174,55 @@ class CCoreFont
 	id=0
 	hfnt=NULL
 	sdata=string.NULL
-	fallbacks=CCoreFont[].NULL
 	y_baseline_per_height=0.f
+	inline GetGlyphId(int ch)
+		return FTW_GetGlyphId(hfnt,ch)
 	auto __done__()
 		FTW_UnloadFont(hfnt)
 		hfnt=NULL
-	
+
+struct TChainFont
+	CCoreFont hfnt
+	//numbers are measured at height 1
+	float scale
+	float draw_dx,draw_dy
+
+struct TChainCacheItem
+	float dx
+	int fntid
+
+class CFontChain
+	TChainFont[] fonts
+	float y_baseline_per_height,base_scale
+	//float base_scale
+	TChainCacheItem[] cache_ascii
+	TChainCacheItem[int] cache_unicode
+	auto CreateCodePoint(int ch)
+		fntid=-1
+		dx=0.f
+		for cfnt,I in fonts
+			gid=FTW_GetGlyphId(cfnt.hfnt.hfnt,ch)
+			if gid:
+				dx=FTW_GetGlyphAdvance(cfnt.hfnt.hfnt,cfnt.scale,gid)
+				fntid=I+1
+				break
+		ci=TChainCacheItem(){dx:dx,fntid:fntid}
+		if ch<128:
+			cache_ascii[ch]=ci
+		else
+			cache_unicode[ch]=ci
+		return ci
+	inline QueryCodePoint(int ch)
+		if ch<128:
+			ci=cache_ascii[ch]
+		else
+			ci=cache_unicode[ch]
+		if !ci.fntid:
+			ci=CreateCodePoint(ch)
+		return ci
+
 struct TFont
-	pfnt=CCoreFont.NULL
+	pfnt=CFontChain.NULL
 	h=0.f
 	embolden=0
 	//inline SmartEmbolden(int m_color)
@@ -188,15 +232,9 @@ struct TFont
 		embolden+=((int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*3000.f/h)+8)&-16)
 		//embolden+=((int((1.f-float(19589*(m_color&0xff)+38470*((m_color>>8)&0xff)+7477*((m_color>>16)&0xff))/float(0xff0000))*2000.f/h)+8)&-16)
 
-//struct TGlyphCacheItem
 class CGlyphCacheItem
 	int tex_id
-	float dx
 	float x_draw,y_draw,w_draw,h_draw
-
-struct TFastGlyphCacheItem
-	CGlyphCacheItem gcitem
-	float y_final
 
 struct TPositionedText
 	pos=float2()
@@ -445,8 +483,8 @@ class CRenderer
 			EmptyCache()
 			m_glyph_cache_invalidated=0
 		m_fast_glyph_cache_font=TFont()
-		m_fast_glyph_cache=TFastGlyphCacheItem[int].NULL
-		m_fast_glyph_cache_ascii=TFastGlyphCacheItem[].NULL
+		//m_fast_glyph_cache=TFastGlyphCacheItem[int].NULL
+		//m_fast_glyph_cache_ascii=TFastGlyphCacheItem[].NULL
 		m_has_new_glyph_cache_entry=0
 		m_StretchDIBits_calls=new TStretchDIBits[]
 		m_tick0=System.Time.tick64()
@@ -703,6 +741,7 @@ class CRenderer
 		v0=0.f
 		cu=1.f
 		cv=1.f
+		clipped=0
 		x=x0;y=y0;w=w0;h=h0
 		if x<m_clip.x:
 			dx=m_clip.x-x
@@ -710,11 +749,13 @@ class CRenderer
 			x=m_clip.x;w-=dx
 			du=cu*t
 			u0+=du;cu-=du
+			clipped=1
 		if m_clip.z<x+w:
 			dx=m_clip.z-x
 			t=dx/w
 			w=dx
 			cu*=t
+			clipped=1
 		//use negated tests against NaN
 		if !(cu>0.f)||!(x+w>x):return
 		if y<m_clip.y:
@@ -723,11 +764,13 @@ class CRenderer
 			y=m_clip.y;h-=dy
 			dv=cv*t
 			v0+=dv;cv-=dv
+			clipped=1
 		if m_clip.w<y+h:
 			dy=m_clip.w-y
 			t=dy/h
 			h=dy
 			cv*=t
+			clipped=1
 		if !(cv>0.f)||!(y+h>y):return
 		inline f2i_P(float f)
 			//return max(min(int(f*float(m_crd16_scale)),65535),0)
@@ -740,12 +783,16 @@ class CRenderer
 		//assert(y+h>=m_clip.y&&y+h<=m_clip.w)
 		ix0=f2i_P(x)
 		iy0=f2i_P(y)
-		iu0=f2i_uv(u0)
-		iv0=f2i_uv(v0)
 		ix1=f2i_P(x+w)
 		iy1=f2i_P(y+h)
-		iu1=f2i_uv(u0+cu)
-		iv1=f2i_uv(v0+cv)
+		vdata=int4(((iy0)<<16)+(ix0),((iy1)<<16)+(ix1),0,0x80008000)
+		if clipped:
+			iu0=f2i_uv(u0)
+			iv0=f2i_uv(v0)
+			iu1=f2i_uv(u0+cu)
+			iv1=f2i_uv(v0+cv)
+			vdata.z=((iv0)<<16)+(iu0)
+			vdata.w=((iv1)<<16)+(iu1)
 		//if is_static:
 		//	n0=m_vbo.n
 		//	m_vbo.resize(n0+VERTEX_SIZE*4)
@@ -762,7 +809,6 @@ class CRenderer
 		//	m_vbo[n0+(VERTEX_SIZE*3+1)]=((iv1)<<16)+(iu0)
 		//	m_vbo[n0+(VERTEX_SIZE*3+2)]=C
 		//else
-		vdata=int4(((iy0)<<16)+(ix0),((iy1)<<16)+(ix1),((iv0)<<16)+(iu0),((iv1)<<16)+(iu1))
 		m_StretchDIBits_calls.push(TStretchDIBits(){vdata:vdata,hwnd:m_hwnd,bmpid:hbmp,C:int4(C,C,C,C)})
 		//Writeln(x,' ',y,' ',w,' ',h,' ',m_vbo.n)
 	inline DrawRectangle(float x0,float y0,float w0,float h0, int C)
@@ -843,55 +889,41 @@ class CRenderer
 					if ret:return ret
 		//Writeln('font not found: ',sname)
 		return CCoreFont.NULL
-	auto CreateCoreFontChain(CCoreFont[] fonts)
-		if fonts.n==1:return fonts[0]
-		ret=CCoreFont(){fallbacks:fonts}
-		y_baseline_per_height=0.f
-		foreach pfnt_i in ret.fallbacks
-			if y_baseline_per_height<pfnt_i.y_baseline_per_height:
-				y_baseline_per_height=pfnt_i.y_baseline_per_height
-		ret.y_baseline_per_height=y_baseline_per_height
-		return ret
-	auto CreateFont(CCoreFont pfnt,float h,int embolden)
-		return TFont(){pfnt:pfnt,h:h,embolden:embolden}
+	//auto CreateCoreFontChain(CCoreFont[] fonts)
+	//	if fonts.n==1:return fonts[0]
+	//	ret=CCoreFont(){fallbacks:fonts}
+	//	y_baseline_per_height=0.f
+	//	foreach pfnt_i in ret.fallbacks
+	//		if y_baseline_per_height<pfnt_i.y_baseline_per_height:
+	//			y_baseline_per_height=pfnt_i.y_baseline_per_height
+	//	ret.y_baseline_per_height=y_baseline_per_height
+	//	return ret
 	m_filter3=float[].NULL
 	m_filter5=float[].NULL
 	auto CacheGlyph(TFont fnt, int ch)
-		embolden=float(max(min(fnt.embolden,511),-512))*fnt.h
-		x_aa=3
-		y_aa=3
-		//if fnt.h<32:x_aa=3
-		//no matter how large the font is, x_aa always makes it sharper
-		//if fnt.h<128.f:
-		//x_aa=3
-		if fnt.h<16.f:
-			x_aa=5
-			y_aa=5
 		ret=CGlyphCacheItem.NULL
-		delta_y=0.f
-		pfnt=fnt.pfnt
-		if pfnt.fallbacks:
-			//look up the fallback chain
-			fnt_i=fnt
-			foreach pfnt_i in pfnt.fallbacks
-				fnt_i.pfnt=pfnt_i
-				(ret,delta_y_original)=CacheGlyph(fnt_i,ch)
-				if ret:
-					delta_y=(pfnt.y_baseline_per_height-pfnt_i.y_baseline_per_height)*fnt.h+delta_y_original
-					break
+		draw_dxdy=float2(0.f,0.f)
+		dx=0.f
+		pchain=fnt.pfnt
+		ci=pchain.QueryCodePoint(ch)
+		if ci.fntid<0:
+			//there is no glyph, return NULL
 		else
-			//it doesn't have the glyph, fallback
-			//need this to avoid re-renders
-			key=int3(pfnt.id*1024+max(min(fnt.embolden+512,1023),0),__float_as_int(fnt.h),ch)
-			//Writeln('above ret=m_glyph_cache[key]')
+			cfnt=pchain.fonts[ci.fntid-1]
+			hfnt=cfnt.hfnt
+			draw_dxdy=float2(cfnt.draw_dx,cfnt.draw_dy)*fnt.h
+			//ci.dx already has cfnt.scale counted in
+			dx=ci.dx*fnt.h
+			key=int3(hfnt.id*1024+max(min(fnt.embolden+512,1023),0),__float_as_int(fnt.h*cfnt.scale),ch)
 			ret=m_glyph_cache[key]
-			//Writeln('below ret=m_glyph_cache[key]')
-			if !ret&&FTW_GetGlyphId(pfnt.hfnt,ch):
+			if !ret:
 				m_has_new_glyph_cache_entry=1
 				dims=new float[6]
-				//pbitmap=FTW_GetCharacterEx(pfnt.hfnt,fnt.h,x_aa, embolden, ch,dims)
-				//font_sharpening=m_font_sharpening*max(min(1.f-(fnt.h-16.f)/16.f,1.f),0.f)
-				//font_sharpening=m_font_sharpening
+				x_aa=3
+				y_aa=3
+				if fnt.h<16.f:
+					x_aa=5
+					y_aa=5
 				if !m_filter3:
 					m_filter3=lanczos_filter(3,2,m_font_sharpening)
 					m_filter5=lanczos_filter(5,2,m_font_sharpening)
@@ -899,27 +931,18 @@ class CRenderer
 				assert(y_aa==3||y_aa==5)
 				x_filter=(x_aa==3?m_filter3:m_filter5)
 				y_filter=(y_aa==3?m_filter3:m_filter5)
-				//x_filter=box_filter(x_aa)
-				//y_filter=box_filter(y_aa)
 				x_htaps=int(x_filter.n>>1)
 				y_htaps=int(y_filter.n>>1)
-				pbitmap=FTW_GetCharacterEx(pfnt.hfnt,fnt.h,x_aa,y_aa, x_filter,y_filter,x_htaps,y_htaps, embolden, ch,dims)
+				embolden=float(max(min(fnt.embolden,511),-512))*fnt.h*cfnt.scale
+				pbitmap=FTW_GetCharacterEx(hfnt.hfnt,fnt.h*cfnt.scale,x_aa,y_aa, x_filter,y_filter,x_htaps,y_htaps, embolden, ch,dims)
 				w=int(dims[2])
 				h=int(dims[3])
-				//font_gamma_map=new int[256]
-				//for i=0:255
-				//	//font_gamma_map[i]=int((1.f-pow(1.f-float(i)/255.f,1.f/2.2f))*255.f)
-				//	font_gamma_map[i]=int((pow(float(i)/255.f,1.f/2.2f))*255.f)
-				//pad it with zeros
-				//rgba=new int[(w+2)*(h+2)]
 				buf=new u8[(w+2)*(h+2)]
 				for i=0:h-1
 					lbase=(i+1)*(w+2)+1
 					lbase_src=i*w
 					for j=0:w-1
-						//rgba[lbase+j]=(font_gamma_map[int(__memory(u8,iptr(pbitmap)+lbase_src+j))]<<24)|0xffffff
 						buf[lbase+j]=__memory(u8,iptr(pbitmap)+lbase_src+j)
-						//buf[lbase+j]=(i&1?255:0)
 				ret=new CGlyphCacheItem
 				if w&&h:
 					ret.tex_id=CreatePackedTexture(buf,w+2,h+2)
@@ -927,38 +950,31 @@ class CRenderer
 				ret.y_draw=dims[1]
 				ret.w_draw=dims[4]
 				ret.h_draw=float(h)
-				ret.dx=dims[5]
-				//assert(!!rgba)
-				//assert(!!ret.bmp.rgba)
-				//Writeln('>>> ',ret.bmp,' ',ch)
 				m_glyph_cache[key]=ret
-		return (ret,delta_y)
+		return (ret,draw_dxdy,dx)
 	auto DrawChar(TFont fnt, float x,float y,int C, int ch)
-		(gcitem,delta_y)=CacheGlyph(fnt,ch)
-		if !gcitem||!gcitem.tex_id:
-			//we don't know what it looks like, don't draw
-			return gcitem?gcitem.dx:0.f
-		y_final=y+gcitem.y_draw+delta_y
-		if m_text_y_snap:y_final=floor(y_final+0.5f)
-		//Writeln(gcitem.tex_id, ' ',x+gcitem.x_draw,' ',y_final,' ',gcitem.w_draw)
-		DrawBitmap(gcitem.tex_id, x+gcitem.x_draw,y_final,gcitem.w_draw,gcitem.h_draw, C)
-		//Writeln(x,' ',y,' ',char(ch))
-		return gcitem.dx
+		(gcitem,draw_dxdy,dx)=CacheGlyph(fnt,ch)
+		if gcitem&&gcitem.tex_id:
+			y_final=y+gcitem.y_draw+draw_dxdy.y
+			if m_text_y_snap:y_final=floor(y_final+0.5f)
+			DrawBitmap(gcitem.tex_id, x+gcitem.x_draw+draw_dxdy.x,y_final,gcitem.w_draw,gcitem.h_draw, C)
+		return dx
 	////////////////
 	TFont m_fast_glyph_cache_font
-	TFastGlyphCacheItem[int] m_fast_glyph_cache
-	TFastGlyphCacheItem[] m_fast_glyph_cache_ascii
+	//CGlyphCacheItem[int] m_fast_glyph_cache
+	//CGlyphCacheItem[] m_fast_glyph_cache_ascii
 	auto SetFastDrawCharFont(TFont fnt)
-		if m_fast_glyph_cache_font.h!=fnt.h||m_fast_glyph_cache_font.embolden!=fnt.embolden||iptr(m_fast_glyph_cache_font.pfnt)!=iptr(fnt.pfnt):
-			m_fast_glyph_cache=new TFastGlyphCacheItem[int]
-			m_fast_glyph_cache_ascii=new TFastGlyphCacheItem[256]
+		//if m_fast_glyph_cache_font.h!=fnt.h||m_fast_glyph_cache_font.embolden!=fnt.embolden||iptr(m_fast_glyph_cache_font.pfnt)!=iptr(fnt.pfnt):
+		//	m_fast_glyph_cache=new CGlyphCacheItem[int]
+		//	m_fast_glyph_cache_ascii=new CGlyphCacheItem[128]
 		m_fast_glyph_cache_font=fnt
-	auto GetFastDrawCharCacheItem(int ch)
-		if u32(ch)<256u:
+	inline FastDrawChar(float x,float y,int C, int ch)
+		return DrawChar(m_fast_glyph_cache_font,x,y,C,ch)
+		/*if u32(ch)<128u:
 			ret=m_fast_glyph_cache_ascii[ch]
 		else
 			ret=m_fast_glyph_cache[ch]
-		if !ret.gcitem&&!ret.y_final:
+		if !ret:
 			(gcitem,delta_y)=CacheGlyph(m_fast_glyph_cache_font,ch)
 			ret.y_final=1.f
 			if gcitem:
@@ -967,13 +983,10 @@ class CRenderer
 				else
 					ret.y_final=gcitem.y_draw+delta_y
 			ret.gcitem=gcitem
-			if u32(ch)<256u:
+			if u32(ch)<128u:
 				m_fast_glyph_cache_ascii[ch]=ret
 			else
 				m_fast_glyph_cache[ch]=ret
-		return ret
-	auto FastDrawChar(float x,float y,int C, int ch)
-		ret=GetFastDrawCharCacheItem(ch)
 		///////////
 		gcitem=ret.gcitem
 		if gcitem:
@@ -985,48 +998,24 @@ class CRenderer
 			//we don't know what it looks like, don't draw
 			dx=0.f
 		//Writeln(x,' ',y,' ',char(ch))
-		return dx
+		return dx*/
 	////////////////
 	EDT_END_ELLIPSIS=1
 	EDT_EXPANDTABS=2
 	EDT_WORDBREAK=4
 	EDT_PREFIX_TO_UNDERLINE=8
-	auto GetCharacterHeight(TFont fnt)
-		pfnt=fnt.pfnt
-		delta_y=0.f
-		if pfnt.fallbacks:
-			//look up the fallback chain
-			fnt_i=fnt
-			foreach pfnt_i in pfnt.fallbacks
-				fnt_i.pfnt=pfnt_i
-				delta_y=max(delta_y,(pfnt.y_baseline_per_height-pfnt_i.y_baseline_per_height)*fnt.h)
-		return fnt.h+delta_y
-	auto GetFontBaseline(TFont fnt)
-		pfnt=fnt.pfnt
-		return pfnt.y_baseline_per_height*fnt.h
-	auto SearchGlyph(CCoreFont pfnt,int ch)
-		ret_tuple=(CCoreFont.NULL,0)
-		if pfnt.fallbacks:
-			//look up the fallback chain
-			foreach pfnt_i in pfnt.fallbacks
-				ret_tuple=SearchGlyph(pfnt_i,ch)
-				if ret_tuple[0]:return ret_tuple
-		else
-			gid=FTW_GetGlyphId(pfnt.hfnt,ch)
-			if gid:
-				ret_tuple[0]=pfnt
-				ret_tuple[1]=gid
-		return ret_tuple
+	inline GetCharacterHeight(TFont fnt)
+		return fnt.h
+	inline GetFontBaseline(TFont fnt)
+		return fnt.pfnt.y_baseline_per_height*fnt.h
 	auto GetCharacterAdvance(TFont fnt,int ch)
-		(pfnt,gid)=SearchGlyph(fnt.pfnt,ch)
-		if pfnt:
-			return max(FTW_GetGlyphAdvance(pfnt.hfnt,fnt.h,gid),0.f)
-		else
-			return 0.f
+		ci=fnt.pfnt.QueryCodePoint(ch)
+		return ci.dx*fnt.h
 	auto GetKerning(TFont fnt,int ch0,int ch1)
-		(pfnt,gid)=SearchGlyph(fnt.pfnt,ch0)
-		if pfnt:
-			return FTW_GetKerning(pfnt.hfnt,fnt.h,ch0,ch1)
+		ci=fnt.pfnt.QueryCodePoint(ch1)
+		if ci.fntid>0:
+			cfnt=fnt.pfnt.fonts[ci.fntid-1]
+			return FTW_GetKerning(cfnt.hfnt.hfnt,fnt.h*cfnt.scale,ch0,ch1)
 		else
 			return 0.f
 	auto ComputeTextLayout(TFont fnt, float w0,float h0,string s, int flags)
@@ -1062,11 +1051,7 @@ class CRenderer
 				dx=0.f
 				delta_y=0.f
 			else
-				(gc_I,delta_y)=CacheGlyph(fnt,ch)
-				if gc_I:
-					dx=gc_I.dx
-				else
-					dx=0.f
+				dx=GetCharacterAdvance(fnt,ch)
 			if x&&(x>=w0||x+dx>w0)||ch=='\n':
 				xbak=x
 				ybak=y
@@ -1110,11 +1095,11 @@ class CRenderer
 			xmax=max(xmax,x)
 		if ndrawn<s32.n&&(flags&EDT_END_ELLIPSIS):
 			U_ELLIPSIS=0x2026
-			if FTW_GetGlyphId(fnt.pfnt.hfnt,U_ELLIPSIS):
-				w_remove=CacheGlyph(fnt,U_ELLIPSIS)[0].dx
+			if fnt.pfnt.QueryCodePoint(U_ELLIPSIS).fntid>0:
+				w_remove=GetCharacterAdvance(fnt,U_ELLIPSIS)
 				s_elli=[U_ELLIPSIS]
 			else
-				w_remove=CacheGlyph(fnt,int('.'))[0].dx*3.f
+				w_remove=GetCharacterAdvance(fnt,int('.'))*3.f
 				s_elli=[int('.'),int('.'),int('.')]
 			while ndrawn&&poses[ndrawn-1].x+w_remove>w0&&poses[ndrawn-1].y+hc*2>h0:
 				ndrawn--
@@ -1122,7 +1107,7 @@ class CRenderer
 			poses_elli=new float2[s_elli.n]
 			foreach ch,I in s_elli
 				poses_elli[I]=float2(x,y)
-				x+=CacheGlyph(fnt,ch)[0].dx
+				x+=GetCharacterAdvance(fnt,ch)
 		else
 			poses_elli=float2[].NULL
 		ret=new TPositionedText[]
@@ -1729,27 +1714,51 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 		FTW_SetRetardedWindingOrder(pfnt.hfnt)
 		return 0
 	}
-	JS_UI["CreateCoreFontChain"]=function(JSContext JS){
+	JS_UI["CreateFontChain"]=function(JSContext JS){
 		arr=JS.Param(0).as(JSObject)
+		ret=new CFontChain
+		ret.cache_ascii=new TChainCacheItem[128]
+		ret.cache_unicode=new TChainCacheItem[int]
+		ret.fonts=new TChainFont[]
+		h_up=0.f
+		h_down=0.f
 		n=arr.length()
-		narr=new CCoreFont[]
 		for i=0:n-1
-			narr_i=arr[i].as(CCoreFont)
-			if narr_i:
-				narr.push(narr_i)
-		if narr.n:
-			return JS.Return(g_renderer.CreateCoreFontChain(narr))
-		else
+			cfnt_i=arr[i].as(JSObject)
+			hfnt=cfnt_i["hfnt"].as(CCoreFont)
+			if !hfnt:continue
+			scale=cfnt_i["scale"].or(1.f)
+			draw_dx=cfnt_i["dx"].or(0.f)
+			draw_dy=cfnt_i["dy"].or(0.f)
+			ret.fonts.push(TChainFont(){
+				hfnt:hfnt,
+				scale:scale,
+				draw_dx:draw_dx,
+				draw_dy:draw_dy,
+			})
+			h_up_i=min(max(hfnt.y_baseline_per_height-draw_dy/scale,0.f),1.f)
+			h_up=max(h_up,h_up_i*scale)
+			h_down=max(h_down,1.f-h_up_i*scale)
+		if !ret.fonts.n:
 			return 0
+		else
+			base_scale=h_up+h_down
+			inv_base_scale=1.f/base_scale
+			ret.base_scale=base_scale
+			ret.y_baseline_per_height=h_up*inv_base_scale
+			for i=0:ret.fonts.n-1
+				ret.fonts[i].scale*=inv_base_scale
+				ret.fonts[i].draw_dx*=inv_base_scale
+				ret.fonts[i].draw_dy*=inv_base_scale
+				ret.fonts[i].draw_dy+=ret.y_baseline_per_height-ret.fonts[i].hfnt.y_baseline_per_height*ret.fonts[i].scale
+			return JS.Return(ret)
 	}
-	JS_UI["CoreFontToFont"]=function(JSContext JS){
-		pfnt=JS.Param(0).as(CCoreFont)
+	JS_UI["FontChainToFont"]=function(JSContext JS){
+		pfnt=JS.Param(0).as(CFontChain)
 		if !pfnt:return 0
 		h=JS.Param(1).as(float)
 		embolden=JS.Param(2).as(int)
-		ret=g_renderer.CreateFont(pfnt,h,embolden)
-		assert(!!ret.pfnt)
-		return JS.Return(ret)
+		return JS.Return(TFont(){pfnt:pfnt,h:h*pfnt.base_scale,embolden:embolden})
 	}
 	JS_UI["GetFontHeight"]=function(JSContext JS){
 		fnt=JS.Param(0).as(TFont)
@@ -1849,6 +1858,8 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 		y0=JS.Param(2).or(0.f)*g_renderer.m_pixels_per_unit
 		C=JS.Param(3).or(u32(-1))
 		ch=JS.Param(4).or(32)
+		if g_renderer.m_srgb_supported:
+			fnt.SmartEmbolden(int(C))
 		g_renderer.DrawChar(fnt,x0,y0,int(C),ch)
 		return 0
 	}

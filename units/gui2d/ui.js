@@ -1076,6 +1076,7 @@ UI.CallIfAvailable=function(parent,id,attrs){
 UI.core_font_cache={};
 UI.font_cache={};
 UI.rc={};
+//manually defined chains - call CreateFontChain and write to UI.font_cache
 UI.Font=function(face,size,embolden){
 	//absolute fonts are better for documents anyway
 	var pfnt=UI.font_cache[face];
@@ -1086,17 +1087,18 @@ UI.Font=function(face,size,embolden){
 		}else{
 			fnames=fnames.concat(UI.fallback_font_names);
 		}
-		pfnt=UI.CreateCoreFontChain(fnames.map(UI.HackCallback(function(cface){
+		//print(JSON.stringify(fnames))
+		pfnt=UI.CreateFontChain(fnames.map(UI.HackCallback(function(cface){
 			var pcfnt=UI.core_font_cache[cface];
 			if(!pcfnt){
 				pcfnt=UI.CreateCoreFontByName(cface);
 				UI.core_font_cache[cface]=pcfnt;
 			}
-			return pcfnt;
+			return {hfnt:pcfnt};
 		})))
 		UI.font_cache[face]=pfnt;
 	}
-	return UI.CoreFontToFont(pfnt,size,embolden);
+	return UI.FontChainToFont(pfnt,size,embolden);
 }
 
 UI.DiscardCaches=function(){
@@ -1651,10 +1653,10 @@ UI.DrawFrame=function(){
 	UI.__children=[]
 	UI.Application("top",{});
 	UI.__children=undefined
-	if(UI.enable_timing){
-		print('JS time=',(Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())*1000).toFixed(2),'ms')
-		print('style time=',(UI.style_secs*1000).toFixed(2),'ms',UI.style_count)
-	}
+	//if(UI.enable_timing){
+	//	print('JS time=',(Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())*1000).toFixed(2),'ms')
+	//	print('style time=',(UI.style_secs*1000).toFixed(2),'ms',UI.style_count)
+	//}
 	if(!UI.context_focus_is_a_region){
 		//if the node is gone, DO NOT CALL OnBlur! just null it out
 		UI.nd_focus=undefined;

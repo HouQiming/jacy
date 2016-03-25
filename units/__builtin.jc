@@ -1764,28 +1764,22 @@ module __detail
 		else if __is_type("builtin",T)
 			if sizeof(T)<=2:
 				return uptr(a)
-			else if sizeof(T)==4&&T!=u32:
-				slot=a
-				return hash(__memory(u32,&slot))
-			else if sizeof(T)==8&&T!=u64:
-				slot=a
-				return hash(__memory(u64,&slot))
-			else if T==u32:
-				h=u32(4)
-				h  += (a&0xffffu);
-				tmp = ((a>>16) << 11) ^ h;
-				h	= (h << 16) ^ tmp;
-				h  += h >> 11;
-				///////////
-				h=__hash_avalanche(h)
-				return h
-			else if T==u64:
+			else if T==u32||T==i32:
 				h=u32(4)
 				h  += (u32(a)&0xffffu);
 				tmp = ((u32(a)>>16) << 11) ^ h;
 				h	= (h << 16) ^ tmp;
 				h  += h >> 11;
-				b=u32(a>>32)
+				///////////
+				h=__hash_avalanche(h)
+				return h
+			else if T==u64||T==i64:
+				h=u32(4)
+				h  += (u32(u64(a))&0xffffu);
+				tmp = ((u32(u64(a))>>16) << 11) ^ h;
+				h	= (h << 16) ^ tmp;
+				h  += h >> 11;
+				b=u32(u64(a)>>32)
 				h  += (b&0xffffu);
 				tmp = ((b>>16) << 11) ^ h;
 				h	= (h << 16) ^ tmp;
@@ -1793,13 +1787,23 @@ module __detail
 				///////////
 				h=__hash_avalanche(h)
 				return h
+			else if sizeof(T)==4:
+				slot=a
+				return hash(__memory(u32,&slot))
+			else if sizeof(T)==8:
+				slot=a
+				return hash(__memory(u64,&slot))
 		else
 			h=u32(1)
 			members=__member_list(a)
 			for i in crange(members.length):
 				id_name=members[i]
 				__is_variable(__dot(a,id_name),{
-					h2=u32(hash(__dot(a,id_name)))
+					T_member=typeof(__dot(a,id_name))
+					if T_member==i32||T_member==u32:
+						h2=u32(__dot(a,id_name))
+					else
+						h2=u32(hash(__dot(a,id_name)))
 					h  += (h2&0xffffu);
 					tmp = ((h2>>16) << 11) ^ h;
 					h	= (h << 16) ^ tmp;

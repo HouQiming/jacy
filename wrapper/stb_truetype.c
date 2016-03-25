@@ -375,7 +375,7 @@ typedef struct stbtt_fontinfo
    int pixel_ascent;
 
    //////////////////
-   int is_winding_order_retarded;
+   //int is_winding_order_retarded;
 } stbtt_fontinfo;
 
 static int stbtt_InitFont(stbtt_fontinfo *info, const unsigned char *data, int offset);
@@ -735,7 +735,7 @@ int stbtt_InitFont(stbtt_fontinfo *info, const unsigned char *data2, int fontsta
 
    info->data = data;
    info->fontstart = fontstart;
-   info->is_winding_order_retarded=0;
+   //info->is_winding_order_retarded=0;
 
    cmap = stbtt__find_table(data, fontstart, "cmap");       // required
    info->loca = stbtt__find_table(data, fontstart, "loca"); // required
@@ -2201,5 +2201,5 @@ EXPORT float FTW_GetKerning(FT_Face ft,float h,int ch1, int ch2){
 }
 
 EXPORT void FTW_SetRetardedWindingOrder(FT_Face ft){
-	ft->is_winding_order_retarded=1;
+	//ft->is_winding_order_retarded=1;
 }
