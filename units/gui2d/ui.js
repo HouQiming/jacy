@@ -1077,6 +1077,19 @@ UI.core_font_cache={};
 UI.font_cache={};
 UI.rc={};
 //manually defined chains - call CreateFontChain and write to UI.font_cache
+UI.CoreFont=function(cface){
+	var pcfnt=UI.core_font_cache[cface];
+	if(!pcfnt){
+		pcfnt=UI.CreateCoreFontByName(cface);
+		UI.core_font_cache[cface]=pcfnt;
+	}
+	return pcfnt;
+};
+
+UI.RegisterFontChain=function(face,chain){
+	UI.font_cache[face]=UI.CreateFontChain(chain);
+};
+
 UI.Font=function(face,size,embolden){
 	//absolute fonts are better for documents anyway
 	var pfnt=UI.font_cache[face];
@@ -1089,12 +1102,7 @@ UI.Font=function(face,size,embolden){
 		}
 		//print(JSON.stringify(fnames))
 		pfnt=UI.CreateFontChain(fnames.map(UI.HackCallback(function(cface){
-			var pcfnt=UI.core_font_cache[cface];
-			if(!pcfnt){
-				pcfnt=UI.CreateCoreFontByName(cface);
-				UI.core_font_cache[cface]=pcfnt;
-			}
-			return {hfnt:pcfnt};
+			return {hfnt:UI.CoreFont(cface)};
 		})))
 		UI.font_cache[face]=pfnt;
 	}

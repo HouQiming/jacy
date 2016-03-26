@@ -447,7 +447,7 @@ W.PureGroup=function(obj,ending_hint){
 	/////////
 	var items=obj.items||[];
 	var item_template=obj.item_template||{};
-	var selection=obj.selection;
+	var selection=obj.selection||{};
 	var sel_obj_temps;
 	var item_template_keys=[];
 	for(var key in item_template){
@@ -465,19 +465,23 @@ W.PureGroup=function(obj,ending_hint){
 			itemobj_i.__kept=1;
 			continue;
 		}
-		var obj_temp={}
-		obj_temp.x=0;obj_temp.y=0;//for layouting
-		for(var j=0;j<item_template_keys.length;j++){
-			var key=item_template_keys[j];
-			obj_temp[key]=item_template[key];
-		}
-		for(var key in items_i){
-			obj_temp[key]=items_i[key];
-		}
-		if(selection){
+		if(!obj[items_i.id]){
+			var obj_temp={}
+			obj_temp.x=0;obj_temp.y=0;//for layouting
+			for(var j=0;j<item_template_keys.length;j++){
+				var key=item_template_keys[j];
+				obj_temp[key]=item_template[key];
+			}
+			for(var key in items_i){
+				obj_temp[key]=items_i[key];
+			}
 			obj_temp.selected=selection[obj_temp.id];
+			itemobj_i=(obj_temp.object_type)(obj_temp.id,obj_temp);
+		}else{
+			items_i.x=0;items_i.y=0;
+			items_i.selected=selection[items_i.id];
+			itemobj_i=(item_template.object_type)(items_i.id,items_i);
 		}
-		itemobj_i=(obj_temp.object_type)(obj_temp.id,obj_temp);
 		itemobj_i.__kept=1;
 	}
 	obj.layout_auto_anchor=null;

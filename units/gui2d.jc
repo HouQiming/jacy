@@ -204,7 +204,7 @@ class CFontChain
 			gid=FTW_GetGlyphId(cfnt.hfnt.hfnt,ch)
 			if gid:
 				dx=FTW_GetGlyphAdvance(cfnt.hfnt.hfnt,cfnt.scale,gid)
-				fntid=I+1
+				fntid=int(I+1)
 				break
 		ci=TChainCacheItem(){dx:dx,fntid:fntid}
 		if ch<128:
