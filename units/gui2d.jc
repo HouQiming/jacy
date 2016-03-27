@@ -396,6 +396,9 @@ class CRenderer
 	m_uv16_scale=1
 	m_drawcalls=new TDrawCall[]
 	//////////////
+	CJSGLRenderToTextureContext m_srgb_fbo
+	u32 m_clear_color
+	GLTechnique m_manual_srgb_tech
 	m_srgb_supported=-1
 	//m_tex_is_srgb=0
 	m_tech=new GLTechnique
@@ -581,6 +584,34 @@ class CRenderer
 				Writeln('-------')
 	auto DrawWindow(__pointer hwnd_onlydraw,float2 translation,float2 scale)
 		TestSRGB()
+		if m_srgb_supported==2:
+			//manual sRGB
+			wnd_viewport=new int[4]
+			glGetIntegerv(GL_VIEWPORT,__pointer(wnd_viewport.d));
+			wnd_w=wnd_viewport[2]
+			wnd_h=wnd_viewport[3]
+			if !m_srgb_fbo||m_srgb_fbo.w<wnd_w||m_srgb_fbo.h<wnd_h:
+				fbo_w=wnd_w
+				fbo_h=wnd_h
+				if m_srgb_fbo:
+					m_srgb_fbo.discard()
+					fbo_w=max(fbo_w,m_srgb_fbo.w)
+					fbo_h=max(fbo_h,m_srgb_fbo.h)
+				m_srgb_fbo=glCreateRenderToTextureContext(GL_RGBA8,fbo_w,fbo_h,0)
+			bk_fbo=new u32[1]
+			glGetIntegerv(GL_FRAMEBUFFER_BINDING,__pointer(bk_fbo.d))
+			glBindFramebuffer(GL_FRAMEBUFFER,m_srgb_fbo.m_fbo)
+			glViewport(0,0,wnd_w,wnd_h)
+			C_clear=m_clear_color
+			c0=f32(C_clear&0xffu)/255.f
+			c1=f32((C_clear>>8)&0xffu)/255.f
+			c2=f32((C_clear>>16)&0xffu)/255.f
+			if m_gamma!=1.f:
+				c0=pow(c0,m_gamma)
+				c1=pow(c1,m_gamma)
+				c2=pow(c2,m_gamma)
+			glClearColor(c0,c1,c2,f32(C_clear>>24)/255.f)
+			glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT)
 		if m_tex_has_to_be_deleted:
 			m_tex_has_to_be_deleted=0
 			glDeleteTextures(1,&m_texid)
@@ -598,7 +629,7 @@ class CRenderer
 			//SavePNG("$dynamic.png",[(int(a)*0x010101)|0xff000000 foreach a in m_texture_data],m_texture_width,m_texture_height)
 		glDisable(GL_DEPTH_TEST)
 		glEnable(GL_BLEND)
-		if !IS_OPENGL_ES&&m_srgb_supported:
+		if !IS_OPENGL_ES&&m_srgb_supported&&m_srgb_supported!=2:
 			glGetError()
 			glEnable(GL_FRAMEBUFFER_SRGB_EXT)
 			err=glGetError()
@@ -637,6 +668,20 @@ class CRenderer
 				m_tech.SetUniform("trans",float2(-1.f,1.f)+translation*scale_scr)
 				m_tech.SetTexture2D("tex0", m_texid)
 				m_tech.Draw(0u,GL_QUADS,dc.nv)
+		if m_srgb_supported==2:
+			//manual sRGB
+			glBindFramebuffer(GL_FRAMEBUFFER,bk_fbo[0])
+			tech=m_manual_srgb_tech
+			if !tech:
+				tech=new GLTechnique
+				tech.SetFragmentShader("void main(){
+					vec4 C=texture2D(tex0,st*scale,0);
+					gl_FragColor=vec4(pow(C.xyz,vec3("+formatNumber(1.f/m_gamma,{frac:7})+")),C.w);
+				}")
+				m_manual_srgb_tech=tech
+			tech.SetUniform("scale",float2(float(wnd_w)/float(m_srgb_fbo.w),float(wnd_h)/float(m_srgb_fbo.h)))
+			tech.SetTexture2D("tex0",m_srgb_fbo.m_tex)
+			tech.DrawScreenQuad()
 	auto DrawCaret(float x,float y,float w,float h,int C)
 		m_caret_tech.SetVarying("vec4 C;")
 		m_caret_tech.SetVertexShader("
@@ -1909,6 +1954,7 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 	if is_real:
 		JS_UI["Clear"]=function(JSContext JS){
 			C_clear=JS.Param(0).or(u32(-1))
+			g_renderer.m_clear_color=C_clear
 			c0=f32(C_clear&0xffu)/255.f
 			c1=f32((C_clear>>8)&0xffu)/255.f
 			c2=f32((C_clear>>16)&0xffu)/255.f

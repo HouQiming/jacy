@@ -74,7 +74,7 @@ g_code=new string
 g_typedef_code=new string
 g_did=new int[string]
 auto once(string ver)
-	words=[s foreach s in ReadAllText("c:\\tp\\kara\\units\\glload"+ver+".i").Tokenize('"\r\n:') if s!="__PARSE_GLLOADER"]
+	words=[s foreach s in ReadAllText("glload"+ver+".i").Tokenize('"\r\n:') if s!="__PARSE_GLLOADER"]
 	pts=[I foreach s,I in words if s.n>1&&s.back()==',']
 	//scan for dups
 	all_names=new string[][string]

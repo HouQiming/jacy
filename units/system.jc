@@ -9170,7 +9170,9 @@ module Env
 			return pcharToString(osal_getStoragePath())
 		else
 			if Platform.IS_WINDOWS:
-				s_userdir=ExpandEnvironmentStrings(string("%USERPROFILE%"))
+				s_userdir=ExpandEnvironmentStrings(string("%HOME%"))
+				if !s_userdir.n||s_userdir[0]=='%':
+					s_userdir=ExpandEnvironmentStrings(string("%USERPROFILE%"))
 				if !s_userdir.n||s_userdir[0]=='%':
 					s_userdir=ExpandEnvironmentStrings(string("%SystemDrive%%HOMEPATH%"))
 				ename=_Win_GetExecutableName().Replace(["\\","/"])

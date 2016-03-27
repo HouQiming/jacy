@@ -3286,7 +3286,7 @@ class GLTechnique
 		ofs=JS.Param(5).or(0)
 		if !m_js_cpu_vbo:
 			return JS.ReturnError("please call SetVBO first")
-		SetVertexPointer(name,dim,type,normalized,iptr(stride),iptr(ofs)+m_js_cpu_vbo.buf.d)
+		SetVertexPointer(name,dim,type,normalized,iptr(stride),iptr(ofs)+m_js_cpu_vbo.d)
 		//a weak check, it is NOT SECURE!
 		if !m_js_offset_checker:
 			m_js_offset_checker=new int2[]
@@ -3300,7 +3300,7 @@ class GLTechnique
 		mode0=JS.Param(0).or(GL_TRIANGLES)
 		count0=JS.Param(1).or(0)
 		foreach chk in m_js_offset_checker
-			if uptr(chk.x*(count0-1)+chk.y)>=uptr(m_js_cpu_vbo.buf.n*sizeof(int)):
+			if uptr(chk.x*(count0-1)+chk.y)>=uptr(m_js_cpu_vbo.n*sizeof(int)):
 				return JS.ReturnError("out-of-bound VBO access")
 		ret=Draw(0u,mode0,count0)
 		m_js_offset_checker=int2[].NULL
@@ -3427,16 +3427,23 @@ class CJSGLRenderToTextureContext
 	GLuint m_tex
 	GLuint m_rbo
 	GLuint m_fbo
+	int w
+	int h
 	auto __done__()
 		if m_fbo:
 			objid=m_fbo
 			glDeleteFramebuffers(1,&objid)
+			m_fbo=0u
 		if m_rbo:
 			objid=m_rbo
 			glDeleteRenderbuffers(1,&objid)
+			m_rbo=0u
 		if m_tex:
 			objid=m_tex
 			glDeleteTextures(1,&objid)
+			m_tex=0u
+	inline discard()
+		__done__()
 GL_RTT_MIPMAP=1
 GL_RTT_DEPTH=2
 inline glCreateFramebuffer()
@@ -3474,7 +3481,7 @@ auto glCreateRenderToTextureContext(GLenum format,int w,int h,int flags)
 	if flags&GL_RTT_DEPTH:
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_STENCIL_ATTACHMENT,GL_RENDERBUFFER,rbo);
 	glBindFramebuffer(GL_FRAMEBUFFER,0u);
-	return new CJSGLRenderToTextureContext(){m_tex:tex,m_rbo:rbo,m_fbo:fbo}
+	return new CJSGLRenderToTextureContext(){m_tex:tex,m_rbo:rbo,m_fbo:fbo,w:w,h:h}
 
 auto createGLJSObject(JSObject JS_GL)
 	JS_GL["glCreateTechnique"]=function(JSContext JS){
