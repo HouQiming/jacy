@@ -277,8 +277,8 @@ UI.SetCaret=function(obj,x,y,w,h,C,dt){
 	y1=Math.min(y1,(clip_rect.y+clip_rect.h)*UI.pixels_per_unit);
 	obj.caret_x=x;
 	obj.caret_y=y;
-	obj.caret_w=Math.max(x1-x,0)/UI.pixels_per_unit;
-	obj.caret_h=Math.max(y1-y,0)/UI.pixels_per_unit;
+	obj.caret_w=Math.max(x1-x,0);
+	obj.caret_h=Math.max(y1-y,0);
 	obj.caret_C=C;
 	obj.caret_state=2;
 	obj.caret_dt=dt;
@@ -1453,7 +1453,7 @@ W.Edit_prototype={
 			UI.PushCliprect(this.x,this.y,this.w,this.h)
 			UI.SetCaret(UI.context_window,
 				x_caret,y_caret,
-				this.caret_width*UI.pixels_per_unit*scale,this.GetCharacterHeightAtCaret()*UI.pixels_per_unit*scale,
+				this.caret_width*scale,this.GetCharacterHeightAtCaret()*scale,
 				this.caret_color,this.caret_flicker);
 			UI.PopCliprect()
 		}

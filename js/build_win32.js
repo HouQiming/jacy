@@ -194,12 +194,16 @@ g_action_handlers.make=function(){
 		}
 	}
 	//icon and application name
-	if(g_json.icon_file){
-		var fn_icon=SearchForFile(g_json.icon_file[0]);
+	if(g_json.icon_file||g_json.icon_win){
+		var fn_icon=SearchForFile((g_json.icon_win||g_json.icon_file)[0]);
 		var fn_res=g_work_dir+"/a.res";
 		if(!IsNewerThan(fn_res,fn_icon)){
 			CreateFile(g_work_dir+"/a.rc",'1 ICON "a.ico"\n')
-			ResampleImage(fn_icon,g_work_dir+'/a.ico','ico');
+			if(g_json.icon_win){
+				UpdateTo(g_work_dir+'/a.ico',fn_icon);
+			}else{
+				ResampleImage(fn_icon,g_work_dir+'/a.ico','ico');
+			}
 			var scmd='@echo off\ncall "'+VC.sbatname+'" >NUL\nrc /fo "'+fn_res+'" "'+g_work_dir+"/a.rc"+'"'
 			var scallrc=g_work_dir+"/callrc.bat";
 			if(!CreateFile(scallrc,scmd)){

@@ -218,14 +218,14 @@ auto resample(int[] img,int w0,int h0,int w,int h)
 auto writeico(auto f,int[] img0,int w,int h)
 	sz=w*h*4+max(w>>3,4)*h
 	header=[0x28,w,h*2,0x200001,0,sz]
-	f.Write(header.ConvertToAsBinary(char))
+	f.WriteBinary(header)
 	f.Write("\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
 	img=new int[w*h]
 	for i=0:h-1
 		for j=0:w-1
 			aa=img0[i*w+j]
 			img[(h-1-i)*w+j]=(aa&0xff00ff00)+((aa>>16)&0xff)+((aa&0xff)<<16)
-	f.Write(img.ConvertToAsBinary(char))
+	f.WriteBinary(img)
 	binmask=new int[]
 	for i=0:h-1
 		for j=0:32:w-1
@@ -233,7 +233,7 @@ auto writeico(auto f,int[] img0,int w,int h)
 			for k=0:min(31,int(w-1-j))
 				mk|=1<<k
 			binmask.push(mk)
-	f.Write(binmask.ConvertToAsBinary(char))
+	f.WriteBinary(binmask)
 
 stbi_zlib_compress=__c_function(__pointer,"stbi_zlib_compress","stb_image_write.h", "c_files","stb_image_write.c")
 stbiw__crc32=__c_function(u32,"stbiw__crc32","stb_image_write.h", "c_files","stb_image_write.c")
@@ -458,8 +458,10 @@ auto jszip(JSContext JS)
 			//ico
 			//\x10\x10\x00\x00\x00\x00 \x00h\x04\x00\x006\x00\x00\x00  \x00\x00\x00\x00 \x00\xA8\x10\x00\x00\x9E\x04\x00\x0000\x00\x00\x00\x00 \x00\xA8%\x00\x00F\x15\x00\x00
 			//sizes=[16,20,32,48]
-			sizes=[16,32,48,64]
-			ico_header=new("\x00\x00\x01\x00\x05\x00")
+			sizes=[16,24,32,48,64]
+			ico_header=new("\x00\x00\x01\x00")
+			ico_header.push(char(sizes.n))
+			ico_header.push(char(0))
 			ofsimg=6+sizes.n*16
 			foreach sz in sizes
 				ico_header.push(char(sz))
@@ -483,6 +485,7 @@ auto jszip(JSContext JS)
 			spng_str=__ptrToString(spng,len)
 			f.Write(spng_str)
 			stbi_free_image_write(spng)
+		f.Close()
 		return JS.Return(1)
 	}
 	global["SHA1"]=function(JSContext JS){

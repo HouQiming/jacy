@@ -312,6 +312,8 @@ class __array(T)
 		this.n=0L
 		this.sz=0L
 		this.destructor_nbound_or_slice_reference=0L
+		__force_leak(this)
+		__force_leak(ret)
 		return ret
 	inline substr(iptr a,iptr n)
 		return slice(a,a+n-1)
