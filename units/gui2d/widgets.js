@@ -427,6 +427,21 @@ W.PureRegion=function(id,obj){
 	return obj;
 }
 
+W.RestoreRegion=function(obj){
+	if(obj.OnTextInput||obj.OnKeyDown){
+		if(!UI.context_tentative_focus||(UI.context_tentative_focus.default_focus||0)<(obj.default_focus||0)){
+			UI.context_tentative_focus=obj;
+		}
+	}
+	if(obj==UI.nd_focus){
+		UI.context_focus_is_a_region=1
+	}
+	if(obj==UI.nd_mouse_over){
+		UI.context_mouse_over_is_a_region=1;
+	}
+	UI.context_regions.push(obj);
+}
+
 ////////////////////////////////////////
 //utility
 W.Group=function(id,attrs){

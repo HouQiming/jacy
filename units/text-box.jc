@@ -1899,7 +1899,7 @@ class CEditableText
 		rr_styles=new TRRContext[]
 		wf_hl=wf
 		if handler.GetWrapWidth:
-			wf_hl=min(wf_hl,fixed2float(handler.GetWrapWidth()))
+			wf_hl=min(wf_hl,fixed2float(handler.GetWrapWidth()-x))
 		foreach hl in m_highlights
 			ccnt0=hl.p0.ccnt
 			ccnt1=hl.p1.ccnt

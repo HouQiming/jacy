@@ -25,6 +25,6 @@ return {
 	//"SSH_SERVER_LINUX":"ubuntu@192.168.85.111",
 	//"SSH_SERVER_LINUX":"ubuntu@192.168.85.108",
 	"SSH_SERVER_RASPPI":"pi@192.168.85.105",
-	"SSH_SERVER_LINUX":"houqiming@192.168.85.114",
+	"SSH_SERVER_LINUX":"houqiming@192.168.85.116",
 	"SSH_SERVER_MAC":"HouQiming@192.168.85.104",
 }

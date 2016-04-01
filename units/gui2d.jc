@@ -582,21 +582,23 @@ class CRenderer
 				formatNumber(u32(m_vbo[i+2]),{base:16,align:8}))
 			if ((i/VERTEX_SIZE)&3)==3:
 				Writeln('-------')
-	auto DrawWindow(__pointer hwnd_onlydraw,float2 translation,float2 scale)
+	auto DrawWindow(JSContext JS,__pointer hwnd_onlydraw,float2 translation,float2 scale)
 		TestSRGB()
+		wnd_viewport=new int[4]
+		glGetIntegerv(GL_VIEWPORT,__pointer(wnd_viewport.d));
+		JS["UI"]["m_gl_curwindow_w"]=wnd_viewport[2]
+		JS["UI"]["m_gl_curwindow_h"]=wnd_viewport[3]
 		if m_srgb_supported==2:
 			//manual sRGB
-			wnd_viewport=new int[4]
-			glGetIntegerv(GL_VIEWPORT,__pointer(wnd_viewport.d));
 			wnd_w=wnd_viewport[2]
 			wnd_h=wnd_viewport[3]
-			if !m_srgb_fbo||m_srgb_fbo.w<wnd_w||m_srgb_fbo.h<wnd_h:
+			if !m_srgb_fbo||m_srgb_fbo.w!=wnd_w||m_srgb_fbo.h!=wnd_h:
 				fbo_w=wnd_w
 				fbo_h=wnd_h
 				if m_srgb_fbo:
+					//fbo_w=max(fbo_w,m_srgb_fbo.w)
+					//fbo_h=max(fbo_h,m_srgb_fbo.h)
 					m_srgb_fbo.discard()
-					fbo_w=max(fbo_w,m_srgb_fbo.w)
-					fbo_h=max(fbo_h,m_srgb_fbo.h)
 				m_srgb_fbo=glCreateRenderToTextureContext(GL_RGBA8,fbo_w,fbo_h,0)
 			bk_fbo=new u32[1]
 			glGetIntegerv(GL_FRAMEBUFFER_BINDING,__pointer(bk_fbo.d))
@@ -1579,7 +1581,7 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 		//"privileged" functions
 		JS_UI["DrawWindow"]=function(JSContext JS){
 			hwnd=JS.Param(0).or(NULL)
-			g_renderer.DrawWindow(hwnd,float2(0.f,0.f),float2(1.f,1.f))
+			g_renderer.DrawWindow(JS,hwnd,float2(0.f,0.f),float2(1.f,1.f))
 			return 0
 		}
 		JS_UI["DrawCaret"]=function(JSContext JS){

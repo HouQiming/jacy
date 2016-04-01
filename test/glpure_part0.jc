@@ -1400,6 +1400,10 @@ GL_FRAGMENT_LIGHT6_EXT=0x8412
 GL_FRAGMENT_LIGHT7_EXT=0x8413
 GL_READ_FRAMEBUFFER_EXT=0x8CA8
 GL_DRAW_FRAMEBUFFER_EXT=0x8CA9
+GL_READ_FRAMEBUFFER=0x8CA8
+GL_DRAW_FRAMEBUFFER=0x8CA9
+GL_DRAW_FRAMEBUFFER_BINDING=0x8CA6
+GL_READ_FRAMEBUFFER_BINDING=0x8CAA
 GL_DRAW_FRAMEBUFFER_BINDING_EXT=0x8CA6
 GL_READ_FRAMEBUFFER_BINDING_EXT=0x8CAA
 GL_RENDERBUFFER_SAMPLES_EXT=0x8CAB
@@ -3461,6 +3465,8 @@ inline glCreateBuffer(what,data)
 	return ret
 
 auto glCreateRenderToTextureContext(GLenum format,int w,int h,int flags)
+	p_old_fbo=new u32[1]
+	glGetIntegerv(GL_FRAMEBUFFER_BINDING,__pointer(p_old_fbo.d))
 	tex=glCreateTexture(
 		format,w,h,
 		GL_LINEAR,GL_CLAMP_TO_EDGE,GL_CLAMP_TO_EDGE,
@@ -3480,7 +3486,7 @@ auto glCreateRenderToTextureContext(GLenum format,int w,int h,int flags)
 	glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,tex,0);
 	if flags&GL_RTT_DEPTH:
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_STENCIL_ATTACHMENT,GL_RENDERBUFFER,rbo);
-	glBindFramebuffer(GL_FRAMEBUFFER,0u);
+	glBindFramebuffer(GL_FRAMEBUFFER,p_old_fbo[0]);
 	return new CJSGLRenderToTextureContext(){m_tex:tex,m_rbo:rbo,m_fbo:fbo,w:w,h:h}
 
 auto createGLJSObject(JSObject JS_GL)

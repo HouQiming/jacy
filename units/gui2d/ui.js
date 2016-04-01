@@ -983,6 +983,7 @@ var fauto_refresher=UI.HackCallback(function(){
 
 UI.AutoRefresh=function(){
 	if(!UI.is_real){return;}
+	UI.n_auto_refreshes++;
 	if(UI.animation_framerate>20){
 		UI.Refresh()
 	}else{
@@ -1630,6 +1631,8 @@ UI.m_frame_tick=Duktape.__ui_get_tick();
 UI.DrawFrame=function(){
 	//the main painting loop
 	//clear message-created invalidation flag
+	//print("===UI.DrawFrame")
+	UI.n_auto_refreshes=0;
 	UI.m_frame_is_invalid=0;
 	UI.need_to_refresh=0;
 	UI.BeginFrame();
@@ -1947,19 +1950,25 @@ UI.Run=function(){
 					//ignore alt+tab
 					break;
 				}
+				//print(JSON.stringify(event),obj_window.m_just_alted)
 				if(obj_window&&UI.Platform.ARCH!="mac"){
-					if(event.keysym==UI.SDLK_LALT||event.keysym==UI.SDLK_RALT){
-						//alt-menu case
-						//print("ALT",event.type==UI.SDL_KEYDOWN?"DOWN":"UP")
-						if(event.type==UI.SDL_KEYDOWN){
-							obj_window.m_just_alted=1;
+					if((event.keysym==UI.SDLK_LALT||event.keysym==UI.SDLK_RALT)){
+						if(event.repeat){
+							//do nothing
 						}else{
-							if(obj_window.m_just_alted){
-								if(obj_window.OnMenu){
-									obj_window.OnMenu();
+							//alt-menu case
+							//print("ALT",event.type==UI.SDL_KEYDOWN?"DOWN":"UP")
+							if(event.type==UI.SDL_KEYDOWN){
+								obj_window.m_just_alted=1;
+							}else{
+								if(obj_window.m_just_alted){
+									//print("call alt menu")
+									if(obj_window.OnMenu){
+										obj_window.OnMenu();
+									}
 								}
+								obj_window.m_just_alted=0;
 							}
-							obj_window.m_just_alted=0;
 						}
 					}else{
 						obj_window.m_just_alted=0;
