@@ -1,4 +1,4 @@
- /*
+/*
 <package name="SDL">
 	<target n="win32">
 		<dll n="lib/x86/sdl2.dll"/>

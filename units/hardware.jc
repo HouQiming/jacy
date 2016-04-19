@@ -16,22 +16,7 @@ module Camera
 			__generate_json("ios_frameworks","System/Library/Frameworks/CoreMedia.framework")
 			__generate_json("ios_frameworks","System/Library/Frameworks/CoreVideo.framework")
 		else
-			__generate_json("c_files","camera_desktop.c")
-			__generate_json("search_paths","OSSLIB_PATH")
-			if Platform.ARCH=="win32":
-				__generate_json("dll_files","opencv/build/x86/vc10/bin/msvcp100.dll")
-				__generate_json("dll_files","opencv/build/x86/vc10/bin/msvcr100.dll")
-				__generate_json("dll_files","opencv/build/x86/vc10/bin/opencv_core249.dll")
-				__generate_json("dll_files","opencv/build/x86/vc10/bin/opencv_highgui249.dll")
-				__generate_json("lib_files","opencv/build/x86/vc10/lib/opencv_core249.lib")
-				__generate_json("lib_files","opencv/build/x86/vc10/lib/opencv_highgui249.lib")
-			else if Platform.ARCH=="win64":
-				__generate_json("dll_files","opencv/build/x64/vc10/bin/msvcp100.dll")
-				__generate_json("dll_files","opencv/build/x64/vc10/bin/msvcr100.dll")
-				__generate_json("dll_files","opencv/build/x64/vc10/bin/opencv_core249.dll")
-				__generate_json("dll_files","opencv/build/x64/vc10/bin/opencv_highgui249.dll")
-				__generate_json("lib_files","opencv/build/x64/vc10/lib/opencv_core249.lib")
-				__generate_json("lib_files","opencv/build/x64/vc10/lib/opencv_highgui249.lib")
+			__generate_json("c_files","camera_win.cpp")
 		w=0
 		h=0
 		ret=iptr(osal_GetCameraImage(cam_id,&w,&h))

@@ -6120,6 +6120,7 @@ module OS_API
 		QueryPerformanceCounter=__c_function(int,"QueryPerformanceCounter","windows.h")
 		QueryPerformanceFrequency=__c_function(int,"QueryPerformanceFrequency","windows.h")
 		ExpandEnvironmentStringsW=__c_function(int,"ExpandEnvironmentStringsW","windows.h")
+		GetEnvironmentVariableW=__c_function(int,"GetEnvironmentVariableW","windows.h")
 		SetEnvironmentVariableW=__c_function(int,"SetEnvironmentVariableW","windows.h")
 		sleep=__c_function(int,"Sleep","windows.h")
 		GetFullPathNameW=__c_function(int,"GetFullPathNameW","windows.h")
@@ -6643,7 +6644,7 @@ module IO
 		inline WriteBinary(s)
 			if !readOptionalMember(s,"IS_ARRAY",0):
 				__error("WriteBinary takes an array, not @1",typeof(s))
-			sztot=s.n*sizeof(s[0])
+			sztot=s.n*sizeof(s.T)
 			BLOCK_SIZE=iptr(128<<20)
 			ret_all=0L
 			for i=0:BLOCK_SIZE:sztot-1
@@ -9124,6 +9125,20 @@ module Env
 			b.resize(lg)
 			if lg&&b[lg-1]==i16(0):b.resize(lg-1)
 			return Algorithm.UnicodeToUtf8(b)
+	auto GetEnvironmentVariable(string a)
+		au=toNativeString(a);
+		if Platform.IS_UNIX:
+			penv=iptr(getenv(au))
+			if penv:
+				return pcharToString(__pointer(penv))
+			else
+				return string.NULL
+		else
+			lg=GetEnvironmentVariableW(au,NULL,0)
+			buf=new i16[lg]
+			lg=GetEnvironmentVariableW(au,buf,lg)
+			buf.n=iptr(lg)
+			return Algorithm.UnicodeToUtf8(buf)
 	auto SetEnvironmentString(string a,string b)
 		au=toNativeString(a);
 		bu=toNativeString(b);

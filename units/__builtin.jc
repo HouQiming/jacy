@@ -1842,9 +1842,9 @@ inline formatNumber(a)
 		fraction=int(readOptionalMember(options,"frac",7))
 		is_sci=int(readOptionalMember(options,"scientific",0))
 		force_sign=int(readOptionalMember(options,"sign",0))
-		lg=__detail.FormatDouble(0L,0L, force_sign,is_sci,!!__has_member(options,"frac"),fraction, f64(a))
+		lg=__detail.FormatDouble(0L,0L, force_sign,is_sci,!__has_member(options,"frac"),fraction, f64(a))
 		ret=char[lg]
-		__detail.FormatDouble(ret.d,lg, force_sign,is_sci,!!__has_member(options,"frac"),fraction, f64(a))
+		__detail.FormatDouble(ret.d,lg, force_sign,is_sci,!__has_member(options,"frac"),fraction, f64(a))
 		return ret
 	else if __is_type("int",T):
 		align=int(readOptionalMember(options,"align",1))

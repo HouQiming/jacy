@@ -5,9 +5,9 @@ g_action_handlers.make=function(){
 	var ssh_addr,ssh_port;
 	g_ssh_target=(g_arch=='rasppi'?'rasppi':'linux');
 	if(g_need_ssh_for_linux){
-		if(g_json.verbose){print("building for @2 on a @1 machine, doing ssh".replace("@1",g_current_arch).replace("@2",g_arch));}
 		ssh_addr=GetServerSSH(g_ssh_target);
 		ssh_port=GetPortSSH(g_ssh_target);
+		if(g_json.verbose){print("building for @2 on a @1 machine, sshing to ".replace("@1",g_current_arch).replace("@2",g_arch),[ssh_addr,':',ssh_port].join(''));}
 	}
 	mkdir(g_work_dir+"/upload/");
 	if(g_need_ssh_for_linux&&!FileExists(g_work_dir+"/buildtmp_ready")){

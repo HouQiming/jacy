@@ -298,6 +298,7 @@ auto main()
 	if !fn_output_c.n:
 		fn_output_c="a.c"
 	auto callPMJS()
+		g_ctobject_pool.discard()
 		if call_pmjs:
 			if Platform.IS_WINDOWS:
 				//if Platform.BUILD=="debug":

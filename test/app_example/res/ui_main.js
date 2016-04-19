@@ -9,7 +9,7 @@ choose the "screen size" at which you designed the UI, measured as the length of
 */
 UI.ChooseScalingFactor({designated_screen_size:480})
 //choose a theme color
-UI.Theme_Minimalistic([0xffb4771f])
+UI.Theme_Minimalistic(0xffb4771f)
 
 //some algorithm parameters you'd want to adjust in a real program: the "document" in "document-view"
 var g_parameters={param0:0.3,param1:2};

@@ -42,11 +42,10 @@ typedef struct{
 	int m_is_on;
 	SDL_mutex* m_cam_mutex;
 	SDL_mutex* m_cam_mutex_2;
-	SDL_sem* m_camdat_ready_event;
 	////////
 	u32* m_image_front;
 	u32* m_image_back;
-	int m_w,m_h,m_is_waiting,m_image_ready;
+	int m_w,m_h,m_image_ready;
 }TCamera;
 
 static TCamera g_cameras[2]={{0}};
@@ -205,13 +204,8 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 		}
 	}
 	SDL_LockMutex(cam->m_cam_mutex);
-	need_post=cam->m_is_waiting;
 	cam->m_image_ready=1;
-	cam->m_is_waiting=0;
 	SDL_UnlockMutex(cam->m_cam_mutex);
-	if(need_post){
-		SDL_SemPost(cam->m_camdat_ready_event);
-	}
 	CVPixelBufferUnlockBaseAddress(imageBuffer,0);
 	SDL_UnlockMutex(cam->m_cam_mutex_2);
 	//CVImageBufferRelease(imageBuffer);
@@ -220,27 +214,20 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 
 EXPORT int* osal_GetCameraImage(int cam_id, int* pw,int* ph){
 	if(cam_id!=IOS_CAMERA_FRONT&&cam_id!=IOS_CAMERA_BACK){return NULL;}
-	TCamera* cam=&g_cameras[cam_id];
-	int* ret=NULL;
-	for(;;){
-		SDL_LockMutex(cam->m_cam_mutex);
-		if(cam->m_image_ready){
-			ret=(int*)cam->m_image_back;
-			cam->m_image_back=cam->m_image_front;
-			cam->m_image_front=(u32*)ret;
-			cam->m_image_ready=0;
-			SDL_UnlockMutex(cam->m_cam_mutex);
-			break;
-		}else{
-			cam->m_is_waiting=1;
-			SDL_UnlockMutex(cam->m_cam_mutex);
-			//__android_log_print(ANDROID_LOG_ERROR,"STDOUT","SDL_SemWait(cam->m_camdat_ready_event)");
-			SDL_SemWait(cam->m_camdat_ready_event);
-		}
+	SDL_LockMutex(cam->m_cam_mutex);
+	if(cam->m_image_ready){
+		u32* ret=cam->m_image_back;
+		cam->m_image_back=cam->m_image_front;
+		cam->m_image_front=ret;
+		cam->m_image_ready=0;
+		SDL_UnlockMutex(cam->m_cam_mutex);
+		*pw=cam->m_w;
+		*ph=cam->m_h;
+		return ret;
+	}else{
+		SDL_UnlockMutex(cam->m_cam_mutex);
+		return NULL;
 	}
-	*pw=cam->m_w;
-	*ph=cam->m_h;
-	return ret;
 }
 
 EXPORT int osal_TurnOffCamera(int cam_id){

@@ -1268,8 +1268,8 @@ UI.interpolators.color=function(a,b,t){
 }
 UI.interpolators.caption_color=UI.interpolators.color;
 UI.interpolators.border_color=UI.interpolators.color;
-//UI.interpolators.text_color=UI.interpolators.color;
-UI.interpolators.text_color=function(a,b,t){return b;}//avoid smartembolden explosion
+UI.interpolators.text_color=UI.interpolators.color;
+//UI.interpolators.text_color=function(a,b,t){return b;}//avoid smartembolden explosion
 UI.interpolators.icon_color=UI.interpolators.color;
 UI.interpolators.shadow_color=UI.interpolators.color;
 UI.non_animated_values={
@@ -1791,16 +1791,24 @@ UI.TimingEvent=function(s){
 	UI.m_timing_tick=event_timing_tick;
 }
 
+var LINUX_BOGUS_KEYS_INTERVAL=100;
 UI.m_poll_jobs=[]
 UI.NextTick=function(f){UI.m_poll_jobs.push(UI.HackCallback(f))}
 UI.SDL_bad_coordinate_corrector=1;
 UI.SDL_bad_quit=0;
 UI.wheel_message_mode="focus";
 UI.unify_enters_versions=1;
+UI.m_poll_job_termination_event=undefined;
+UI.TestEventInPollJob=function(){
+	if(UI.m_poll_job_termination_event){return 1;}
+	UI.m_poll_job_termination_event=UI.SDL_PollEvent();
+	return !!UI.m_poll_job_termination_event;
+}
 UI.Run=function(){
 	if(!UI.is_real){return;}
 	var event=undefined;
 	var t_kill_mousedown=undefined;
+	var t_linux_bogus_keys=undefined;
 	for(;;){
 		if(UI.need_to_refresh){
 			UI.m_frame_is_invalid=0;
@@ -1828,12 +1836,19 @@ UI.Run=function(){
 			}
 		}
 		if(UI.need_to_refresh||UI.m_poll_jobs.length){
-			var jbs=UI.m_poll_jobs
-			UI.m_poll_jobs=[];
-			for(var i=0;i<jbs.length;i++){
-				jbs[i]();
+			if(!UI.TestEventInPollJob()){
+				var jbs=UI.m_poll_jobs;
+				UI.m_poll_jobs=[];
+				for(var i=0;i<jbs.length;i++){
+					jbs[i]();
+				}
 			}
-			event=UI.SDL_PollEvent();
+			if(UI.m_poll_job_termination_event){
+				event=UI.m_poll_job_termination_event;
+				UI.m_poll_job_termination_event=undefined;
+			}else{
+				event=UI.SDL_PollEvent();
+			}
 			if(!event){continue;}
 		}else{
 			//only call GC when we become idle
@@ -1890,11 +1905,14 @@ UI.Run=function(){
 						}
 					}
 					break;
-				}
-				if(event.code==2){
+				}else if(event.code==2){
 					//timer
 					var fn=UI.getTimerFunction(event.data1);
 					if(fn){fn();}
+				}else if(UI.OnCustomEvent){
+					//custom notifications
+					//todo: hardcode camera at code==3
+					UI.OnCustomEvent(event)
 				}
 				break
 			case UI.SDL_WINDOWEVENT:
@@ -1927,6 +1945,9 @@ UI.Run=function(){
 					if(UI.OnApplicationSwitch){
 						UI.OnApplicationSwitch()
 					}
+					if(UI.IS_LINUX){
+						t_linux_bogus_keys=event.timestamp+LINUX_BOGUS_KEYS_INTERVAL;
+					}
 					break;
 				case UI.SDL_WINDOWEVENT_FOCUS_LOST:
 					var obj_window=UI.m_window_map[event.windowID.toString()];
@@ -1939,6 +1960,13 @@ UI.Run=function(){
 			case UI.SDL_KEYDOWN:
 			case UI.SDL_KEYUP:
 				if(UI.inside_IME){break;}
+				if(UI.IS_LINUX){
+					if(event.timestamp<t_linux_bogus_keys){
+						break;
+					}else{
+						t_linux_bogus_keys=undefined;
+					}
+				}
 				if(UI.unify_enters_versions){
 					if(event.keysym==UI.SDLK_RETURN2||event.keysym==UI.SDLK_KP_ENTER){
 						event.keysym=UI.SDLK_RETURN;

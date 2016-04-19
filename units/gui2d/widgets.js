@@ -5,6 +5,8 @@ var W=exports;
 
 UI.font_name="LucidaGrande,_H_HelveticaNeue,segoeui,Roboto-Regular,Arial";
 UI.font_size=24;
+UI.SetSRGBEnabling(2);
+UI.SetFontSharpening(1);
 UI.Theme_Minimalistic=function(C){
 	UI.current_theme_color=C;
 	var C_dark=UI.lerp_rgba(C,0xff000000,0.15)
@@ -15,7 +17,7 @@ UI.Theme_Minimalistic=function(C){
 			color:0xff000000,
 		},
 		tooltip:{
-			font:UI.Font(UI.font_name,UI.font_size,-50),
+			font:UI.Font(UI.font_name,UI.font_size),
 			padding:8,
 			spacing:8,
 			color:0xffffffff,
@@ -30,13 +32,14 @@ UI.Theme_Minimalistic=function(C){
 		},
 		button:{
 			transition_dt:0.1,
-			round:16,border_width:3,padding:12,
+			round:0,border_width:1,padding:4,
 			font:UI.Font(UI.font_name,UI.font_size),
 			$:{
 				out:{
-					border_color:C,color:0xffffffff,
-					icon_color:C,
-					text_color:C,
+					//border_color:0xff444444,color:0xffffffff,
+					border_color:0xff000000,color:[{x:0,y:0,color:0xffffffff},{x:0,y:1,color:0xffe8e8e8}],
+					icon_color:0xff000000,
+					text_color:0xff000000,
 				},
 				over:{
 					border_color:C,color:C,
@@ -47,6 +50,21 @@ UI.Theme_Minimalistic=function(C){
 					border_color:C_dark,color:C_dark,
 					icon_color:0xffffffff,
 					text_color:0xffffffff,
+				},
+				checked_out:{
+					border_color:0xff444444,color:0xffe8e8e8,
+					icon_color:0xff7f7f7f,
+					text_color:0xff7f7f7f,
+				},
+				checked_over:{
+					border_color:0xff444444,color:0xffe8e8e8,
+					icon_color:0xff7f7f7f,
+					text_color:0xff7f7f7f,
+				},
+				checked_down:{
+					border_color:0xff444444,color:0xffe8e8e8,
+					icon_color:0xff7f7f7f,
+					text_color:0xff7f7f7f,
 				},
 			}
 		},

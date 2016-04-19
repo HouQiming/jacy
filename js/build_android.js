@@ -123,11 +123,12 @@ g_action_handlers.make=function(){
 	//mv(g_work_dir+"/src/org/libsdl/app/SDLActivity.java",g_work_dir+"/src/org/libsdl/app/_SDLActivity.java")
 	//mv(g_work_dir+"/src/org/libsdl/app/_SDLActivity.java",g_work_dir+"/src/org/libsdl/app/SDLActivity.java")
 	var abis
-	if(ANDROID.is_release){
-		abis=['armeabi','armeabi-v7a','x86']
-	}else{
-		abis=['armeabi-v7a','x86']
-	}
+	//if(ANDROID.is_release){
+	//	abis=['armeabi','armeabi-v7a','x86']
+	//}else{
+	//	abis=['armeabi-v7a','x86']
+	//}
+	abis=['armeabi-v7a','x86']
 	CopySkeletonFile("/jni/src/main/android","SDL_android_main.c")
 	CopySkeletonFile("/jni/src","SDL_internal.h")
 	for(var i=0;i<abis.length;i++){

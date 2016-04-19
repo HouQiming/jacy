@@ -23,11 +23,10 @@ typedef struct _TCamera{
 	////////
 	int m_is_on;
 	SDL_mutex* m_cam_mutex;
-	SDL_sem* m_camdat_ready_event;
 	////////
 	u32* m_image_front;
 	u32* m_image_back;
-	int m_w,m_h,m_is_waiting,m_image_ready;
+	int m_w,m_h,m_image_ready;
 }TCamera;
 
 static TCamera g_cameras[MAX_CAMERAS]={0};
@@ -105,43 +104,28 @@ JNIEXPORT void JNICALL Java_com_spap_wrapper_camera_sendresult(JNIEnv* env,jclas
 	(*env)->ReleaseByteArrayElements(env,a,img_nv21,JNI_ABORT);
 	cam->m_w=w;
 	cam->m_h=h;
-	need_post=cam->m_is_waiting;
 	cam->m_image_ready=1;
-	cam->m_is_waiting=0;
 	SDL_UnlockMutex(cam->m_cam_mutex);
-	if(need_post){
-		//__android_log_print(ANDROID_LOG_ERROR,"STDOUT","SDL_SemPost(cam->m_camdat_ready_event)");
-		SDL_SemPost(cam->m_camdat_ready_event);
-	}
-	//(*env)->DeleteLocalRef(env,a);
 }
 
 EXPORT u32* osal_GetCameraImage(int cam_id, int* pw,int* ph){
 	JNIEnv* env=(JNIEnv*)SDL_AndroidGetJNIEnv();
 	TCamera* cam=&g_cameras[cam_id];
-	u32* ret=NULL;
-	if((unsigned int)cam_id>=(unsigned int)MAX_CAMERAS)return NULL;
-	//__android_log_print(ANDROID_LOG_ERROR,"STDOUT","waiting for camera image");
-	for(;;){
-		SDL_LockMutex(cam->m_cam_mutex);
-		if(cam->m_image_ready){
-			ret=cam->m_image_back;
-			cam->m_image_back=cam->m_image_front;
-			cam->m_image_front=ret;
-			cam->m_image_ready=0;
-			SDL_UnlockMutex(cam->m_cam_mutex);
-			break;
-		}else{
-			cam->m_is_waiting=1;
-			SDL_UnlockMutex(cam->m_cam_mutex);
-			//__android_log_print(ANDROID_LOG_ERROR,"STDOUT","SDL_SemWait(cam->m_camdat_ready_event)");
-			SDL_SemWait(cam->m_camdat_ready_event);
-		}
+	if((unsigned int)cam_id>=(unsigned int)MAX_CAMERAS||!g_cameras[cam_id].m_is_on)return NULL;
+	SDL_LockMutex(cam->m_cam_mutex);
+	if(cam->m_image_ready){
+		u32* ret=cam->m_image_back;
+		cam->m_image_back=cam->m_image_front;
+		cam->m_image_front=ret;
+		cam->m_image_ready=0;
+		SDL_UnlockMutex(cam->m_cam_mutex);
+		*pw=cam->m_w;
+		*ph=cam->m_h;
+		return ret;
+	}else{
+		SDL_UnlockMutex(cam->m_cam_mutex);
+		return NULL;
 	}
-	*pw=cam->m_w;
-	*ph=cam->m_h;
-	//__android_log_print(ANDROID_LOG_ERROR,"STDOUT","got camera image");
-	return ret;
 }
 
 //main thread only
@@ -157,7 +141,6 @@ EXPORT int osal_TurnOnCamera(int cam_id,int w,int h,int fps){
 		method_id=(*env)->GetMethodID(env,cam->m_clazz,"<init>","()V");
 		cam->m_cam_object=(*env)->NewObjectA(env,cam->m_clazz,method_id,NULL);
 		cam->m_cam_mutex=SDL_CreateMutex();
-		cam->m_camdat_ready_event=SDL_CreateSemaphore(0);
 		cam->m_inited=1;
 	}
 	if(cam->m_is_on)return 1;

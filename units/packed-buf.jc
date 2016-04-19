@@ -218,10 +218,10 @@ inline PBArray(t0,iptr n)
 inline PBFromArray(type_desc,value)
 	if !readOptionalMember(value,"IS_ARRAY",0):
 		__error("PBBind has to take an array, not @1",typeof(value))
-	assert(value.n*sizeof(value[0])==PBSizeof(type_desc))
+	assert(value.n*sizeof(value.T)==PBSizeof(type_desc))
 	return PBValue(type_desc,value.d)
 
 inline PBArrayFromArray(type_desc,value)
-	n=value.n*sizeof(value[0])/PBSizeof(type_desc)
-	assert(n*PBSizeof(type_desc)==value.n*sizeof(value[0]))
+	n=value.n*sizeof(value.T)/PBSizeof(type_desc)
+	assert(n*PBSizeof(type_desc)==value.n*sizeof(value.T))
 	return PBValue(PBArray(type_desc,n),value.d)
