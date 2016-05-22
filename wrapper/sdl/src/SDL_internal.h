@@ -21,7 +21,7 @@
 #ifndef _SDL_internal_h
 #define _SDL_internal_h
 
-#include "SDL_config.h"
+#include "../include/SDL_config.h"
 
 #define LESS_RESAMPLERS 1
 

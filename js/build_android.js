@@ -22,9 +22,9 @@ ANDROID.Detect=function(){
 
 var re_url=new RegExp("[ \t]*(.*)[ \t]*");
 var CopyJavaFile=function(fn0){
-	var fn=fn0
+	var fn=SearchForFile(fn0);
 	var stext=ReadFile(fn);
-	var ppackage=stext.indexOf('package ')
+	var ppackage=stext.indexOf('package ');
 	if(ppackage<0){
 		die("error: I don't know what package the file '",fn,"' is supposed to be in")
 	}
@@ -40,12 +40,12 @@ var CopyJavaFile=function(fn0){
 	UpdateTo(star,fn)
 }
 
-var CopyCFile=function(fn0){
-	var fn=fn0
-	var star=g_work_dir+"/jni/"+RemovePath(fn)
-	UpdateTo(star,fn)
-	ANDROID.c_file_list.push(RemovePath(fn))
-};
+//var CopyCFile=function(fn0){
+//	var fn=fn0
+//	var star=g_work_dir+"/jni/"+RemovePath(fn)
+//	UpdateTo(star,fn)
+//	ANDROID.c_file_list.push(RemovePath(fn))
+//};
 
 var CopySkeletonFile=function(dir_tar,fn,dir_src0){
 	var dir_src=(dir_src0||dir_tar)
@@ -101,13 +101,13 @@ g_action_handlers.make=function(){
 	}
 	//copy-in the C files, which includes s7main.c
 	mkdir(g_work_dir+"/jni")
-	for(var i=0;i<g_json.h_files.length;i++){
-		var fn=SearchForFile(g_json.h_files[i]);
-		UpdateTo(g_work_dir+"/jni/"+RemovePath(fn),fn)
-	}
-	for(var i=0;i<g_json.c_files.length;i++){
-		var fn=SearchForFile(g_json.c_files[i]);
-		CopyCFile(fn)
+	//for(var i=0;i<g_json.h_files.length;i++){
+	//	var fn=SearchForFile(g_json.h_files[i]);
+	//	UpdateTo(g_work_dir+"/jni/"+RemovePath(fn),fn)
+	//}
+	var c_files=CreateProjectForStandardFiles(g_work_dir+"/jni/")
+	for(var i=0;i<c_files.length;i++){
+		ANDROID.c_file_list.push(c_files[i])
 	}
 	//System.loadLibrary("SDL2_image");
 	mkdir(g_work_dir+"/src/org/libsdl/app")
@@ -115,9 +115,11 @@ g_action_handlers.make=function(){
 	if(g_json.android_libnames){
 		for(var j=0;g_json.android_libnames[j];j++){
 			s_load_other_libs.push('System.loadLibrary("'+g_json.android_libnames[j]+'");')
+			//s_load_other_libs.push('"'+g_json.android_libnames[j]+'",')
 		}
 	}
-	var s_sdl_activity=ReadFile(ANDROID.skeleton+"/src/org/libsdl/app/SDLActivity.java").replace('//System.loadLibrary("SDL2_image");',s_load_other_libs.join(""))
+	var s_sdl_activity=ReadFile(ANDROID.skeleton+"/src/org/libsdl/app/SDLActivity.java").replace('System.loadLibrary("SDL2");',s_load_other_libs.join(""))
+	//var s_sdl_activity=ReadFile(ANDROID.skeleton+"/src/org/libsdl/app/SDLActivity.java").replace('// "SDL2_image",',s_load_other_libs.join(""))
 	CreateIfDifferent(g_work_dir+"/src/org/libsdl/app/SDLActivity.java",s_sdl_activity)
 	//hack case for the idiotic javac
 	//mv(g_work_dir+"/src/org/libsdl/app/SDLActivity.java",g_work_dir+"/src/org/libsdl/app/_SDLActivity.java")
@@ -139,7 +141,7 @@ g_action_handlers.make=function(){
 		for(var j=0;g_json.dll_files[j];j++){
 			for(var i=0;i<abis.length;i++){
 				var abi_i=abis[i]
-				var ssrc=g_root+"/osslib/"+g_json.dll_files[j]+"/"+abi_i;
+				var ssrc=g_json.dll_files[j]+"/"+abi_i;
 				var star=g_work_dir+"/jni/"+abi_i+"/"
 				var files=ls(ssrc+"/*")
 				if(files.length<1){
@@ -156,11 +158,11 @@ g_action_handlers.make=function(){
 	var s_android_mk=[]
 	s_android_mk.push('LOCAL_PATH := $(call my-dir)\n')
 	//////////////////////////
-	s_android_mk.push('include $(CLEAR_VARS)\n')
-	s_android_mk.push('LOCAL_MODULE := SDL2\n')
-	s_android_mk.push('LOCAL_SRC_FILES := $(TARGET_ARCH_ABI)/libSDL2.so\n')
-	s_android_mk.push('LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/../trash\n')
-	s_android_mk.push('include $(PREBUILT_SHARED_LIBRARY)\n')
+	//s_android_mk.push('include $(CLEAR_VARS)\n')
+	//s_android_mk.push('LOCAL_MODULE := SDL2\n')
+	//s_android_mk.push('LOCAL_SRC_FILES := $(TARGET_ARCH_ABI)/libSDL2.so\n')
+	//s_android_mk.push('LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/../trash\n')
+	//s_android_mk.push('include $(PREBUILT_SHARED_LIBRARY)\n')
 	//////////////////////////
 	//libs
 	for(var j=0;g_json.android_libnames&&g_json.android_libnames[j];j++){
@@ -171,14 +173,32 @@ g_action_handlers.make=function(){
 		s_android_mk.push('LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/../trash\n')
 		s_android_mk.push('include $(PREBUILT_SHARED_LIBRARY)\n')
 	}
+	for(var j=0;g_json.android_static_libnames&&g_json.android_static_libnames[j];j++){
+		var libname=g_json.android_static_libnames[j]
+		s_android_mk.push('include $(CLEAR_VARS)\n')
+		s_android_mk.push('LOCAL_MODULE := '+libname+'\n')
+		s_android_mk.push('LOCAL_SRC_FILES := $(TARGET_ARCH_ABI)/lib'+libname+'.a\n')
+		s_android_mk.push('LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/../trash\n')
+		s_android_mk.push('include $(PREBUILT_STATIC_LIBRARY)\n')
+	}
 	//////////////////////////
 	s_android_mk.push('include $(CLEAR_VARS)\n')
 	s_android_mk.push('LOCAL_MODULE := main\n')
 	s_android_mk.push('LOCAL_C_INCLUDES := "'+
-		ANDROID.skeleton+"/jni/include"+'" "'+
-		ANDROID.skeleton+"/jni/src"+'" "'+
-		g_root+"/osslib/include"+'"\n')
-	s_android_mk.push('LOCAL_SRC_FILES := src/main/android/SDL_android_main.c '+ANDROID.c_file_list.join(" "))
+		"$(LOCAL_PATH)/sdl/include"+'" "'+
+		"$(LOCAL_PATH)/sdl/src"+'"')
+	if(g_json.c_include_paths){
+		for(var i=0;i<g_json.c_include_paths.length;i++){
+			var s_include_path=g_json.c_include_paths[i];
+			if(DirExists(g_work_dir+"/jni/"+s_include_path)){
+				s_android_mk.push(' "$(LOCAL_PATH)/jni/'+s_include_path+'"');
+			}else if(DirExists(s_include_path)){
+				s_android_mk.push(' "'+s_include_path+'"');
+			}
+		}
+	}
+	s_android_mk.push('\n')
+	s_android_mk.push('LOCAL_SRC_FILES := '+ANDROID.c_file_list.join(" "))
 	s_android_mk.push('\n')
 	//-ffast-math
 	if(ANDROID.is_release){
@@ -198,19 +218,37 @@ g_action_handlers.make=function(){
 		//-ffast-math
 		s_android_mk.push('LOCAL_CFLAGS += -O0 -fno-var-tracking-assignments -DNEED_MAIN_WRAPPING -std=c99\n')
 	}
-	s_android_mk.push('LOCAL_SHARED_LIBRARIES := SDL2')
+	s_android_mk.push('LOCAL_SHARED_LIBRARIES := ')
 	for(var j=0;g_json.android_libnames&&g_json.android_libnames[j];j++){
 		s_android_mk.push(' '+g_json.android_libnames[j])
 	}
+	s_android_mk.push('LOCAL_STATIC_LIBRARIES := ')
+	for(var j=0;g_json.android_static_libnames&&g_json.android_static_libnames[j];j++){
+		s_android_mk.push(' '+g_json.android_static_libnames[j])
+	}
 	s_android_mk.push('\n')
-	s_android_mk.push('LOCAL_LDLIBS := -lGLESv2 -llog')
+	s_android_mk.push('LOCAL_LDLIBS := -lGLESv2 -llog -landroid ')
 	for(var j=0;g_json.android_system_libnames&&g_json.android_system_libnames[j];j++){
 		s_android_mk.push(' -l'+g_json.android_system_libnames[j])
 	}
 	s_android_mk.push('\n')
 	s_android_mk.push('include $(BUILD_SHARED_LIBRARY)\n')
 	CreateIfDifferent(g_work_dir+"/jni/Android.mk",s_android_mk.join(""))
-	var s_application_mk=["APP_ABI :="];
+	var s_application_mk=[];
+	if(g_json.android_stl){
+		s_application_mk.push("APP_STL :=")
+		s_application_mk.push(g_json.android_stl[0]);
+		s_application_mk.push("\n")
+	}
+	if(g_json.android_cppflags){
+		s_application_mk.push("APP_CPPFLAGS +=")
+		for(var j=0;j<g_json.android_cppflags.length;j++){
+			s_application_mk.push(' ')
+			s_application_mk.push(g_json.android_cppflags[j])
+		}
+		s_application_mk.push("\n")
+	}
+	s_application_mk.push("APP_ABI :=")
 	for(var i=0;i<abis.length;i++){
 		var abi_i=abis[i]
 		s_application_mk.push(" "+abi_i)
@@ -246,11 +284,16 @@ g_action_handlers.make=function(){
 		XML_SetNodeAttrValue(xml_perm,"android:name",g_json.android_optional_features[i])
 		XML_SetNodeAttrValue(xml_perm,"android:required","false")
 	}
-	if(g_json.android_force_orientation){
-		XML_SetNodeAttrValue(xml_activity,"android:screenOrientation",g_json.android_force_orientation[0])
-		//XML_SetNodeAttrValue(xml_activity,"android:configChanges","keyboardHidden")
+	//if(g_json.android_force_orientation){
+	//	XML_SetNodeAttrValue(xml_activity,"android:screenOrientation",g_json.android_force_orientation[0])
+	//	//XML_SetNodeAttrValue(xml_activity,"android:configChanges","keyboardHidden")
+	//}
+	for(var i=0;g_json.android_activity_manifest&&g_json.android_activity_manifest[i];i++){
+		var s=g_json.android_activity_manifest[i].split('=');
+		XML_SetNodeAttrValue(xml_activity,s[0],s[1]);
 	}
-	XML_SetNodeAttrValue(xml_activity,"android:configChanges","keyboard|keyboardHidden|orientation|screenSize")
+	//moved to gui2d.jc
+	//XML_SetNodeAttrValue(xml_activity,"android:configChanges","orientation|screenSize|keyboard|keyboardHidden")
 	CreateIfDifferent(g_work_dir+"/AndroidManifest.xml",XML_ToString(xml))
 	//////////
 	xml=ParseXML(ReadFile(ANDROID.skeleton+"/build.xml"))
@@ -259,7 +302,7 @@ g_action_handlers.make=function(){
 	//////////
 	mkdir(g_work_dir+"/res/values")
 	xml=ParseXML(ReadFile(ANDROID.skeleton+"/res/values/strings.xml"))
-	XML_SetNodeAttrValue(XML_Child(XML_Child(xml,"resources"),"string"),"",g_main_name)
+	XML_SetNodeAttrValue(XML_Child(XML_Child(xml,"resources"),"string"),"",(g_json.app_display_name&&g_json.app_display_name[0]||g_main_name))
 	CreateIfDifferent(g_work_dir+"/res/values/strings.xml",XML_ToString(xml))
 	//////////
 	mkdir(g_work_dir+"/src/com/spap/"+g_main_name)
@@ -331,6 +374,9 @@ g_action_handlers.run=function(){
 		if(ret!=0){die('failed to install the package');}
 	}
 	shell([ANDROID.adb_exe,'logcat','-c'])
-	shell([ANDROID.adb_exe,'shell','am','start','-n','com.spap.'+g_main_name+'/com.spap.'+g_main_name+'.spap_main'])
+	var args_run=[ANDROID.adb_exe,'shell','am','start'];
+	//if(g_build=="debug"){args_run.push('--opengl-trace');}
+	args_run.push('-n','com.spap.'+g_main_name+'/com.spap.'+g_main_name+'.spap_main')
+	shell(args_run)
 	shell([ANDROID.adb_exe,'logcat','-v','raw','-s','STDOUT'])
 }

@@ -16,7 +16,7 @@ VC.Detect=function(){
 		}
 	}
 	if(!VC.compiler_path){
-		VC.compiler_path=(testbat("%VS120COMNTOOLS%")||testbat("%VS110COMNTOOLS%")||testbat("%VS100COMNTOOLS%")||testbat("%VS90COMNTOOLS%")||testbat("%VS80COMNTOOLS%"));
+		VC.compiler_path=(testbat("%VS140COMNTOOLS%")||testbat("%VS130COMNTOOLS%")||testbat("%VS120COMNTOOLS%")||testbat("%VS110COMNTOOLS%")||testbat("%VS100COMNTOOLS%")||testbat("%VS90COMNTOOLS%")||testbat("%VS80COMNTOOLS%"));
 	}
 	if(!VC.compiler_path){return 0;}
 	var compiler_path=VC.compiler_path;
@@ -101,7 +101,8 @@ VC.Link=function(fnlist,soutput){
 			sopt1=sopt1+(" "+smain);
 		}
 	}
-	var scmd='@echo off\ncall "'+sbatname+'" >NUL\nlink /DEBUG /OUT:"'+soutput+'" /NOLOGO /OPT:REF /OPT:ICF /DYNAMICBASE /NXCOMPAT /ERRORREPORT:PROMPT /LARGEADDRESSAWARE '+sopt1+' '+fnlist;
+	var scmd;
+	scmd='@echo off\ncall "'+sbatname+'"\nlink /DEBUG /OUT:"'+soutput+'" /NOLOGO /OPT:REF /OPT:ICF /DYNAMICBASE /NXCOMPAT /ERRORREPORT:PROMPT /LARGEADDRESSAWARE '+sopt1+' '+fnlist;
 	var scallcl=g_work_dir+"/calllink.bat";
 	if(!CreateFile(scallcl,scmd)){
 		throw new Error("can't create calllink.bat");

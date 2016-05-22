@@ -10,11 +10,16 @@ module Camera
 		if Platform.ARCH=="android":
 			__generate_json("c_files","camera_android.c")
 			__generate_json("java_files","camera.java")
-		else if Platform.ARCH=="ios":
-			__generate_json("objc_files","camera_ios.m")
+			__generate_json("android_permissions","android.permission.CAMERA")
+			__generate_json("android_features","android:hardware.camera")
+		else if Platform.ARCH=="ios"||Platform.ARCH=="mac":
+			__generate_json("c_files","camera_ios.m")
 			__generate_json("ios_frameworks","System/Library/Frameworks/AVFoundation.framework")
 			__generate_json("ios_frameworks","System/Library/Frameworks/CoreMedia.framework")
 			__generate_json("ios_frameworks","System/Library/Frameworks/CoreVideo.framework")
+			__generate_json("mac_frameworks","System/Library/Frameworks/AVFoundation.framework")
+			__generate_json("mac_frameworks","System/Library/Frameworks/CoreMedia.framework")
+			__generate_json("mac_frameworks","System/Library/Frameworks/CoreVideo.framework")
 		else
 			__generate_json("c_files","camera_win.cpp")
 		w=0

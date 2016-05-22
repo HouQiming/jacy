@@ -31,8 +31,10 @@
 #include "SDL_revision.h"
 #include "SDL_assert_c.h"
 #include "events/SDL_events_c.h"
-//#include "haptic/SDL_haptic_c.h"
-//#include "joystick/SDL_joystick_c.h"
+#if defined(__ANDROID__)
+	#include "haptic/SDL_haptic_c.h"
+	#include "joystick/SDL_joystick_c.h"
+#endif
 
 /* Initialization/Cleanup routines */
 #if !SDL_TIMERS_DISABLED

@@ -56,6 +56,10 @@ void* osal_mmap_res_zip(iptr* psize);
 char* osal_getStoragePath();
 
 void osal_LinuxXIOErrorWorkaround();
+
+int osal_GetExitCodeProcess(int pid);
+int osal_TerminateProcess(int pid);
+
 #ifdef __cplusplus
 }
 #endif

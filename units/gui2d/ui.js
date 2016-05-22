@@ -1687,10 +1687,10 @@ UI.DrawFrame=function(){
 	UI.context_tentative_focus=undefined;
 	UI.context_parent=undefined
 	if(UI.enable_timing){
-		print('DrawFrame=',(UI.frame_time*1000).toFixed(2),'ms')
+		console.log('DrawFrame=',(UI.frame_time*1000).toFixed(2),'ms')
 		if(!UI.frame_id){UI.frame_id=1}else{UI.frame_id++}
-		//print('BetweenFrames=',(Duktape.__ui_seconds_between_ticks(UI.m_last_frame_tick,UI.m_frame_tick)*1000).toFixed(2),'ms')
-		if(UI.m_frame_is_invalid){print("FRAME INVALIDATED ")}
+		//console.log('BetweenFrames=',(Duktape.__ui_seconds_between_ticks(UI.m_last_frame_tick,UI.m_frame_tick)*1000).toFixed(2),'ms')
+		if(UI.m_frame_is_invalid){console.log("FRAME INVALIDATED ")}
 		UI.TimingEvent('Frame #'+UI.frame_id)
 	}
 }
@@ -1701,7 +1701,7 @@ UI.JSDrawWindow=function(obj){
 	UI.Clear(obj.bgcolor||0xffffffff)
 	UI.DrawWindow(obj.__hwnd);
 	UI.GL_End(obj.__hwnd)
-	//print('DrawWindow=',(Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())*1000).toFixed(2),'ms')
+	//console.log('DrawWindow=',(Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())*1000).toFixed(2),'ms')
 }
 
 UI.GLWidget=function(fcall){
@@ -1759,7 +1759,7 @@ var runCaretCallback=function(obj){
 			UI.JSDrawWindow(obj)
 			if(Duktape.__ui_seconds_between_ticks(UI.tick_last_refresh,Duktape.__ui_get_tick())>UI.gc_interval&&UI.g_refreshed_since_last_tick){
 				if(UI.enable_timing){
-					print("--- gc ---");
+					console.log("--- gc ---");
 				}
 				UI.g_refreshed_since_last_tick=0;
 				UI.tick_last_refresh=Duktape.__ui_get_tick();
@@ -1786,7 +1786,7 @@ UI.CallGCLater=function(){
 UI.TimingEvent=function(s){
 	var event_timing_tick=Duktape.__ui_get_tick();
 	if(UI.m_timing_tick!=undefined){
-		print("=== after "+(Duktape.__ui_seconds_between_ticks(UI.m_timing_tick,event_timing_tick)*1000).toFixed(2)+"ms: "+s);
+		console.log("=== after "+(Duktape.__ui_seconds_between_ticks(UI.m_timing_tick,event_timing_tick)*1000).toFixed(2)+"ms: "+s);
 	}
 	UI.m_timing_tick=event_timing_tick;
 }
@@ -1854,7 +1854,7 @@ UI.Run=function(){
 			//only call GC when we become idle
 			if(UI.m_need_gc_call>0){
 				if(UI.enable_timing){
-					print("--- gc ---");
+					console.log("--- gc ---");
 				}
 				UI.EmptyCache();
 				if(UI.BeforeGC){UI.BeforeGC();}
@@ -1862,7 +1862,7 @@ UI.Run=function(){
 				UI.m_need_gc_call=0
 			}
 			if(UI.enable_timing){
-				print("--- idle ---");
+				console.log("--- idle ---");
 			}
 			event=UI.SDL_WaitEvent();
 		}
@@ -1911,7 +1911,7 @@ UI.Run=function(){
 					if(fn){fn();}
 				}else if(UI.OnCustomEvent){
 					//custom notifications
-					//todo: hardcode camera at code==3
+					//camera events hardcoded at code==3
 					UI.OnCustomEvent(event)
 				}
 				break
@@ -1921,6 +1921,10 @@ UI.Run=function(){
 					if(UI.Platform.ARCH=="android"){
 						//android bug: need to refresh twice
 						UI.android_hack_refresh_twice=1;
+					}
+					var obj=UI.m_window_map[event.windowID.toString()];
+					if(obj&&obj.OnSize){
+						obj.OnSize(event);
 					}
 					UI.Refresh();
 					break
@@ -1978,19 +1982,19 @@ UI.Run=function(){
 					//ignore alt+tab
 					break;
 				}
-				//print(JSON.stringify(event),obj_window.m_just_alted)
+				//console.log(JSON.stringify(event),obj_window.m_just_alted)
 				if(obj_window&&UI.Platform.ARCH!="mac"){
 					if((event.keysym==UI.SDLK_LALT||event.keysym==UI.SDLK_RALT)){
 						if(event.repeat){
 							//do nothing
 						}else{
 							//alt-menu case
-							//print("ALT",event.type==UI.SDL_KEYDOWN?"DOWN":"UP")
+							//console.log("ALT",event.type==UI.SDL_KEYDOWN?"DOWN":"UP")
 							if(event.type==UI.SDL_KEYDOWN){
 								obj_window.m_just_alted=1;
 							}else{
 								if(obj_window.m_just_alted){
-									//print("call alt menu")
+									//console.log("call alt menu")
 									if(obj_window.OnMenu){
 										obj_window.OnMenu();
 									}
@@ -2074,7 +2078,7 @@ UI.Run=function(){
 				var lg=regions.length;
 				var nd_mouse_receiver=undefined;
 				var mouse_cursor="arrow";
-				//print("------------------")
+				//console.log("------------------")
 				//for(var i=lg-1;i>=0;i--){
 				//	var attrs=regions[i];
 				//	var dx=event.x-attrs.x;
@@ -2083,7 +2087,7 @@ UI.Run=function(){
 				//	if(dx>=0&&dx<attrs.w&&dy>=0&&dy<attrs.h){
 				//		is_hit=1;
 				//	}
-				//	print(attrs.x,attrs.y,attrs.w,attrs.h,is_hit?"hit":"")
+				//	console.log(attrs.x,attrs.y,attrs.w,attrs.h,is_hit?"hit":"")
 				//}
 				if(!UI.nd_captured){
 					for(var i=lg-1;i>=0;i--){
@@ -2098,7 +2102,7 @@ UI.Run=function(){
 						y1=Math.min(y1,y0+attrs.region_clip_rect.h);
 						var dx=(event.x-attrs.sub_window_offset_x)/attrs.sub_window_scale-x0;
 						var dy=(event.y-attrs.sub_window_offset_y)/attrs.sub_window_scale-y0;
-						//print(attrs.sub_window_scale,dx,dy,attrs.sub_window_offset_x,attrs.sub_window_offset_y,attrs.x,attrs.y)
+						//console.log(attrs.sub_window_scale,dx,dy,attrs.sub_window_offset_x,attrs.sub_window_offset_y,attrs.x,attrs.y)
 						if(dx>=0&&dx<(x1-x0)&&dy>=0&&dy<(y1-y0)){
 							nd_mouse_receiver=attrs;
 							break;
@@ -2170,7 +2174,7 @@ UI.Run=function(){
 		}
 	}
 	UI.SDL_Quit()
-	//print("=== run gc inside UI.Run 2")
+	//console.log("=== run gc inside UI.Run 2")
 	//Duktape.gc()
 	return UI;
 }
@@ -2226,7 +2230,7 @@ UI.DumpCallStack=function(){
 	try{
 		throw new Error("call stack")
 	}catch(error){
-		print(error.stack)
+		console.log(error.stack)
 	}
 }
 
@@ -2249,7 +2253,7 @@ UI.FlushTabEvents=function(){
 	}
 	var prev_stop=cur_stop-1;if(prev_stop<0){prev_stop=stops.length-1;}
 	var next_stop=cur_stop+1;if(next_stop>=stops.length){next_stop=0;}
-	//print(cur_stop);
+	//console.log(cur_stop);
 	W.Hotkey("",{"key":"SHIFT+TAB","action":UI.SetFocus.bind(undefined,stops[prev_stop])});
 	W.Hotkey("",{"key":"TAB","action":UI.SetFocus.bind(undefined,stops[next_stop])});
 	UI.context_tabstops=[];

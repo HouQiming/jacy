@@ -145,7 +145,7 @@ g_action_handlers.run=function(sdir_target){
 			s_linux_output=RemovePath(g_json.output_file[0]);
 		}
 		var sshell_array=[];
-		sshell_array.push('~/_buildtmp/'+sbuildtmp+'/'+s_linux_output+' ')
+		sshell_array.push('export DISPLAY=:0;~/_buildtmp/'+sbuildtmp+'/'+s_linux_output+' ')
 		sshell_array.push((g_json.run_args||[]).join(" "))
 		sshell_array.push(';exit')
 		envssh(g_ssh_target,sshell_array.join(""))

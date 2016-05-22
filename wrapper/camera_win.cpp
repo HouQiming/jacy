@@ -75,19 +75,19 @@ static int initDShowStuff(){
 	if(g_inited){return g_inited;}
 	g_inited=-1;
 	//////////////
-	CoInitialize(NULL);
+	//CoInitialize(NULL);
+	CoInitializeEx(NULL,COINIT_MULTITHREADED);
 	HRESULT hr=0;
 	//
 	ICreateDevEnum*		dev_enum=NULL;
 	IEnumMoniker*		enum_moniker=NULL;
 	IMoniker*			moniker=NULL;
-	IPropertyBag*		pbag=NULL;
 	hr = CoCreateInstance(CLSID_SystemDeviceEnum, NULL,CLSCTX_INPROC_SERVER,IID_ICreateDevEnum,(void**) &dev_enum);
 	if (hr < 0) {return -1;}
 	hr = dev_enum->CreateClassEnumerator(CLSID_VideoInputDeviceCategory,&enum_moniker,NULL);
 	if (hr < 0) {return -1;}
 	if (hr == S_FALSE) {return -1;}
-	unsigned long dev_count=0;
+	ULONG dev_count=0;
 	enum_moniker->Next(MAX_DEVICES, &moniker, &dev_count);
 	memset(g_cameras,0,sizeof(g_cameras));
 	g_n_cameras=(int)dev_count;
@@ -104,7 +104,7 @@ static int initDShowStuff(){
 		g_cameras[i].capture->SetFiltergraph(g_cameras[i].graph);
 		hr = g_cameras[i].graph->AddSourceFilterForMoniker(moniker+i, 0, L"Source", &g_cameras[i].source_filter);
 		if (hr != S_OK){continue;}
-		moniker[i].Release();
+		//moniker[i].Release();
 		///////////////////////
 		//sample grabber
 		hr = CoCreateInstance(CLSID_SampleGrabber, NULL, CLSCTX_INPROC_SERVER,IID_IBaseFilter,(void**)&g_cameras[i].samplegrabberfilter);
@@ -125,37 +125,116 @@ static int initDShowStuff(){
 		if (hr != S_OK) {continue;}
 		g_cameras[i].cb=new DShowCallbackHandler;
 		g_cameras[i].cb->id=i;
-		g_cameras[i].samplegrabber->SetCallback(g_cameras[i].cb,0);
+		g_cameras[i].samplegrabber->SetCallback(g_cameras[i].cb,1);
 		///////////////////////
 		//set a null renderer
 		hr = CoCreateInstance(CLSID_NullRenderer,NULL,CLSCTX_INPROC_SERVER,IID_IBaseFilter,(void**) &g_cameras[i].nullrenderer);
 		if (hr < 0) {continue;}
 		g_cameras[i].graph->AddFilter(g_cameras[i].nullrenderer, L"Null Renderer");
-		#ifdef DEBUG_SHOW_RENDERER
-		hr = g_cameras[i].capture->RenderStream(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, g_cameras[i].source_filter, g_cameras[i].samplegrabberfilter, NULL);
-		#else
-		hr = g_cameras[i].capture->RenderStream(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, g_cameras[i].source_filter, g_cameras[i].samplegrabberfilter, g_cameras[i].nullrenderer);
-		#endif
-		if (hr != S_OK) {continue;}
-		hr = g_cameras[i].samplegrabber->GetConnectedMediaType(&g_cameras[i].mt);
-		if (hr != S_OK) {continue;}
-		if (!(g_cameras[i].mt.formattype == FORMAT_VideoInfo&&g_cameras[i].mt.cbFormat >= sizeof(VIDEOINFOHEADER))){
-			continue;
-		}
-		///////////////////////
-		//start streaming
-		LONGLONG stop=0x7FFFFFFFFFFFFFFFLL;
-		hr = g_cameras[i].capture->ControlStream(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, g_cameras[i].source_filter, NULL, &stop, 1,2);
-		if (hr < 0) {continue;}
 		///////////////////////
 		//the camera seems valid
 		g_cameras[i].m_cam_mutex=SDL_CreateMutex();
 		g_cameras[i].m_is_valid=1;
 	}
+	g_inited=1;
 	return 1;
 }
 
+static void _FreeMediaType(AM_MEDIA_TYPE& mt){
+    if (mt.cbFormat != 0)
+    {
+        CoTaskMemFree((PVOID)mt.pbFormat);
+        mt.cbFormat = 0;
+        mt.pbFormat = NULL;
+    }
+    if (mt.pUnk != NULL)
+    {
+        // pUnk should not be used.
+        mt.pUnk->Release();
+        mt.pUnk = NULL;
+    }
+}
+
+
+static void _DeleteMediaType(AM_MEDIA_TYPE *pmt){
+    if (pmt != NULL)
+    {
+        _FreeMediaType(*pmt); 
+        CoTaskMemFree(pmt);
+    }
+}
+
+static void SetResolution(int cam_id,int w,int h,int fps){
+	IAMStreamConfig *pConfig = NULL;
+	HRESULT hr=0;
+	hr = g_cameras[cam_id].capture->FindInterface(
+		&PIN_CATEGORY_CAPTURE,
+		&MEDIATYPE_Video,
+		g_cameras[cam_id].source_filter,
+		IID_IAMStreamConfig,
+		(void**)&pConfig);
+	if(FAILED(hr)||!pConfig){return;}
+
+	int iBest=-1,iMax=-1;
+	int h_best=0;
+	int h_max=0;
+	
+	int iCount = 0, iSize = 0;
+	hr = pConfig->GetNumberOfCapabilities(&iCount, &iSize);
+	if(FAILED(hr)){return;}
+	
+	AM_MEDIA_TYPE *pmt=NULL;
+	VIDEO_STREAM_CONFIG_CAPS scc;
+	memset(&scc,0,sizeof(scc));
+	
+	// Check the size to make sure we pass in the correct structure.
+	if (iSize != sizeof(VIDEO_STREAM_CONFIG_CAPS)){return;}
+
+	// Use the video capabilities structure.
+	// Find the largest video that fits in the desired width
+	for (int iFormat = 0; iFormat < iCount; iFormat++)
+	{
+		pmt=NULL;
+		hr = pConfig->GetStreamCaps(iFormat, &pmt, (BYTE*)&scc);
+		if (!SUCCEEDED(hr)){continue;}
+		if (h_max < scc.MaxOutputSize.cy){
+			h_max = scc.MaxOutputSize.cy;
+			iMax = iFormat;
+		}
+		if(h<=scc.MaxOutputSize.cy&&(!h_best||h_best>scc.MaxOutputSize.cy)){
+			h_best=scc.MaxOutputSize.cy;
+			iBest = iFormat;
+		}
+		_DeleteMediaType(pmt);
+		pmt=NULL;
+	}
+	if(iBest<0){
+		iBest=iMax;
+	}
+	if(iBest<0){
+		iBest=0;
+	}
+
+	// Get the resulting video capability
+	pmt=NULL;
+	hr = pConfig->GetStreamCaps(iBest, &pmt, (BYTE*)&scc);
+	if (!SUCCEEDED(hr)){return;}
+	// default capture format, reusing the space
+	_DeleteMediaType(pmt);pmt=NULL;
+	pConfig->GetFormat(&pmt);
+	if (pmt&&pmt->formattype == FORMAT_VideoInfo) {
+		VIDEOINFOHEADER *pvi = (VIDEOINFOHEADER *)pmt->pbFormat;
+		pvi->bmiHeader.biWidth = scc.MaxOutputSize.cx;
+		pvi->bmiHeader.biHeight = scc.MaxOutputSize.cy;
+		hr = pConfig->SetFormat(pmt);
+		_DeleteMediaType(pmt);pmt=NULL;
+	}
+	pConfig->Release();
+	pConfig=NULL;
+}
+
 EXPORT int osal_TurnOnCamera(int cam_id,int w,int h,int fps){
+	HRESULT hr=0;
 	if(initDShowStuff()<0){
 		return 0;
 	}
@@ -164,7 +243,28 @@ EXPORT int osal_TurnOnCamera(int cam_id,int w,int h,int fps){
 	}
 	//ignore w,h,fps
 	if(g_cameras[cam_id].m_is_on){return 1;}
-	HRESULT hr=0;
+	//////////////////
+	g_cameras[cam_id].graph->RemoveFilter(g_cameras[cam_id].source_filter);
+	g_cameras[cam_id].graph->RemoveFilter(g_cameras[cam_id].samplegrabberfilter);
+	g_cameras[cam_id].graph->AddFilter(g_cameras[cam_id].samplegrabberfilter,L"Sample Grabber");
+	g_cameras[cam_id].graph->AddFilter(g_cameras[cam_id].source_filter, L"Source");
+	SetResolution(cam_id,w,h,fps);
+	#ifdef DEBUG_SHOW_RENDERER
+	hr = g_cameras[cam_id].capture->RenderStream(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, g_cameras[cam_id].source_filter, g_cameras[cam_id].samplegrabberfilter, NULL);
+	#else
+	hr = g_cameras[cam_id].capture->RenderStream(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, g_cameras[cam_id].source_filter, g_cameras[cam_id].samplegrabberfilter, g_cameras[cam_id].nullrenderer);
+	#endif
+	if (hr != S_OK) {return 0;}
+	memset(&g_cameras[cam_id].mt, 0, sizeof(AM_MEDIA_TYPE));
+	hr = g_cameras[cam_id].samplegrabber->GetConnectedMediaType(&g_cameras[cam_id].mt);
+	if (hr != S_OK) {return 0;}
+	if (!(g_cameras[cam_id].mt.formattype == FORMAT_VideoInfo&&g_cameras[cam_id].mt.cbFormat >= sizeof(VIDEOINFOHEADER))){
+		return 0;
+	}
+	//////////////////
+	LONGLONG start=0,stop=0x7FFFFFFFFFFFFFFFLL;
+	hr = g_cameras[cam_id].capture->ControlStream(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, g_cameras[cam_id].source_filter, NULL, &stop, 1,2);
+	if (hr < 0) {return 0;}
 	hr = g_cameras[cam_id].control->Run();
 	if (hr < 0) {return 0;}
 	g_cameras[cam_id].m_is_on=1;
@@ -178,7 +278,7 @@ EXPORT int osal_TurnOffCamera(int cam_id){
 	//ignore w,h,fps
 	if(!g_cameras[cam_id].m_is_on){return 1;}
 	HRESULT hr=0;
-	hr = g_cameras[cam_id].control->StopWhenReady();
+	hr = g_cameras[cam_id].control->Stop();
 	if (hr < 0) {return 0;}
 	g_cameras[cam_id].m_is_on=0;
 	return 1;
@@ -213,17 +313,17 @@ EXPORT int osal_GetBackCameraId(){
 
 //#include <stdio.h>
 HRESULT DShowCallbackHandler::SampleCB(double time, IMediaSample *sample){
+	return S_OK;
+}
+
+HRESULT DShowCallbackHandler::BufferCB(double time, BYTE *buffer, long len){
 	HRESULT hr=0;
-	unsigned char* buffer=NULL;
-	hr = sample->GetPointer((BYTE**)&buffer);
-	if (hr != S_OK){return S_OK;}
 	//////////////
 	AM_MEDIA_TYPE* mt=&g_cameras[id].mt;
 	VIDEOINFOHEADER *pVih = reinterpret_cast<VIDEOINFOHEADER*>(mt->pbFormat);
 	int w=pVih->bmiHeader.biWidth;
 	int h=pVih->bmiHeader.biHeight;
-	int n=sample->GetActualDataLength();
-	if(n!=w*h*3){return S_OK;}
+	if(len!=w*h*3){return S_OK;}
 	//real callback content
 	TCamera* cam=g_cameras+id;
 	SDL_LockMutex(cam->m_cam_mutex);
@@ -259,10 +359,14 @@ HRESULT DShowCallbackHandler::SampleCB(double time, IMediaSample *sample){
 	cam->m_h=h;
 	cam->m_image_ready=1;
 	SDL_UnlockMutex(cam->m_cam_mutex);
-	return S_OK;
-}
-
-HRESULT DShowCallbackHandler::BufferCB(double time, BYTE *buffer, long len){
+	{
+		//ignore camera id, just send something
+		SDL_Event a;
+		memset(&a,0,sizeof(a));
+		a.type=SDL_USEREVENT;
+		a.user.code=3;
+		SDL_PushEvent(&a);
+	}
 	return S_OK;
 }
 

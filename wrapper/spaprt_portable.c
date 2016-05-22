@@ -102,7 +102,7 @@ typedef DWORD TLSID;
 
 ////////////////////////SDL
 #if defined(ANDROID)||defined(__ANDROID__)
-	#include "SDL.h"
+	#include "SDL/include/SDL.h"
 	#define __declspec(arg)
 #elif defined(__APPLE__)
 	#include "TargetConditionals.h"
@@ -123,7 +123,11 @@ typedef DWORD TLSID;
 	#endif
 	#define __declspec(arg)
 #else
-	#include "SDL.h"
+	#ifdef LINUX
+		#include "SDL.h"
+	#else
+		#include "SDL/include/SDL.h"
+	#endif
 	#ifndef _WIN32
 		#define __declspec(arg)
 	#endif
@@ -514,7 +518,11 @@ typedef struct _TCallStackItemEx{
 	const TLineInfoItemEx* li;
 }TCallStackItemEx;
 
+//#undef PM_RELEASE_DISABLE_LOG
 #ifdef PM_RELEASE
+#define PM_RELEASE_DISABLE_LOG
+#endif
+#ifdef PM_RELEASE_DISABLE_LOG
 	EXPORT void osal_WriteLog(char* buf){
 		//nothing
 	}

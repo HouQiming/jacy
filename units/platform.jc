@@ -1,6 +1,10 @@
+if VERSION<0x103:
+	//dodge errors
+	__env_library=0
 ARCH=__env_arch
 BUILD=__env_build
 VERSION=__env_compiler_version
+IS_LIBRARY=__env_library
 IS_UNIX=(ARCH=="rasppi"||ARCH=="linux32"||ARCH=="linux64"||ARCH=="mac"||ARCH=="android"||ARCH=="ios")
 IS_WINDOWS=(ARCH=="win32"||ARCH=="win64"||ARCH=="winrt")
 IS_MOBILE=(ARCH=="android"||ARCH=="ios")

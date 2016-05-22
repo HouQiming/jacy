@@ -5469,13 +5469,23 @@ auto coreInit()
 						else if isConstZero(cb):
 							//don't even eval
 							skip_eval=2
+					if optoken=='%':
+						if isConstZero(cb):
+							//don't even eval
+							//errorAtExpr(ETYPE_WARNING,pecall,'possible weird division by zero')
+							skip_eval=2
 					if !skip_eval:
 						n_bits=((ct_result&~CTYPE_MASK)+1)*8
 						if (ct_result&CTYPE_MASK)==CTYPE_INT:
+							//if optoken=='/':
+							//	Writeln('>>> ',ca.val_bin,' ',cb.val_bin)
 							if n_bits<64:
 								mask=(i64(1)<<n_bits)-1
 								ca.val_bin=(ca.val_bin&mask)|-(ca.val_bin&(i64(1)<<(n_bits-1)))
 								cb.val_bin=(cb.val_bin&mask)|-(cb.val_bin&(i64(1)<<(n_bits-1)))
+							//if optoken=='/':
+							//	Writeln(ca.val_bin,' ',cb.val_bin)
+							//	if ca.val_bin==-1LL&&cb.val_bin==1LL:
 							ca.val_bin=i64(fop(ca.val_bin,cb.val_bin))
 						else
 							if n_bits<64:
@@ -12486,7 +12496,7 @@ auto genConst(int cid)
 			g_code_buffer.push(sval)
 		if ((cns.type&CTYPE_MASK)==CTYPE_UINT):
 			g_code_buffer.push('u')
-		if n_bits>32:
+		if cns.type!=CTYPE_POINTER&&n_bits>32:
 			g_code_buffer.push('LL')
 auto genCode(PExpression pe,int expr_oplevel)
 	flags=readPool(pe)
@@ -12757,6 +12767,10 @@ auto genAllCode()
 	g_c_headers.push(getid("string.h"))//for memset
 	if g_enable_debug_instrumentation:
 		g_c_headers.push(getid("spaprt_portable.h"))//for debug
+	forced_headers=g_json_pool[getid("include_h_files")]
+	if forced_headers:
+		for id_header in forced_headers
+			g_c_headers.push(id_header)
 	g_c_headers.Sort()
 	g_c_headers.Unique()
 	json_headers=g_json_pool[getid("h_files")]

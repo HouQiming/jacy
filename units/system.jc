@@ -44,7 +44,7 @@ module OS_API
 		mmap=__c_function(__pointer,"mmap","sys/mman.h")
 		munmap=__c_function(int,"munmap","sys/mman.h")
 		open=__c_function(int,"open","fcntl.h")
-		close=__c_function(int,"close","fcntl.h")
+		close=__c_function(int,"close","unistd.h")
 		/////////////////
 		osal_GetUnixPathMax=__c_function(iptr,"osal_GetUnixPathMax","spaprt_portable.h")
 		osal_PollPipe=__c_function(int,"osal_PollPipe","stdio.h")
@@ -6746,6 +6746,12 @@ module IO
 	*/
 	inline CreateFile(string fn)
 		return fopen(fn,OPEN_WRITE)
+	inline CreateFileWithContent(string fn,auto data)
+		f=fopen(fn,OPEN_WRITE)
+		if !f:return 0
+		f.WriteBinary(data)
+		f.Close()
+		return 1
 	struct TFileInfo
 		created_time=u64(0)
 		last_modified_time=u64(0)
@@ -8118,6 +8124,7 @@ module Algorithm
 		mt[0]=s;
 		for (mti=1; mti<N; mti++)
 			mt[mti] = (1812433253u * (mt[mti-1] ^ (mt[mti-1] >> 30)) + u32(mti));
+		g_mti=-1
 	}
 	InitRandomWithArray=function(u32[] init_key){
 		N=624
@@ -8602,6 +8609,7 @@ module Algorithm
 module Console
 	import System.OS_API.*
 	import System.detail.*
+	g_auto_flush_console=1
 	if Platform.IS_WINDOWS:
 		g_is_console_utf8=0
 	auto _write_string(string str)
@@ -8683,7 +8691,8 @@ module Console
 		s.push('\n')
 		_write_string(s)
 		//if Platform.BUILD=="debug":
-		System.IO.stdout().Flush()
+		if g_auto_flush_console:
+			System.IO.stdout().Flush()
 	auto GetCommandLine()
 		if Platform.IS_MOBILE:
 			return [new string]
@@ -9181,7 +9190,7 @@ module Env
 			if Platform.ARCH=="android":
 				__generate_json("c_files","stdpath_android.c")
 			else if Platform.IS_APPLE:
-				__generate_json("objc_files","stdpath_ios.m")
+				__generate_json("c_files","stdpath_ios.m")
 			return pcharToString(osal_getStoragePath())
 		else
 			if Platform.IS_WINDOWS:
@@ -9672,7 +9681,7 @@ module Processes
 			auto isRunning()
 				return exit_code()==-1
 			auto Terminate()
-				return osal_TerminateProcess(pid,1)
+				return osal_TerminateProcess(pid)
 			//int CtrlBreak()
 			//	return GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT,.pid)
 			auto __done__()

@@ -361,7 +361,8 @@ module duktape
 				else
 					lg=0L
 					pstr=iptr(duk_to_lstring(_ctx(),-1,__C_pure(__pointer,"(duk_size_t*)@1",&lg)))
-					ret=__ptrToString(pstr,lg)
+					ret=__ptrToString(pstr,lg+1)
+					ret.n--
 			else if T==JSObject:
 				if duk_is_null_or_undefined(_ctx(),-1):
 					ret=JSObject.NULL
@@ -553,7 +554,7 @@ module duktape
 				ret=_pop_typed(T,1)
 			__explicit_rc(this,-1)
 			return ret
-		auto evalVoid(string s,string sfile)
+		inline evalVoid(string s,string sfile)
 			__explicit_rc(this,1)
 			duk_push_lstring(_ctx(),sfile,sfile.n)
 			err=duk_eval_raw(_ctx(),s,s.n,DUK_COMPILE_EVAL|DUK_COMPILE_SAFE|DUK_COMPILE_NOSOURCE)

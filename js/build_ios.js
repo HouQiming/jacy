@@ -47,6 +47,8 @@ g_action_handlers.make=function(){
 		var s_text=ReadFile(g_work_dir+"/upload/___PROJECTNAME___.xcodeproj/project.pbxproj")
 		CreateFile(g_work_dir+"/upload/___PROJECTNAME___.xcodeproj/project.pbxproj",s_text.replace(new RegExp("___PROJECTNAME___","g"),g_main_name))
 		s_text=ReadFile(g_work_dir+"/upload/Info.plist")
+		var s_display_name=(g_json.app_display_name&&g_json.app_display_name[0]||g_main_name);
+		s_text=s_text.replace(/__display_name__/g,s_display_name);
 		CreateFile(g_work_dir+"/upload/Info.plist",s_text.replace(new RegExp("com.yourcompany.*\\}","g"),"com.spap."+g_main_name.replace(new RegExp("_","g"),"")))
 		shell(["mv",g_work_dir+'/upload/___PROJECTNAME___.xcodeproj',g_work_dir+'/upload/'+g_main_name+'.xcodeproj'])
 		CreateFile(g_work_dir+"/SDL_setup","1")
@@ -66,18 +68,55 @@ g_action_handlers.make=function(){
 		}
 		sbuildtmp=ReadFile(g_work_dir+"/buildtmp_ready")
 	}
-	var CopyFiles=function(file_set){
-		if(!file_set){return;}
-		for(var i=0;i<file_set.length;i++){
-			var fn=SearchForFile(file_set[i])
-			IOS.CopyToUpload(fn)
+	var fn_c_32=g_work_dir+"/s7main.c";
+	var fn_c_64=g_work_dir+"/s7main64.c";
+	var fn_c_bi=g_work_dir+"/s7main_bi.c";
+	if(IsNewerThan(fn_c_32,fn_c_64)){
+		//64-bit build
+		var jc_cmdline=[g_root+"/bin/win32_release/jc.exe","--64","-a"+g_arch,"-b"+g_build,"-c","--c="+fn_c_64];
+		for(var i=0;i<g_json.input_files.length;i++){
+			jc_cmdline.push(g_json.input_files);
+		}
+		shell(jc_cmdline);
+	}
+	var got_original_main_c=0;
+	for(var i=0;i<g_json.c_files.length;i++){
+		if(g_base_dir+"/"+g_json.c_files[i]==fn_c_32){
+			got_original_main_c=1;
+			g_json.c_files[i]=fn_c_bi;
+			break;
 		}
 	}
-	CopyFiles(g_json.h_files)
-	CopyFiles(g_json.c_files)
-	CopyFiles(g_json.objc_files)
-	CopyFiles(g_json.lib_files)
-	IOS.CopyToUpload(g_work_dir+"\\reszip.bundle")
+	if(!got_original_main_c){
+		print(JSON.stringify(g_json.c_files),fn_c_32)
+		throw new Error("cannot find s7main.c in c_files")
+	}
+	g_json.h_files.push(fn_c_64)
+	g_json.h_files.push(fn_c_32)
+	CreateIfDifferent(fn_c_bi,'#if __LP64__\n#include "s7main64.c"\n#else\n#include "s7main.c"\n#endif\n')
+	//var CopyFiles=function(file_set){
+	//	if(!file_set){return;}
+	//	for(var i=0;i<file_set.length;i++){
+	//		var fn=SearchForFile(file_set[i])
+	//		IOS.CopyToUpload(fn)
+	//	}
+	//}
+	//CopyFiles(g_json.h_files)
+	//CopyFiles(g_json.c_files)
+	//CopyFiles(g_json.objc_files)
+	//CopyFiles(g_json.lib_files)
+	var c_files=CreateProjectForStandardFiles(g_work_dir+"/upload/")
+	for(var i=0;i<c_files.length;i++){
+		IOS.c_file_list.push(c_files[i])
+	}
+	if(g_lib_files){
+		for(var i=0;i<g_lib_files.length;i++){
+			IOS.c_file_list.push(g_lib_files[i])
+		}
+	}
+	if(FileExists(g_work_dir+"/reszip.bundle")){
+		IOS.CopyToUpload(g_work_dir+"/reszip.bundle")
+	}
 	//icons
 	if(g_json.icon_file){
 		var fn_icon=SearchForFile(g_json.icon_file[0]);
@@ -114,10 +153,12 @@ g_action_handlers.make=function(){
 	spython.push('from modxproj import XcodeProject\n')
 	spython.push('project = XcodeProject.Load("'+g_main_name+'.xcodeproj/project.pbxproj")\n')
 	//we don't have to add main.c
+	//print(JSON.stringify(IOS.c_file_list))
 	for(var i=0;IOS.c_file_list[i];i++){
 		var fn=IOS.c_file_list[i]
+		spython.push('fn0="'+RemovePath(fn)+'"\n')
 		spython.push('fn="'+fn+'"\n')
-		spython.push('if len(project.get_files_by_name(fn))<=0:\n')
+		spython.push('if len(project.get_files_by_name(fn0))<=0:\n')
 		spython.push('	project.add_file(fn)\n')
 	}
 	if(g_json.ios_frameworks){
@@ -147,14 +188,26 @@ g_action_handlers.make=function(){
 		//todo: prompt for pwd instead? could find a local-only solution
 		sshell.push('security unlock-keychain -p \'\' login.keychain;')
 	}
+	var s_ld_flags=['-L.']
+	if(g_json.ldflags){
+		for(var i=0;i<g_json.ldflags.length;i++){
+			s_ld_flags.push(g_json.ldflags[i]);
+		}
+	}
+	var s_xcode_flags=['']
+	if(g_json.xcode_flags){
+		for(var i=0;i<g_json.xcode_flags.length;i++){
+			s_xcode_flags.push(g_json.xcode_flags[i]);
+		}
+	}
 	//todo: sudo case - add that for the first local run?
 	if(g_build!="debug"){
-		sshell.push('xcodebuild -sdk iphoneos -configuration Release build OTHER_CFLAGS=\'${inherited} -DNEED_MAIN_WRAPPING -std=c99 -w -I${HOME}/pmenv/include\';')
+		sshell.push('xcodebuild -sdk iphoneos -configuration Release build '+s_xcode_flags.join(' ')+' OTHER_CFLAGS=\'${inherited} -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src \' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')
 	}else{
 		if(g_config.IOS_USE_REAL_PHONE){
-			sshell.push('xcodebuild -sdk iphoneos -configuration Debug build OTHER_CFLAGS=\'${inherited} -O0 -DNEED_MAIN_WRAPPING -std=c99 -w -I${HOME}/pmenv/include\';')
+			sshell.push('xcodebuild -sdk iphoneos -configuration Debug build '+s_xcode_flags.join(' ')+' OTHER_CFLAGS=\'${inherited} -O0 -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src -L./ \' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')
 		}else{
-			sshell.push('xcodebuild -sdk iphonesimulator -configuration Debug build OTHER_CFLAGS=\'${inherited} -O0 -DNEED_MAIN_WRAPPING -std=c99 -w -I${HOME}/pmenv/include\';')
+			sshell.push('xcodebuild -sdk iphonesimulator -configuration Debug build '+s_xcode_flags.join(' ')+' OTHER_CFLAGS=\'${inherited} -O0 -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src -L./ \' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')
 		}
 	}
 	if(g_build!="debug"){
@@ -202,7 +255,7 @@ g_action_handlers.run=function(sdir_target){
 	}
 	var sshell=[]
 	if(g_build!="debug"){
-		sshell.push('killall lldb; killall ios-deploy; '+s_target_dir+'/ios-deploy -d -b '+s_target_dir+'/build/Release-iphoneos/'+g_main_name+'.app; ')
+		sshell.push('killall lldb; killall ios-deploy; '+s_target_dir+'/ios-deploy -d -b '+s_target_dir+'/build/Release-iphoneos/'+g_main_name+'.ipa; ')
 	}else{
 		if(g_config.IOS_USE_REAL_PHONE){
 			sshell.push('killall lldb; killall ios-deploy; '+s_target_dir+'/ios-deploy -d -b '+s_target_dir+'/build/Debug-iphoneos/'+g_main_name+'.app;')

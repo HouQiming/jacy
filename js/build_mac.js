@@ -48,18 +48,29 @@ g_action_handlers.make=function(){
 		}
 		sbuildtmp=ReadFile(g_work_dir+"/buildtmp_ready")
 	}
-	var CopyFiles=function(file_set){
-		if(!file_set){return;}
-		for(var i=0;i<file_set.length;i++){
-			var fn=SearchForFile(file_set[i])
-			MAC.CopyToUpload(fn)
+	//var CopyFiles=function(file_set){
+	//	if(!file_set){return;}
+	//	for(var i=0;i<file_set.length;i++){
+	//		var fn=SearchForFile(file_set[i])
+	//		MAC.CopyToUpload(fn)
+	//	}
+	//}
+	//CopyFiles(g_json.h_files)
+	//CopyFiles(g_json.c_files)
+	//CopyFiles(g_json.objc_files)
+	//CopyFiles(g_json.lib_files)
+	var c_files=CreateProjectForStandardFiles(g_work_dir+"/upload/")
+	for(var i=0;i<c_files.length;i++){
+		MAC.c_file_list.push(c_files[i])
+	}
+	if(g_lib_files){
+		for(var i=0;i<g_lib_files.length;i++){
+			MAC.c_file_list.push(g_lib_files[i])
 		}
 	}
-	CopyFiles(g_json.h_files)
-	CopyFiles(g_json.c_files)
-	CopyFiles(g_json.objc_files)
-	CopyFiles(g_json.lib_files)
-	MAC.CopyToUpload(g_work_dir+"\\reszip.bundle")
+	if(FileExists(g_work_dir+"/reszip.bundle")){
+		MAC.CopyToUpload(g_work_dir+"/reszip.bundle")
+	}
 	//icons
 	if(g_json.icon_file){
 		var fn_icon=SearchForFile(g_json.icon_file[0]);
@@ -92,17 +103,12 @@ g_action_handlers.make=function(){
 	var spython=[]
 	spython.push('from modxproj import XcodeProject\n')
 	spython.push('project = XcodeProject.Load("'+g_main_name+'.xcodeproj/project.pbxproj")\n')
-	spython.push('fn="libSDL2.a"\n')
-	spython.push('if len(project.get_files_by_name(fn))<=0:\n')
-	spython.push('	project.add_file(fn)\n')
-	spython.push('fn="libSDL2main.a"\n')
-	spython.push('if len(project.get_files_by_name(fn))<=0:\n')
-	spython.push('	project.add_file(fn)\n')
 	//we don't have to add main.c
 	for(var i=0;MAC.c_file_list[i];i++){
 		var fn=MAC.c_file_list[i]
+		spython.push('fn0="'+RemovePath(fn)+'"\n')
 		spython.push('fn="'+fn+'"\n')
-		spython.push('if len(project.get_files_by_name(fn))<=0:\n')
+		spython.push('if len(project.get_files_by_name(fn0))<=0:\n')
 		spython.push('	project.add_file(fn)\n')
 	}
 	if(g_json.mac_frameworks){
@@ -133,9 +139,9 @@ g_action_handlers.make=function(){
 		sshell.push('security unlock-keychain -p \'\' login.keychain;')
 	}
 	if(g_build!="debug"){
-		sshell.push('xcodebuild -sdk macosx -configuration Release build OTHER_CFLAGS=\'${inherited} -std=c99 -w -I${HOME}/pmenv/include\';')
+		sshell.push('xcodebuild -sdk macosx -configuration Release build OTHER_CFLAGS=\'${inherited} -w -Isdl/include -Isdl/src \';')
 	}else{
-		sshell.push('xcodebuild -sdk macosx -configuration Debug build OTHER_CFLAGS=\'${inherited} -O0 -std=c99 -w -I${HOME}/pmenv/include\';')
+		sshell.push('xcodebuild -sdk macosx -configuration Debug build OTHER_CFLAGS=\'${inherited} -O0 -w -Isdl/include -Isdl/src \';')
 	}
 	var sdirname
 	if(g_build!="debug"){

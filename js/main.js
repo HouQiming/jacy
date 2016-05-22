@@ -321,6 +321,9 @@ g_action_handlers.runjs=function(){
 	if(ret){
 		main_name=ret[1];
 	}
+	if(g_json.app_name){
+		main_name=g_json.app_name[0];
+	}
 	g_main_name=main_name;
 	g_arch=g_json.Platform_ARCH[0];
 	var s_dirname=g_build=="debug"?g_arch:g_arch+"_"+g_build;

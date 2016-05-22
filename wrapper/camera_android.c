@@ -106,6 +106,14 @@ JNIEXPORT void JNICALL Java_com_spap_wrapper_camera_sendresult(JNIEnv* env,jclas
 	cam->m_h=h;
 	cam->m_image_ready=1;
 	SDL_UnlockMutex(cam->m_cam_mutex);
+	{
+		//ignore camera id, just send something
+		SDL_Event a;
+		memset(&a,0,sizeof(a));
+		a.type=SDL_USEREVENT;
+		a.user.code=3;
+		SDL_PushEvent(&a);
+	}
 }
 
 EXPORT u32* osal_GetCameraImage(int cam_id, int* pw,int* ph){

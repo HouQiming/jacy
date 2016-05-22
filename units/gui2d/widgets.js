@@ -5,7 +5,7 @@ var W=exports;
 
 UI.font_name="LucidaGrande,_H_HelveticaNeue,segoeui,Roboto-Regular,Arial";
 UI.font_size=24;
-UI.SetSRGBEnabling(2);
+//UI.SetSRGBEnabling(2);
 UI.SetFontSharpening(1);
 UI.Theme_Minimalistic=function(C){
 	UI.current_theme_color=C;
@@ -1372,6 +1372,7 @@ W.Edit_prototype={
 			//double-click
 			this.sel0.ccnt=this.SnapToValidLocation(this.ed.MoveToBoundary(this.ed.SnapToCharBoundary(Math.max(this.SkipInvisibles(ccnt_clicked,-1),0),-1),-1,"word_boundary_left"),-1)
 			this.sel1.ccnt=this.SnapToValidLocation(this.ed.MoveToBoundary(this.ed.SnapToCharBoundary(Math.min(this.SkipInvisibles(ccnt_clicked,1),this.ed.GetTextSize()),1),1,"word_boundary_right"),1)
+			this.caret_is_wrapped=Math.min(this.ed.IsAtLineWrap(this.sel1.ccnt),0);
 			this.CallOnSelectionChange()
 			//UI.Refresh()
 			//return
@@ -1380,6 +1381,7 @@ W.Edit_prototype={
 			var line=this.GetLC(ccnt_clicked)[0]
 			this.sel0.ccnt=this.SeekLC(line,0)
 			this.sel1.ccnt=this.SeekLC(line+1,0)
+			this.caret_is_wrapped=Math.min(this.ed.IsAtLineWrap(this.sel1.ccnt),0);
 			this.CallOnSelectionChange()
 			//UI.Refresh()
 			//return
@@ -1399,6 +1401,7 @@ W.Edit_prototype={
 				this.dragging_shift=1;
 			}
 			this.sel1.ccnt=ccnt_clicked;
+			this.caret_is_wrapped=Math.min(this.ed.IsAtLineWrap(this.sel1.ccnt),0);
 			this.CallOnSelectionChange()
 		}
 		this.is_dragging=1
@@ -1431,6 +1434,7 @@ W.Edit_prototype={
 			}
 			this.sel1.ccnt=ccnt;
 		}
+		this.AutoScroll('show')
 		this.CallOnSelectionChange()
 		UI.Refresh()
 	},

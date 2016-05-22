@@ -152,6 +152,7 @@ int
 Android_VideoInit(_THIS)
 {
     SDL_DisplayMode mode;
+    
 
     mode.format = Android_ScreenFormat;
     mode.w = Android_ScreenWidth;

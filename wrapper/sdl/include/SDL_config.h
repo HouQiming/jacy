@@ -93,6 +93,13 @@
 #undef SDL_VIDEO_DRIVER_DUMMY
 #define SDL_VIDEO_DRIVER_DUMMY 0
 
+#if defined(__ANDROID__)
+#undef SDL_JOYSTICK_DISABLED
+#define SDL_JOYSTICK_DISABLED 0
+#undef SDL_LOADSO_DISABLED
+#define SDL_LOADSO_DISABLED 0
+#endif
+
 #define SDL_malloc malloc
 #define SDL_calloc calloc
 #define SDL_realloc realloc
@@ -117,5 +124,6 @@
 #define SDL_memcpy memcpy
 #define SDL_memmove memmove
 #define SDL_memcmp memcmp
+#define SDL_qsort qsort
 
 #endif /* _SDL_config_h */

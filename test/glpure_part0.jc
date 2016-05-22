@@ -2806,6 +2806,10 @@ GL_COMPRESSED_SLUMINANCE=0x8C4A
 GL_COMPRESSED_SLUMINANCE_ALPHA=0x8C4B
 ///////
 GL_TEXTURE_2D_MULTISAMPLE=0x9100
+GL_MAX_FRAGMENT_UNIFORM_VECTORS=0x8DFD
+GL_MAX_VARYING_VECTORS=0x8DFC
+GL_MAX_VERTEX_UNIFORM_VECTORS=0x8DFB
+
 
 //tegra K1 also needs GLES after r21...
 IS_OPENGL_ES=(Platform.ARCH=="android"||Platform.ARCH=="ios"||Platform.ARCH=="rasppi"||Platform.ARCH=="linux32")
@@ -3223,7 +3227,7 @@ class GLTechnique
 		SetVertexArray("P_quad",[float2(0.f,0.f),float2(1.f,0.f),float2(1.f,1.f),float2(0.f,1.f)])
 		SetVertexShader("
 		void main(){
-			gl_Position=vec4(P_quad*2.0-1.0,1,1);
+			gl_Position=vec4(P_quad*2.0-1.0,1.0,1.0);
 			st=P_quad;
 		}")
 		return Draw(0u,GL_TRIANGLE_FAN,4)
@@ -3337,7 +3341,7 @@ auto glCreateTexture(int format,int w,int h, int filter,int wraps,int wrapt,__po
 	tex=0u
 	glGenTextures(1, &tex)
 	glBindTexture(GL_TEXTURE_2D, tex)
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (filter==GL_LINEAR_MIPMAP_LINEAR||filter==GL_LINEAR_MIPMAP_NEAREST?GL_LINEAR:filter))
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wraps)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapt)
@@ -3478,10 +3482,12 @@ auto glCreateRenderToTextureContext(GLenum format,int w,int h,int flags)
 	fbo=glCreateFramebuffer()
 	rbo=0u
 	if flags&GL_RTT_DEPTH:
+		p_old_rbo=new u32[1]
+		glGetIntegerv(GL_RENDERBUFFER_BINDING_OES,__pointer(p_old_rbo.d))
 		glGenRenderbuffers(1,&rbo);
 		glBindRenderbuffer(GL_RENDERBUFFER,rbo);
 		glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH24_STENCIL8,w,h);
-		glBindRenderbuffer(GL_RENDERBUFFER,0u);
+		glBindRenderbuffer(GL_RENDERBUFFER,p_old_rbo[0]);
 	glBindFramebuffer(GL_FRAMEBUFFER,fbo);
 	glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,tex,0);
 	if flags&GL_RTT_DEPTH:

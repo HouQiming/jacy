@@ -208,12 +208,21 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 	SDL_UnlockMutex(cam->m_cam_mutex);
 	CVPixelBufferUnlockBaseAddress(imageBuffer,0);
 	SDL_UnlockMutex(cam->m_cam_mutex_2);
+	{
+		//ignore camera id, just send something
+		SDL_Event a;
+		memset(&a,0,sizeof(a));
+		a.type=SDL_USEREVENT;
+		a.user.code=3;
+		SDL_PushEvent(&a);
+	}
 	//CVImageBufferRelease(imageBuffer);
 }
 @end
 
 EXPORT int* osal_GetCameraImage(int cam_id, int* pw,int* ph){
 	if(cam_id!=IOS_CAMERA_FRONT&&cam_id!=IOS_CAMERA_BACK){return NULL;}
+	TCamera* cam=&g_cameras[cam_id];
 	SDL_LockMutex(cam->m_cam_mutex);
 	if(cam->m_image_ready){
 		u32* ret=cam->m_image_back;
