@@ -1,3 +1,4 @@
+#line 1 "c:/tp/pure/bin/win32_release/../../wrapper/wrapper_defines.h"
 #ifndef __WRAPPER_DEFINES_H
 #define __WRAPPER_DEFINES_H
 #ifdef LINUX

@@ -1,0 +1,11 @@
+import "system.jc"
+import System.Algorithm.*
+import System.Console.*
+
+(function(){
+	a=new int3[]
+	for i=0:99
+		a.push(int3(RandomIptr(9999)-5000,RandomIptr(9999),RandomIptr(9999)))
+	a.Sort()
+	Writeln(a)
+})()

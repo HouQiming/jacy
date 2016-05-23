@@ -6,6 +6,9 @@ module Camera
 	osal_TurnOffCamera=__c_function(int,"osal_TurnOffCamera","osal_camera.h")
 	osal_GetFrontCameraId=__c_function(int,"osal_GetFrontCameraId","osal_camera.h")
 	osal_GetBackCameraId=__c_function(int,"osal_GetBackCameraId","osal_camera.h")
+	if Platform.ARCH=='android':
+		osal_AndroidSetCameraPreviewTexture=__c_function(int,"osal_AndroidSetCameraPreviewTexture","osal_camera.h")
+		osal_AndroidCallUpdateTexImage=__c_function(int,"osal_AndroidCallUpdateTexImage","osal_camera.h")
 	auto osal_GetCameraImageManaged(int cam_id)
 		if Platform.ARCH=="android":
 			__generate_json("c_files","camera_android.c")

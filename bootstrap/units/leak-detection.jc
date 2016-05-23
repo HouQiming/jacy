@@ -1,0 +1,342 @@
+import "system.jc"
+import System.Console.*
+
+__C(int,"@global:
+#define S7_LD_LEAK_DETECTION_ENABLED 0
+#define s7_LD_real_free free
+#undef SDL_free
+#define SDL_free s7_LD_real_free
+")
+
+if Platform.BUILD=="debug":
+	__C(int,"@global:
+	#ifdef __cplusplus
+	extern \"C\" void* spapGetCallStack();
+	#else
+	extern void* spapGetCallStack();
+	#endif
+	
+	static void* s7_LD_head[2]={(void*)s7_LD_head,(void*)s7_LD_head};
+	static size_t s7_LD_n_ptrs=0;
+	static size_t s7_LD_g_seq_number=0;
+	static size_t s7_LD_g_memsize=0;
+
+	static void* s7_LD_calloc(size_t sz){
+		void* ptr=calloc(1,sz+sizeof(void*)*12);
+		void* w=s7_LD_head[0];
+		void* x=(void*)s7_LD_head;
+		void* stk=spapGetCallStack();
+		int p=4;
+		if(!ptr){return NULL;}
+		((void**)ptr)[0]=w; ((void**)w)[1]=ptr;
+		((void**)ptr)[1]=x; ((void**)x)[0]=ptr;
+		((void**)ptr)[2]=(void*)sz;
+		((void**)ptr)[3]=(void*)(s7_LD_g_seq_number++);
+		while(stk&&p<12){
+			((void**)ptr)[p+0]=((void**)stk)[1];
+			((void**)ptr)[p+1]=((void**)stk)[2];
+			stk=((void**)stk)[0];
+			p+=2;
+		}
+		s7_LD_n_ptrs++;
+		s7_LD_g_memsize+=sz;
+		return (void*)(((void**)ptr)+12);
+	}
+	
+	static void s7_LD_free(void* ptrx){
+		void* ptr=(void*)(((void**)ptrx)-12);
+		void* w=((void**)ptr)[0];
+		void* x=((void**)ptr)[1];
+		//size_t sz=0;
+		((void**)w)[1]=x; ((void**)x)[0]=w;
+		s7_LD_g_memsize-=(size_t)((void**)ptr)[2];
+		s7_LD_n_ptrs--;
+		//sz=(size_t)((void**)ptr)[2]+sizeof(void*)*12;
+		//memset(ptr,0xfd,sz);
+		free(ptr);
+	}
+	
+	static void* s7_LD_realloc(void* ptrx,size_t sz){
+		void* ptr=(void*)(((void**)ptrx)-12);
+		void* w=((void**)ptr)[0];
+		void* x=((void**)ptr)[1];
+		void* stk=spapGetCallStack();
+		int p=4;
+		ptr=realloc(ptr,sz+sizeof(void*)*12);
+		if(!ptr){return NULL;}
+		((void**)w)[1]=x; ((void**)x)[0]=w;
+		w=s7_LD_head[0];
+		x=(void*)s7_LD_head;
+		((void**)ptr)[0]=w; ((void**)w)[1]=ptr;
+		((void**)ptr)[1]=x; ((void**)x)[0]=ptr;
+		s7_LD_g_memsize-=(size_t)((void**)ptr)[2];
+		((void**)ptr)[2]=(void*)sz;
+		s7_LD_g_memsize+=sz;
+		while(p<12){
+			if(stk){
+				((void**)ptr)[p+0]=((void**)stk)[1];
+				((void**)ptr)[p+1]=((void**)stk)[2];
+				stk=((void**)stk)[0];
+			}else{
+				((void**)ptr)[p+0]=NULL;
+				((void**)ptr)[p+1]=NULL;
+			}
+			p+=2;
+		}
+		return (void*)(((void**)ptr)+12);
+	}
+	
+	static void* s7_LD_duk_calloc(void* udata,size_t sz){
+		return s7_LD_calloc(sz);
+	}
+	
+	static void s7_LD_duk_free(void* udata,void* ptrx){
+		if(ptrx){s7_LD_free(ptrx);}
+	}
+	
+	static void* s7_LD_duk_realloc(void* udata,void* ptrx,size_t sz){
+		return ptrx?s7_LD_realloc(ptrx,sz):s7_LD_calloc(sz);;
+	}
+	")
+	
+iptr2=VectorType(iptr,2)
+auto CreateMemorySnapshot()
+	if Platform.BUILD=="debug":
+		//0: prev, 1: next
+		__C(int,"@global:
+		#undef S7_LD_LEAK_DETECTION_ENABLED
+		#define S7_LD_LEAK_DETECTION_ENABLED 1
+		
+		#undef s7_LD_real_free
+		static void s7_LD_real_free(void* p){free(p);} 
+		
+		#define calloc(a,b) s7_LD_calloc((a)*(b))
+		#define malloc(a) s7_LD_calloc(a)
+		#define free(a) s7_LD_free(a)
+		#define realloc(a,b) s7_LD_realloc(a,b)
+		
+		")
+		n=__C(iptr,"s7_LD_n_ptrs")
+		ret=new iptr2[n+2]
+		p0=iptr(__C(__pointer,"((void*)s7_LD_head)"))
+		p=iptr(__C(__pointer,"(s7_LD_head[1])"))
+		i=0L
+		while p!=p0
+			if i>=ret.n:
+				assert(0)
+				break
+			ret[i]=iptr2(__memory(iptr,p+3*sizeof(iptr)),p)
+			i++
+			p=__memory(iptr,p+sizeof(iptr))
+		ret.n=i
+		ret.Sortby(byMember("x"))
+		return ret
+	else
+		return new iptr2[]
+
+module detail
+	FDumper=function(__variant):string
+	struct TRTTIInfo
+		string name
+	g_previous_state0=iptr2[].NULL
+	g_previous_state1=iptr2[].NULL
+	g_js_rc=new iptr[iptr]
+	g_rtti_map=new TRTTIInfo[iptr]
+	printstr=inline(s){
+		__C(int,'printf("%s",(char*)@1)',s)
+	}
+
+auto CompareLeaks(iptr2[] a0,iptr2[] a1,int mask)
+	getkey=inline(p){return p.x}
+	leaks=new iptr2[]
+	p0=0L;p1=0L
+	while p0<a0.n||p1<a1.n:
+		if p0<a0.n&&(p1>=a1.n||getkey(a0[p0])<=getkey(a1[p1])):
+			//increment p0
+			if p1<a1.n&&a0[p0].x==a1[p1].x:
+				if mask==3:
+					leaks.push(a1[p1])
+				p1++
+			else
+				if mask==1:
+					leaks.push(a0[p0])
+			p0++
+		else
+			//increment p1 - newly allocated pointer
+			if mask==2:
+				p_leak=a1[p1].y+sizeof(iptr)*12
+				if p_leak!=__cast(iptr,a1)&&p_leak!=a1.d&&p_leak!=__cast(iptr,a0)&&p_leak!=a0.d:
+					leaks.push(a1[p1])
+			p1++
+	return leaks
+
+auto AnalyzeReferer(iptr2[] leaks,iptr2[] state_new)
+	check_needed=new i8[iptr]
+	referer_pairs=new iptr2[]
+	foreach lk in leaks
+		p=lk.y
+		pobj=p+12*sizeof(iptr)
+		check_needed[pobj]=i8(1)
+	foreach st in state_new
+		p=st.y
+		pobj=p+12*sizeof(iptr)
+		if pobj==state_new.d:continue
+		if pobj==detail.g_previous_state0.d:continue
+		if pobj==detail.g_previous_state1.d:continue
+		if pobj==detail.g_js_rc.m_data.d:continue
+		sz=__memory(iptr,p+sizeof(iptr)*2)
+		n=iptr(uptr(sz)/uptr(sizeof(iptr)))
+		did=0
+		for i=0:n-1
+			pref=__memory(iptr,pobj+i*sizeof(iptr))
+			if check_needed[pref]==i8(1):
+				referer_pairs.push(iptr2(pref,pobj))
+				did=1
+		if did&&!check_needed[pobj]:
+			check_needed[pobj]=i8(2)
+			leaks.push(iptr2(-1L,p))
+	referer_pairs.Sort()
+	referer_pairs.Unique()
+	return referer_pairs
+
+auto DumpPointer(iptr p)
+	pobj=p+12*sizeof(iptr)
+	sz=__memory(iptr,p+sizeof(iptr)*2)
+	Write(formatNumber(pobj,{align:sizeof(iptr)*2,base:16}),' ',sz,': ')
+	if sz>=16L:
+		for j=0L:15L
+			c=__memory(char,pobj+j)
+			if !(c>=32&&c<127):
+				c='.'
+			Write(c)
+	Writeln()
+	for si=0:2
+		li=__memory(iptr,p+(si*2+5)*sizeof(iptr))
+		for(;li;li=__memory(iptr,li+sizeof(iptr)))
+			s=__memory(iptr,li)
+			if s:detail.printstr(s)
+		s=__memory(iptr,p+(si*2+4)*sizeof(iptr))
+		if s:detail.printstr(s)
+	if sz>=sizeof(iptr)*2:
+		Write('  ')
+		for j=0L:min(8L,sz/sizeof(iptr))-1L
+			word=__memory(iptr,pobj+j*sizeof(iptr))
+			if j==1L:
+				rtti_info=detail.g_rtti_map[word]
+				if rtti_info.name:
+					obj=__cast(__variant,pobj)
+					//Write(rtti_info.name,rtti_info.dump(obj),' ')
+					Write(rtti_info.name,' ')
+					continue
+			Write(formatNumber(uptr(word),{align:sizeof(iptr)*2,base:16}),' ')
+		Writeln()
+		//if iptr==i32:
+		if __memory(iptr,pobj+0*sizeof(iptr))==0x50000042:
+			//duktape object
+			p_props=__memory(iptr,pobj+4*sizeof(iptr))
+			e_size=__memory(i16,pobj+6*sizeof(iptr))
+			Write('  duktape object: {')
+			for j=0:e_size-1
+				p_str=__memory(iptr,p_props+j*sizeof(iptr))
+				if !p_str:continue
+				if j:Write(',')
+				if iptr==i64:
+					p_str+=4*sizeof(iptr)
+				else
+					p_str+=5*sizeof(iptr)
+				for(;;)
+					if !__memory(i8,p_str):break
+					Write(__memory(i8,p_str))
+					p_str++
+			Writeln('}')
+		if __memory(iptr,pobj+0*sizeof(iptr))&0xfff==0x4c2:
+			Writeln('  duktape function')
+	if detail.g_js_rc[pobj]:
+		Writeln('  has ',detail.g_js_rc[pobj],' JS references')
+
+auto DetectLeaks()
+	state_new=CreateMemorySnapshot()
+	if detail.g_previous_state0:
+		leaks0=CompareLeaks(detail.g_previous_state0,detail.g_previous_state1,2)
+		leaks1=CompareLeaks(detail.g_previous_state0,state_new,2)
+		leaks=CompareLeaks(leaks0,leaks1,3)
+		if leaks.n:
+			referer_pairs=AnalyzeReferer(leaks, state_new)
+			//Writeln([__pointer(ref.x) for ref in referer_pairs])
+			//Writeln([__pointer(ref.y) for ref in referer_pairs])
+			Writeln('=== ',leaks.n,' leaks, ',state_new.n,' alloced')
+			foreach lk in leaks
+				p=lk.y
+				pobj=p+12*sizeof(iptr)
+				if lk.x<0L:Write('(referer) ')
+				DumpPointer(p)
+				ppref=referer_pairs.InlineBisect(inline(a){return a.x<pobj})
+				if ppref<referer_pairs.n&&referer_pairs[ppref].x==pobj:
+					Write('  referers:')
+					while ppref<referer_pairs.n&&referer_pairs[ppref].x==pobj:
+						Write(' ',__pointer(referer_pairs[ppref].y))
+						ppref++
+					Writeln()
+		else
+			Writeln('=== no leak, ',state_new.n,' alloced')
+	else
+		Writeln('=== still preparing, ',state_new.n,' alloced')
+	detail.g_previous_state0=detail.g_previous_state1
+	detail.g_previous_state1=state_new
+
+auto AnalyzeFragmentation()
+	/*
+	state=CreateMemorySnapshot()
+	state.Sortby(byMember("y"))
+	Writeln('=== highest-addr allocations')
+	n=0
+	foreach lk in state.ReverseOrder()
+		p=lk.y
+		DumpPointer(p)
+		n++
+		if n>=12:break
+	Writeln('=== around big gaps')
+	ptrs=new iptr[]
+	foreach lk in state
+		p=lk.y
+		pobj=p+12*sizeof(iptr)
+		sz=__memory(iptr,p+sizeof(iptr)*2)
+		ptrs.push(p)
+		ptrs.push(pobj+sz)
+	for i=1:2:ptrs.n-2
+		szgap=ptrs[i+1]-ptrs[i]
+		if szgap>16384&&szgap<262144:
+			Writeln('--')
+			DumpPointer(ptrs[i-1])
+			DumpPointer(ptrs[i+1])
+	*/
+	if Platform.BUILD=='debug'&&Platform.ARCH=='win32':
+		state=CreateMemorySnapshot()
+		state.Sortby(byMember("y"))
+		//todo: vmmap-like visualization, save to image
+		//don't need real vmmap? need it - in case there's anything non-instrumented
+		//could manually compare with vmmap
+		//there does seem to be SOMETHING, the 260k blocks, the zeroes
+	
+inline RegisterRTTI(T)
+	rtti=iptr(__get_rtti(T))
+	if !detail.g_rtti_map[rtti].name:
+		//Writeln('RegisterRTTI ',rtti,' ',__type_name(T))
+		detail.g_rtti_map[rtti]=detail.TRTTIInfo(){
+			name:__type_name(T),
+		}
+
+inline isEnabled()
+	return __C(int,"S7_LD_LEAK_DETECTION_ENABLED")
+
+inline GetMemoryUsage()
+	return __C(iptr,"s7_LD_g_memsize")
+
+inline realFree(__pointer p)
+	__C(int,"s7_LD_real_free(@1)",p)
+
+auto JSAddref(iptr obj)
+	detail.g_js_rc[obj]++
+	
+auto JSRelease(iptr obj)
+	detail.g_js_rc[obj]--

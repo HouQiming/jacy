@@ -6,22 +6,38 @@ function call7z(sdir,fnzip0,fnames,sextra_arg){
 	}
 	s_7z_2.push(fnzip0);
 	s_7z_2=s_7z_2.concat(fnames);
-	var scmd="@echo off\n"+shellcmd(["cd",sdir])+"\n"+shellcmd(s_7z_2)+"\n";
-	var scall7z=g_work_dir+"/call7z.bat";
-	if(!CreateFile(scall7z,scmd)){
-		throw new Error("can't create call7z.bat");
+	if(g_current_arch=="win32"||g_current_arch=="win64"){
+		s_7z_2.push(">NUL")
+		var scmd="@echo off\n"+shellcmd(["cd","/d",sdir])+"\n"+shellcmd(s_7z_2)+"\n";
+		var scall7z=g_work_dir+"/call7z.bat";
+		if(!CreateFile(scall7z,scmd)){
+			throw new Error("can't create call7z.bat");
+		}
+		var ret=shell([scall7z]);
+		if(!!ret){shell(["rm",fnzip0]);throw new Error("7z returned an error code '@1'".replace("@1",ret.toString()));}
+	}else{
+		var scmd="#!/bin/sh\n"+shellcmd(["cd",sdir])+"\n"+shellcmd(s_7z_2)+"\n";
+		var scall7z=g_work_dir+"/call7z.sh";
+		if(!CreateFile(scall7z,scmd)){
+			throw new Error("can't create call7z.sh");
+		}
+		var ret=shell(["/bin/sh",scall7z]);
+		if(!!ret){
+			shell(["rm",fnzip0]);
+			throw new Error("7z returned an error code '@1'".replace("@1",ret.toString()));
+		}
 	}
-	ret=shell([scall7z]);if(!!ret){shell(["rm",fnzip0]);throw new Error("7z returned an error code '@1'".replace("@1",ret.toString()));}
 }
 
 (function(){
-	var fnzip=g_bin_dir+"/res.zip";
+	var is_static=(g_json.use_static_res&&g_json.use_static_res[0]);
+	var fnzip=(is_static?g_work_dir+"/raw_res.zip":g_bin_dir+"/res.zip");
 	if(g_arch=="ios"||g_arch=="mac"){
 		fnzip=g_work_dir+"/reszip.bundle";
 	}
 	if (g_arch=="android"){
 		mkdir(g_work_dir+"/assets");
-		fnzip=NormalizeFileName(g_work_dir+"/assets/reszip.mp3");
+		fnzip=g_work_dir+"/assets/reszip.mp3";
 	}
 	var needed=0;
 	var res_files=find(g_base_dir+"/res/*");
@@ -58,8 +74,14 @@ function call7z(sdir,fnzip0,fnames,sextra_arg){
 			}
 		}
 	}
-	if(!needed){return;}
-	var fnzip0=g_bin_dir+"/res.zip";
+	if(!needed){
+		if(is_static){
+			var fn_res_zip_c=g_work_dir+"/s7res.c";
+			g_json.c_files.push(fn_res_zip_c)
+		}
+		return;
+	}
+	var fnzip0=(is_static?g_work_dir+"/raw_res.zip":g_bin_dir+"/res.zip");
 	var fnzip_temp="__temp__.zip";
 	if(FileExists(fnzip)){
 		var ret=shell(["rm",fnzip]);
@@ -104,13 +126,20 @@ function call7z(sdir,fnzip0,fnames,sextra_arg){
 	}
 	call7z(g_root+"/units",fnzip_temp,s_7z_2)
 	if(DirExists(g_base_dir+"/assets")){
-		ret=shell([g_root+"/js/rawzip.exe",fnzip0,g_base_dir+"/assets"]);
+		//ret=shell([g_root+"/js/rawzip.exe",fnzip0,g_base_dir+"/assets"]);
+		ret=rawzip(g_root+"/units/"+fnzip_temp,g_base_dir+"/assets")
 		if(!!ret){throw new Error("rawzip returned an error code '@1'".replace("@1",ret.toString()));}
 	}
 	ret=shell(["mv",g_root+"/units/"+fnzip_temp,fnzip0]);
 	if(!!ret){throw new Error("mv returned an error code '@1'".replace("@1",ret.toString()));}
-	if(fnzip!=fnzip0){
-		ret=shell(["mv",fnzip0,fnzip]);
-		if(!!ret){throw new Error("mv returned an error code '@1'".replace("@1",ret.toString()));}
+	if(is_static){
+		var fn_res_zip_c=g_work_dir+"/s7res.c";
+		zip2c(fnzip0,fn_res_zip_c)
+		g_json.c_files.push(fn_res_zip_c)
+	}else{
+		if(fnzip!=fnzip0){
+			ret=shell(["mv",fnzip0,fnzip]);
+			if(!!ret){throw new Error("mv returned an error code '@1'".replace("@1",ret.toString()));}
+		}
 	}
 })();

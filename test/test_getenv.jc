@@ -1,0 +1,4 @@
+import System.Console.*
+
+Writeln(System.Env.GetEnvironmentVariable("HOME"))
+

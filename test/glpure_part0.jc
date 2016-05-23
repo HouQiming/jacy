@@ -2809,7 +2809,7 @@ GL_TEXTURE_2D_MULTISAMPLE=0x9100
 GL_MAX_FRAGMENT_UNIFORM_VECTORS=0x8DFD
 GL_MAX_VARYING_VECTORS=0x8DFC
 GL_MAX_VERTEX_UNIFORM_VECTORS=0x8DFB
-
+GL_TEXTURE_EXTERNAL_OES=0x8D65
 
 //tegra K1 also needs GLES after r21...
 IS_OPENGL_ES=(Platform.ARCH=="android"||Platform.ARCH=="ios"||Platform.ARCH=="rasppi"||Platform.ARCH=="linux32")
@@ -2845,6 +2845,39 @@ if Platform.BUILD=='debug':
 		return _glGetError()
 else
 	glGetError=inline(){return _glGetError()}
+
+if Platform.IS_LIBRARY:
+	if Platform.IS_WINDOWS:
+		GL_HEADER_FILE='glew.h'
+		glewInit=__c_function(int,"glewInit",GL_HEADER_FILE)
+		(inline(){glewInit()})()
+	else if Platform.ARCH=='mac':
+		GL_HEADER_FILE='OpenGL/gl.h'
+	else if Platform.ARCH=='ios':
+		GL_HEADER_FILE='OpenGLES/ES2/gl.h'
+	else if Platform.ARCH=='android':
+		GL_HEADER_FILE='GLES2/gl2.h'
+	else
+		//linux
+		GL_HEADER_FILE='glew.h'
+		glewInit=__c_function(int,"glewInit",GL_HEADER_FILE)
+		(inline(){glewInit()})()
+	__lib_import_gl=inline(){
+		if Platform.IS_WINDOWS:
+			__generate_json("c_files","glew.c")
+			__generate_json("h_files","glew.h")
+			__generate_json("h_files","wglew.h")
+			__generate_json("lib_files","opengl32.lib")
+		else if Platform.ARCH=='mac':
+			__generate_json("mac_frameworks","System/Library/Frameworks/OpenGL.framework")
+		else if Platform.ARCH=='ios':
+			//__generate_json("ios_frameworks","System/Library/Frameworks/OpenGL.framework")
+		else if Platform.ARCH=='android':
+			__generate_json("android_system_libnames","GLESv2")
+		else
+			//linux
+			__generate_json("ldflags","-lglew")
+	}
 
 ///////////////////////////////////////////////////
 //'managed' GL wrapper
@@ -2953,7 +2986,7 @@ class GLTechnique
 	m_tunit_counter=0
 	auto __done__()
 		if m_prg:
-			if glDeleteProgram:glDeleteProgram(m_prg)
+			glDeleteProgram(m_prg)
 			m_prg=0u
 	///////////////////////////////////////
 	auto Declare(string cd,string name,function(int) f)
@@ -2963,6 +2996,9 @@ class GLTechnique
 			fset:f})
 	//the caller is responsible for other GL states like blending, depth and stuff
 	auto Draw(GLuint vbo, GLenum mode0,iptr count0)
+		__force_alive(float2().x);__force_alive(float2().y)
+		__force_alive(float3().x);__force_alive(float3().y);__force_alive(float3().z)
+		__force_alive(float4().x);__force_alive(float4().y);__force_alive(float4().z);__force_alive(float4().w)
 		mode=mode0
 		count=int(count0)
 		if m_is_invalid:

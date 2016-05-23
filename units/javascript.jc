@@ -93,43 +93,45 @@ module duktape
 		LeakDetection.JSRelease(__cast(iptr,ret))
 		__explicit_rc(ret,-1)
 		return 0
-	__C(int,"@global:
-	typedef int(*s7_CB_duktape_fptr)(void*);
-
-	static duk_ret_t s7_CB_duktape_call(duk_context *ctx){
-		void* vptr=NULL;
-		duk_push_current_function(ctx);
-		duk_get_prop_index(ctx,-1,0);
-		duk_to_primitive(ctx,-1,0);
-		vptr=duk_get_pointer(ctx,-1);
-		duk_pop_2(ctx);
-		if(vptr){
-			int ret=((s7_CB_duktape_fptr)@1)(vptr);
-			if(ret<0){duk_throw(ctx);}
-			return ret;
-		}else{
+	inline __reach_native_functions()
+		__C(int,"@global:
+		typedef int(*s7_CB_duktape_fptr)(void*);
+	
+		static duk_ret_t s7_CB_duktape_call(duk_context *ctx){
+			void* vptr=NULL;
+			duk_push_current_function(ctx);
+			duk_get_prop_index(ctx,-1,0);
+			duk_to_primitive(ctx,-1,0);
+			vptr=duk_get_pointer(ctx,-1);
+			duk_pop_2(ctx);
+			if(vptr){
+				int ret=((s7_CB_duktape_fptr)@1)(vptr);
+				if(ret<0){duk_throw(ctx);}
+				return ret;
+			}else{
+				return 0;
+			}
+		}
+		
+		static duk_ret_t s7_CB_duktape_finalizer(duk_context *ctx){
+			void* vptr=NULL;
+			duk_get_prop_index(ctx,0,0);
+			duk_to_primitive(ctx,-1,0);
+			vptr=duk_get_pointer(ctx,-1);
+			duk_pop(ctx);
+			if(vptr){
+				duk_push_pointer(ctx,NULL);
+				duk_put_prop_index(ctx,0,0);
+				((s7_CB_duktape_fptr)@2)(vptr);
+			}
 			return 0;
 		}
-	}
-	
-	static duk_ret_t s7_CB_duktape_finalizer(duk_context *ctx){
-		void* vptr=NULL;
-		duk_get_prop_index(ctx,0,0);
-		duk_to_primitive(ctx,-1,0);
-		vptr=duk_get_pointer(ctx,-1);
-		duk_pop(ctx);
-		if(vptr){
-			duk_push_pointer(ctx,NULL);
-			duk_put_prop_index(ctx,0,0);
-			((s7_CB_duktape_fptr)@2)(vptr);
-		}
-		return 0;
-	}
-	",js_call,js_release)
-	__reach(js_call)
-	__reach(js_release)
+		",js_call,js_release)
+		__reach(js_call)
+		__reach(js_release)
 	class JSContext
 		m_hctx=(inline(){
+			__reach_native_functions()
 			if Platform.BUILD=="debug"&&LeakDetection.isEnabled():
 				__C(int,"@global:
 				static void* s7_LD_duk_calloc(void* udata,size_t sz);

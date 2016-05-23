@@ -421,6 +421,9 @@ auto transformCodeEx(PExpression pesrc, ftransformer_callback ftransformer, PExp
 
 auto queueCodeGen(PCTObject pobjfn)
 	if !(getFFlag(pobjfn)&FFLAG_CGEN_QUEUED):
+		if Platform.BUILD=="debug":
+			if !(getCcnv(pobjfn)!=g_id_inline&&getCcnv(pobjfn)!=g_id_inline_loopbody):
+				Writeln('queueing inline function: ',dumpFunction(pobjfn))
 		assert(getCcnv(pobjfn)!=g_id_inline&&getCcnv(pobjfn)!=g_id_inline_loopbody)
 		setFFlag(pobjfn,FFLAG_CGEN_QUEUED)
 		g_gencode_queue.push(readPool(pobjfn+FUNCTION_OFS_PEDECL))
@@ -1623,8 +1626,13 @@ auto coreInit()
 			g_code_buffer=g_forward_buffer
 			if !(fn.flags&FFLAG_EXPORTED):
 				g_code_buffer.push('static ')
-			else if g_is_cpp:
-				g_code_buffer.push('extern "C" ')
+			else 
+				if g_is_cpp:
+					g_code_buffer.push('extern "C" ')
+				arr_prefix=g_json_pool[g_id_export_prefix]
+				if arr_prefix&&arr_prefix.n:
+					g_code_buffer.push(getIdString(arr_prefix[0]))
+					g_code_buffer.push(' ')
 			if !treturn||tisstruct(treturn):
 				g_code_buffer.push(FormatAsText("void"))
 			else
@@ -1926,16 +1934,22 @@ auto coreInit()
 		if pobjfn:
 			setFunctionUsed(pobjfn)
 			setParameterSlotTypes(pobjfn)
+			//if !getReturnType(pobjfn):
+			//	addFunctionUser(pobjfn,pecall|0x80000000)
 		if !id_export_name||!pobjfn:
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
-		fn=readPoolTyped(pobjfn,TFunction)
-		if !(fn.flags&FFLAG_EXPORTED):
-			if !(fn.flags&FFLAG_CGEN_QUEUED):
-				fn.flags|=FFLAG_CGEN_QUEUED
-				g_gencode_queue.push(fn.pe_decl)
-			fn.flags|=FFLAG_EXPORTED
-			fn.id_name=id_export_name
-			writePoolTyped(pobjfn,fn)
+		if !(getFFlag(pobjfn)&FFLAG_EXPORTED):
+			setFFlag(pobjfn,FFLAG_EXPORTED)
+			writePool(pobjfn+FUNCTION_OFS_NAME,id_export_name)
+			queueCodeGen(pobjfn)
+		//fn=readPoolTyped(pobjfn,TFunction)
+		//if !(fn.flags&FFLAG_EXPORTED):
+		//	if !(fn.flags&FFLAG_CGEN_QUEUED):
+		//		fn.flags|=FFLAG_CGEN_QUEUED
+		//		g_gencode_queue.push(fn.pe_decl)
+		//	fn.flags|=FFLAG_EXPORTED
+		//	fn.id_name=id_export_name
+		//	writePoolTyped(pobjfn,fn)
 		return TSCCPValue(){'tid':g_vtid_UNINIT}
 	}
 	fexport_oncgen=function(PExpression pecall,int expr_oplevel){
@@ -8508,6 +8522,12 @@ auto deadelim()
 					if DEBUG_DUMP_DEADELIM:
 						Writeln('impure prelive: ',dumpExpr(pe,fcolor_abbrv_blocks))
 					Q.push(pe)
+					if isBuiltin(pe,g_id_export):
+						pobjfn_export=getExprValueAs(readPool(pe+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
+						if pobjfn_export:
+							markreturn(pobjfn_export)
+							if DEBUG_DUMP_DEADELIM:
+								Writeln('export return prelive: ',dumpExpr(pe,fcolor_abbrv_blocks))
 					return 1
 				//else if isBuiltin(pe,g_id_set_memory)||isBuiltin(pe,g_id_C_wrap)||isBuiltin(pe,g_id_force_alive)||isBuiltin(pe,g_id_export)||isBuiltin(pe,g_id_blockex):
 				//	Q.push(pe)
@@ -8551,7 +8571,8 @@ auto deadelim()
 			dfsRootLives(readPool(pe+EXPR_OFS_ARGS+i),in_class_recurse)
 	dfsRootLives(g_pe_top,0)
 	foreach pe in Q
-		setUserFlag(pe,FLAG_IS_LIVE)
+		if pe>=0:
+			setUserFlag(pe,FLAG_IS_LIVE)
 	///////////////////////////////
 	//propagating the liveness
 	auto marklive(PExpression pe)

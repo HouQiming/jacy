@@ -16,9 +16,10 @@ public class camera implements Camera.PreviewCallback,SurfaceTexture.OnFrameAvai
 	SurfaceTexture st;
 	int my_id;
 	int m_need_up;
+	int m_is_tex_valid;
 	Camera.Size my_size;
 	public void onPreviewFrame(byte[] data,Camera camera){
-		if(m_need_up>0){
+		if(m_is_tex_valid==0&&m_need_up>0){
 			try{
 				//this shit discards the damn buffer queue on SamSung
 				//we must make sure the update fails, though...
@@ -28,7 +29,19 @@ public class camera implements Camera.PreviewCallback,SurfaceTexture.OnFrameAvai
 		}
 		sendresult(my_id,data,my_size.width,my_size.height);
 	}
-	public int turn_on(int id,int w,int h,int fps){
+	public int callUpdateTexImage(){
+		if(m_need_up>0){
+			try{
+				//this shit discards the damn buffer queue on SamSung
+				//we must make sure the update fails, though...
+				st.updateTexImage();
+			}catch(Exception e){}
+			m_need_up=0;
+			return 1;
+		}
+		return 0;
+	}
+	public int turn_on(int id,int w,int h,int fps,int texid,int is_tex_valid){
 		//Log.v("STDOUT","turn_on");
 		if(my_camera==null){
 			//Log.v("STDOUT","Open camera");
@@ -40,7 +53,7 @@ public class camera implements Camera.PreviewCallback,SurfaceTexture.OnFrameAvai
 		//Log.v("STDOUT","Open camera successful");
 		Camera.Parameters params;
 		try{
-			if(st==null){st=new SurfaceTexture(1);}
+			if(st==null){st=new SurfaceTexture(texid);}
 			my_camera.setPreviewCallback(this);
 			//my_camera.setPreviewDisplay(null);
 			st.setOnFrameAvailableListener(this);
@@ -56,6 +69,7 @@ public class camera implements Camera.PreviewCallback,SurfaceTexture.OnFrameAvai
 		}catch(Exception e){return 0;}
 		params=my_camera.getParameters();
 		my_size=params.getPreviewSize();
+		m_is_tex_valid=is_tex_valid;
 		//Log.v("STDOUT","reached the end");
 		return 1;
 	}

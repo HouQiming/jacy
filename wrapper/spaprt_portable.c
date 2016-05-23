@@ -102,19 +102,27 @@ typedef DWORD TLSID;
 
 ////////////////////////SDL
 #if defined(ANDROID)||defined(__ANDROID__)
-	#include "SDL/include/SDL.h"
+	#ifndef PM_IS_LIBRARY
+		#include "SDL/include/SDL.h"
+	#endif
 	#define __declspec(arg)
 #elif defined(__APPLE__)
 	#include "TargetConditionals.h"
 	#if TARGET_IPHONE_SIMULATOR
 		// iOS Simulator
+		#ifndef PM_IS_LIBRARY
 		#include "SDL/include/SDL.h"
+		#endif
 	#elif TARGET_OS_IPHONE
 		// iOS device
+		#ifndef PM_IS_LIBRARY
 		#include "SDL/include/SDL.h"
+		#endif
 	#elif TARGET_OS_MAC
 		// Mac OS
+		#ifndef PM_IS_LIBRARY
 		#include "SDL/include/SDL.h"
+		#endif
 		#define HAS_GLOB
 		#define NEED_MAIN_WRAPPING
 		#include <glob.h>
@@ -123,10 +131,12 @@ typedef DWORD TLSID;
 	#endif
 	#define __declspec(arg)
 #else
-	#ifdef LINUX
-		#include "SDL.h"
-	#else
-		#include "SDL/include/SDL.h"
+	#ifndef PM_IS_LIBRARY
+		#ifdef LINUX
+			#include "SDL.h"
+		#else
+			#include "SDL/include/SDL.h"
+		#endif
 	#endif
 	#ifndef _WIN32
 		#define __declspec(arg)
@@ -150,6 +160,7 @@ typedef long iptr;
 #endif
 */
 
+#ifndef PM_IS_LIBRARY
 #define malloc SDL_malloc
 #define calloc SDL_calloc
 #define free SDL_free
@@ -178,8 +189,43 @@ typedef SDL_TLSID TLSID;
 #define CloseEvent(handle) SDL_DestroySemaphore(handle)
 #define SwitchToThread() SDL_Delay(0)
 #define Sleep(a) SDL_Delay(a)
+#else
+#include <pthread.h>
+#include <stdint.h>
+typedef int64_t i64;
+typedef pthread_mutex_t SDL_mutex;
+typedef SDL_mutex* HMUTEX;
+static SDL_mutex* SDL_CreateMutex(){
+	SDL_mutex* ret=calloc(1,sizeof(SDL_mutex));
+	pthread_mutex_init(ret,NULL);
+	return ret;
+}
 
+static int SDL_LockMutex(SDL_mutex* a){
+	pthread_mutex_lock(a);
+	return 0;
+}
+
+static void SDL_UnlockMutex(SDL_mutex* a){
+	pthread_mutex_unlock(a);
+}
+
+#define CreateMutexA(p0,p1,p2) SDL_CreateMutex()
+#define BlockOn(handle) SDL_LockMutex(handle)
+#define ReleaseMutex(handle) SDL_UnlockMutex(handle)
+
+typedef pthread_key_t TLSID;
+static pthread_key_t TlsAlloc(){
+	pthread_key_t ret=0;
+	pthread_key_create(&ret, NULL);
+	return ret;
+}
+#define TlsGetValue pthread_getspecific
+#define TlsSetValue pthread_setspecific
+
+#endif
 static int IsBadReadPtr(void* p,size_t sz){return !p;}
+
 #endif
 
 #ifdef PM_RELEASE
@@ -188,232 +234,8 @@ static int IsBadReadPtr(void* p,size_t sz){return !p;}
 #define EXPORT __declspec(dllexport)
 #endif
 
-/////////////////////////////////////////////////////////////////
-//the coroutine system
-/////////////////////////////////////////////////////////////////
-//thread - sjlj fiber, the thread could itself serve as the work thread
-//could have internally "switch_to_thread" and "switch_to_fiber"
-//Sleep could be an ordinary wait
-//pool the threads
-//exposing risks correctness problems -- e.g. rc
-#define TLJ_START_POINT_WAIT_FOR_SWITCH 1
-#define TLJ_START_POINT_DISCARD 2
-#define MSG_UNBLOCKED 0
-#define MSG_TERMINATED 1
-#define MSG_DISCARD 2
-#define CO_SUSPENDED (1<<30)
-#define CO_FROM_SPAP 0x20000000
-typedef void(__cdecl*PF_COROUTINE)(void*);
-typedef int(__cdecl*PF_COM_RELEASE)(void*);
-typedef struct _TCoroutine{
-	struct _TCoroutine* next;
-	///////////
-	HEVENT event_launch;
-	PF_COROUTINE f;
-	void* param;
-	int flags,message;
-	i64 t_last_executed;
-}TCoroutine;
-
-static HMUTEX g_coroutine_lock;
-//static HMUTEX g_coroutine_lock2;
-
-static int g_inited=0;
-static TLSID g_tls_pcoroutine;
-static i64 g_freq=(i64)1;
-
-static TCoroutine* g_free_coroutines=NULL;
-static volatile int g_yielding_atomic=0;
-
-EXPORT void starcClassFree(void* p);
-
-THREADRET THREADCALL tlj_starter(void* pcoroutine_v){
-	TCoroutine* pcoroutine=(TCoroutine*)pcoroutine_v;
-	//int mode;
-	//set up the dispatcher so that we can reuse the thread
-	pcoroutine->event_launch=CreateEventA(NULL,0,0,NULL);
-	TlsSetValue(g_tls_pcoroutine, pcoroutine_v);
-	for(;;){
-		BlockOn(g_coroutine_lock);
-		pcoroutine->f(pcoroutine->param);
-		if((pcoroutine->flags&CO_FROM_SPAP)&&pcoroutine->param){
-			//do gcRelease of the function
-			if(!--((iptr*)pcoroutine->param)[-1]){
-				starcClassFree(pcoroutine->param);
-			}
-		}
-		pcoroutine->next=g_free_coroutines;
-		g_free_coroutines=pcoroutine;
-		ReleaseMutex(g_coroutine_lock);
-		//wait for the scheduler to get us out of the pool, reuse the switching event
-		BlockOnEvent(pcoroutine->event_launch);
-		if(pcoroutine->message==MSG_DISCARD){
-			free(pcoroutine);
-			break;
-		}
-	}
-	return 0;
-}
-
-////////////////////////////////////////////////
-//emulate the old interface
-EXPORT void spapInitCoroutines(){
-	if(!g_inited){
-		g_inited=1;
-		g_tls_pcoroutine=TlsAlloc();
-		g_freq=GetPerformanceFrequency();
-		g_coroutine_lock=CreateMutexA(NULL,0,NULL);
-		//g_coroutine_lock2=CreateMutexA(NULL,0,NULL);
-		BlockOn(g_coroutine_lock);
-		//BlockOn(g_coroutine_lock2);
-	}
-}
-
-EXPORT TCoroutine* spapCreateCoroutine(PF_COROUTINE f,void* param,int flags){
-	#ifdef _WIN32
-		int tid=0;
-	#endif
-	HTHREAD hthread;
-	TCoroutine* ret;
-	if(g_free_coroutines){
-		ret=g_free_coroutines;
-		g_free_coroutines=ret->next;
-		ret->next=NULL;
-		ret->f=f;
-		ret->param=param;
-		ret->flags=flags;
-		SetEvent(ret->event_launch);
-	}else{
-		ret=malloc(sizeof(TCoroutine));
-		memset(ret,0,sizeof(TCoroutine));
-		ret->f=f;
-		ret->param=param;
-		ret->flags=flags;
-		hthread=CreateThread(NULL,0, tlj_starter, ret, 0,&tid);
-		if(!hthread){
-			free(ret);
-			return NULL;
-		}
-		CloseThread(hthread);
-	}
-	return ret;
-}
-
-EXPORT void spapRunBlockingFunction(PF_COROUTINE f,void* param){
-	//printf("g_yielding_atomic=%d\n",g_yielding_atomic);
-	if(g_yielding_atomic){
-		f(param);
-		return;
-	}
-	ReleaseMutex(g_coroutine_lock);
-	f(param);
-	//BlockOn(g_coroutine_lock2);ReleaseMutex(g_coroutine_lock2);
-	BlockOn(g_coroutine_lock);
-}
-
-EXPORT void spapBlockYielding(){
-	g_yielding_atomic++;
-}
-
-EXPORT void spapUnblockYielding(){
-	g_yielding_atomic--;
-}
-
-EXPORT void spapStartRunningCoroutines(){
-	ReleaseMutex(g_coroutine_lock);
-	//ReleaseMutex(g_coroutine_lock2);
-}
-
-EXPORT void spapStopRunningCoroutines(){
-	//BlockOn(g_coroutine_lock2);
-	BlockOn(g_coroutine_lock);
-}
-
-//event_wake_up
-EXPORT void spapCoroutineSleep(int duration_ms){
-	ReleaseMutex(g_coroutine_lock);
-	if(!duration_ms){
-		SwitchToThread();
-	}else{
-		Sleep(duration_ms);
-	}
-	//BlockOn(g_coroutine_lock2);ReleaseMutex(g_coroutine_lock2);
-	BlockOn(g_coroutine_lock);
-}
-
-EXPORT void spapSetCoroutineFlag(TCoroutine* pcoroutine,int flags){
-	pcoroutine->flags=flags;
-}
-EXPORT int spapGetCoroutineFlag(TCoroutine* pcoroutine){
-	return pcoroutine->flags;
-}
-
-EXPORT void spapFreeCoroutineResources(){
-	TCoroutine* pcoroutine=NULL;
-	TCoroutine* pdiscard_head=g_free_coroutines;
-	int n=0,i=0;
-	TCoroutine** ppcoroutines=NULL;
-	g_free_coroutines=NULL;
-	for(pcoroutine=pdiscard_head;pcoroutine;pcoroutine=pcoroutine->next){
-		pcoroutine->message=MSG_DISCARD;
-		n++;
-	}
-	ppcoroutines=(TCoroutine**)malloc(sizeof(TCoroutine*)*n);
-	for(pcoroutine=pdiscard_head;pcoroutine;pcoroutine=pcoroutine->next){
-		ppcoroutines[i]=pcoroutine;
-		i++;
-	}
-	for(i=0;i<n;i++){
-		//after the SetEvent, the TCoroutine can become invalid immediately, thus we need the temporary array
-		SetEvent(ppcoroutines[i]->event_launch);
-	}
-	free(ppcoroutines);
-}
-
-EXPORT TCoroutine* spapGetCurrentCoroutine(){
-	TCoroutine* ret=TlsGetValue(g_tls_pcoroutine);
-	return ret;
-}
-
-///////////////////////////////////////////////
-typedef unsigned int u32;
-typedef struct _TClassDesc{
-	iptr sz,alg;
-	PF_COROUTINE dtor;
-	char* name;
-	u32 hash[2];
-	union{
-		iptr _nrcitem;
-		int nrcitem;
-	};
-}TClassDesc;
-
-//dozero should always be 2
-EXPORT void* starcClassAlloc(int dozero,TClassDesc* cd){
-	iptr size=cd->sz;
-	iptr szmisc=sizeof(void*)*2;
-	iptr pbase;
-	void* ret;
-	//our malloc is 16-aligned by default
-	//puts(cd->name);
-	if(cd->alg>sizeof(void*)){szmisc+=sizeof(void*);}
-	pbase=(iptr)malloc(size+szmisc+(cd->alg>sizeof(void*)?cd->alg:0));
-	if(!pbase)return NULL;
-	assert(dozero==2);
-	if(cd->alg>sizeof(void*)){
-		//printf("%d\n",cd->alg);
-		ret=(void*)((pbase+szmisc+cd->alg-1)&-cd->alg);
-		((void**)ret)[-3]=(void*)pbase;
-	}else{
-		ret=(void*)(pbase+szmisc);
-	}
-	((void**)ret)[-2]=(void*)cd;
-	((void**)ret)[-1]=(void*)(iptr)1;
-	memset(ret,0,size);
-	return ret;
-}
-
 //BSGP? mobile CUDA... we still need it
+typedef void(__cdecl*PF_COROUTINE)(void*);
 void _bsgp_delete(void* selfv);
 typedef struct _TBsgpObject{
 	void* __vftab;
@@ -446,52 +268,6 @@ void _bsgp_delete(void* selfv){
 		bsgp_classRelease(*(void**)((iptr)(self)+pf[i]));
 	}
 	self->__free(self);
-}
-EXPORT void starc_classRelease(void* pv){
-	if(pv){
-		iptr* p=(iptr*)pv;
-		iptr a=p[-1]-1;
-		p[-1]=a;
-		if(!a){starcClassFree(p);}
-	}
-}
-EXPORT void starcClassFree(void* p){
-	TClassDesc* cd=((TClassDesc**)p)[-2];
-	if(cd->dtor){
-		//we can't have this thing re-released during dtor
-		((iptr*)p)[-1]=(iptr)0x80000000;
-		cd->dtor(p);
-	}
-	/////////////////////////
-	//free members
-	//printf("free %s %d\n",cd->name,cd->nrcitem);
-	if(cd->nrcitem>0){
-		iptr* prcitems=((iptr*)(cd+1));
-		iptr i;
-		//writeln(cd.name,' ',cd.nrcitem)
-		for(i=0;i<cd->nrcitem;i++){
-			iptr d=prcitems[i];
-			int mode=((int)d&3);
-			void* pp=*(void**)((char*)p+(d&(iptr)(-4)));
-			switch(mode){
-			break;case 1://SPAP# interface
-				if(pp)pp=((void**)pp)[1];
-			case 0://SPAP#
-				starc_classRelease(pp);
-			break;case 2://COM
-				if(pp){((PF_COM_RELEASE**)pp)[0][1](pp);}
-			break;case 3://BSGP
-				bsgp_classRelease(pp);
-			}
-			//writeln
-		}
-	}
-	/////////////////////////
-	if(cd->alg>sizeof(void*)){
-		free(((void**)p)[-3]);
-	}else{
-		free((iptr*)p-2);
-	}
 }
 
 /////////////////////////////////////////
@@ -1958,6 +1734,10 @@ EXPORT int osal_GetCommandLine(char*** pargv){
 	return g_argc;
 }
 
+#ifdef PM_IS_LIBRARY
+#undef NEED_MAIN_WRAPPING
+#endif
+
 #ifdef NEED_MAIN_WRAPPING
 #if defined(_WIN32)
 //those platforms don't need SDL_main
@@ -1969,4 +1749,30 @@ int main(int argc,char** argv){
 	g_argc=argc;
 	return real_main();
 }
+#endif
+
+#ifdef PM_IS_LIBRARY
+//library-specific code
+#ifdef _WIN32
+int WINAPI DllMain(
+HINSTANCE hinstDLL,
+DWORD fdwReason,
+void *lpvReserved){
+	return 1;
+}
+#endif
+
+#if defined(ANDROID)||defined(__ANDROID__)
+#include <jni.h>
+JNIEnv* g_jni_env=NULL;
+EXPORT JNIEnv* SDL_AndroidGetJNIEnv(){
+	return g_jni_env;
+}
+
+jint JNI_OnLoad(JavaVM* vm, void* reserved){
+    (*vm)->GetEnv(vm,(void**)&g_jni_env,JNI_VERSION_1_4);
+    return JNI_VERSION_1_4;
+}
+#endif
+//end of library-specific code
 #endif

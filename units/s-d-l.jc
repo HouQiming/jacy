@@ -945,7 +945,7 @@ module detail
 	SDL_PushEvent=__c_function(int,"SDL_PushEvent","SDL.h")
 	spapStartRunningCoroutines=__c_function(int,"spapStartRunningCoroutines","spaprt_portable.h")
 	spapStopRunningCoroutines=__c_function(int,"spapStopRunningCoroutines","spaprt_portable.h")
-	spapInitCoroutines=__c_function(int,"spapInitCoroutines","spaprt_portable.h")
+	//spapInitCoroutines=__c_function(int,"spapInitCoroutines","spaprt_portable.h")
 	SDL_GL_MakeCurrent=__c_function(int,"SDL_GL_MakeCurrent","SDL.h")
 	SDL_GL_SwapWindow=__c_function(int,"SDL_GL_SwapWindow","SDL.h")
 	SDL_GL_CreateContext=__c_function(__pointer,"SDL_GL_CreateContext","SDL.h")
@@ -1532,7 +1532,7 @@ module detail
 		if PLATFORM_DEBUG:
 			Writeln('after SDL_Init')
 		fset_gl_attrs()
-		spapInitCoroutines()
+		//spapInitCoroutines()
 		/////////
 		auto JS=JS_SDL.GetContext()
 		//expose SDL constants to JS
@@ -1621,9 +1621,9 @@ module detail
 		fhandleevent=function(JSContext JS,int is_wait){
 			pevent=__C(__pointer,"@decl:SDL_Event @1={0}")
 			if is_wait:
-				spapStartRunningCoroutines()
+				//spapStartRunningCoroutines()
 				got_message=SDL_WaitEvent(pevent)
-				spapStopRunningCoroutines()
+				//spapStopRunningCoroutines()
 			else
 				got_message=SDL_PollEvent(pevent)
 			if got_message:

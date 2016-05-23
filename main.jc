@@ -61,13 +61,14 @@ tm_rc=tnew(":rc")
 tm_instrumentation=tnew(":instrumentation")
 tm_cleanup=tnew(":cleanup")
 tm_genallcode=tnew(":codegen")
+g_fn_s7_main="s7_main"
 auto doBuild()
 	if g_enable_dump:
 		Writeln('>>> raw files')
 		foreach pe in g_top_level_exprs
 			Writeln(dumpCode(pe,fcolor_just_epos))
 	tbegin(tm_root)
-	createRootExpression("s7_main")
+	createRootExpression(g_fn_s7_main)
 	tend(tm_root)
 	if dumpAllErrors():
 		//if we have parser errors, it's pointless to continue
@@ -147,7 +148,7 @@ auto doBuild()
 	return scode
 
 tm_all=tnew("***all")
-g_s_help='
+g_s_help='Usage: jc [options] <files>
 Output-related options:
 	-aARCH, --arch=ARCH: build for platform "ARCH"
 		Possible values: win32, win64, mac, linux32, linux64, android, ios
@@ -261,6 +262,7 @@ auto main()
 			g_is_cpp=1
 		else if s=="--shared"||s=="-S":
 			g_is_library=1
+			s_epilog=""
 		else if s.StartsWith("-"):
 			Writeln('warning: unrecognized option @1'.Replace(["@1",s]))
 			continue
@@ -300,6 +302,8 @@ auto main()
 		pdot=fn_main.LastIndexOf('.')
 		if pdot>=0:
 			fn_main=fn_main[:pdot-1]
+		if g_is_library:
+			g_fn_s7_main="init_library_"+fn_main
 		s_dirname=new(s_arch)
 		if s_mode!="debug":s_dirname.push("_"+s_mode)
 		s_tempdir=s_basedir+"pm_tmp/"+s_dirname+"/"+fn_main

@@ -26,11 +26,6 @@ void spapPopCallStack();
 void spapReportError(char* s);
 void spapReportErrorf(char* fmt,...);
 void osal_WriteLog(char* buf);
-void spapBlockYielding();
-void spapUnblockYielding();
-void spapInitCoroutines();
-void spapStartRunningCoroutines();
-void spapStopRunningCoroutines();
 
 typedef struct _OSAL_TFileInfo{
 	long long created_time;
@@ -59,6 +54,11 @@ void osal_LinuxXIOErrorWorkaround();
 
 int osal_GetExitCodeProcess(int pid);
 int osal_TerminateProcess(int pid);
+
+#if defined(ANDROID)||defined(__ANDROID__)
+#include <jni.h>
+JNIEnv* SDL_AndroidGetJNIEnv();
+#endif
 
 #ifdef __cplusplus
 }

@@ -8,11 +8,11 @@ module OS_API
 	FILE_ATTRIBUTE_DIRECTORY=0x00000010
 	if Platform.IS_UNIX:
 		__generate_json("ldflags","-lm")
-		if Platform.ARCH=="linux32"||Platform.ARCH=="linux64":
+		if Platform.ARCH=="rasppi"||Platform.ARCH=="linux32"||Platform.ARCH=="linux64"||Platform.ARCH=="mac":
 			__generate_json("cflags","-I/usr/include/SDL2")
+			__generate_json("cflags","-I/usr/local/include/SDL2")
 			__generate_json("ldflags","-lSDL2")
 			__generate_json("ldflags","-lpthread")
-			__generate_json("ldflags","-lm")
 			__generate_json("ldflags","-ldl")
 		PROT_READ=0x1
 		PROT_WRITE=0x2
@@ -36,16 +36,18 @@ module OS_API
 		///////////////
 		_fopen=__c_function(__pointer,"fopen","stdio.h")
 		pipe=__c_function(int,"pipe","stdio.h")
-		poll=__c_function(int,"poll","stdio.h")
+		read=__c_function(iptr,"read","stdio.h")
+		write=__c_function(iptr,"write","stdio.h")
 		realpath=__c_function(__pointer,"realpath","stdio.h")
 		getenv=__c_function(__pointer,"getenv","stdio.h")
 		setenv=__c_function(__pointer,"setenv","stdio.h")
 		mmap=__c_function(__pointer,"mmap","sys/mman.h")
 		munmap=__c_function(int,"munmap","sys/mman.h")
-		open=__c_function(int,"open","stdio.h")
-		close=__c_function(int,"close","stdio.h")
+		open=__c_function(int,"open","fcntl.h")
+		close=__c_function(int,"close","unistd.h")
 		/////////////////
 		osal_GetUnixPathMax=__c_function(iptr,"osal_GetUnixPathMax","spaprt_portable.h")
+		osal_PollPipe=__c_function(int,"osal_PollPipe","stdio.h")
 		osal_GetFileSize=__c_function(iptr,"osal_GetFileSize","spaprt_portable.h")
 		osal_GetFileSize64=__c_function(i64,"osal_GetFileSize64","spaprt_portable.h")
 		osal_GetFileAttributes=__c_function(int,"osal_GetFileAttributes","spaprt_portable.h")
@@ -55,6 +57,9 @@ module OS_API
 		osal_GetStdHandle=__c_function(__pointer,"osal_GetStdHandle","spaprt_portable.h")
 		osal_getStoragePath=__c_function(__pointer,"osal_getStoragePath","spaprt_portable.h")
 		osal_errno=__c_function(int,"osal_errno","spaprt_portable.h")
+		osal_CreateProcess=__c_function(int,"osal_CreateProcess","spaprt_portable.h")
+		osal_GetExitCodeProcess=__c_function(int,"osal_GetExitCodeProcess","spaprt_portable.h")
+		osal_TerminateProcess=__c_function(int,"osal_TerminateProcess","spaprt_portable.h")
 		/////////////////
 		SDL_GetPerformanceCounter=__c_function(i64,"SDL_GetPerformanceCounter","SDL.h")
 		SDL_GetPerformanceFrequency=__c_function(i64,"SDL_GetPerformanceFrequency","SDL.h")
@@ -65,9 +70,10 @@ module OS_API
 		remove=__c_function(int,"remove","stdio.h")
 		mkdir=__c_function(int,"mkdir","sys/stat.h")
 		chdir=__c_function(int,"chdir","unistd.h")
-		time=__c_function(i64,"time","time.h")
-		localtime=__c_function(__pointer,"localtime","time.h")
+		getcwd=__c_function(int,"getcwd","unistd.h")
 		sleep=__c_function(int,"sleep","time.h")
+	time=__c_function(i64,"time","time.h")
+	localtime=__c_function(__pointer,"localtime","time.h")
 	//win consts
 	if Platform.IS_WINDOWS:
 		SecurityAnonymous=0
@@ -1996,6 +2002,7 @@ module OS_API
 		CREATE_SHARED_WOW_VDM= 0x00001000
 		CREATE_FORCEDOS= 0x00002000
 		CREATE_NO_WINDOW= 0x08000000
+		CREATE_BREAKAWAY_FROM_JOB=0x01000000
 		CONSOLE_TEXTMODE_BUFFER= 1
 		CREATE_NEW= 1
 		CREATE_ALWAYS= 2
@@ -6088,6 +6095,7 @@ module OS_API
 	if Platform.IS_WINDOWS:
 		INVALID_HANDLE_VALUE=__pointer(-1)
 		_wfopen=__c_function(__pointer,"_wfopen","stdio.h")
+		CreateNamedPipeW=__c_function(__pointer,"CreateNamedPipeW","windows.h")
 		CreateFileW=__c_function(__pointer,"CreateFileW","windows.h")
 		CreateFileMappingW=__c_function(__pointer,"CreateFileMappingW","windows.h")
 		CloseHandle=__c_function(__pointer,"CloseHandle","windows.h")
@@ -6112,14 +6120,45 @@ module OS_API
 		QueryPerformanceCounter=__c_function(int,"QueryPerformanceCounter","windows.h")
 		QueryPerformanceFrequency=__c_function(int,"QueryPerformanceFrequency","windows.h")
 		ExpandEnvironmentStringsW=__c_function(int,"ExpandEnvironmentStringsW","windows.h")
+		GetEnvironmentVariableW=__c_function(int,"GetEnvironmentVariableW","windows.h")
 		SetEnvironmentVariableW=__c_function(int,"SetEnvironmentVariableW","windows.h")
 		sleep=__c_function(int,"Sleep","windows.h")
 		GetFullPathNameW=__c_function(int,"GetFullPathNameW","windows.h")
 		GetTempPathW=__c_function(int,"GetTempPathW","windows.h")
+		PeekNamedPipe=__c_function(int,"PeekNamedPipe","windows.h")
+		WriteFile=__c_function(int,"WriteFile","windows.h")
+		ReadFile=__c_function(int,"ReadFile","windows.h")
+		FlushFileBuffers=__c_function(int,"FlushFileBuffers","windows.h")
+		GetExitCodeProcess=__c_function(int,"GetExitCodeProcess","windows.h")
+		WaitForSingleObject=__c_function(int,"WaitForSingleObject","windows.h")
+		TerminateJobObject=__c_function(int,"TerminateJobObject","windows.h")
+		TerminateProcess=__c_function(int,"TerminateProcess","windows.h")
+		OpenProcess=__c_function(__pointer,"OpenProcess","windows.h")
+		DuplicateHandle=__c_function(int,"DuplicateHandle","windows.h")
+		GetCurrentProcess=__c_function(__pointer,"GetCurrentProcess","windows.h")
+		GetCurrentProcessId=__c_function(int,"GetCurrentProcessId","windows.h")
+		GetStartupInfoW=__c_function(int,"GetStartupInfoW","windows.h")
+		GetStdHandle=__c_function(__pointer,"GetStdHandle","windows.h")
+		CreateProcessW=__c_function(int,"CreateProcessW","windows.h")
+		CreateJobObjectW=__c_function(__pointer,"CreateJobObjectW","windows.h")
+		AssignProcessToJobObject=__c_function(int,"AssignProcessToJobObject","windows.h")
+		ResumeThread=__c_function(int,"ResumeThread","windows.h")
+
 	fread=__c_function(int,"fread","stdio.h")
 	fwrite=__c_function(int,"fwrite","stdio.h")
-	fseek=__c_function(int,"fseek","stdio.h")
-	ftell=__c_function(iptr,"ftell","stdio.h")
+	if iptr==i64:
+		if Platform.IS_WINDOWS:
+			fseek=__c_function(int,"_fseeki64","stdio.h")
+			ftell=__c_function(iptr,"_ftelli64","stdio.h")
+		else if Platform.IS_APPLE:
+			fseek=__c_function(int,"fseek","stdio.h")
+			ftell=__c_function(iptr,"ftell","stdio.h")
+		else
+			fseek=__c_function(int,"fseeko","stdio.h")
+			ftell=__c_function(iptr,"ftello","stdio.h")
+	else
+		fseek=__c_function(int,"fseek","stdio.h")
+		ftell=__c_function(iptr,"ftell","stdio.h")
 	fflush=__c_function(int,"fflush","stdio.h")
 	feof=__c_function(int,"feof","stdio.h")
 	fclose=__c_function(int,"fclose","stdio.h")
@@ -6133,7 +6172,8 @@ module OS_API
 	spapUnblockYielding=__c_function(int,"spapUnblockYielding","spaprt_portable.h", "c_files","spaprt_portable.c")
 
 module detail
-	inline pcharToString(__pointer p)
+	inline pcharToString(__pointer p0)
+		p=__C(__pointer,"(void*)(@1)",p0)
 		return __ptrToString(p,System.OS_API.strlen(p))
 	inline pwcharToString(__pointer p,lg_max)
 		//lg=System.OS_API.wstrlen_s(__C(__pointer,"(short*)@1",p),lg_max)
@@ -6151,7 +6191,319 @@ module detail
 		else
 			sn=Algorithm.Utf8ToUnicode(s);sn.push(i16(0))
 		return sn
-		
+	///////////////////////////
+	REGEX_STR=0
+	REGEX_CSET=1
+	REGEX_SPL=2
+	REGEX_SPL2=3
+	REGEX_NIL=4
+	REGEX_MATCH=5
+	REGEX_CHAR=256
+	//REGEX_SAVE: ~id
+	////////
+	//all chars are str
+	//special ops begin with 0 and one of RB_...
+	RB_SPL=0
+	RB_JMP=1
+	RB_CSET=2
+	RB_SAVE=3
+	RB_MATCH=4
+	//kmp-style limited overlap nfa? trie? not very general, nor is the gain too significant. worth thinking a bit though
+	class RegexOp
+		int op
+		__variant ob//string/u32[]/RegexOp
+		RegexOp x
+		int ofs
+	//todo: parse errors, 2ndary error return 
+	auto parseRegex(string s0)
+		feed=s0.d;feed2=s0.d+s0.n;slotid=0
+		auto atom(iptr feed2)
+			if feed!=feed2:
+				ch=__memory(i8,feed)
+			else
+				ch=char(0)
+			mk=new u32[8]
+			RegexOp ret
+			switch ch{
+			default:
+				//literal / \
+				//use cset in XML
+				ret=new RegexOp
+				ret.op=REGEX_CHAR+int(u8(ch))
+				if feed!=feed2:feed++
+				break
+			case '\\'
+				if feed!=feed2-1:feed++
+				ch=__memory(i8,feed)
+				is_postfix=0
+				switch ch{
+				case 't':{ch='\t';break}
+				case 'n':{ch='\n';break}
+				case 'r':{ch='\r';break}
+				case 'b':{ch='\b';break}
+				case 'x','u':
+					chu=0
+					for j=0:(ch=='u'?3:1)
+						if feed!=feed2:
+							feed++
+							chj=__memory(i8,feed)
+						else
+							chj='0'
+						si=((chj-'0')&0x1f)
+						if si>=0x10:si-=7
+						chu=(chu<<4)+(si&0xf)
+					if chu==0:
+						//0 should be made a string, not a char
+						ret=new RegexOp()
+						ret.op=REGEX_STR
+						ret.ob=variant([char(0)])
+						if feed!=feed2:feed++
+						is_postfix=1
+						break
+					else if ch=='x'||chu<128:
+						//ASCII chars can use the char mode
+						ch=char(chu)
+					else
+						//UTF8ify
+						ret=new RegexOp
+						ret.op=REGEX_STR
+						s=new string
+						if chu>=2048:
+							s.push(char(((chu>>12)&0xf)+0xe0))
+							s.push(char(0x80+((chu>>6)&63)))
+							s.push(char(0x80+(chu&63)))
+						else if chu>=128:
+							s.push(char((chu>>6)+0xc0))
+							s.push(char(0x80+(chu&63)))
+						else
+							s.push(char(chu))
+						ret.ob=variant(s)
+						if feed!=feed2:feed++
+						is_postfix=1
+						break
+					break
+				}
+				if is_postfix:
+					break
+				//it's still a literal
+				ret=new RegexOp
+				ret.op=REGEX_CHAR+int(u8(ch))
+				if feed!=feed2:feed++
+				break;
+			case '[','.','\0':
+				if ch=='.':
+					for j in crange(8)
+						mk[j]=-1
+					mk[0]&=~(1u<<int('\n'))
+					//if feed!=feed2-1:
+					feed++
+				else if ch=='\0':
+					mk[0]=-2
+					for j in crange(7)
+						mk[j+1]=-1
+				else
+					feed++
+					isneg=0u
+					if feed!=feed2&&__memory(i8,feed)=='^':
+						isneg=-1u
+						feed++
+					for j in crange(8)
+						mk[j]=0
+					ch_interval=-1
+					while feed!=feed2&&__memory(i8,feed)!=']':
+						chi=int(u8(__memory(i8,feed)))
+						if chi=='\\'&&feed+1!=feed2:
+							feed++
+							chi=int(u8(__memory(i8,feed)))
+							switch chi{
+							case 'w':
+								mk[1]|=u32((1<<10)-1)<<16
+								mk[2]|=u32((2<<26)-2)
+								mk[3]|=u32((2<<26)-2)
+								chi=int('_')
+								break
+							case 's':
+								chi=int(' ');mk[chi>>5]|=(1u<<(chi&31))
+								chi=int('\t');mk[chi>>5]|=(1u<<(chi&31))
+								chi=int('\n');mk[chi>>5]|=(1u<<(chi&31))
+								chi=int('\r');//mk[chi>>5]|=(1u<<(chi&31))
+								break
+							case 't':{chi=int('\t');break}
+							case 'n':{chi=int('\n');break}
+							case 'r':{chi=int('\r');break}
+							case 'b':{chi=int('\b');break}
+							case 'x':
+								chu=0
+								for j=0:1
+									if feed!=feed2:
+										feed++
+										chj=__memory(i8,feed)
+									else
+										chj='0'
+									si=((chj-'0')&0x1f)
+									if si>=0x10:si-=7
+									chu=(chu<<4)+(si&0xf)
+								chi=chu
+								break
+							}
+						if ch_interval>=0:
+							for j=ch_interval:chi
+								mk[j>>5]|=(1u<<(j&31))
+							ch_interval=-1
+						else if iptr(feed2)-iptr(feed)>=3&&__memory(i8,feed+1L)=='-'&&__memory(i8,feed+2L)!=']':
+							ch_interval=chi
+							//ch2=int(u8(feed[2]))
+							//for j=chi:ch2
+							//	mk[j>>5]|=(1u<<(j&31))
+							//feed+=2
+							feed++
+						else
+							mk[chi>>5]|=(1u<<(chi&31))
+						if feed!=feed2:feed++
+					for j in crange(8)
+						mk[j]^=isneg
+					if feed!=feed2:feed++
+				ret=new RegexOp
+				ret.op=REGEX_CSET//REGEX_CHAR+0
+				mka=new u32[8]
+				for j in crange(8)
+					mka[j]=mk[j]
+				ret.ob=variant(mka)
+				break
+			case '(':
+				feed++
+				if feed!=feed2&&__memory(i8,feed)==')':
+					feed++
+					ret=new RegexOp(){op:REGEX_NIL}
+					break
+				ret=expr(feed2,1)
+				if feed!=feed2&&__memory(i8,feed)==')':
+					feed++
+				//todo: specialized save: ()0, ()1 or sth?
+				save0=new RegexOp(){op:~slotid}
+				slotid++
+				save0.x=ret
+				ret_tail=ret
+				while ret_tail.x:
+					ret_tail=ret_tail.x
+				save1=new RegexOp(){op:~slotid}
+				slotid++
+				ret_tail.x=save1
+				ret=save0
+				break
+			case '"':
+				ret=new RegexOp
+				ret.op=REGEX_STR
+				s=new string
+				feed++
+				while feed!=feed2&&__memory(i8,feed)!='"':
+					ch=__memory(i8,feed)
+					if ch=='\\':
+						if feed!=feed2-1:feed++
+						ch=__memory(i8,feed)
+					s.push(ch)
+					feed++
+				if feed!=feed2:feed++
+				ret.ob=variant(s)
+				break
+			}
+			ret_tail=ret
+			while ret_tail.x:
+				ret_tail=ret_tail.x
+			for(;;)
+				if feed!=feed2:
+					ch=__memory(i8,feed)
+				else
+					ch=char(0)
+				//SPL: prioritize ob over x
+				//SPL2: prioritize x over ob
+				switch ch{
+				default:
+					return ret
+				case '*':
+					spl=new RegexOp(){op:REGEX_SPL,ob:variant(ret)}
+					if feed!=feed2-1&&__memory(i8,feed+1L)=='?':
+						spl.op=REGEX_SPL2
+					ret_tail.x=spl
+					ret=spl;ret_tail=spl
+					break
+				case '+':
+					spl=new RegexOp(){op:REGEX_SPL,ob:variant(ret)}
+					if feed!=feed2-1&&__memory(i8,feed+1L)=='?':
+						spl.op=REGEX_SPL2
+					ret_tail.x=spl;ret_tail=spl
+					break
+				case '?':
+					spl=new RegexOp(){op:REGEX_SPL,ob:variant(ret)}
+					nil=new RegexOp(){op:REGEX_NIL}
+					spl.x=nil
+					ret_tail.x=nil
+					ret=spl;ret_tail=nil
+					break
+				}
+				feed++
+		auto expr(iptr feed2,int supportor)
+			a=atom(feed2)
+			a_tail=a
+			while a_tail.x:
+				a_tail=a_tail.x
+			isor=0
+			while feed!=feed2&&__memory(i8,feed)!=')':
+				if __memory(i8,feed)=='|':
+					if !supportor:break
+					//or
+					feed++
+					isor=1
+				else
+					assert(!isor)
+					if isor:break
+				if isor:
+					b=expr(feed2,0)
+				else
+					b=atom(feed2)
+				b_tail=b
+				while b_tail.x:
+					b_tail=b_tail.x
+				if isor:
+					spl=new RegexOp(){op:REGEX_SPL2,ob:variant(a)}
+					spl.x=b
+					nil=new RegexOp(){op:REGEX_NIL}
+					a_tail.x=nil
+					b_tail.x=nil
+					a=spl;a_tail=nil
+				else
+					a_tail.x=b
+					a_tail=b_tail
+			return a
+		return expr(feed2,1)
+	//class RegexState
+	//	int pc
+	//	int[] sv
+	class RegexNfaState
+		int[] pc
+		iptr[] sv
+	////////////////////
+	inline has(u32[] ok,int c)
+		return ((ok[c>>5]>>(c&31))&1u);
+	inline charset(string e)
+		ok=new u32[8]
+		inv=0
+		s=0
+		if e[0]=='^':
+			inv=1;s++
+		for(;s<e.n;s++)
+			if s+2<=e.n&&e[s+1]=='-':
+				for(i=u32(u8(e[s]));i<=u32(u8(e[s+2]));i++)
+					ok[i>>5]|=(1u<<int(i&31u));
+				s+=2
+			else
+				chu=u32(u8(e[s]))
+				ok[chu>>5]|=(1u<<int(chu&31u));
+		if inv:
+			for i=0:7
+				ok[i]=~ok[i]
+		return ok
+
 module IO
 	import System.OS_API.*
 	import System.detail.*
@@ -6160,6 +6512,7 @@ module IO
 	SEEK_END=2
 	OPEN_READ=1
 	OPEN_WRITE=2
+	OPEN_COPY_ON_WRITE=4
 	ENUM_FILE=1
 	ENUM_DIR=2
 	ENUM_RECURSIVE=4
@@ -6187,7 +6540,7 @@ module IO
 			fd=open(fnz,isrw?O_RDWR:O_RDONLY)
 			if fd==-1:return string.NULL
 			sz=osal_GetFileSize(fd)
-			p=mmap(NULL,sz,isrw?(PROT_READ|PROT_WRITE):PROT_READ,MAP_SHARED,fd,0)
+			p=mmap(NULL,sz,isrw?(PROT_READ|PROT_WRITE):PROT_READ,(mode&OPEN_COPY_ON_WRITE)?MAP_PRIVATE:MAP_SHARED,fd,0)
 			close(fd)
 			if !p:
 				return string.NULL
@@ -6213,11 +6566,16 @@ module IO
 			GetFileSizeEx(hf,__pointer(&sz))
 			hm=CreateFileMappingW(
 				hf,NULL,
-				isrw?PAGE_EXECUTE_READWRITE:PAGE_READONLY,0,0,NULL)
-			//Console.Writeln(hf,' ',sz,' ',hm)//fixes the problem...? stack?
+				(mode&OPEN_COPY_ON_WRITE)?PAGE_WRITECOPY:(isrw?PAGE_READWRITE:PAGE_READONLY),0,0,NULL)
+			if !hm:
+				hm=CreateFileMappingW(
+					hf,NULL,
+					(mode&OPEN_COPY_ON_WRITE)?PAGE_EXECUTE_WRITECOPY:(isrw?PAGE_EXECUTE_READWRITE:PAGE_READONLY),0,0,NULL)
+			//Console.Writeln(fn,' ',mode)
 			CloseHandle(hf)
 			if !hm||hm==INVALID_HANDLE_VALUE:return char[].NULL
-			p=MapViewOfFile(hm,isrw?FILE_MAP_ALL_ACCESS:FILE_MAP_READ,0,0,0)
+			p=MapViewOfFile(hm,(mode&OPEN_COPY_ON_WRITE)?FILE_MAP_COPY:((mode&OPEN_WRITE)?FILE_MAP_ALL_ACCESS:FILE_MAP_READ),0,0,0)
+			//Console.Writeln(p)
 			CloseHandle(hm)
 			if !p:return char[].NULL
 			//Console.Writeln(fn,' ',p,' ',(char*)p)
@@ -6263,13 +6621,38 @@ module IO
 			ret.resize(n)
 			return ret
 		/**
-		 * \brief Write a file
+		 * \brief Write things to a file
 		 *
 		 * @param s is the content to write
 		 * @return An integer representing the number of bytes written
 		*/
-		inline Write(string s)
-			return fwrite(s,1,s.n,_gethf())
+		auto Write(string s)
+			BLOCK_SIZE=iptr(128<<20)
+			ret_all=0L
+			for i=0:BLOCK_SIZE:s.n-1
+				sz=min(s.n-i,BLOCK_SIZE)
+				ret=fwrite(__pointer(iptr(s.d)+i),1,sz,_gethf())
+				ret_all+=ret
+				if ret!=sz:break
+			return ret_all
+		/**
+		 * \brief Write things to a file
+		 *
+		 * @param s is the content to write
+		 * @return An integer representing the number of bytes written
+		*/
+		inline WriteBinary(s)
+			if !readOptionalMember(s,"IS_ARRAY",0):
+				__error("WriteBinary takes an array, not @1",typeof(s))
+			sztot=s.n*sizeof(s.T)
+			BLOCK_SIZE=iptr(128<<20)
+			ret_all=0L
+			for i=0:BLOCK_SIZE:sztot-1
+				sz=min(sztot-i,BLOCK_SIZE)
+				ret=fwrite(__pointer(iptr(s.d)+i),1,sz,_gethf())
+				ret_all+=ret
+				if ret!=sz:break
+			return ret_all
 		/**
 		 * \brief Set the file pointer to an absolute location
 		 *
@@ -6278,6 +6661,13 @@ module IO
 		*/
 		inline Seek(iptr p)
 			return !fseek(_gethf(),p,SEEK_SET)
+		/**
+		 * \brief Get the file pointer
+		 *
+		 * @return The current file pointer location, in bytes
+		*/
+		inline Position()
+			return ftell(_gethf())
 		/**
 		 * \brief Move the file pointer by a relative amount
 		 *
@@ -6294,6 +6684,8 @@ module IO
 		*/
 		inline SeekFromEnd(iptr p)
 			return !fseek(_gethf(),p,SEEK_END)
+		inline Flush()
+			fflush(_gethf())
 	/**
 	 * \brief Open a file
 	 *
@@ -6339,7 +6731,10 @@ module IO
 	 * @see OpenFile
 	*/
 	inline OpenFile(string fn)
-		return fopen(fn,OPEN_READ)
+		if arguments.length>1:
+			return fopen(fn,arguments[1])
+		else
+			return fopen(fn,OPEN_READ)
 	/**
 	 * \brief Create a new file
 	 *
@@ -6351,6 +6746,12 @@ module IO
 	*/
 	inline CreateFile(string fn)
 		return fopen(fn,OPEN_WRITE)
+	inline CreateFileWithContent(string fn,auto data)
+		f=fopen(fn,OPEN_WRITE)
+		if !f:return 0
+		f.WriteBinary(data)
+		f.Close()
+		return 1
 	struct TFileInfo
 		created_time=u64(0)
 		last_modified_time=u64(0)
@@ -6360,6 +6761,145 @@ module IO
 			return max(created_time,last_modified_time)
 		inline is_dir()
 			return attr&FILE_ATTRIBUTE_DIRECTORY
+	/**
+	 * \brief Search for files at your own pace.
+	 *
+	 * Create a context that searches for a file or directory matching a specific name (possibly with wildcards) in a directory or recursively in a directory and all its subdirectories.
+	 * @param fn is the path and the file name to be searched, in UTF-8 encoding. The file name can include wild cards like '*' and '?'
+	 * @param flags is a bitmask specifying search options, which is a combination of the following values:
+	 * Value | Meaning
+	 * ----- | -------
+	 * ENUM_FILE | Search for files
+	 * ENUM_DIR | Search for directories
+	 * ENUM_RECURSIVE | Enable recursive search
+	 * ENUM_DOT | Include ".." in the search result
+	 * If flags is zero, it defaults to ENUM_FILE.
+	 * @return This function returns another function that returns (file name, TFileInfo) when called.
+	 * When there's no more files, it returns a string.NULL for the file name
+	*/
+	auto CreateEnumFileContext(string fn,int flags)
+		is_rec=!!(flags&ENUM_RECURSIVE)
+		has_dir=!!(flags&ENUM_DIR)
+		has_dd=(has_dir&&(flags&ENUM_DOT))
+		has_file=(!has_dir||(flags&ENUM_FILE))
+		s2=System.Env.ExpandEnvironmentStrings(fn).Replace(["\\","/"])
+		pslash=s2.LastIndexOf('/')
+		if pslash<0:
+			path=new string("./")
+			name=s2
+		else
+			path=s2[0:pslash]
+			name=s2[pslash+1:]
+		if Platform.IS_WINDOWS:
+			path=path.Replace(["/","\\"])
+		has_dir+=has_dd
+		paths=new string[]
+		paths.push(path)
+		class CHandleWrapper
+			__pointer handle
+			auto __done__()
+				if Platform.IS_UNIX:
+					if handle:
+						osal_EndFind(handle)
+				else
+					if handle!=INVALID_HANDLE_VALUE&&handle:
+						FindClose(handle)
+				handle=NULL
+		handle_wrapper=new CHandleWrapper
+		if Platform.IS_UNIX:
+			fnbuf=new char[1024]
+			return function(){
+				fibuf0=__C(__pointer,"@decl:OSAL_TFileInfo @1={0}")
+				fnret=string.NULL
+				firet=TFileInfo()
+				auto handle=handle_wrapper.handle
+				for(;;)
+					if !handle||!osal_FindNext(handle, fnbuf,__C(__pointer,"((OSAL_TFileInfo*)@1)",fibuf0)):
+						if paths.n:
+							path=paths.pop()
+						else
+							break
+						fname=path+name
+						fname.push(char(0))
+						if handle:
+							osal_EndFind(handle)
+						handle=osal_BeginFind(fname)
+						continue
+					fibuf=TFileInfo(){
+						created_time:__C(u64,"((OSAL_TFileInfo*)@1)->created_time",fibuf0),
+						last_modified_time:__C(u64,"((OSAL_TFileInfo*)@1)->last_modified_time",fibuf0),
+						size:__C(u64,"((OSAL_TFileInfo*)@1)->size",fibuf0),
+						attr:__C(int,"((OSAL_TFileInfo*)@1)->attr",fibuf0),
+					}
+					pzero=fnbuf.IndexOf(char(0))
+					if pzero<0:pzero=fnbuf.n
+					iname=new(fnbuf[0:pzero-1])
+					doit=0
+					if !fibuf.is_dir():
+						if has_file:
+							doit=1
+					else
+						if (iname.EndsWith("/.")||iname==".")||(iname.EndsWith("/..")||iname==".."&&has_dir!=2):
+							continue
+						if has_dir:
+							doit=1
+						if is_rec:
+							paths.push(iname+"/")
+					if doit:
+						fnret=iname
+						firet=fibuf
+						break
+				handle_wrapper.handle=handle
+				return (fnret,firet)
+			}
+		else
+			handle=NULL
+			return function(){
+				fd=__C(__pointer,"@decl:WIN32_FIND_DATAW @1={0}")
+				fnret=string.NULL
+				firet=TFileInfo()
+				auto handle=handle_wrapper.handle
+				for(;;)
+					if handle==INVALID_HANDLE_VALUE||!handle||!FindNextFileW(handle,fd):
+						if paths.n:
+							path=paths.pop()
+						else
+							break
+						fname=path+name
+						fnameu=toNativeString(fname.Replace(["/","\\"]))
+						if handle!=INVALID_HANDLE_VALUE&&handle:
+							FindClose(handle)
+						handle=FindFirstFileW(fnameu,__C(__pointer,"(WIN32_FIND_DATAW*)@1",fd))
+						if handle==INVALID_HANDLE_VALUE||!handle:
+							continue
+					fdname=pwcharToString(__C(__pointer,"(void*)((WIN32_FIND_DATAW*)@1)->cFileName",fd),1024)
+					iname=path+Algorithm.UnicodeToUtf8(fdname)
+					doit=0
+					if !(__C(int,"((WIN32_FIND_DATAW*)@1)->dwFileAttributes",fd)&FILE_ATTRIBUTE_DIRECTORY):
+						if has_file:
+							doit=1
+					else
+						if fdname.n>0&&fdname[0]==i16('.'):
+							if fdname.n==1||fdname[1]==i16('.')&&fdname.n==2&&has_dir!=2:
+								if !FindNextFileW(handle,fd):break
+								continue
+						if has_dir:
+							doit=1
+						if is_rec:
+							paths.push(iname+"\\")
+					if doit:
+						fi=TFileInfo(){
+							attr:__C(int,"(int)((WIN32_FIND_DATAW*)@1)->dwFileAttributes",fd),
+							created_time:__C(u64,"*(unsigned long long*)&((WIN32_FIND_DATAW*)@1)->ftCreationTime",fd)/10000000ULL-11644473600ULL,
+							last_modified_time:__C(u64,"*(unsigned long long*)&((WIN32_FIND_DATAW*)@1)->ftLastWriteTime",fd)/10000000ULL-11644473600ULL,
+							size:(u64(u32(__C(int,"(int)((WIN32_FIND_DATAW*)@1)->nFileSizeHigh",fd)))<<32)+u64(u32(__C(int,"(int)((WIN32_FIND_DATAW*)@1)->nFileSizeLow",fd)))
+						}
+						fnret=iname.Replace(["\\","/"])
+						firet=fi
+						break
+				handle_wrapper.handle=handle
+				return (fnret,firet)
+			}
 	/**
 	 * \brief Search for files.
 	 *
@@ -6382,92 +6922,14 @@ module IO
 	 * @see TFileInfo
 	*/
 	inline EnumFiles(string fn,int flags)
+		ffindnext=CreateEnumFileContext(fn,flags)
 		return {forEach:inline(fbody){
-		is_rec=!!(flags&ENUM_RECURSIVE)
-		has_dir=!!(flags&ENUM_DIR)
-		has_dd=(has_dir&&(flags&ENUM_DOT))
-		has_file=(!has_dir||(flags&ENUM_FILE))
-		s2=System.Env.ExpandEnvironmentStrings(fn).Replace(["\\","/"])
-		pslash=s2.LastIndexOf('/')
-		if pslash<0:
-			path=new string("./")
-			name=s2
-		else
-			path=s2[0:pslash]
-			name=s2[pslash+1:]
-		if Platform.IS_WINDOWS:
-			path=path.Replace(["/","\\"])
-		has_dir+=has_dd
-		if is_rec:
-			paths=new string[]
-			paths.push(path)
-		if Platform.IS_UNIX:
-			fnbuf=new char[260]
-			fibuf0=__C(__pointer,"@decl:OSAL_TFileInfo @1={0}")
-		while !is_rec||paths.n:
-			if is_rec:path=paths.pop()
-			fname=path+name
-			if Platform.IS_UNIX:
-				fname.push(char(0))
-				handle=osal_BeginFind(fname)
-				if handle:
-					for(;;)
-						if !osal_FindNext(handle, fnbuf,__C(__pointer,"((OSAL_TFileInfo*)@1)",fibuf0)):break
-						fibuf=TFileInfo(){
-							created_time:__C(u64,"((OSAL_TFileInfo*)@1)->created_time",fibuf0),
-							last_modified_time:__C(u64,"((OSAL_TFileInfo*)@1)->last_modified_time",fibuf0),
-							size:__C(u64,"((OSAL_TFileInfo*)@1)->size",fibuf0),
-							attr:__C(int,"((OSAL_TFileInfo*)@1)->attr",fibuf0),
-						}
-						pzero=fnbuf.IndexOf(char(0))
-						if pzero<0:pzero=fnbuf.n
-						iname=new(fnbuf[0:pzero-1])
-						doit=0
-						if !fibuf.is_dir():
-							if has_file:
-								doit=1
-						else
-							if (iname.EndsWith("/.")||iname==".")||(iname.EndsWith("/..")||iname==".."&&has_dir!=2):
-								continue
-							if has_dir:
-								doit=1
-							if is_rec:
-								paths.push(iname+"/")
-						if doit:
-							fbody(iname,fibuf)
-					osal_EndFind(handle)
-			else
-				fnameu=toNativeString(fname.Replace(["/","\\"]))
-				fd=__C(__pointer,"@decl:WIN32_FIND_DATAW @1={0}")
-				h=FindFirstFileW(fnameu,__C(__pointer,"(WIN32_FIND_DATAW*)@1",fd))
-				if h!=INVALID_HANDLE_VALUE&&h:
-					for(;;)
-						fdname=pwcharToString(__C(__pointer,"(void*)((WIN32_FIND_DATAW*)@1)->cFileName",fd),260)
-						iname=path+Algorithm.UnicodeToUtf8(fdname)
-						doit=0
-						if !(__C(int,"((WIN32_FIND_DATAW*)@1)->dwFileAttributes",fd)&FILE_ATTRIBUTE_DIRECTORY):
-							if has_file:
-								doit=1
-						else
-							if fdname.n>0&&fdname[0]==i16('.'):
-								if fdname.n==1||fdname[1]==i16('.')&&fdname.n==2&&has_dir!=2:
-									if !FindNextFileW(h,fd):break
-									continue
-							if has_dir:
-								doit=1
-							if is_rec:
-								paths.push(iname+"\\")
-						if doit:
-							fi=TFileInfo(){
-								attr:__C(int,"(int)((WIN32_FIND_DATAW*)@1)->dwFileAttributes",fd),
-								created_time:__C(u64,"*(unsigned long long*)&((WIN32_FIND_DATAW*)@1)->ftCreationTime",fd),
-								last_modified_time:__C(u64,"*(unsigned long long*)&((WIN32_FIND_DATAW*)@1)->ftLastWriteTime",fd),
-								size:(u64(u32(__C(int,"(int)((WIN32_FIND_DATAW*)@1)->nFileSizeHigh",fd)))<<32)+u64(u32(__C(int,"(int)((WIN32_FIND_DATAW*)@1)->nFileSizeLow",fd)))
-							}
-							fbody(iname,fi)
-						if !FindNextFileW(h,fd):break
-					FindClose(h)
-			if !is_rec:break
+			for(;;)
+				(fn,fi)=ffindnext()
+				if fn:
+					fbody(fn,fi)
+				else
+					break
 		}}
 	/**
 	 * \brief Query the current directory.
@@ -6476,14 +6938,22 @@ module IO
 	 * @see SetCurrentDirectory
 	*/
 	auto CurrentDirectory()
-		buf=new i16[264]
-		if !GetCurrentDirectoryW(260,buf):return string.NULL
-		fdnameu=new i16[]
-		for i=0:259
-			if !buf[i]:
-				fdnameu.n=i
-				break
-		return Algorithm.UnicodeToUtf8(fdnameu)
+		if Platform.IS_UNIX:
+			buf=new char[1024]
+			getcwd(buf,1023)
+			for i=0:buf.n-1
+				if !buf[i]:
+					buf.resize(i)
+					break
+			return buf
+		else
+			buf=new i16[264]
+			if !GetCurrentDirectoryW(260,buf):return string.NULL
+			for i=0:buf.n-1
+				if !buf[i]:
+					buf.resize(i)
+					break
+			return Algorithm.UnicodeToUtf8(buf)
 	/**
 	 * \brief Set the current directory.
 	 *
@@ -6526,7 +6996,7 @@ module IO
 		if Platform.IS_UNIX:
 			fnz=new(dir)
 			fnz.push(char(0))
-			attr=(osal_GetFileAttributes(fnz)!=-1)
+			attr=osal_GetFileAttributes(fnz)
 			return attr!=-1&&(attr&FILE_ATTRIBUTE_DIRECTORY)
 		else
 			su=toNativeString(dir.Replace(["/","\\"]))
@@ -6559,7 +7029,7 @@ module IO
 				NULL)
 			if hf&&hf!=INVALID_HANDLE_VALUE:
 				sz=-1LL
-				GetFileSizeEx(hf,&sz)
+				GetFileSizeEx(hf,__C(__pointer,"(LARGE_INTEGER*)@1",&sz))
 				CloseHandle(hf)
 				if sz!=-1LL:return sz
 		return -1LL
@@ -6618,7 +7088,7 @@ module IO
 		else
 			srcu=toNativeString(src.Replace(["/","\\"]))
 			taru=toNativeString(tar.Replace(["/","\\"]))
-			return CopyFileW(srcu.d,taru.d,0)
+			return CopyFileW(__pointer(srcu.d),__pointer(taru.d),0)
 	/**
 	 * \brief Create a directory.
 	 *
@@ -6637,13 +7107,1014 @@ module IO
 		if !__stderr:
 			__stderr=CFile(){m_hf:iptr(__C_pure(__pointer,'stderr'))}
 		return __stderr
+	__stdout=CFile.NULL
+	auto stdout()
+		if !__stdout:
+			__stdout=CFile(){m_hf:iptr(__C_pure(__pointer,'stdout'))}
+		return __stdout
 		
 module Algorithm
+	import System.detail.*
 	//////////////////////
 	//>begin_private
 	g_mt=u32[].NULL
 	g_mti=0
 	//>end_private
+	//! \brief A compiled regular expression
+	class Regex
+		//>begin_private
+		//coulddo: length 0 matches?
+		bcode=new u8[]
+		nsave=0
+		dfaified=0//means "have tried to dfaify"
+		int[] g_cst
+		int cset_size
+		int2[] dfa
+		int[] svcalls
+		int max_nsaves
+		//int[] accs
+		auto CreateInitialState(int sv)
+			ret=new RegexNfaState
+			ret.pc=new int[1]
+			ret.pc[0]=0
+			if sv:
+				ret.sv=new iptr[this.nsave]
+			return ret
+		auto stepForward(const REAL_RUN,int[] pcpos,int[] pcpos2,int pstd,RegexNfaState sts,int ch0,iptr pos)
+			auto acc=0
+			auto bcode=this.bcode
+			auto nsave=this.nsave
+			if REAL_RUN:
+				pcs_ret=new int[sts.pc.n]
+				pcs_ret.n=0
+				if sts.sv:
+					svs_ret=new iptr[sts.sv.n]
+					svs_ret.n=0
+			else
+				st2=this.CreateInitialState(0)
+				st2.pc.resize(0)
+				st2.sv=new iptr[]
+				sz_drysave=1+((this.nsave+31)>>5)
+				cur_saves=new iptr[sz_drysave]
+				svs2=new iptr[]
+				accst=iptr[].NULL
+			//bksts_n=sts.pc.n
+			pcs=sts.pc
+			pcs2=new int[]
+			if REAL_RUN:
+				svs=sts.sv
+				if svs:
+					svs2=new iptr[]
+			pcs2_ptr=0L
+			for(I=0;I<pcs.n||pcs2_ptr<pcs2.n;)
+				//Console.Writeln(pcs.n,' ',svs?svs.n:0,' ',nsave)
+				ched=0
+				if REAL_RUN:
+					is_svs2=0
+				if pcs2_ptr<pcs2.n:
+					pc=pcs2[pcs2_ptr]
+					ched=(pc&1)
+					pc>>=1
+					if REAL_RUN:
+						if svs2:
+							psvs=svs2.d+pcs2_ptr*nsave
+						is_svs2=1
+					else
+						//base id + saved-ness flag
+						slice=svs2[pcs2_ptr*sz_drysave:pcs2_ptr*sz_drysave+sz_drysave-1]
+						copy(cur_saves,slice)
+						slice.discard()
+					pcs2_ptr++
+				else
+					if pcs2_ptr:
+						pcs2_ptr=0
+						pcs2.n=0
+						if REAL_RUN:
+							if svs2:svs2.n=0
+						else
+							svs2.n=0
+					pc=pcs[I]
+					if REAL_RUN:
+						if svs:
+							psvs=svs.d+I*nsave
+					else
+						for j=1:cur_saves.n-1
+							cur_saves[j]=0
+						cur_saves[0]=I
+					I++
+				//if I>=bksts_n:
+				if pc<0:continue
+				for(;;)
+					ch=int(bcode[pc]);pc++
+					if ch==0:
+						ch=int(bcode[pc]);pc++
+						pcx=(pc+3)&-4
+						switch ch{
+						default:
+							assert(0)
+							break
+						case RB_SPL:
+							if pcpos2[pc-ched]<pstd:
+								pcpos2[pc-ched]=pstd
+								pc=pcx+4
+								pc2=pc+__memory(int,bcode.d+pcx)
+								//if pcpos[pc]<pstd-1:
+								//deadloop happens for (.*)+
+								//need another array to remove that: higher bits of pcpos? no
+								//explore high priority pc2 first
+								//if pcs2.n<=pcs2_ptr:pcs2.push()
+								//pcs2[pcs2_ptr]=pc*2+ched
+								pcs2.push(pc*2+ched)
+								if REAL_RUN:
+									if svs:
+										//_copy(svs,svs.n-nsave,I*nsave, nsave)
+										//__builtin.memcpy(svs2.d+pcs2_ptr*nsave,psvs,nsave*sizeof(iptr))
+										if is_svs2:
+											svs2.resize(svs2.n+nsave)
+											psvs=svs2.d+pcs2_ptr*nsave
+											__basic_api.memcpy(__pointer(svs2.d+svs2.n-nsave),__pointer(psvs),nsave*sizeof(iptr))
+										else
+											svs2.push(psvs,nsave)
+								else
+									//record save mapping
+									svs2.push(cur_saves)
+								pc=pc2
+								continue
+							break
+						case RB_JMP:
+							pc=pcx+4
+							pc+=__memory(int,bcode.d+pcx)
+							continue
+						case RB_CSET:
+							if ched:
+								//we already had ch, record pc
+								pc-=2
+								if pcpos[pc]<pstd:
+									if REAL_RUN:
+										//pcs[pst2]=pc
+										//if pst2!=I&&svs:
+										//	_copy(svs,pst2*nsave,I*nsave, nsave)
+										pcs_ret.push(pc)
+										if svs:
+											svs_ret.push(psvs,nsave)
+										//assert(pst2<=I)
+										//pst2++
+									else
+										st2.pc.push(pc)
+										st2.sv.push(cur_saves)
+									pcpos[pc]=pstd
+								break
+							pc=pcx+32
+							if (__memory(u32,bcode.d+pcx+(ch0>>5)*4))&(1u<<(ch0&31)):
+								ched=1
+								continue
+							break
+						case RB_SAVE:
+							pc=pcx+4
+							if REAL_RUN:
+								if svs:
+									assert(__memory(int,bcode.d+pcx)<nsave)
+									__memory(iptr,psvs+__memory(int,bcode.d+pcx)*sizeof(iptr))=pos+ched
+							else
+								//record the save
+								if ched:
+									svid=__memory(int,bcode.d+pcx)
+									assert(svid<nsave&&svid>=0)
+									cur_saves[1+(svid>>5)]|=1L<<(svid&31)
+							continue
+						case RB_MATCH:
+							if pcpos[bcode.n]<pstd&&ched:
+								//accept
+								acc=1
+								if REAL_RUN:
+									pcs_ret.push(-1)
+									if svs:
+										svs_ret.push(psvs,nsave)
+									//pcs[pst2]=-1
+									//if pst2!=I&&svs:
+									//	_copy(svs,pst2*nsave,I*nsave, nsave)
+									//assert(pst2<=I)
+									//pst2++
+								else
+									if !accst:
+										accst=new(cur_saves)
+										//accst[0]|=0x40000000
+								pcpos[bcode.n]=pstd
+							break
+						}
+					else
+						if ched:
+							//record pc when we have matched a ch
+							pc--
+							if pcpos[pc]<pstd:
+								if REAL_RUN:
+									pcs_ret.push(pc)
+									if svs:
+										svs_ret.push(psvs,nsave)
+									//pcs[pst2]=pc
+									//if pst2!=I&&svs:
+									//	_copy(svs,pst2*nsave,I*nsave, nsave)
+									//assert(pst2<=I)
+									//pst2++
+								else
+									st2.pc.push(pc)
+									st2.sv.push(cur_saves)
+								pcpos[pc]=pstd
+						else if ch==ch0:
+							ched=1
+							continue
+					break
+			if REAL_RUN:
+				//pcs.resize(pst2)
+				//if svs:svs.resize(pst2*nsave)
+				sts.pc=pcs_ret
+				sts.sv=svs_ret
+				return acc
+			else
+				if accst:
+					st2.pc.push(-1)
+					st2.sv.push(accst)
+				//sts.pc.resize(bksts_n)
+				//if sts.sv:sts.sv.resize(bksts_n*nsave)
+				return st2
+		auto dfaify()
+			dfaified=1
+			//RegexState[] stepForward(int[] pcpos,int pstd,RegexState[] sts,int ch0,int pos)
+			repre=new u8[cset_size]
+			for i=255:-1:0
+				repre[g_cst[i]]=i
+			sts=CreateInitialState(0)
+			stmap=new int[int[]]
+			maxid=1
+			stmap[sts.pc]=maxid
+			pcpos=new int[bcode.n+1]
+			pcpos2=new int[bcode.n+1]
+			pstd=0
+			tran=new int2[]
+			//accs=new int[]
+			auto svcalls=new int[]
+			stss=new RegexNfaState[]
+			stss.push(sts)
+			budget=65536+bcode.n*cset_size*16
+			szsave=1+((nsave+31)>>5)
+			auto max_nsaves=0
+			for(id0=0;id0<maxid;id0++)
+				sts=stss[id0]
+				//Console._write(id0+1)
+				//for j=0:sts.pc.n-1
+				//	Console._write(' ',sts.pc[j])
+				//Console.Writeln()
+				if tran.n<maxid*cset_size:
+					tran.resize(maxid*cset_size)
+				//pc0=sts.pc
+				foreach ch,I in repre
+					pstd++
+					//sts.pc=new(pc0)
+					st2=stepForward(0,pcpos,pcpos2,pstd,sts,int(ch),0)
+					save_calls=st2.sv
+					st2.sv=NULL
+					acc_delta=0
+					if st2.pc.n:
+						//st2.pc.Sort(function(a,b){return (uint)a<(uint)b})
+						if st2.pc.n&&st2.pc.back()<0:
+							//acc=-st2.pc.back()
+							st2.pc.pop()
+							acc_delta=0x3fffffff
+						id2=stmap[st2.pc]
+						if !id2:
+							maxid++
+							stmap[st2.pc]=maxid
+							stss.push(st2)
+							//accs.resize(maxid)
+							//accs[maxid-1]=acc
+							id2=maxid
+					else
+						id2=0
+					//Console.Writeln(id0,' ',ch,' ',I,' ',id2,' ',acc,' ',cset_size)
+					//compress and add terminator
+					assert(save_calls.n%szsave==0)
+					psvcalls=int(svcalls.n)
+					max_nsaves=max(max_nsaves,int(save_calls.n/szsave))
+					svcalls.push(int(save_calls.n/szsave+acc_delta))
+					svcalls.resize(psvcalls+1+save_calls.n)
+					for i=0:save_calls.n-1
+						svcalls[psvcalls+1+i]=int(save_calls[i])
+					tran[id0*cset_size+I]=int2(id2,psvcalls)
+				if maxid>budget:
+					//give up
+					return
+			if tran.n<maxid*cset_size:
+				tran.resize(maxid*cset_size)
+			for i=0:tran.n-1
+				tran[i].x--//=(tran[i]-1)*cset_size
+			dfa=tran
+			this.svcalls=svcalls
+			this.max_nsaves=max_nsaves
+			//Console.Writeln('dfa: ',tran.n/cset_size,' states, ',svcalls.n,' saveops')
+			//for i=0:accs.n-1
+			//	accs[i]--
+			//for i=0:maxid-1
+			//	Console.Writeln(i,' ',accs[i])
+			//	for j=0:cset_size-1
+			//		Console._write(repre[j],':',tran[i*cset_size+j],'  ')
+			//	Console.Writeln()
+			//Console.Writeln()
+			//.accs=accs
+		auto InitRaw(RegexOp op0)
+			//fromop
+			rops=new RegexOp[]
+			auto dfs(RegexOp a)
+				if !a||a.ofs<0:return
+				if a.op==REGEX_SPL2:
+					a.op=REGEX_SPL
+					tmp=a.x
+					a.x=a.ob.as(RegexOp)
+					a.ob=variant(tmp)
+				if a.op==REGEX_SPL:
+					while a.ob&&(a.ob.as(RegexOp)).op==REGEX_NIL:
+						a.ob=variant((a.ob.as(RegexOp)).x)
+				while a.x&&a.x.op==REGEX_NIL:
+					a.x=a.x.x
+				a.ofs=-1
+				rops.push(a)
+				dfs(a.x)
+				if a.op==REGEX_SPL:
+					if !a.ob:
+						//add a virtual dead node to avoid crashing
+						rop_dead=new RegexOp(){op:REGEX_CSET,ob:variant(new u32[8])}
+						a.ob=variant(rop_dead)
+					dfs(a.ob.as(RegexOp))
+			//nil can only be merge points and shouldn't be head
+			assert(op0.op!=REGEX_NIL)
+			dfs(op0)
+			auto bcode=this.bcode
+			bcode.clear()
+			slots=new int[]
+			jofs=new int[rops.n]
+			auto g_cst=new int[256]
+			csetid=1
+			/*
+			foreach op,I in rops
+				Console.Write(op,': ')
+				//op.op,' ',op.x,' ',op.ob
+				if op.op>=REGEX_CHAR:
+					Console.Write("CHAR '",char(op.op-REGEX_CHAR),"'")
+				else if op.op<0:
+					Console.Write("SAVE sv",~op.op)
+				else
+					switch op.op{
+					default:
+						assert(0)
+						break
+					case REGEX_STR:
+						ops=(string)op.ob
+						Console.Write('STR "',ops,'"')
+						break
+					case REGEX_CSET:
+						Console.Write('CSET')
+						break
+					case REGEX_SPL:
+						//generate a dangling spl
+						Console.Write('SPL ',op.ob)
+						break
+					case REGEX_MATCH:
+						Console.Write('MATCH')
+						break
+					}
+				Console.Writeln(' --> ',op.x)
+			*/
+			foreach op,I in rops
+				n0=bcode.n
+				op.ofs=int(n0)
+				what=op.op
+				//__builtin.printf("%d %d\n",I,what)
+				if what>=REGEX_CHAR:
+					//0 case never happens here
+					ch=what-REGEX_CHAR
+					bcode.push(u8(ch))
+					g_cst[ch]=csetid++
+				else if what<0:
+					//save
+					//leave slot id there
+					bcode.push(u8(0))
+					bcode.push(u8(RB_SAVE))
+					n0x=(bcode.n+3)&-4
+					slots.push(int(n0x))
+					bcode.resize(n0x+4)
+					__memory(int,bcode.d+n0x)=~what
+				else
+					switch what{
+					default:
+						assert(0)
+						break
+					case REGEX_STR:
+						ops=op.ob.as(string)
+						for i=0:ops.n-1
+							auto ch=ops[i]
+							bcode.push(u8(ch))
+							if !ch:
+								bcode.push(u8(RB_CSET))
+								n0x=(bcode.n+3)&-4
+								bcode.resize(n0x+32)
+								__basic_api.memset(__pointer(bcode.d+n0x),32,0)
+								bcode[n0x]=u8(1)
+							g_cst[int(u8(ch))]=csetid++
+						break
+					case REGEX_CSET:
+						bcode.push(u8(0))
+						bcode.push(u8(RB_CSET))
+						n0x=(bcode.n+3)&-4
+						bcode.resize(n0x+32)
+						__basic_api.memcpy(__pointer(bcode.d+n0x),__pointer(op.ob.as(u32[]).d),32)
+						ob=op.ob.as(u32[])
+						for chi=0:255
+							if ob[chi>>5]&(1u<<(chi&31)):
+								g_cst[chi]+=csetid
+						csetid+=csetid
+						if csetid>=1024:
+							//unique/compact
+							idmap=new int[csetid]
+							csetid=0
+							for chi=0:255
+								setid=g_cst[chi]
+								if idmap[setid]==0:
+									idmap[setid]=++csetid
+								g_cst[chi]=idmap[setid]-1
+						break
+					case REGEX_SPL:
+						//generate a dangling spl
+						bcode.push(u8(0))
+						bcode.push(u8(RB_SPL))
+						n0x=(bcode.n+3)&-4
+						bcode.resize(n0x+4)
+						break
+					case REGEX_MATCH:
+						bcode.push(u8(0))
+						bcode.push(u8(RB_MATCH))
+						//n0x=(bcode.n+3)&-4
+						//bcode.resize(n0x)
+						break
+					}
+				if what!=REGEX_MATCH&&(I==rops.n-1||I<rops.n-1&&iptr(op.x)!=iptr(rops[I+1]))&&op.x:
+					//generate a dangling jmp
+					bcode.push(u8(0))
+					bcode.push(u8(RB_JMP))
+					n0x=(bcode.n+3)&-4
+					jofs[I]=int(n0x)
+					bcode.resize(n0x+4)
+					//leave it be for now
+				else
+					jofs[I]=-1
+			foreach op,I in rops
+				n0=op.ofs
+				if op.op==REGEX_SPL:
+					//fill spl target
+					op2=op.ob.as(RegexOp)
+					n0+=2
+					n0x=(n0+3)&-4
+					__memory(i32,bcode.d+n0x)=op2.ofs-(n0x+4)
+				if jofs[I]>=0:
+					//fill jmp target
+					__memory(i32,bcode.d+jofs[I])=op.x.ofs-(jofs[I]+4)
+			auto nsave=-1
+			foreach ps in slots
+				nsave=max(nsave,__memory(i32,bcode.d+ps))
+			nsave++
+			this.nsave=nsave
+			idmap=new int[csetid]
+			csetid=0
+			for chi=0:255
+				setid=g_cst[chi]
+				if idmap[setid]==0:
+					idmap[setid]=++csetid
+				g_cst[chi]=idmap[setid]-1
+			this.g_cst=g_cst
+			cset_size=csetid
+			//get rid of op: break references
+			foreach op in rops
+				op.x=RegexOp.NULL;op.ob=__variant.NULL
+		//>end_private
+		__init__=inline(arg){
+			if typeof(arg)==string:
+				op0=parseRegex(arg)
+			else
+				op0=arg
+			//append returning tail
+			a_tail=op0
+			while a_tail.x:
+				a_tail=a_tail.x
+			a_tail.x=new RegexOp(){op:REGEX_MATCH}
+			InitRaw(op0)
+		}
+		//>begin_private
+		PARSE_SHORT=0
+		PARSE_LONG=1
+		PARSE_EXACT=2
+		PARSE_SEARCH=3
+		auto ParsePrefix(string s,const mode,const IS_EX)
+			if !dfaified:
+				dfaify()
+			best=-1L;bac=-1
+			if dfa:
+				tran=dfa
+				auto svcalls=this.svcalls
+				if IS_EX:
+					bstsv=iptr[].NULL
+					if mode==PARSE_SEARCH:
+						cursv=iptr[].NULL
+					auto nsave=this.nsave
+					szsave=1+((nsave+31)>>5)
+					sv=new iptr[max_nsaves*nsave]
+					sv_next=new iptr[max_nsaves*nsave]
+				//Console.Writeln(s)
+				st=0
+				foreach ch,I in s
+					cid=g_cst[int(u8(ch))]
+					tr=tran[st*cset_size+cid]
+					st=tr.x
+					psvcalls=tr.y
+					nsvmap=svcalls[psvcalls++]
+					acc=(nsvmap&0x40000000)
+					nsvmap&=0x3fffffff
+					if IS_EX:
+						for svid=0:nsvmap-1
+							srcid=svcalls[psvcalls]
+							svidbase=svid*nsave
+							copy(sv_next[svidbase:],sv[srcid*nsave:srcid*nsave+nsave-1])
+							for j=0:nsave-1
+								if svcalls[psvcalls+1+(j>>5)]&(1<<(j&31)):
+									sv_next[svidbase+j]=I+1
+							psvcalls+=szsave
+						swap_tmp=sv
+						sv=sv_next
+						sv_next=swap_tmp
+					else
+						psvcalls+=nsvmap
+					if mode==PARSE_SEARCH:
+						if best>=0L:
+							if !acc:break
+						if acc:
+							curbest=I
+							curbac=1
+							if IS_EX:
+								//sv_next -- we should use the ORIGINAL
+								if !cursv:
+									cursv=new iptr[nsave]
+								srcid=svcalls[psvcalls]
+								copy(cursv,sv_next[srcid*nsave:srcid*nsave+nsave-1])
+								for j=0:nsave-1
+									if svcalls[psvcalls+1+(j>>5)]&(1<<(j&31)):
+										cursv[j]=I+1
+								if best>=0L&&bstsv[2]!=cursv[2]:
+									//we're past the 1st match already
+									break
+							best=curbest
+							bac=curbac
+							if !bstsv:
+								bstsv=new(cursv)
+							else
+								copy(bstsv,cursv)
+					else
+						if acc:
+							best=I
+							bac=1
+							if IS_EX:
+								//sv_next -- we should use the ORIGINAL
+								if !bstsv:
+									bstsv=new iptr[nsave]
+								srcid=svcalls[psvcalls]
+								copy(bstsv,sv_next[srcid*nsave:srcid*nsave+nsave-1])
+								for j=0:nsave-1
+									if svcalls[psvcalls+1+(j>>5)]&(1<<(j&31)):
+										bstsv[j]=I+1
+							if mode==PARSE_SHORT:
+								break
+					if st<0:break
+			else
+				pcpos=new int[bcode.n+1]
+				pcpos2=new int[bcode.n+1]
+				pstd=0
+				sts=CreateInitialState(IS_EX)
+				bstsv=iptr[].NULL
+				foreach ch,I in s
+					//Console._write(ch,' ',I,':')
+					//foreach stx in sts.pc
+					//	Console._write(' ',stx)
+					//Console.Writeln()
+					pstd++
+					stepForward(1,pcpos,pcpos2,pstd,sts,int(u8(ch)),I)
+					if !sts.pc.n:break
+					is_brk=0
+					foreach pc,J in sts.pc
+						if pc<0:
+							best=I
+							bac=-pc
+							if IS_EX:
+								bstsv=new(sts.sv[J*nsave:(J+1)*nsave-1])
+							if mode==PARSE_SHORT:
+								is_brk=1
+								break
+					if is_brk:break
+			if IS_EX:
+				if mode==PARSE_EXACT:
+					if best!=s.n-1:
+						bstsv=iptr[].NULL
+				if !bstsv:
+					if IS_EX==2:
+						return iptr[].NULL
+					else
+						return string[].NULL
+				else
+					nsave=(nsave>>1)
+					if IS_EX==2:
+						ret=new iptr[(nsave+1)*2]
+						ret[0]=0;ret[1]=best+1;
+						for i=0:nsave-1
+							ret[i*2+2]=bstsv[i*2]
+							ret[i*2+3]=bstsv[i*2+1]
+					else
+						ret=new string[nsave+1]
+						ret[0]=s[0:best]
+						for i=0:nsave-1
+							ret[i+1]=s[bstsv[i*2]:bstsv[i*2+1]-1]
+					return ret
+			if IS_EX:
+				if IS_EX==2:
+					return iptr[].NULL
+				else
+					return string[].NULL
+			else if mode==PARSE_EXACT:
+				if best==s.n-1:
+					return 1
+				else
+					return 0
+			else
+				return s[0:best]
+		//>end_private
+		//! \brief Return the longest prefix of a string that matches the regex
+		auto LongestPrefix(string s)
+			return ParsePrefix(s,PARSE_LONG,0)
+		//! \brief Return the shortest prefix of a string that matches the regex
+		auto ShortestPrefix(string s)
+			return ParsePrefix(s,PARSE_SHORT,0)
+		//! \brief Return whether the string matches the regex
+		auto Match(string s)
+			return ParsePrefix(s,PARSE_EXACT,0)
+		//! \brief Find the longest matching prefix in a string and returns \link regexmatch a list of substring matches \endlink
+		auto LongestPrefixEx(string s)
+			return ParsePrefix(s,PARSE_LONG,1)
+		//! \brief Find the shortest matching prefix in a string and returns \link regexmatch a list of substring matches \endlink
+		auto ShortestPrefixEx(string s)
+			return ParsePrefix(s,PARSE_SHORT,1)
+		//! \brief Match the regex against a string and returns \link regexmatch a list of substring matches \endlink
+		auto MatchEx(string s)
+			return ParsePrefix(s,PARSE_EXACT,1)
+		auto MatchExi(string s)
+			return ParsePrefix(s,PARSE_EXACT,2)
+		///////////////
+		//! \brief Create an incremental matcher from the compiled regular expression
+		auto Matcher()
+			if !dfaified:
+				dfaify()
+			sc=new RegexIncrementalMatcher
+			sc.ex=this
+			sc.pcpos=new int[this.bcode.n+1]
+			sc.pcpos2=new int[this.bcode.n+1]
+			sc.Clear()
+			return sc
+		//todo: tokenizing enumerator
+	/*! \brief An incremental matcher for a regular expression
+	
+	The incremental matcher matches the regex against a virtual string by \link Algorithm.RegexIncrementalMatcher.Add adding characters \endlink incrementally.
+	*/
+	class RegexIncrementalMatcher
+		//>begin_private
+		Regex ex
+		int[] pcpos
+		int[] pcpos2
+		/////////
+		RegexNfaState sts
+		pstd=0
+		/////////
+		int stdfa
+		iptr[] svdfa,svdfa_next
+		/////////
+		best=-1L
+		I=0L
+		iptr[] bstsv
+		iptr[] bmatch
+		//>end_private
+		//! \brief Reset the incremental matcher by clearing the virtual string.
+		auto Clear()
+			this.pcpos=new int[this.ex.bcode.n+1]
+			this.pcpos2=new int[this.ex.bcode.n+1]
+			this.pstd=0
+			this.best=-2
+			this.bstsv=iptr[].NULL
+			this.bmatch=iptr[].NULL
+			this.I=0
+			if this.ex.dfa:
+				this.stdfa=0
+				this.svdfa=new iptr[this.ex.max_nsaves*this.ex.nsave]
+				this.svdfa_next=new iptr[this.ex.max_nsaves*this.ex.nsave]
+			else
+				this.sts=this.ex.CreateInitialState(1)
+			//Console.Writeln('-----------')
+		//! \brief Add a character to the virtual string
+		auto Add(char ch)
+			tran=this.ex.dfa
+			if tran:
+				if this.stdfa<0:return
+				svcalls=this.ex.svcalls
+				cid=this.ex.g_cst[int(u8(ch))]
+				nsave=this.ex.nsave
+				st=this.stdfa
+				tr=tran[st*this.ex.cset_size+cid]
+				st=tr.x
+				this.stdfa=st
+				/////////
+				sv=this.svdfa
+				sv_next=this.svdfa_next
+				///
+				psvcalls=tr.y
+				nsvmap=svcalls[psvcalls++]
+				acc=(nsvmap&0x40000000)
+				nsvmap&=0x3fffffff
+				szsave=1+((nsave+31)>>5)
+				for svid=0:nsvmap-1
+					srcid=svcalls[psvcalls]
+					svidbase=svid*nsave
+					copy(sv_next[svidbase:],sv[srcid*nsave:srcid*nsave+nsave-1])
+					for j=0:nsave-1
+						if svcalls[psvcalls+1+(j>>5)]&(1<<(j&31)):
+							sv_next[svidbase+j]=this.I+1
+					psvcalls+=szsave
+				if acc:
+					this.best=this.I
+					if !this.bstsv:
+						this.bstsv=new iptr[nsave]
+					srcid=svcalls[psvcalls]
+					//here sv is the original, which is fine
+					copy(this.bstsv,sv[srcid*nsave:srcid*nsave+nsave-1])
+					for j=0:nsave-1
+						if svcalls[psvcalls+1+(j>>5)]&(1<<(j&31)):
+							this.bstsv[j]=this.I+1
+					this.bmatch=iptr[].NULL
+				this.svdfa=sv_next
+				this.svdfa_next=sv
+				this.I++
+			else
+				if !this.sts.pc.n:return
+				this.pstd++
+				if this.ex.stepForward(1,this.pcpos,this.pcpos2,this.pstd,this.sts,int(u8(ch)),this.I):
+					nsave=this.ex.nsave
+					stssv=this.sts.sv
+					foreach pc,J in this.sts.pc
+						if pc<0:
+							this.best=this.I
+							this.bstsv=new(stssv[J*nsave:(J+1)*nsave-1])
+							this.bmatch=NULL
+							break
+				this.I++
+				//Console.Write('>>>ADD ',ch)
+				//for i=0:.sts.pc.n-1
+				//	Console.Write(' ',.sts.pc[i])
+				//Console.Writeln()
+		//! \brief Test whether the current virtual string matches the regex
+		//>property
+		inline is_matching(){return this.best==this.I-1}
+		/*! \brief Obtain \link regexmatch a list of substring matches \endlink
+		
+		@return An integer array with an even number of elements. Every pair of integer represents a substring match as a byte offset range in the virtual string. 
+		@note The function returns the longest prefix match. If there is no match, the function returns NULL
+		*/
+		auto GetMatch()
+			if !this.bstsv:return iptr[].NULL
+			if this.bmatch:return this.bmatch
+			best=this.best
+			bstsv=this.bstsv
+			nsave=(this.ex.nsave>>1)
+			ret=new iptr[(nsave+1)*2]
+			ret[0]=0;ret[1]=best+1;
+			for i=0:nsave-1
+				ret[i*2+2]=bstsv[i*2]
+				ret[i*2+3]=bstsv[i*2+1]
+			this.bmatch=ret
+			return ret
+	//! \brief An abstract type representing an uncompiled regular expression
+	RegexOp=detail.RegexOp
+	//typedef Regex RegEx
+	//! \brief Parse a regular expression string
+	auto ParseRegex(string s)
+		return detail.parseRegex(s)
+	//! \brief Produce a regular expression that matches a string exactly
+	auto RegexString(string s)
+		ret=new RegexOp
+		ret.op=REGEX_STR
+		ret.ob=variant(s)
+		return ret
+	////! \brief Produce a regular expression that matches a charset exactly
+	//RegexOp RegexCharset(string s)
+	//	//todo: unicode charseting...
+	//! \brief Concatenate two regular expressions
+	(RegexOp+RegexOp)=function(RegexOp a,RegexOp b){
+		a_tail=a
+		while a_tail.x:
+			a_tail=a_tail.x
+		b_tail=b
+		while b_tail.x:
+			b_tail=b_tail.x
+		a_tail.x=b
+		a_tail=b_tail
+		return a
+	}
+	//! \brief Compute the "or" of two regular expressions
+	(RegexOp|RegexOp)=function(RegexOp a,RegexOp b){
+		a_tail=a
+		while a_tail.x:
+			a_tail=a_tail.x
+		b_tail=b
+		while b_tail.x:
+			b_tail=b_tail.x
+		spl=new RegexOp(){op:REGEX_SPL,ob:variant(a)}
+		spl.x=b
+		nil=new RegexOp(){op:REGEX_NIL}
+		a_tail.x=nil
+		b_tail.x=nil
+		a=spl;a_tail=nil
+		return a
+	}
+	//>begin_private
+	auto regex_dfs(const DO_SPL2,RegexOp[] rops,RegexOp a)
+		if !a||a.ofs<0:return
+		//Console.Writeln('entry ',gcRefCntValue(rops),' ',rops.nBound,' ',rops,' ',a)
+		if DO_SPL2:
+			if a.op==REGEX_SPL2:
+				a.op=REGEX_SPL
+				tmp=a.x
+				a.x=a.ob.as(RegexOp)
+				a.ob=variant(tmp)
+		if a.op==REGEX_SPL:
+			while a.ob&&(a.ob.as(RegexOp)).op==REGEX_NIL:
+				a.ob=variant((a.ob.as(RegexOp)).x)
+		//we can't NULL it: key to | failure
+		while a.x&&a.x.op==REGEX_NIL&&a.x.x:
+			a.x=a.x.x
+		a.ofs=-1
+		//Console.Writeln('dfs ',gcRefCntValue(rops),' ',rops.nBound,' ',gcRefCntValue(a))
+		rops.push(a)
+		//Console.Writeln('add ',gcRefCntValue(rops),' ',rops.nBound,' ',gcRefCntValue(a))
+		regex_dfs(DO_SPL2,rops,a.x)
+		if a.op==REGEX_SPL||a.op==REGEX_SPL2:
+			regex_dfs(DO_SPL2,rops,a.ob.as(RegexOp))
+	//>end_private
+	//! \brief Create a bracket-enclosed version of a regular expression, so that the substring matching it would be \link regexmatch ultimately returned during a match \endlink.
+	auto RegexBracket(RegexOp ret)
+		rops=new RegexOp[]
+		regex_dfs(0,rops,ret)
+		slotid=-1
+		foreach a in rops
+			a.ofs=0
+			if a.op<0:
+				if slotid<~a.op:
+					slotid=~a.op
+		slotid++
+		save0=new RegexOp(){op:~slotid}
+		slotid++
+		save0.x=ret
+		ret_tail=ret
+		while ret_tail.x:
+			ret_tail=ret_tail.x
+		save1=new RegexOp(){op:~slotid}
+		slotid++
+		ret_tail.x=save1
+		ret=save0
+		return ret
+	//! \brief Create the reverse of a regular expression
+	auto RegexReverse(RegexOp ret)
+		a_tail=ret
+		while a_tail.x:
+			a_tail=a_tail.x
+		a_tail.x=new RegexOp(){op:REGEX_MATCH}
+		rops=new RegexOp[]
+		regex_dfs(0,rops,ret)
+		//mirror each node first
+		ropmir=new RegexOp[rops.n]
+		headid=-1
+		foreach a,I in rops
+			a.ofs=int(I)
+			b=new(a)
+			if b.op==REGEX_STR:
+				//reverse
+				s=b.ob.as(string)
+				s2=new string
+				for i=s.n-1:-1:0
+					s2.push(s[i])
+				b.ob=variant(s2)
+			else if b.op==REGEX_MATCH:
+				b.op=REGEX_NIL
+				headid=int(I)
+			else if b.op==REGEX_SPL||b.op==REGEX_SPL2:
+				b.op=REGEX_NIL
+				b.ob=__variant.NULL
+			else if b.op<0:
+				b.op^=1//swap save
+			b.x=NULL
+			ropmir[I]=b
+		if headid<0:return Regex.NULL
+		//reverse connectivity
+		auto connect(int p,int q)
+			b0=ropmir[p]
+			b1=ropmir[q]
+			if !b0.x:
+				b0.x=b1
+				return
+			if b0.op==REGEX_NIL:
+				b0.op=REGEX_SPL
+				b0.ob=variant(b0.x)
+				b0.x=b1
+				return
+			rspl=new RegexOp(){op:REGEX_SPL,ob:variant(b0.x)}
+			b0.x=rspl
+			rspl.x=b1
+		foreach a,I in rops
+			if a.op==REGEX_SPL:
+				ax=a.ob.as(RegexOp)
+				if ax:connect(ax.ofs,a.ofs)
+		foreach a,I in rops
+			ax=a.x
+			if ax:connect(ax.ofs,a.ofs)
+		foreach a,I in rops
+			if a.op==REGEX_SPL2:
+				ax=a.ob.as(RegexOp)
+				if ax:connect(ax.ofs,a.ofs)
+		//restore a
+		foreach a in rops
+			a.ofs=0
+		a_tail.x=NULL
+		ropmir[0].x=new RegexOp(){op:REGEX_MATCH}
+		op0=ropmir[headid]
+		while op0.x&&op0.op==REGEX_NIL:
+			op0=op0.x
+		foreach b in ropmir
+			b.ofs=0
+		rret=new Regex
+		rret.InitRaw(op0)
+		return rret
+	//! \brief Create a case insensitive version of a regular expression
+	auto RegexMakeCaseInsensitive(RegexOp ret)
+		//Console.Writeln(__LINE__,' ','ret: ',ret,' ',gcRefCntValue(ret),' ',ret.op)
+		rops=new RegexOp[]
+		inline cseti(int ch)
+			mk=new u32[8]
+			for j in crange(8)
+				mk[j]=0
+			chi=ch^0x20
+			mk[ch>>5]|=(1u<<(ch&31))
+			if u32(ch-'a')<26u||u32(ch-'A')<26u:
+				mk[chi>>5]|=(1u<<(chi&31))
+			return mk
+		regex_dfs(1,rops,ret)
+		//Console.Writeln(__LINE__,' ','ret: ',ret,' ',gcRefCntValue(ret),' ',ret.op)
+		foreach a in rops
+			a.ofs=0
+			if a.op==REGEX_STR:
+				ax0=a.x
+				b=RegexOp.NULL
+				s=a.ob.as(string)
+				inline addNode(RegexOp a2)
+					if !b:
+						a.ob=a2.ob
+						a.op=a2.op
+						b=a
+					else
+						b.x=a2
+						b=a2
+				plast=0
+				foreach ch,I in s
+					if u32(ch-'a')<26u||u32(ch-'A')<26u:
+						if I-1>=plast:
+							s2=new(s[plast:I-1])
+							addNode(new RegexOp(){op:REGEX_STR,ob:variant(s2)})
+						addNode(new RegexOp(){op:REGEX_CSET,ob:variant(cseti(int(ch)))})
+						plast=int(I+1)
+				if plast<s.n:
+					s2=new(s[plast:s.n-1])
+					addNode(new RegexOp(){op:REGEX_STR,ob:variant(s2)})
+				if !b:b=a//empty string
+				b.x=ax0
+			else if a.op==REGEX_CSET:
+				mk=a.ob.as(u32[])
+				mk23=(mk[2]|mk[3])&u32((2<<26)-2)
+				mk[2]|=mk23
+				mk[3]|=mk23
+			else if a.op>=REGEX_CHAR:
+				ch=a.op-REGEX_CHAR
+				if u32(ch-'a')<26u||u32(ch-'A')<26u:
+					a.ob=variant(cseti(a.op-REGEX_CHAR))
+					a.op=REGEX_CSET
+		//Console.Writeln(__LINE__,' ','ret: ',ret,' ',gcRefCntValue(ret),' ',ret.op)
+		return ret
 	/* initializes mt[N] with a seed */
 	//! \brief Manually initialize the random number generator using a 32-bit seed or a (potentially stronger) array seed
 	InitRandom=function(u32 s){
@@ -6653,6 +8124,7 @@ module Algorithm
 		mt[0]=s;
 		for (mti=1; mti<N; mti++)
 			mt[mti] = (1812433253u * (mt[mti-1] ^ (mt[mti-1] >> 30)) + u32(mti));
+		g_mti=-1
 	}
 	InitRandomWithArray=function(u32[] init_key){
 		N=624
@@ -6794,7 +8266,7 @@ module Algorithm
 		else
 			__error("System.Algorithm.Random() doesn't support type '@1', only 32/64 bit integers and floating point types are supported",T)
 	auto RandomIptr(iptr exclusive_upper_bound)
-		assert(exclusive_upper_bound>=0L)
+		assert(exclusive_upper_bound>0L)
 		delta=uptr(exclusive_upper_bound)
 		mask=delta
 		mask|=mask>>1
@@ -7069,7 +8541,6 @@ module Algorithm
 		ret=new string
 		foreach chi in s0
 			if chi>=65536:
-				//surrogate pair - 2nd
 				ret.push(char(((chi>>18)&0xf)+0xf0))
 				ret.push(char(0x80+((chi>>12)&63)))
 				ret.push(char(0x80+((chi>>6)&63)))
@@ -7138,28 +8609,32 @@ module Algorithm
 module Console
 	import System.OS_API.*
 	import System.detail.*
+	g_auto_flush_console=1
 	if Platform.IS_WINDOWS:
 		g_is_console_utf8=0
 	auto _write_string(string str)
 		if Platform.IS_MOBILE:
 			strz=clone(str)
 			strz.push(char(0))
-			osal_WriteLog(strz.d)
+			osal_WriteLog(__pointer(strz.d))
 		else if Platform.IS_WINDOWS:
 			if !g_is_console_utf8:
 				g_is_console_utf8=1
 				SetConsoleCP(CP_UTF8)
 			u=Algorithm.Utf8ToUnicode(str)
-			na=WideCharToMultiByte(CP_ACP,0,u,u.n,NULL,0, NULL,NULL)
+			na=WideCharToMultiByte(CP_ACP,0,__C(__pointer,"(LPWCH)@1",u.d),u.n,NULL,0, NULL,NULL)
 			s=char[na+1]
-			na=WideCharToMultiByte(CP_ACP,0,u,u.n,s,s.n, NULL,NULL)
+			na=WideCharToMultiByte(CP_ACP,0,__C(__pointer,"(LPWCH)@1",u.d),u.n,s,s.n, NULL,NULL)
+			u=i16[].NULL
 			//printf("%s",s)
 			fwrite(s,1,na,__C(__pointer,"stdout"))
 		else
 			fwrite(str,1,str.n,__C(__pointer,"stdout"))
 	auto __format_to_string(string s,auto a)
 		T=typeof(a)
-		if __is_type("builtin",T):
+		if T==__pointer:
+			s.push(formatNumber(uptr(iptr(a)),{align:sizeof(iptr)*2,base:16}))
+		else if __is_type("builtin",T):
 			s.push(string(a))
 		else if T==string:
 			if !a:
@@ -7205,7 +8680,7 @@ module Console
 		arguments0=arguments
 		s=string()
 		for i in crange(arguments0.length)
-			a=arguments0[i]
+			auto a=arguments0[i]
 			__format_to_string(s,a)
 		return s
 	inline Write()
@@ -7215,6 +8690,9 @@ module Console
 		s=FormatAsText.call(arguments)
 		s.push('\n')
 		_write_string(s)
+		//if Platform.BUILD=="debug":
+		if g_auto_flush_console:
+			System.IO.stdout().Flush()
 	auto GetCommandLine()
 		if Platform.IS_MOBILE:
 			return [new string]
@@ -7319,26 +8797,6 @@ module XML
 				for i=a:b-1
 					s2[i-a]=xml_text[i]
 				Console.Writeln('line ',l,',',c,': ',s,': "',s2,'"')
-		inline has(u32[] ok,int c)
-			return ((ok[c>>5]>>(c&31))&1u);
-		inline charset(string e)
-			ok=new u32[8]
-			inv=0
-			s=0
-			if e[0]=='^':
-				inv=1;s++
-			for(;s<e.n;s++)
-				if s+2<=e.n&&e[s+1]=='-':
-					for(i=u32(u8(e[s]));i<=u32(u8(e[s+2]));i++)
-						ok[i>>5]|=(1u<<int(i&31u));
-					s+=2
-				else
-					chu=u32(u8(e[s]))
-					ok[chu>>5]|=(1u<<int(chu&31u));
-			if inv:
-				for i=0:7
-					ok[i]=~ok[i]
-			return ok
 		inline skipTo(feed,feed_end,cset)
 			for(;;)
 				if feed!=feed_end:
@@ -7650,12 +9108,16 @@ module Env
 				pexpand=aa.IndexOf(string('${'))
 				if pexpand>=0:
 					ret.push(aa[:pexpand-1])
-					aa=aa[pexpand:]
+					aa=aa[pexpand+2:]
 					pexpand=aa.IndexOf(string("}"))
-					if pexpand>=2:
-						envz=new(aa[2:pexpand-1])
+					if pexpand>=0:
+						envz=new(aa[:pexpand-1])
 						envz.push(char(0))
-						ret.push(pcharToString(getenv(envz)))
+						penv=iptr(getenv(envz))
+						if penv:
+							ret.push(pcharToString(__pointer(penv)))
+						envz.discard()
+						aa=aa[pexpand+1:]
 					else
 						ret.push(aa)
 						break
@@ -7672,6 +9134,20 @@ module Env
 			b.resize(lg)
 			if lg&&b[lg-1]==i16(0):b.resize(lg-1)
 			return Algorithm.UnicodeToUtf8(b)
+	auto GetEnvironmentVariable(string a)
+		au=toNativeString(a);
+		if Platform.IS_UNIX:
+			penv=iptr(getenv(au))
+			if penv:
+				return pcharToString(__pointer(penv))
+			else
+				return string.NULL
+		else
+			lg=GetEnvironmentVariableW(au,NULL,0)
+			buf=new i16[lg]
+			lg=GetEnvironmentVariableW(au,buf,lg)
+			buf.n=iptr(lg)
+			return Algorithm.UnicodeToUtf8(buf)
 	auto SetEnvironmentString(string a,string b)
 		au=toNativeString(a);
 		bu=toNativeString(b);
@@ -7689,9 +9165,14 @@ module Env
 		ret.resize(lg)
 		if lg&&ret[lg-1]==0:ret.resize(lg-1)
 		return Algorithm.UnicodeToUtf8(ret)
+	auto GetExecutableName()
+		if Platform.IS_UNIX:
+			return Console.GetCommandLine()[0]
+		else
+			return _Win_GetExecutableName().Replace(["\\","/"])
 	auto GetExecutablePath()
 		if Platform.IS_UNIX:
-			retptr=SDL_GetBasePath()
+			retptr=__C(__pointer,"(char*)@1",SDL_GetBasePath())
 			if !retptr:
 				ret=new string("/")
 			else
@@ -7703,42 +9184,57 @@ module Env
 			idx=ename.LastIndexOf('\\')
 			if idx<0:idx=ename.LastIndexOf('/')
 			ename.resize(idx+1)
-			return ename
+			return ename.Replace(["\\","/"])
 	auto GetStoragePath()
-		if Platform.IS_UNIX:
-			return string(osal_getStoragePath())
+		if Platform.IS_MOBILE:
+			if Platform.ARCH=="android":
+				__generate_json("c_files","stdpath_android.c")
+			else if Platform.IS_APPLE:
+				__generate_json("c_files","stdpath_ios.m")
+			return pcharToString(osal_getStoragePath())
 		else
-			s_userdir=ExpandEnvironmentStrings(string("%USERPROFILE%"))
-			if !s_userdir.n||s_userdir[0]=='%':
-				s_userdir=ExpandEnvironmentStrings(string("%SystemDrive%%HOMEPATH%"))
-			ename=_Win_GetExecutableName()
-			idx=ename.LastIndexOf('\\')
-			if idx<0:idx=ename.LastIndexOf('/')
+			if Platform.IS_WINDOWS:
+				s_userdir=ExpandEnvironmentStrings(string("%HOME%"))
+				if !s_userdir.n||s_userdir[0]=='%':
+					s_userdir=ExpandEnvironmentStrings(string("%USERPROFILE%"))
+				if !s_userdir.n||s_userdir[0]=='%':
+					s_userdir=ExpandEnvironmentStrings(string("%SystemDrive%%HOMEPATH%"))
+				ename=_Win_GetExecutableName().Replace(["\\","/"])
+			else
+				s_userdir=ExpandEnvironmentStrings(string("${HOME}"))
+				ename=Console.GetCommandLine()[0]
+			idx=ename.LastIndexOf('/')
 			ename=ename[idx+1:]
 			pdot=ename.LastIndexOf('.')
 			if pdot>=0:ename=ename[:pdot-1]
-			sret=s_userdir+string("\\.")+ename
+			if Platform.BUILD=="debug":
+				ename=ename+"_debug"
+			sret=s_userdir+string("/.")+ename
 			if !System.IO.DirExists(sret):System.IO.CreateDirectory(sret)
-			return sret.Replace(["\\","/"])
+			return sret
 	auto NormalizeFileName(string fn)
-		if !fn:return NULL
+		if !fn:return string.NULL
 		if !fn.n:return new string
 		fnn=toNativeString(fn)
 		if Platform.IS_UNIX:
 			prealpath=new char[osal_GetUnixPathMax()+4]
 			srealpath=realpath(fnn,prealpath)
 			if !srealpath||!prealpath[0]:
-				return fn
-			pzero=prealpath.IndexOf('\0')
-			if pzero>=0:
-				return new(prealpath[:pzero-1])
+				ret=fn
 			else
-				return prealpath
+				pzero=prealpath.IndexOf('\0')
+				if pzero>=0:
+					ret=new(prealpath[:pzero-1])
+				else
+					ret=prealpath
+				if fn.n&&fn[fn.n-1]=='/'&&(!ret.n||ret[ret.n-1]!='/'):
+					ret.push('/')
+			return ret
 		else
 			ret=new i16[MAX_PATH+4]
 			fnw=toNativeString(fn.Replace(["/","\\"]))
 			sfn=NULL
-			succ=GetFullPathNameW(fnn,MAX_PATH,ret,__C(__pointer,"(short**)@1",&sfn))
+			succ=GetFullPathNameW(fnw,MAX_PATH,ret,__C(__pointer,"(short**)@1",&sfn))
 			if !succ:return fn
 			for lg=0:ret.n-1
 				if !ret[lg]:
@@ -7747,16 +9243,15 @@ module Env
 			return Algorithm.UnicodeToUtf8(ret).Replace(["\\","/"]).ToLower()
 	auto GetTempFileName(string sext)
 		if Platform.IS_WINDOWS:
-			tick=0LL
-			QueryPerformanceCounter(__C(__pointer,"(LARGE_INTEGER*)@1",&tick))
 			bpath=new i16[MAX_PATH+4]
 			GetTempPathW(MAX_PATH,bpath)
-			spath=Algorithm.UnicodeToUtf8(pwcharToString(__pointer(bpath.d),MAX_PATH))
+			spath=Algorithm.UnicodeToUtf8(pwcharToString(__pointer(bpath.d),MAX_PATH)).Replace(["\\","/"])
 		else
-			spath="/tmp"
+			spath="/tmp/"
+		tick=System.Time.tick64()
 		for(;;)
 			idrand=(Algorithm.Random(u64)^u64(tick))
-			sfile=spath+string("/s7tmp")+string(idrand)+"."+sext
+			sfile=spath+string("s7tmp")+string(idrand)+"."+sext
 			if !IO.FileExists(sfile):return sfile
 
 module Time
@@ -7796,8 +9291,9 @@ module Time
 	auto WallClockTime()
 		return i64(time(0))
 	auto ToLocalTime(i64 t0)
-		t=__C(i64,"(time_t)@1",t0)
+		auto t=__C(i64,"(time_t)@1",t0)
 		p_localtime=localtime(&t)
+		if !p_localtime:return int[].NULL
 		return [__C(int,"((struct tm*)@1)->tm_year",p_localtime)+1900,
 			__C(int,"((struct tm*)@1)->tm_mon",p_localtime),
 			__C(int,"((struct tm*)@1)->tm_mday",p_localtime)-1,
@@ -7871,3 +9367,370 @@ module Math
 		return float3(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x)
 	};
 	cross=(crossf|crossd)
+
+module Processes
+	import System.OS_API.*
+	if Platform.IS_WINDOWS:
+		//W32F_NORMAL=0
+		//W32F_PIPE=1
+		//W32F_STDIO=2
+		HANDLE=__pointer
+		/**
+		 * \brief A class for Win32 HANDLE-based files
+		 *
+		*/
+		class Win32File
+			HANDLE hf
+			auto __done__()
+				Close()
+			auto Read(iptr n)
+				a=new char[n]
+				ret=0
+				ReadFile(hf,__pointer(a.d),int(a.n),&ret,NULL)
+				a.resize(ret)
+				return a
+			auto Write(char[] a)
+				if !hf:return 0
+				ret=0
+				WriteFile(hf,__pointer(a.d),int(a.n),&ret,NULL)
+				return iptr(ret)
+			auto WouldBlock()
+				if !hf:return 0
+				//if what==W32F_PIPE:
+				avail=0
+				succ=PeekNamedPipe(hf,NULL,0,NULL,&avail,NULL)
+				return succ&&avail==0
+			auto Flush()
+				if !hf:return 0
+				return FlushFileBuffers(hf)
+			auto Close()
+				if !hf:return 0
+				CloseHandle(hf)
+				hf=NULL
+				return 1
+			//auto Eof()
+			//	if !hf:return 1
+			//	ret=0
+			//	return !ReadFile(hf,&0,0,&ret,NULL)
+			auto __init__(HANDLE handle)
+				if handle==INVALID_HANDLE_VALUE:
+					hf=NULL
+				else
+					hf=handle
+		STILL_ACTIVE=259
+		class CProcess
+			Win32File pipe
+			Win32File pipe_2nd
+			HANDLE hjob
+			HANDLE hProcess
+			int pid,tid
+			int auto_terminate
+			auto exit_code()
+				val=0
+				succ=GetExitCodeProcess(hProcess,&val)
+				if !succ:
+					return -1//STILL_ACTIVE
+				else
+					return val
+			auto isRunning()
+				return exit_code()==STILL_ACTIVE
+			auto Wait(int t)
+				return WaitForSingleObject(hProcess,t)!=WAIT_TIMEOUT
+			auto WaitForever()
+				return WaitForSingleObject(hProcess,INFINITE)!=WAIT_TIMEOUT
+			auto Terminate()
+				if hjob:
+					return TerminateJobObject(hjob,1)
+				else
+					return TerminateProcess(hProcess,1)
+			//int CtrlBreak()
+			//	return GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT,.pid)
+			auto __done__()
+				if auto_terminate&&isRunning():
+					Terminate()
+				if hjob:
+					CloseHandle(hjob)
+					hjob=NULL
+				if hProcess:
+					CloseHandle(hProcess)
+					hProcess=NULL
+		//auto OpenProcess(int id)
+		//	hproc=OpenProcess(PROCESS_ALL_ACCESS,0,id)
+		//	if !hproc:return NULL
+		//	return new CProcess(){hProcess:hproc,pid:id}
+		//>begin_private
+		auto __dup_handle(HANDLE a)
+			pipe2=NULL
+			ret=DuplicateHandle(GetCurrentProcess(),
+				a,
+				GetCurrentProcess(),
+				&pipe2,
+				0,
+				1,
+				DUPLICATE_SAME_ACCESS)
+			if !ret:
+				return NULL
+			else
+				return pipe2
+		//>begin_private
+		__idpipe=0
+		//>end_private
+		auto CreatePipe()
+			/*HANDLE a,b
+			CreatePipe(&a,&b,NULL,0)*/
+			__idpipe++
+			name=detail.toNativeString("\\\\.\\Pipe\\AnonymousPipe."+\
+				string(GetCurrentProcessId())+"."+string(__idpipe));
+			a=CreateNamedPipeW(name,
+				PIPE_ACCESS_INBOUND,
+				PIPE_TYPE_BYTE | PIPE_WAIT,
+				1,4096,4096,0,
+				NULL);
+			if !a:return Win32File[].NULL
+			b=CreateFileW(
+				name,GENERIC_WRITE,
+				0,NULL,OPEN_EXISTING,
+				FILE_ATTRIBUTE_NORMAL,NULL);
+			//gcKeepHere(name)
+			if b==INVALID_HANDLE_VALUE:
+				CloseHandle(a)
+			//a is read, b is write
+			if a:fa=new Win32File(a);else fa=Win32File.NULL
+			if b:fb=new Win32File(b);else fb=Win32File.NULL
+			return [fa,fb]
+		auto _RunPiped(const IS_PIPED,string cmd,string path,int show,string mode)
+			sinfo=__C(__pointer,"@decl:STARTUPINFOW @1={0}")
+			__C(int,"((STARTUPINFOW*)@1)->cb=sizeof(STARTUPINFOW)",sinfo)
+			__C(int,"((STARTUPINFOW*)@1)->dwFlags=@2",sinfo,STARTF_USESHOWWINDOW|STARTF_USESTDHANDLES)
+			GetStartupInfoW(sinfo)
+			__C(int,"((STARTUPINFOW*)@1)->dwFlags=@2",sinfo,STARTF_USESHOWWINDOW|STARTF_USESTDHANDLES)
+			__C(int,"((STARTUPINFOW*)@1)->wShowWindow=@2",sinfo,show?SW_SHOWNORMAL:SW_HIDE)
+			flags=0
+			new_job=0
+			inherit_handles=0
+			if IS_PIPED:
+				bind_pipe_input=0
+				bind_pipe_error=0
+				bind_pipe_output=0
+			foreach smode in mode.Tokenize(string(","))
+				ssmode=smode
+				if ssmode=="new_job":
+					new_job=1
+				else if ssmode=="suspended":
+					flags|=CREATE_SUSPENDED
+				else if ssmode=="force_off_feedback":
+					__C(int,"((STARTUPINFOW*)@1)->dwFlags|=@2",sinfo,STARTF_FORCEOFFFEEDBACK)
+				else if ssmode=="inherit_handles":
+					inherit_handles=1
+				if !IS_PIPED:
+					if ssmode=="new_console":
+						flags|=CREATE_NEW_CONSOLE
+				else
+					if ssmode=="input":
+						bind_pipe_input=1
+					else if ssmode=="output":
+						bind_pipe_output=1
+					else if ssmode=="error":
+						bind_pipe_error=1
+				//gcKeepHere(smode)
+			if !IS_PIPED:
+				if inherit_handles:
+					flags|=CREATE_NEW_PROCESS_GROUP
+					__C(int,"((STARTUPINFOW*)@1)->hStdInput=@2",sinfo,__dup_handle(__C(__pointer,"((STARTUPINFOW*)@1)->hStdInput",sinfo)))
+					__C(int,"((STARTUPINFOW*)@1)->hStdOutput=@2",sinfo,__dup_handle(__C(__pointer,"((STARTUPINFOW*)@1)->hStdOutput",sinfo)))
+					__C(int,"((STARTUPINFOW*)@1)->hStdError=@2",sinfo,__dup_handle(__C(__pointer,"((STARTUPINFOW*)@1)->hStdError",sinfo)))
+				else
+					__C(int,"((STARTUPINFOW*)@1)->dwFlags&=@2",sinfo,~STARTF_USESTDHANDLES)
+			else
+				flags|=CREATE_NEW_PROCESS_GROUP
+				//setup the pipe
+				pipes=CreatePipe()
+				isout=!bind_pipe_input
+				pipe2=__dup_handle(pipes[isout].hf)
+				if !pipe2:return CProcess.NULL
+				pipe_out=Win32File.NULL
+				hpipe_out=NULL
+				if bind_pipe_input:
+					__C(int,"((STARTUPINFOW*)@1)->hStdInput=@2",sinfo,pipe2)
+					if bind_pipe_error||bind_pipe_output:
+						pipes_out=CreatePipe()
+						hpipe_out=__dup_handle(pipes_out[1].hf)
+						pipes_out[1].Close()
+						if bind_pipe_error:
+							__C(int,"((STARTUPINFOW*)@1)->hStdError=@2",sinfo,hpipe_out)
+						if bind_pipe_output:
+							__C(int,"((STARTUPINFOW*)@1)->hStdOutput=@2",sinfo,hpipe_out)
+						pipe_out=pipes_out[0]
+					else
+						__C(int,"((STARTUPINFOW*)@1)->hStdError=@2",sinfo,__dup_handle(GetStdHandle(STD_OUTPUT_HANDLE)))
+						__C(int,"((STARTUPINFOW*)@1)->hStdOutput=@2",sinfo,__dup_handle(GetStdHandle(STD_ERROR_HANDLE)))
+				else
+					__C(int,"((STARTUPINFOW*)@1)->hStdInput=@2",sinfo,__dup_handle(GetStdHandle(STD_INPUT_HANDLE)))
+					if bind_pipe_error:
+						__C(int,"((STARTUPINFOW*)@1)->hStdError=@2",sinfo,pipe2)
+					if bind_pipe_output:
+						__C(int,"((STARTUPINFOW*)@1)->hStdOutput=@2",sinfo,pipe2)
+				pipes[isout].Close()
+			//call the process
+			if path:
+				pathu=detail.toNativeString(path.Replace(["/","\\"]))
+			pinfo=__C(__pointer,"@decl:PROCESS_INFORMATION @1={0}")
+			if new_job:
+				flags|=CREATE_SUSPENDED|CREATE_BREAKAWAY_FROM_JOB
+			cmdu=detail.toNativeString(cmd)
+			ret=CreateProcessW(NULL,cmdu,NULL,NULL,IS_PIPED||inherit_handles,flags,NULL,pathu?__pointer(pathu.d):NULL,sinfo,pinfo)
+			//if Platform.BUILD=="debug":
+			//	if !ret:
+			//		GetLastError=__c_function(int,"GetLastError","windows.h")
+			//		System.Console.Writeln(cmd,' ',GetLastError())
+			if ret&&new_job:
+				hjob=CreateJobObjectW(NULL,NULL)
+				AssignProcessToJobObject(hjob,__C(__pointer,"((PROCESS_INFORMATION*)@1)->hProcess",pinfo))
+				ResumeThread(__C(__pointer,"((PROCESS_INFORMATION*)@1)->hThread",pinfo))
+			//gcKeepHere(cmdu)
+			//gcKeepHere(pathu)
+			CloseHandle(__C(__pointer,"((PROCESS_INFORMATION*)@1)->hThread",pinfo))
+			if !IS_PIPED:
+				if !ret:return CProcess.NULL
+				return new CProcess(){
+					hjob:hjob,
+					pipe:Win32File.NULL,
+					hProcess:__C(__pointer,"((PROCESS_INFORMATION*)@1)->hProcess",pinfo),
+					pid:__C(int,"((PROCESS_INFORMATION*)@1)->dwProcessId",pinfo),
+					tid:__C(int,"((PROCESS_INFORMATION*)@1)->dwThreadId",pinfo),
+				}
+			else
+				CloseHandle(pipe2)
+				if hpipe_out:CloseHandle(hpipe_out)
+				if !ret:return CProcess.NULL
+				//Console.Writeln(pipes[!isout],' ',pipe_out)
+				return new CProcess(){
+					hjob:hjob,
+					pipe:pipes[!isout],
+					pipe_2nd:pipe_out?pipe_out:Win32File.NULL,
+					hProcess:__C(__pointer,"((PROCESS_INFORMATION*)@1)->hProcess",pinfo),
+					pid:__C(int,"((PROCESS_INFORMATION*)@1)->dwProcessId",pinfo),
+					tid:__C(int,"((PROCESS_INFORMATION*)@1)->dwThreadId",pinfo),
+				}
+		auto _make_commandline(string[] shell_args)
+			auto genString(string s0)
+				s=new string
+				foreach ch0 in s0
+					ch=int(u8(ch0))
+					if ch>=0:
+						if ch=='"':
+							s.push('\\')
+							s.push('"')
+						else if ch>=32&&ch<127:
+							s.push(char(ch))
+				return s
+			//properly quote the args
+			n=shell_args.n
+			scmd=new string
+			for i=0:n-1
+				s_args_i=shell_args[i]
+				if Platform.IS_WINDOWS:
+					if !i:s_args_i=s_args_i.Replace(["/","\\"])
+				if s_args_i.IndexOf(' ')>=0:
+					s_args_i="\""+genString(s_args_i)+"\""
+				if i:scmd.push(' ')
+				scmd.push(s_args_i)
+			return scmd
+		//>end_private
+		auto Run(string[] cmd,string path,int show,string mode)
+			return _RunPiped(0,_make_commandline(cmd),path,show,mode)
+		auto RunPiped(string[] cmd,string path,int show,string mode)
+			return _RunPiped(1,_make_commandline(cmd),path,show,mode)
+	else
+		//unix version using pipe(), popen is not general enough and calls shell
+		class CUnixFile
+			hf=-1
+			auto __done__()
+				Close()
+			auto Read(iptr n)
+				a=new char[n]
+				ret=read(hf,a.d,a.n)
+				if ret<0L:ret=0L
+				a.resize(ret)
+				return a
+			auto Write(char[] a)
+				if hf<0:return 0
+				ret=write(hf,a.d,a.n)
+				if ret<0L:ret=0L
+				return iptr(ret)
+			auto WouldBlock()
+				if hf<0:return 0
+				return !osal_PollPipe(hf)
+			auto Flush()
+				return 1
+			auto Close()
+				if hf<0:return 0
+				close(hf)
+				hf=-1
+				return 1
+			inline __init__(int fd)
+				hf=fd
+		class CProcess
+			CUnixFile pipe
+			CUnixFile pipe_2nd
+			int pid
+			int auto_terminate
+			auto exit_code()
+				val=osal_GetExitCodeProcess(pid)
+				return val
+			auto isRunning()
+				return exit_code()==-1
+			auto Terminate()
+				return osal_TerminateProcess(pid)
+			//int CtrlBreak()
+			//	return GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT,.pid)
+			auto __done__()
+				if auto_terminate&&isRunning():
+					Terminate()
+		auto _RunPiped(const IS_PIPED,string[] args,string path,string mode)
+			pipe_flags=0
+			foreach smode in mode.Tokenize(string(","))
+				ssmode=smode
+				if IS_PIPED:
+					if ssmode=="input":
+						pipe_flags|=1
+					else if ssmode=="output":
+						pipe_flags|=2
+					else if ssmode=="error":
+						pipe_flags|=4
+				//gcKeepHere(smode)
+			zargv=new iptr[args.n+1]
+			pool=new string
+			foreach s,I in args
+				zargv[I]=pool.n
+				pool.push(s)
+				pool.push(i8(0))
+			zargv[args.n]=0L
+			for i=0:args.n-1
+				zargv[i]+=pool.d
+			su=detail.toNativeString(path)
+			ret=new int[3]
+			succ=osal_CreateProcess(ret, zargv,su,pipe_flags);
+			pool.discard()
+			//zargv.discard()
+			//su.discard()
+			if !succ:
+				pret=CProcess.NULL
+			else
+				if !IS_PIPED:
+					pret=new CProcess(){
+						pid:ret[0],
+					}
+				else
+					pret=new CProcess(){
+						pid:ret[0],
+						pipe:ret[2]<0?CUnixFile.NULL:new CUnixFile(ret[2]),
+						pipe_2nd:ret[1]<0?CUnixFile.NULL:new CUnixFile(ret[1]),
+					}
+			return pret
+		auto Run(string[] cmd,string path,int show,string mode)
+			return _RunPiped(0,cmd,path,mode)
+		auto RunPiped(string[] cmd,string path,int show,string mode)
+			return _RunPiped(1,cmd,path,mode)
+		
+//////////

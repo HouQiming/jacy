@@ -1,3 +1,4 @@
+#line 1 "c:/tp/pure/bin/win32_release/../../wrapper/spaprt_portable.h"
 #ifndef __SPAPRT_PORTABLE_H
 #define __SPAPRT_PORTABLE_H
 #if S7_POINTER_BITS==64
@@ -17,10 +18,14 @@ typedef struct _TCallStackItemEx{
 	const TLineInfoItemEx* li;
 }TCallStackItemEx;
 
+#ifdef __cplusplus
+extern "C"{
+#endif
 void spapDebugV2Start();
 void spapPushCallStack(TCallStackItemEx* p);
 void spapPopCallStack();
 void spapReportError(char* s);
+void spapReportErrorf(char* fmt,...);
 void osal_WriteLog(char* buf);
 void spapBlockYielding();
 void spapUnblockYielding();
@@ -35,6 +40,7 @@ typedef struct _OSAL_TFileInfo{
 	int attr;
 }OSAL_TFileInfo;
 
+int osal_PollPipe(int fd);
 iptr osal_GetFileSize(int fd);
 long long osal_GetFileSize64(int fd);
 void* osal_BeginFind(char* fn_pattern);
@@ -45,6 +51,14 @@ iptr osal_GetUnixPathMax();
 void *osal_mmap(void *addr, iptr length, int prot, int flags,int fd);
 int osal_errno();
 
+int osal_CreateProcess(int* ret, char** zargv,char* spath,int flags);
+
 void* osal_mmap_res_zip(iptr* psize);
+char* osal_getStoragePath();
+
+void osal_LinuxXIOErrorWorkaround();
+#ifdef __cplusplus
+}
+#endif
 
 #endif

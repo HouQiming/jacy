@@ -1,6 +1,3 @@
-if VERSION<0x103:
-	//dodge errors
-	__env_library=0
 ARCH=__env_arch
 BUILD=__env_build
 VERSION=__env_compiler_version
@@ -10,3 +7,5 @@ IS_WINDOWS=(ARCH=="win32"||ARCH=="win64"||ARCH=="winrt")
 IS_MOBILE=(ARCH=="android"||ARCH=="ios")
 IS_APPLE=(ARCH=='ios'||ARCH=='mac')
 IS_LINUX=(ARCH=="rasppi"||ARCH=='linux32'||ARCH=='linux64')
+if Platform.IS_WINDOWS:
+	__generate_json('__export_prefix','__declspec(dllexport)')

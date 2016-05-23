@@ -1,4 +1,5 @@
-/*
+#line 1 "c:/tp/pure/bin/win32_release/../../wrapper/spaprt_portable.c"
+ /*
 <package name="SDL">
 	<target n="win32">
 		<dll n="lib/x86/sdl2.dll"/>
@@ -58,7 +59,9 @@ In the android mode, the sdl stuff are set by the build script. We don't have to
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <poll.h>
 #include <wchar.h>
+#include <sys/wait.h>
 ///////////
 #ifndef PM_RELEASE
 #include <signal.h>
@@ -127,13 +130,25 @@ typedef DWORD TLSID;
 	#endif
 #endif
 
+#ifdef LINUX
+//emulate the windows-based custom extensions
+char* SDL_GetInputEventText(SDL_Event* pevent){return pevent->text.text;}
+void SDL_FreeInputEventText(SDL_Event* pevent){}
+
+#endif
+
 #define __cdecl
+typedef intptr_t iptr;
+/*
 #ifdef _M_AMD64
 typedef long long iptr;
 #else
 typedef long iptr;
 #endif
+*/
+
 #define malloc SDL_malloc
+#define calloc SDL_calloc
 #define free SDL_free
 #define THREADCALL SDLCALL
 #define THREADRET int
@@ -543,6 +558,7 @@ EXPORT void spapReportErrorf(char* fmt,...){
 		#else
 			vfprintf(stderr,fmt,v);
 			fprintf(stderr,"\n");
+			fflush(stderr);
 		#endif
 		dump_call_stack("runtime error\n");
 		exit(1);
@@ -1775,6 +1791,14 @@ qprintf(const char *str, Char *s)
 ////////////////////////////////
 #endif
 
+EXPORT int osal_PollPipe(int fd){
+	struct pollfd pfd;
+	memset(&pfd,0,sizeof(pfd));
+	pfd.fd=fd;
+	pfd.events = POLLIN;
+	return poll(&pfd,1,0)==1;
+}
+
 EXPORT iptr osal_GetFileSize(int fd){
 	struct stat sb;
 	sb.st_size=0;
@@ -1808,6 +1832,59 @@ EXPORT int osal_EndFind(void* handle){
 	return 1;
 }
 
+#define OSAL_CP_PIPE_STDIN 1
+#define OSAL_CP_PIPE_STDOUT 2
+#define OSAL_CP_PIPE_STDERR 4
+EXPORT int osal_CreateProcess(int* ret, char** zargv,char* spath,int flags){
+	int pipes[4];
+	int pid=0;
+	pipes[0]=-1;pipes[1]=-1;
+	pipes[2]=-1;pipes[3]=-1;
+	//pipes[4]=-1;pipes[5]=-1;
+	if(flags&OSAL_CP_PIPE_STDIN){pipe(pipes+0);}
+	if(flags&(OSAL_CP_PIPE_STDOUT|OSAL_CP_PIPE_STDERR)){pipe(pipes+2);}
+	//if(flags&OSAL_CP_PIPE_STDERR){pipe(pipes+4);}
+	pid=fork();
+	if(pid==0){
+		chdir(spath);
+		//child
+		if(flags&OSAL_CP_PIPE_STDIN){dup2(pipes[0+0], STDIN_FILENO);close(pipes[0+0]);close(pipes[0+1]);}
+		if(flags&OSAL_CP_PIPE_STDOUT){dup2(pipes[2+1], STDOUT_FILENO);}
+		if(flags&OSAL_CP_PIPE_STDERR){dup2(pipes[2+1], STDERR_FILENO);}
+		if(flags&(OSAL_CP_PIPE_STDOUT|OSAL_CP_PIPE_STDERR)){close(pipes[2+0]);close(pipes[2+1]);}
+		execvp(zargv[0],zargv);
+		_exit(1);
+	}else{
+		//parent
+		if(pid<0){return 0;}
+		ret[0]=pid;
+		ret[1]=-1;
+		ret[2]=-1;
+		if(flags&OSAL_CP_PIPE_STDIN){close(pipes[0+0]);ret[1]=pipes[0+1];}
+		if(flags&(OSAL_CP_PIPE_STDOUT|OSAL_CP_PIPE_STDERR)){close(pipes[2+1]);ret[2]=pipes[2+0];}
+	}
+	return 1;
+}
+
+EXPORT int osal_GetExitCodeProcess(int pid){
+	int stat_val=0;
+	int pid_ret=waitpid(pid,&stat_val,WNOHANG);
+	if(pid_ret==pid){
+		if(WIFEXITED(stat_val)){return -1;}
+		return WEXITSTATUS(stat_val);
+	}else if(pid_ret==0){
+		//it's still running
+		return -1;
+	}else{
+		//assume it errored out
+		return 1;
+	}
+}
+
+EXPORT int osal_TerminateProcess(int pid){
+	return kill(pid,SIGKILL)==0;
+}
+
 //#define FILE_ATTRIBUTE_READONLY 0x00000001
 #define FILE_ATTRIBUTE_DIRECTORY 0x00000010
 
@@ -1822,8 +1899,8 @@ EXPORT int osal_FindNext(void* handle, char* fn,OSAL_TFileInfo* fi){
 	glob_t* handleg=(glob_t*)handle;
 	struct stat sb;
 	if(handleg->gl_offs>=handleg->gl_pathc)return 0;
-	fn[256]=0;
-	strncpy(fn,handleg->gl_pathv[handleg->gl_offs],256);
+	fn[1023]=0;
+	strncpy(fn,handleg->gl_pathv[handleg->gl_offs],1023);
 	memset(&sb,0,sizeof(sb));
 	stat(fn,&sb);
 	handleg->gl_offs++;
@@ -1875,8 +1952,8 @@ EXPORT int osal_GetCommandLine(char*** pargv){
 }
 
 #ifdef NEED_MAIN_WRAPPING
-//on unixes, we need to reconstruct GetCommandLine
-#ifdef _WIN32
+#if defined(_WIN32)
+//those platforms don't need SDL_main
 #undef main
 #endif
 extern int real_main();

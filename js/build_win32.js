@@ -39,9 +39,14 @@ VC.Compile=function(fnsrc,soutput){
 	if(g_build!="debug"){
 		sopt0=sopt0+" /DNDEBUG /Gm- /GS- /Gd /Ot /Ob1 /Oy /Gy /GF /Ox /O2";
 	}
-	sopt0=sopt0+" /D_HAS_ITERATOR_DEBUGGING=0 /D_SECURE_SCL=0 /D_SCL_SECURE_NO_WARNINGS /MT /DPM_C_MODE /DNEED_MAIN_WRAPPING"
+	sopt0=sopt0+" /D_HAS_ITERATOR_DEBUGGING=0 /D_SECURE_SCL=0 /D_SCL_SECURE_NO_WARNINGS /MT /DPM_C_MODE"
 	if(g_build!="debug"){
 		sopt0=sopt0+" /DPM_RELEASE";
+	}
+	if(g_json.is_library){
+		sopt0=sopt0+" /DPM_IS_LIBRARY";
+	}else{
+		sopt0=sopt0+" /DNEED_MAIN_WRAPPING";
 	}
 	if(!g_is64){
 		sopt0=sopt0+" /arch:SSE2";
@@ -92,7 +97,7 @@ VC.Link=function(fnlist,soutput){
 	if(subsystem=="windows"&&g_build!="debug"){
 		sopt1=sopt1+" /SUBSYSTEM:WINDOWS";
 	}
-	if(subsystem=="dll"){
+	if(subsystem=="dll"||g_json.is_library){
 		sopt1=sopt1+" /DLL";
 	}
 	if(g_json.ldflags){
@@ -129,7 +134,7 @@ var NVCCCompile=function(fnc,fnobj,s_cuda_options){
 g_action_handlers.make=function(){
 	var s_final_output;
 	if(!g_json.output_file){
-		s_final_output=g_bin_dir+"/"+g_main_name+".exe";
+		s_final_output=g_bin_dir+"/"+g_main_name+(g_json.is_library?".dll":".exe");
 	}else{
 		s_final_output=g_json.output_file[0];
 	}

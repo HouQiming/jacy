@@ -1,0 +1,8 @@
+import "system.jc"
+import System.Algorithm.*
+import System.Console.*
+
+(function(){
+	re=new Regex("(ab)+")
+	Writeln(re.LongestPrefixEx("abababab"))
+})()

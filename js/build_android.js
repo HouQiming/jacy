@@ -14,7 +14,11 @@ ANDROID.Detect=function(){
 	ANDROID.adt=onlydir(g_config.ADK_PATH+"/adt-*","adt")
 	ANDROID.jdk=onlydir(g_config.ADK_PATH+"/jdk*","jdk")
 	ANDROID.ant_home=onlydir(ANDROID.adt+"/eclipse/plugins/org.apache.ant*","ant")
-	ANDROID.skeleton=onlydir(g_config.ADK_PATH+"/skeleton_project","skeleton_project")
+	if(g_json.is_library){
+		ANDROID.skeleton=onlydir(g_config.ADK_PATH+"/skeleton_lib","skeleton_lib")
+	}else{
+		ANDROID.skeleton=onlydir(g_config.ADK_PATH+"/skeleton_project","skeleton_project")
+	}
 	ANDROID.adt_platform=onlydir(ANDROID.adt+"/sdk/platforms/android-*","adt_platform")
 	ANDROID.adb_exe=ANDROID.adt+"/sdk/platform-tools/adb.exe"
 	ANDROID.c_file_list=[];
@@ -110,17 +114,20 @@ g_action_handlers.make=function(){
 		ANDROID.c_file_list.push(c_files[i])
 	}
 	//System.loadLibrary("SDL2_image");
-	mkdir(g_work_dir+"/src/org/libsdl/app")
-	var s_load_other_libs=[]
-	if(g_json.android_libnames){
-		for(var j=0;g_json.android_libnames[j];j++){
-			s_load_other_libs.push('System.loadLibrary("'+g_json.android_libnames[j]+'");')
-			//s_load_other_libs.push('"'+g_json.android_libnames[j]+'",')
+	if(!g_json.is_library){
+		//no SDL for libraries
+		mkdir(g_work_dir+"/src/org/libsdl/app")
+		var s_load_other_libs=[]
+		if(g_json.android_libnames){
+			for(var j=0;g_json.android_libnames[j];j++){
+				s_load_other_libs.push('System.loadLibrary("'+g_json.android_libnames[j]+'");')
+				//s_load_other_libs.push('"'+g_json.android_libnames[j]+'",')
+			}
 		}
+		var s_sdl_activity=ReadFile(ANDROID.skeleton+"/src/org/libsdl/app/SDLActivity.java").replace('System.loadLibrary("SDL2");',s_load_other_libs.join(""))
+		//var s_sdl_activity=ReadFile(ANDROID.skeleton+"/src/org/libsdl/app/SDLActivity.java").replace('// "SDL2_image",',s_load_other_libs.join(""))
+		CreateIfDifferent(g_work_dir+"/src/org/libsdl/app/SDLActivity.java",s_sdl_activity)
 	}
-	var s_sdl_activity=ReadFile(ANDROID.skeleton+"/src/org/libsdl/app/SDLActivity.java").replace('System.loadLibrary("SDL2");',s_load_other_libs.join(""))
-	//var s_sdl_activity=ReadFile(ANDROID.skeleton+"/src/org/libsdl/app/SDLActivity.java").replace('// "SDL2_image",',s_load_other_libs.join(""))
-	CreateIfDifferent(g_work_dir+"/src/org/libsdl/app/SDLActivity.java",s_sdl_activity)
 	//hack case for the idiotic javac
 	//mv(g_work_dir+"/src/org/libsdl/app/SDLActivity.java",g_work_dir+"/src/org/libsdl/app/_SDLActivity.java")
 	//mv(g_work_dir+"/src/org/libsdl/app/_SDLActivity.java",g_work_dir+"/src/org/libsdl/app/SDLActivity.java")
@@ -131,13 +138,23 @@ g_action_handlers.make=function(){
 	//	abis=['armeabi-v7a','x86']
 	//}
 	abis=['armeabi-v7a','x86']
-	CopySkeletonFile("/jni/src/main/android","SDL_android_main.c")
-	CopySkeletonFile("/jni/src","SDL_internal.h")
-	for(var i=0;i<abis.length;i++){
-		var abi_i=abis[i]
-		CopySkeletonFile("/jni/"+abi_i,"libSDL2.so","/libs/"+abi_i)
+	if(!g_json.is_library){
+		//no SDL for libraries
+		CopySkeletonFile("/jni/src/main/android","SDL_android_main.c")
+		CopySkeletonFile("/jni/src","SDL_internal.h")
+		//for(var i=0;i<abis.length;i++){
+		//	var abi_i=abis[i]
+		//	CopySkeletonFile("/jni/"+abi_i,"libSDL2.so","/libs/"+abi_i)
+		//}
 	}
 	if(g_json.dll_files){
+		for(var i=0;i<abis.length;i++){
+			var abi_i=abis[i]
+			var star=g_work_dir+"/jni/"+abi_i
+			if(!DirExists(star)){
+				mkdir(star)
+			}
+		}
 		for(var j=0;g_json.dll_files[j];j++){
 			for(var i=0;i<abis.length;i++){
 				var abi_i=abis[i]
@@ -184,9 +201,13 @@ g_action_handlers.make=function(){
 	//////////////////////////
 	s_android_mk.push('include $(CLEAR_VARS)\n')
 	s_android_mk.push('LOCAL_MODULE := main\n')
-	s_android_mk.push('LOCAL_C_INCLUDES := "'+
-		"$(LOCAL_PATH)/sdl/include"+'" "'+
-		"$(LOCAL_PATH)/sdl/src"+'"')
+	if(g_json.is_library){
+		s_android_mk.push('LOCAL_C_INCLUDES := ')
+	}else{
+		s_android_mk.push('LOCAL_C_INCLUDES := "'+
+			"$(LOCAL_PATH)/sdl/include"+'" "'+
+			"$(LOCAL_PATH)/sdl/src"+'"')
+	}
 	if(g_json.c_include_paths){
 		for(var i=0;i<g_json.c_include_paths.length;i++){
 			var s_include_path=g_json.c_include_paths[i];
@@ -213,10 +234,23 @@ g_action_handlers.make=function(){
 					LOCAL_CFLAGS += -mfloat-abi=softfp -mfpu=neon -DHAS_NEON -DNEED_MAIN_WRAPPING\n\
 				endif\n\
 			endif\n')
-		s_android_mk.push('LOCAL_CFLAGS += -O3 -fno-var-tracking-assignments -DPM_RELEASE -DNEED_MAIN_WRAPPING -std=c99 -fomit-frame-pointer\n')
+		s_android_mk.push('LOCAL_CFLAGS += -O3 -fno-var-tracking-assignments -DPM_RELEASE -std=c99 -fomit-frame-pointer\n')
 	}else{
 		//-ffast-math
-		s_android_mk.push('LOCAL_CFLAGS += -O0 -fno-var-tracking-assignments -DNEED_MAIN_WRAPPING -std=c99\n')
+		s_android_mk.push('LOCAL_CFLAGS += -O0 -fno-var-tracking-assignments -std=c99\n')
+	}
+	if(g_json.is_library){
+		s_android_mk.push('LOCAL_CFLAGS += -DPM_IS_LIBRARY\n')
+	}else{
+		s_android_mk.push('LOCAL_CFLAGS += -DNEED_MAIN_WRAPPING\n')
+	}
+	if(g_json.cflags){
+		s_android_mk.push('LOCAL_CFLAGS += ')
+		for(var i=0;i<g_json.cflags.length;i++){
+			var smain=g_json.cflags[i];
+			s_android_mk.push(" "+smain);
+		}
+		s_android_mk.push('\n')
 	}
 	s_android_mk.push('LOCAL_SHARED_LIBRARIES := ')
 	for(var j=0;g_json.android_libnames&&g_json.android_libnames[j];j++){
@@ -227,7 +261,10 @@ g_action_handlers.make=function(){
 		s_android_mk.push(' '+g_json.android_static_libnames[j])
 	}
 	s_android_mk.push('\n')
-	s_android_mk.push('LOCAL_LDLIBS := -lGLESv2 -llog -landroid ')
+	s_android_mk.push('LOCAL_LDLIBS := -llog -landroid ')
+	if(!g_json.is_library){
+		s_android_mk.push('-lGLESv2 ')
+	}
 	for(var j=0;g_json.android_system_libnames&&g_json.android_system_libnames[j];j++){
 		s_android_mk.push(' -l'+g_json.android_system_libnames[j])
 	}
@@ -305,8 +342,10 @@ g_action_handlers.make=function(){
 	XML_SetNodeAttrValue(XML_Child(XML_Child(xml,"resources"),"string"),"",(g_json.app_display_name&&g_json.app_display_name[0]||g_main_name))
 	CreateIfDifferent(g_work_dir+"/res/values/strings.xml",XML_ToString(xml))
 	//////////
-	mkdir(g_work_dir+"/src/com/spap/"+g_main_name)
-	CreateIfDifferent(g_work_dir+"/src/com/spap/"+g_main_name+"/spap_main.java","package com.spap."+g_main_name+";\nimport org.libsdl.app.SDLActivity;\npublic class spap_main extends SDLActivity{}\n")
+	if(!g_json.is_library){
+		mkdir(g_work_dir+"/src/com/spap/"+g_main_name)
+		CreateIfDifferent(g_work_dir+"/src/com/spap/"+g_main_name+"/spap_main.java","package com.spap."+g_main_name+";\nimport org.libsdl.app.SDLActivity;\npublic class spap_main extends SDLActivity{}\n")
+	}
 	////////////////////////////////////////////
 	//ndk make step
 	var sexe_ndk_build=ANDROID.ndk+'/ndk-build.cmd'
@@ -318,41 +357,56 @@ g_action_handlers.make=function(){
 	cd(s_original_dir)
 	////////////////////////////////////////////
 	//call ant
+	//todo: library mode - just so and jar
 	var s_ant_bat='@echo off\nset PATH=%PATH%;'+ANDROID.jdk+'\nset JAVA_HOME='+ANDROID.jdk+'\n';
-	s_ant_bat=s_ant_bat+'call "'+ANDROID.ant_home+"/bin/ant.bat"+'" '+(ANDROID.is_release?"release\n":"debug\n");
+	if(g_json.is_library){
+		s_ant_bat=s_ant_bat+'call "'+ANDROID.ant_home+"/bin/ant.bat"+'" '+(ANDROID.is_release?"jar_release\n":"jar\n");
+	}else{
+		s_ant_bat=s_ant_bat+'call "'+ANDROID.ant_home+"/bin/ant.bat"+'" '+(ANDROID.is_release?"release\n":"debug\n");
+	}
 	CreateFile(g_work_dir+"/build.bat",s_ant_bat)
 	cd(g_work_dir)
 	shell(["build.bat"])
 	cd(s_original_dir)
-	var fnapk;
-	if(ANDROID.is_release){
-		fnapk=g_work_dir+"/bin/"+g_main_name+"-release-unsigned.apk"
-	}else{
-		fnapk=g_work_dir+"/bin/"+g_main_name+"-debug.apk"
-	}
-	if(!FileExists(fnapk)){
-		die('ant failed')
-	}
-	if(ANDROID.is_release){
-		//generate key
-		var fnkeytool=ANDROID.jdk+"/bin/keytool.exe"
-		var fnks=g_base_dir+"/spap_release.keystore"
-		if(!FileExists(fnks)){
-			shell([fnkeytool,'-J-Duser.language=en','-v','-keysize','2048','-keystore',fnks,'-alias','spapkey','-keyalg','RSA','-validity','10000','-genkey','-storepass','spapkey','-keypass','spapkey','-dname','CN=SPAP Release,OU=SPAP,O=SPAP,L=SPAP,ST=SPAP,C=US'])
+	if(g_json.is_library){
+		var fnjar=g_work_dir+"/bin/javapart.jar"
+		if(!FileExists(fnjar)){
+			die('ant failed')
 		}
-		var fnjarsigner=ANDROID.jdk+"/bin/jarsigner.exe"
-		shell([fnjarsigner,'-J-Duser.language=en','-sigalg','SHA1withRSA','-digestalg','SHA1','-keystore',fnks,'-storepass','spapkey','-keypass','spapkey',fnapk,'spapkey'])
-		var fnzipalign=ANDROID.adt+"/sdk/tools/zipalign.exe"
-		if(FileExists(g_bin_dir+"/"+g_main_name+".apk")){
-			shell(['rm',g_bin_dir+"/"+g_main_name+'.apk'])
-		}
-		shell([fnzipalign,'16',fnapk,g_bin_dir+"/"+g_main_name+".apk"])
+		shell(["cp",fnjar,g_bin_dir+"/"+g_main_name+".jar"])
+		shell(["rm","-rf",g_bin_dir+"/libs"])
+		shell(["cp","-r",g_work_dir+"/libs",g_bin_dir+"/libs"])
 	}else{
-		shell(["mv",fnapk,g_bin_dir+"/"+g_main_name+".apk"])
-	}
-	var fnapk=g_bin_dir+"/"+g_main_name+".apk"
-	if(!FileExists(fnapk)){
-		die("somehow, the package hasn't been built")
+		var fnapk;
+		if(ANDROID.is_release){
+			fnapk=g_work_dir+"/bin/"+g_main_name+"-release-unsigned.apk"
+		}else{
+			fnapk=g_work_dir+"/bin/"+g_main_name+"-debug.apk"
+		}
+		if(!FileExists(fnapk)){
+			die('ant failed')
+		}
+		if(ANDROID.is_release){
+			//generate key
+			var fnkeytool=ANDROID.jdk+"/bin/keytool.exe"
+			var fnks=g_base_dir+"/spap_release.keystore"
+			if(!FileExists(fnks)){
+				shell([fnkeytool,'-J-Duser.language=en','-v','-keysize','2048','-keystore',fnks,'-alias','spapkey','-keyalg','RSA','-validity','10000','-genkey','-storepass','spapkey','-keypass','spapkey','-dname','CN=SPAP Release,OU=SPAP,O=SPAP,L=SPAP,ST=SPAP,C=US'])
+			}
+			var fnjarsigner=ANDROID.jdk+"/bin/jarsigner.exe"
+			shell([fnjarsigner,'-J-Duser.language=en','-sigalg','SHA1withRSA','-digestalg','SHA1','-keystore',fnks,'-storepass','spapkey','-keypass','spapkey',fnapk,'spapkey'])
+			var fnzipalign=ANDROID.adt+"/sdk/tools/zipalign.exe"
+			if(FileExists(g_bin_dir+"/"+g_main_name+".apk")){
+				shell(['rm',g_bin_dir+"/"+g_main_name+'.apk'])
+			}
+			shell([fnzipalign,'16',fnapk,g_bin_dir+"/"+g_main_name+".apk"])
+		}else{
+			shell(["mv",fnapk,g_bin_dir+"/"+g_main_name+".apk"])
+		}
+		var fnapk=g_bin_dir+"/"+g_main_name+".apk"
+		if(!FileExists(fnapk)){
+			die("somehow, the package hasn't been built")
+		}
 	}
 };
 

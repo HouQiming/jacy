@@ -27,6 +27,8 @@ typedef struct _TCamera{
 	u32* m_image_front;
 	u32* m_image_back;
 	int m_w,m_h,m_image_ready;
+	int m_android_texid;
+	int m_android_is_texid_valid;
 }TCamera;
 
 static TCamera g_cameras[MAX_CAMERAS]={0};
@@ -116,6 +118,9 @@ JNIEXPORT void JNICALL Java_com_spap_wrapper_camera_sendresult(JNIEnv* env,jclas
 	}
 }
 
+#ifdef PM_IS_LIBRARY
+JNIEnv* SDL_AndroidGetJNIEnv();
+#endif
 EXPORT u32* osal_GetCameraImage(int cam_id, int* pw,int* ph){
 	JNIEnv* env=(JNIEnv*)SDL_AndroidGetJNIEnv();
 	TCamera* cam=&g_cameras[cam_id];
@@ -141,7 +146,7 @@ EXPORT int osal_TurnOnCamera(int cam_id,int w,int h,int fps){
 	JNIEnv* env=(JNIEnv*)SDL_AndroidGetJNIEnv();
 	TCamera* cam=&g_cameras[cam_id];
 	jmethodID method_id;
-	jvalue args[4];
+	jvalue args[6];
 	int ret;
 	if((unsigned int)cam_id>=(unsigned int)MAX_CAMERAS)return 0;
 	if(!cam->m_inited){
@@ -154,12 +159,14 @@ EXPORT int osal_TurnOnCamera(int cam_id,int w,int h,int fps){
 	if(cam->m_is_on)return 1;
 	SDL_LockMutex(cam->m_cam_mutex);
 	cam->m_is_on=1;
-	method_id=(*env)->GetMethodID(env,cam->m_clazz,"turn_on","(IIII)I");
+	method_id=(*env)->GetMethodID(env,cam->m_clazz,"turn_on","(IIIIII)I");
 	//args[].l=cam->m_cam_object;
 	args[0].i=cam_id;
 	args[1].i=w;
 	args[2].i=h;
 	args[3].i=fps;
+	args[4].i=cam->m_android_is_texid_valid?cam->m_android_texid:1;
+	args[5].i=cam->m_android_is_texid_valid;
 	ret=(*env)->CallIntMethodA(env,cam->m_cam_object,method_id,args);
 	SDL_UnlockMutex(cam->m_cam_mutex);
 	//__android_log_print(ANDROID_LOG_ERROR,"STDOUT","call method %p %p ret=%d",cam->m_clazz,method_id,ret);
@@ -205,4 +212,24 @@ EXPORT int osal_GetBackCameraId(){
 	jclass clazz=(*env)->FindClass(env,"com/spap/wrapper/camera");
 	method_id=(*env)->GetStaticMethodID(env,clazz,"get_back_camera_id","()I");
 	return (*env)->CallStaticIntMethodA(env,clazz,method_id,NULL);
+}
+
+EXPORT void osal_AndroidSetCameraPreviewTexture(int cam_id,int texid){
+	TCamera* cam=&g_cameras[cam_id];
+	cam->m_android_texid=texid;
+	cam->m_android_is_texid_valid=1;
+}
+
+EXPORT int osal_AndroidCallUpdateTexImage(int cam_id){
+	JNIEnv* env=(JNIEnv*)SDL_AndroidGetJNIEnv();
+	TCamera* cam=&g_cameras[cam_id];
+	jmethodID method_id;
+	jvalue args[1];
+	int ret;
+	if((unsigned int)cam_id>=(unsigned int)MAX_CAMERAS){return 0;}
+	if(!cam->m_is_on){return 0;}
+	method_id=(*env)->GetMethodID(env,cam->m_clazz,"callUpdateTexImage","()I");
+	args[0].l=NULL;
+	ret=(*env)->CallIntMethodA(env,cam->m_cam_object,method_id,args);
+	return ret;
 }

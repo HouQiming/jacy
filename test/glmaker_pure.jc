@@ -71,6 +71,7 @@ auto FormatCCode(string feed)
 	return sret
 
 g_code=new string
+g_lib_code=new string
 g_typedef_code=new string
 g_did=new int[string]
 auto once(string ver)
@@ -127,7 +128,7 @@ auto once(string ver)
 		loadable_names.Sort()
 		loadable_names.Unique()
 		all_names[name]=string[].NULL
-		sout.push(FormatAsText("__",name,"=NULL;\n"))
+		(SWrite(sout,"__",name,"=NULL;\n"))
 		pname=t.IndexOf("()stdcall")
 		s_c_typename="s7_CT_PFN"+name.ToUpper()
 		g_typedef_code.push(FormatAsText("typedef ",t.Replace(["()stdcall","(__stdcall*"+s_c_typename+")"]),";\\n"))
@@ -154,7 +155,7 @@ auto once(string ver)
 				s_sanitized_prototype.push(sparam[:pnamex-1])
 			s_sanitized_prototype.push(sparam[pnamex:])
 		s_sanitized_prototype.push(')')
-		sout.push(FormatAsText(s_sanitized_prototype,'{\n'));
+		(SWrite(sout,s_sanitized_prototype,'{\n'));
 		did=new int[string]
 		first=1
 		foreach name0 in loadable_names
@@ -165,21 +166,21 @@ auto once(string ver)
 				sout.push("if !ret:")
 			else
 				first=0
-			sout.push(FormatAsText("ret=__pointer(SDL_GL_GetProcAddress('",name0,"'));\n"))
+			(SWrite(sout,"ret=__pointer(SDL_GL_GetProcAddress('",name0,"'));\n"))
 		if tret=='GLvoid':
 			tret='void'
-		sout.push(FormatAsText("\tif Platform.BUILD=='debug'&&!ret:System.Console.Writeln('failed to load ",name,"');\n"))
+		(SWrite(sout,"\tif Platform.BUILD=='debug'&&!ret:System.Console.Writeln('failed to load ",name,"');\n"))
 		if tret=='void':
-			sout.push(FormatAsText("\tif !ret:return\n"))
+			(SWrite(sout,"\tif !ret:return\n"))
 		else
-			sout.push(FormatAsText("\tif !ret:return ",tret,"(NULL)\n"))
-		sout.push(FormatAsText("\t__",name,"=ret;\n"))
-		sout.push(FormatAsText("\t",s_sanitized_prototype,"{\n"))
+			(SWrite(sout,"\tif !ret:return ",tret,"(NULL)\n"))
+		(SWrite(sout,"\t__",name,"=ret;\n"))
+		(SWrite(sout,"\t",s_sanitized_prototype,"{\n"))
 		if tret=='void':
-			sout.push(FormatAsText("\t\t__C(int"))
+			(SWrite(sout,"\t\t__C(int"))
 		else
-			sout.push(FormatAsText("\t\treal_ret=__C(",tret))
-		sout.push(FormatAsText(',"((',s_c_typename,')@1)('))
+			(SWrite(sout,"\t\treal_ret=__C(",tret))
+		(SWrite(sout,',"((',s_c_typename,')@1)('))
 		param_id=2
 		foreach sparam0 in t[pname+9:].Tokenize("(),")
 			if sout.back()!='(':sout.push(',')
@@ -187,7 +188,7 @@ auto once(string ver)
 			sout.push(formatNumber(param_id,{align:1,base:36}))
 			param_id++
 			assert(param_id<32)
-		sout.push(FormatAsText(')",__',name))
+		(SWrite(sout,')",__',name))
 		param_id=2
 		foreach sparam0 in t[pname+9:].Tokenize("(),")
 			sout.push(',')
@@ -201,15 +202,15 @@ auto once(string ver)
 			//if is_pointer&&sparam.IndexOf("GLvoid")<0:
 			//	sout.push('.__C_autocast()')
 			param_id++
-		sout.push(FormatAsText(")\n"))
+		(SWrite(sout,")\n"))
 		if name!="glGetError"&&name!="glGetString":
-			sout.push(FormatAsText("\t\tif Platform.BUILD=='debug':{err=_glGetError();__g_error_buf=err;__g_has_error_buf=1;if err:System.Console.Writeln('",name," returned error: ',mygluGetErrorString(err))}\n"))
+			(SWrite(sout,"\t\tif Platform.BUILD=='debug':{err=_glGetError();__g_error_buf=err;__g_has_error_buf=1;if err:System.Console.Writeln('",name," returned error: ',mygluGetErrorString(err))}\n"))
 		if tret=='void':
-			sout.push(FormatAsText("\t}\n"))
-			sout.push(FormatAsText("\t",spap_name,'('))
+			(SWrite(sout,"\t}\n"))
+			(SWrite(sout,"\t",spap_name,'('))
 		else
-			sout.push(FormatAsText("\t\treturn real_ret\n\t}\n"))
-			sout.push(FormatAsText("\treturn ",spap_name,'('))
+			(SWrite(sout,"\t\treturn real_ret\n\t}\n"))
+			(SWrite(sout,"\treturn ",spap_name,'('))
 		foreach sparam0 in t[pname+9:].Tokenize("(),")
 			if sout.back()!='(':sout.push(',')
 			sparam=sparam0
@@ -222,8 +223,36 @@ auto once(string ver)
 			//if is_pointer&&sparam.IndexOf("GLvoid")<0:
 			//	sout.push('.__C_autocast()')
 			param_id++
-		sout.push(FormatAsText(")\n"))
-		sout.push(FormatAsText("}\n\n"))
+		(SWrite(sout,")\n"))
+		(SWrite(sout,"}\n\n"))
+		/////////////////////////////////////
+		//lib version: use the C function directly
+		SWrite(g_lib_code,s_sanitized_prototype.Replace(["=function(","=inline("]),"{\n\t__lib_import_gl();\n")
+		SWrite(g_lib_code,'\tc_',name,'=__c_function(',tret=='void'?'int':tret,',"',name,'",GL_HEADER_FILE);','\n')
+		if tret=='void':
+			(SWrite(g_lib_code,"\tc_",name,'('))
+		else
+			(SWrite(g_lib_code,"\treal_ret=c_",name,'('))
+		foreach sparam0 in t[pname+9:].Tokenize("(),")
+			if g_lib_code.back()!='(':g_lib_code.push(',')
+			sparam=sparam0
+			//is_pointer=(sparam.IndexOf('*')>=0)
+			while sparam.n&&sparam[0]==' ':
+				sparam=sparam[1:]
+			while sparam.n&&sparam.back()==' ':
+				sparam=sparam[:sparam.n-2]
+			g_lib_code.push(sparam[max(sparam.IndexOf(' '),sparam.LastIndexOf('*'))+1:])
+			//if is_pointer&&sparam.IndexOf("GLvoid")<0:
+			//	g_lib_code.push('.__C_autocast()')
+			param_id++
+		(SWrite(g_lib_code,");\n"))
+		if name!="glGetError"&&name!="glGetString":
+			(SWrite(g_lib_code,"\tif Platform.BUILD=='debug':{err=_glGetError();__g_error_buf=err;__g_has_error_buf=1;if err:System.Console.Writeln('",name," returned error: ',mygluGetErrorString(err))}\n"))
+		if tret!='void':
+			(SWrite(g_lib_code,"\treturn real_ret;\n"))
+		(SWrite(g_lib_code,"}\n\n"))
+		//name
+		//g_lib_code
 	//dangling_traileds.Sort()
 	//dangling_traileds.Unique()
 	//foreach s in dangling_traileds
@@ -517,7 +546,12 @@ auto main()
 		"GLfixed","int",
 		"GLvoidptr","__pointer",
 	]).Replace(["GLvoid","void"])
-	CreateFile("../units/g-l.jc").Write(s_code0+'__C(int,"@global:'+g_typedef_code+'");\n\n'+g_code)
+	CreateFile("../units/g-l.jc").Write(s_code0+
+		'if Platform.IS_LIBRARY:{\n'+
+			g_lib_code+
+		'\n}else{\n__C(int,"@global:'+g_typedef_code+'");\n\n'+
+			g_code+
+		'\n}')
 	/////////////
 	//doSDL()
 	/////////////
