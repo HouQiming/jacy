@@ -55,6 +55,7 @@ void osal_LinuxXIOErrorWorkaround();
 int osal_GetExitCodeProcess(int pid);
 int osal_TerminateProcess(int pid);
 
+#ifdef PM_IS_LIBRARY
 #if defined(ANDROID)||defined(__ANDROID__)
 #include <jni.h>
 JNIEnv* SDL_AndroidGetJNIEnv();
@@ -62,6 +63,7 @@ JNIEnv* SDL_AndroidGetJNIEnv();
 
 #ifdef __cplusplus
 }
+#endif
 #endif
 
 #endif

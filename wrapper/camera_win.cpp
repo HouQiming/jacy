@@ -60,7 +60,7 @@ struct TCamera{
 	DShowCallbackHandler* cb;
 	AM_MEDIA_TYPE mt;
 	////////
-	int m_is_on;
+	int m_is_on,m_has_been_on;
 	SDL_mutex* m_cam_mutex;
 	////////
 	u32* m_image_front;
@@ -243,18 +243,21 @@ EXPORT int osal_TurnOnCamera(int cam_id,int w,int h,int fps){
 	}
 	//ignore w,h,fps
 	if(g_cameras[cam_id].m_is_on){return 1;}
-	//////////////////
-	g_cameras[cam_id].graph->RemoveFilter(g_cameras[cam_id].source_filter);
-	g_cameras[cam_id].graph->RemoveFilter(g_cameras[cam_id].samplegrabberfilter);
-	g_cameras[cam_id].graph->AddFilter(g_cameras[cam_id].samplegrabberfilter,L"Sample Grabber");
-	g_cameras[cam_id].graph->AddFilter(g_cameras[cam_id].source_filter, L"Source");
 	SetResolution(cam_id,w,h,fps);
-	#ifdef DEBUG_SHOW_RENDERER
-	hr = g_cameras[cam_id].capture->RenderStream(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, g_cameras[cam_id].source_filter, g_cameras[cam_id].samplegrabberfilter, NULL);
-	#else
-	hr = g_cameras[cam_id].capture->RenderStream(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, g_cameras[cam_id].source_filter, g_cameras[cam_id].samplegrabberfilter, g_cameras[cam_id].nullrenderer);
-	#endif
-	if (hr != S_OK) {return 0;}
+	if(!g_cameras[cam_id].m_has_been_on){
+		g_cameras[cam_id].m_has_been_on=1;
+		//////////////////
+		//g_cameras[cam_id].graph->RemoveFilter(g_cameras[cam_id].source_filter);
+		//g_cameras[cam_id].graph->RemoveFilter(g_cameras[cam_id].samplegrabberfilter);
+		//g_cameras[cam_id].graph->AddFilter(g_cameras[cam_id].samplegrabberfilter,L"Sample Grabber");
+		//g_cameras[cam_id].graph->AddFilter(g_cameras[cam_id].source_filter, L"Source");
+		#ifdef DEBUG_SHOW_RENDERER
+		hr = g_cameras[cam_id].capture->RenderStream(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, g_cameras[cam_id].source_filter, g_cameras[cam_id].samplegrabberfilter, NULL);
+		#else
+		hr = g_cameras[cam_id].capture->RenderStream(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, g_cameras[cam_id].source_filter, g_cameras[cam_id].samplegrabberfilter, g_cameras[cam_id].nullrenderer);
+		#endif
+		if (hr != S_OK) {return 0;}
+	}
 	memset(&g_cameras[cam_id].mt, 0, sizeof(AM_MEDIA_TYPE));
 	hr = g_cameras[cam_id].samplegrabber->GetConnectedMediaType(&g_cameras[cam_id].mt);
 	if (hr != S_OK) {return 0;}
@@ -278,7 +281,7 @@ EXPORT int osal_TurnOffCamera(int cam_id){
 	//ignore w,h,fps
 	if(!g_cameras[cam_id].m_is_on){return 1;}
 	HRESULT hr=0;
-	hr = g_cameras[cam_id].control->Stop();
+	hr = g_cameras[cam_id].control->StopWhenReady();
 	if (hr < 0) {return 0;}
 	g_cameras[cam_id].m_is_on=0;
 	return 1;
@@ -287,6 +290,9 @@ EXPORT int osal_TurnOffCamera(int cam_id){
 EXPORT u32* osal_GetCameraImage(int cam_id, int* pw,int* ph){
 	if((unsigned int)cam_id>=(unsigned int)g_n_cameras||!g_cameras[cam_id].m_is_valid||!g_cameras[cam_id].m_is_on)return NULL;
 	TCamera* cam=&g_cameras[cam_id];
+	//LONGLONG start=0,stop=0x7FFFFFFFFFFFFFFFLL;
+	//g_cameras[cam_id].capture->ControlStream(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, g_cameras[cam_id].source_filter, NULL, &stop, 1,2);
+	//g_cameras[cam_id].control->Run();
 	SDL_LockMutex(cam->m_cam_mutex);
 	if(cam->m_image_ready){
 		u32* ret=cam->m_image_back;

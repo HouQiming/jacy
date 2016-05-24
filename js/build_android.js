@@ -200,10 +200,11 @@ g_action_handlers.make=function(){
 	}
 	//////////////////////////
 	s_android_mk.push('include $(CLEAR_VARS)\n')
-	s_android_mk.push('LOCAL_MODULE := main\n')
 	if(g_json.is_library){
+		s_android_mk.push('LOCAL_MODULE := '+g_main_name+'\n')
 		s_android_mk.push('LOCAL_C_INCLUDES := ')
 	}else{
+		s_android_mk.push('LOCAL_MODULE := main\n')
 		s_android_mk.push('LOCAL_C_INCLUDES := "'+
 			"$(LOCAL_PATH)/sdl/include"+'" "'+
 			"$(LOCAL_PATH)/sdl/src"+'"')
