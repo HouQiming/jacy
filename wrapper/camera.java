@@ -31,9 +31,8 @@ public class camera implements Camera.PreviewCallback,SurfaceTexture.OnFrameAvai
 	}
 	public int callUpdateTexImage(){
 		if(m_need_up>0){
+			//Log.v("STDOUT","callUpdateTexImage");
 			try{
-				//this shit discards the damn buffer queue on SamSung
-				//we must make sure the update fails, though...
 				st.updateTexImage();
 			}catch(Exception e){}
 			m_need_up=0;
@@ -70,6 +69,7 @@ public class camera implements Camera.PreviewCallback,SurfaceTexture.OnFrameAvai
 		params=my_camera.getParameters();
 		my_size=params.getPreviewSize();
 		m_is_tex_valid=is_tex_valid;
+		//Log.v("STDOUT","set texture: "+texid+" "+is_tex_valid);
 		//Log.v("STDOUT","reached the end");
 		return 1;
 	}

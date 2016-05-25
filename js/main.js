@@ -70,7 +70,7 @@ GetPortSSH=function(server){
 	return (g_config["SSH_PORT_"+server.toUpperCase()]||22);
 };
 
-rsync=function(src,tar,port){
+_rsync=function(src,tar,port){
 	var sopt,sopt0;
 	if(g_json.verbose){
 		sopt='--progress';
@@ -80,8 +80,12 @@ rsync=function(src,tar,port){
 		sopt0='-q';
 	}
 	//shell(["rsync","-rtpzuv","--chmod=ug=rwX,o=rX",sopt0,'-e','ssh -p'+(port||22)+' ',sopt,src+'/',tar]);
-	shell(["rsync","-rtzuv","--chmod=ug=rwX,o=rX",sopt0,'-e','ssh -p'+(port||22)+' ',sopt,src+'/',tar]);
+	shell(["rsync","-rtzuv","--chmod=ug=rwX,o=rX",sopt0,'-e','ssh -p'+(port||22)+' ',sopt,src,tar]);
 };
+
+rsync=function(src,tar,port){
+	_rsync(src+'/',tar,port);
+}
 
 envssh=function(server,cmd){
 	var ssh_addr=GetServerSSH(server)
@@ -126,6 +130,14 @@ RemoveExtension=function(fname){
 	var ret=fname.match(g_regexp_chopext);
 	if(ret){
 		fname=ret[1];
+	}
+	return fname;
+};
+
+GetExtension=function(fname){
+	var ret=fname.match(g_regexp_chopext);
+	if(ret){
+		fname=ret[2];
 	}
 	return fname;
 };

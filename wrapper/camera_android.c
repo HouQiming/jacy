@@ -18,7 +18,6 @@ typedef unsigned int u32;
 
 typedef struct _TCamera{
 	int m_inited;
-	jclass m_clazz;
 	jobject m_cam_object;
 	////////
 	int m_is_on;
@@ -148,18 +147,18 @@ EXPORT int osal_TurnOnCamera(int cam_id,int w,int h,int fps){
 	jmethodID method_id;
 	jvalue args[6];
 	int ret;
+	jclass clazz=(*env)->FindClass(env,"com/spap/wrapper/camera");
 	if((unsigned int)cam_id>=(unsigned int)MAX_CAMERAS)return 0;
 	if(!cam->m_inited){
-		cam->m_clazz=(*env)->FindClass(env,"com/spap/wrapper/camera");
-		method_id=(*env)->GetMethodID(env,cam->m_clazz,"<init>","()V");
-		cam->m_cam_object=(*env)->NewObjectA(env,cam->m_clazz,method_id,NULL);
+		method_id=(*env)->GetMethodID(env,clazz,"<init>","()V");
+		cam->m_cam_object=(jobject)(*env)->NewGlobalRef(env,(*env)->NewObjectA(env,clazz,method_id,NULL));
 		cam->m_cam_mutex=SDL_CreateMutex();
 		cam->m_inited=1;
 	}
 	if(cam->m_is_on)return 1;
 	SDL_LockMutex(cam->m_cam_mutex);
 	cam->m_is_on=1;
-	method_id=(*env)->GetMethodID(env,cam->m_clazz,"turn_on","(IIIIII)I");
+	method_id=(*env)->GetMethodID(env,clazz,"turn_on","(IIIIII)I");
 	//args[].l=cam->m_cam_object;
 	args[0].i=cam_id;
 	args[1].i=w;
@@ -179,10 +178,11 @@ EXPORT int osal_TurnOffCamera(int cam_id){
 	jmethodID method_id;
 	jvalue args[1];
 	int ret;
+	jclass clazz=(*env)->FindClass(env,"com/spap/wrapper/camera");
 	if((unsigned int)cam_id>=(unsigned int)MAX_CAMERAS)return 0;
 	if(!cam->m_is_on)return 1;
 	SDL_LockMutex(cam->m_cam_mutex);
-	method_id=(*env)->GetMethodID(env,cam->m_clazz,"turn_off","()I");
+	method_id=(*env)->GetMethodID(env,clazz,"turn_off","()I");
 	args[0].l=NULL;
 	ret=(*env)->CallIntMethodA(env,cam->m_cam_object,method_id,args);
 	if(cam->m_image_back){
@@ -226,9 +226,10 @@ EXPORT int osal_AndroidCallUpdateTexImage(int cam_id){
 	jmethodID method_id;
 	jvalue args[1];
 	int ret;
+	jclass clazz=(*env)->FindClass(env,"com/spap/wrapper/camera");
 	if((unsigned int)cam_id>=(unsigned int)MAX_CAMERAS){return 0;}
 	if(!cam->m_is_on){return 0;}
-	method_id=(*env)->GetMethodID(env,cam->m_clazz,"callUpdateTexImage","()I");
+	method_id=(*env)->GetMethodID(env,clazz,"callUpdateTexImage","()I");
 	args[0].l=NULL;
 	ret=(*env)->CallIntMethodA(env,cam->m_cam_object,method_id,args);
 	return ret;

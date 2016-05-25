@@ -2871,7 +2871,7 @@ if Platform.IS_LIBRARY:
 		else if Platform.ARCH=='mac':
 			__generate_json("mac_frameworks","System/Library/Frameworks/OpenGL.framework")
 		else if Platform.ARCH=='ios':
-			//__generate_json("ios_frameworks","System/Library/Frameworks/OpenGL.framework")
+			__generate_json("ios_frameworks","System/Library/Frameworks/OpenGLES.framework")
 		else if Platform.ARCH=='android':
 			__generate_json("android_system_libnames","GLESv2")
 		else

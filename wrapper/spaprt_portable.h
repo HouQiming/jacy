@@ -60,10 +60,10 @@ int osal_TerminateProcess(int pid);
 #include <jni.h>
 JNIEnv* SDL_AndroidGetJNIEnv();
 #endif
+#endif
 
 #ifdef __cplusplus
 }
-#endif
 #endif
 
 #endif
