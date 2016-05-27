@@ -260,6 +260,8 @@ auto main()
 				ids.push(id_value)
 		else if s=="--cpp":
 			g_is_cpp=1
+		else if s.StartsWith("--main="):
+			g_fn_s7_main=new(s[7:])
 		else if s=="--shared"||s=="-S":
 			g_is_library=1
 			s_epilog=""
@@ -294,16 +296,16 @@ auto main()
 		System.IO.stderr().Write('no input files\n')
 		exit(1)
 	//auto-pmjs mode handling
+	fn_primary=files[0].Replace(["\\","/"])
+	pslash=fn_primary.LastIndexOf('/')
+	s_basedir=fn_primary[:pslash]
+	fn_main=fn_primary[pslash+1:]
+	pdot=fn_main.LastIndexOf('.')
+	if pdot>=0:
+		fn_main=fn_main[:pdot-1]
+	if g_is_library:
+		g_fn_s7_main="init_library_"+fn_main
 	if call_pmjs:
-		fn_primary=files[0].Replace(["\\","/"])
-		pslash=fn_primary.LastIndexOf('/')
-		s_basedir=fn_primary[:pslash]
-		fn_main=fn_primary[pslash+1:]
-		pdot=fn_main.LastIndexOf('.')
-		if pdot>=0:
-			fn_main=fn_main[:pdot-1]
-		if g_is_library:
-			g_fn_s7_main="init_library_"+fn_main
 		s_dirname=new(s_arch)
 		if s_mode!="debug":s_dirname.push("_"+s_mode)
 		s_tempdir=s_basedir+"pm_tmp/"+s_dirname+"/"+fn_main

@@ -1,0 +1,1398 @@
+import "javascript.jc"
+import "gui2d.jc"
+import "g-l.jc"
+import "s-d-l.jc"
+import Javascript.*
+import GL.*
+import System.Console.*
+
+GLPTR=inline(a){
+	return a?__pointer(a.d):NULL
+}
+
+WebGLBuffer=GLuint
+WebGLProgram=GLuint
+WebGLFramebuffer=GLuint
+WebGLTexture=GLuint
+CreateWebGLContext=function(JSContext JS){
+	obj_gl=JS["JSON"].CallMethod(JSObject,"parse",'{"DEPTH_BUFFER_BIT":256,"STENCIL_BUFFER_BIT":1024,"COLOR_BUFFER_BIT":16384,"POINTS":0,"LINES":1,"LINE_LOOP":2,"LINE_STRIP":3,"TRIANGLES":4,"TRIANGLE_STRIP":5,"TRIANGLE_FAN":6,"ZERO":0,"ONE":1,"SRC_COLOR":768,"ONE_MINUS_SRC_COLOR":769,"SRC_ALPHA":770,"ONE_MINUS_SRC_ALPHA":771,"DST_ALPHA":772,"ONE_MINUS_DST_ALPHA":773,"DST_COLOR":774,"ONE_MINUS_DST_COLOR":775,"SRC_ALPHA_SATURATE":776,"FUNC_ADD":32774,"BLEND_EQUATION":32777,"BLEND_EQUATION_RGB":32777,"BLEND_EQUATION_ALPHA":34877,"FUNC_SUBTRACT":32778,"FUNC_REVERSE_SUBTRACT":32779,"BLEND_DST_RGB":32968,"BLEND_SRC_RGB":32969,"BLEND_DST_ALPHA":32970,"BLEND_SRC_ALPHA":32971,"CONSTANT_COLOR":32769,"ONE_MINUS_CONSTANT_COLOR":32770,"CONSTANT_ALPHA":32771,"ONE_MINUS_CONSTANT_ALPHA":32772,"BLEND_COLOR":32773,"ARRAY_BUFFER":34962,"ELEMENT_ARRAY_BUFFER":34963,"ARRAY_BUFFER_BINDING":34964,"ELEMENT_ARRAY_BUFFER_BINDING":34965,"STREAM_DRAW":35040,"STATIC_DRAW":35044,"DYNAMIC_DRAW":35048,"BUFFER_SIZE":34660,"BUFFER_USAGE":34661,"CURRENT_VERTEX_ATTRIB":34342,"FRONT":1028,"BACK":1029,"FRONT_AND_BACK":1032,"TEXTURE_2D":3553,"CULL_FACE":2884,"BLEND":3042,"DITHER":3024,"STENCIL_TEST":2960,"DEPTH_TEST":2929,"SCISSOR_TEST":3089,"POLYGON_OFFSET_FILL":32823,"SAMPLE_ALPHA_TO_COVERAGE":32926,"SAMPLE_COVERAGE":32928,"NO_ERROR":0,"INVALID_ENUM":1280,"INVALID_VALUE":1281,"INVALID_OPERATION":1282,"OUT_OF_MEMORY":1285,"CW":2304,"CCW":2305,"LINE_WIDTH":2849,"ALIASED_POINT_SIZE_RANGE":33901,"ALIASED_LINE_WIDTH_RANGE":33902,"CULL_FACE_MODE":2885,"FRONT_FACE":2886,"DEPTH_RANGE":2928,"DEPTH_WRITEMASK":2930,"DEPTH_CLEAR_VALUE":2931,"DEPTH_FUNC":2932,"STENCIL_CLEAR_VALUE":2961,"STENCIL_FUNC":2962,"STENCIL_FAIL":2964,"STENCIL_PASS_DEPTH_FAIL":2965,"STENCIL_PASS_DEPTH_PASS":2966,"STENCIL_REF":2967,"STENCIL_VALUE_MASK":2963,"STENCIL_WRITEMASK":2968,"STENCIL_BACK_FUNC":34816,"STENCIL_BACK_FAIL":34817,"STENCIL_BACK_PASS_DEPTH_FAIL":34818,"STENCIL_BACK_PASS_DEPTH_PASS":34819,"STENCIL_BACK_REF":36003,"STENCIL_BACK_VALUE_MASK":36004,"STENCIL_BACK_WRITEMASK":36005,"VIEWPORT":2978,"SCISSOR_BOX":3088,"COLOR_CLEAR_VALUE":3106,"COLOR_WRITEMASK":3107,"UNPACK_ALIGNMENT":3317,"PACK_ALIGNMENT":3333,"MAX_TEXTURE_SIZE":3379,"MAX_VIEWPORT_DIMS":3386,"SUBPIXEL_BITS":3408,"RED_BITS":3410,"GREEN_BITS":3411,"BLUE_BITS":3412,"ALPHA_BITS":3413,"DEPTH_BITS":3414,"STENCIL_BITS":3415,"POLYGON_OFFSET_UNITS":10752,"POLYGON_OFFSET_FACTOR":32824,"TEXTURE_BINDING_2D":32873,"SAMPLE_BUFFERS":32936,"SAMPLES":32937,"SAMPLE_COVERAGE_VALUE":32938,"SAMPLE_COVERAGE_INVERT":32939,"COMPRESSED_TEXTURE_FORMATS":34467,"DONT_CARE":4352,"FASTEST":4353,"NICEST":4354,"GENERATE_MIPMAP_HINT":33170,"BYTE":5120,"UNSIGNED_BYTE":5121,"SHORT":5122,"UNSIGNED_SHORT":5123,"INT":5124,"UNSIGNED_INT":5125,"FLOAT":5126,"DEPTH_COMPONENT":6402,"ALPHA":6406,"RGB":6407,"RGBA":6408,"LUMINANCE":6409,"LUMINANCE_ALPHA":6410,"UNSIGNED_SHORT_4_4_4_4":32819,"UNSIGNED_SHORT_5_5_5_1":32820,"UNSIGNED_SHORT_5_6_5":33635,"FRAGMENT_SHADER":35632,"VERTEX_SHADER":35633,"MAX_VERTEX_ATTRIBS":34921,"MAX_VERTEX_UNIFORM_VECTORS":36347,"MAX_VARYING_VECTORS":36348,"MAX_COMBINED_TEXTURE_IMAGE_UNITS":35661,"MAX_VERTEX_TEXTURE_IMAGE_UNITS":35660,"MAX_TEXTURE_IMAGE_UNITS":34930,"MAX_FRAGMENT_UNIFORM_VECTORS":36349,"SHADER_TYPE":35663,"DELETE_STATUS":35712,"LINK_STATUS":35714,"VALIDATE_STATUS":35715,"ATTACHED_SHADERS":35717,"ACTIVE_UNIFORMS":35718,"ACTIVE_ATTRIBUTES":35721,"SHADING_LANGUAGE_VERSION":35724,"CURRENT_PROGRAM":35725,"NEVER":512,"LESS":513,"EQUAL":514,"LEQUAL":515,"GREATER":516,"NOTEQUAL":517,"GEQUAL":518,"ALWAYS":519,"KEEP":7680,"REPLACE":7681,"INCR":7682,"DECR":7683,"INVERT":5386,"INCR_WRAP":34055,"DECR_WRAP":34056,"VENDOR":7936,"RENDERER":7937,"VERSION":7938,"NEAREST":9728,"LINEAR":9729,"NEAREST_MIPMAP_NEAREST":9984,"LINEAR_MIPMAP_NEAREST":9985,"NEAREST_MIPMAP_LINEAR":9986,"LINEAR_MIPMAP_LINEAR":9987,"TEXTURE_MAG_FILTER":10240,"TEXTURE_MIN_FILTER":10241,"TEXTURE_WRAP_S":10242,"TEXTURE_WRAP_T":10243,"TEXTURE":5890,"TEXTURE_CUBE_MAP":34067,"TEXTURE_BINDING_CUBE_MAP":34068,"TEXTURE_CUBE_MAP_POSITIVE_X":34069,"TEXTURE_CUBE_MAP_NEGATIVE_X":34070,"TEXTURE_CUBE_MAP_POSITIVE_Y":34071,"TEXTURE_CUBE_MAP_NEGATIVE_Y":34072,"TEXTURE_CUBE_MAP_POSITIVE_Z":34073,"TEXTURE_CUBE_MAP_NEGATIVE_Z":34074,"MAX_CUBE_MAP_TEXTURE_SIZE":34076,"TEXTURE0":33984,"TEXTURE1":33985,"TEXTURE2":33986,"TEXTURE3":33987,"TEXTURE4":33988,"TEXTURE5":33989,"TEXTURE6":33990,"TEXTURE7":33991,"TEXTURE8":33992,"TEXTURE9":33993,"TEXTURE10":33994,"TEXTURE11":33995,"TEXTURE12":33996,"TEXTURE13":33997,"TEXTURE14":33998,"TEXTURE15":33999,"TEXTURE16":34000,"TEXTURE17":34001,"TEXTURE18":34002,"TEXTURE19":34003,"TEXTURE20":34004,"TEXTURE21":34005,"TEXTURE22":34006,"TEXTURE23":34007,"TEXTURE24":34008,"TEXTURE25":34009,"TEXTURE26":34010,"TEXTURE27":34011,"TEXTURE28":34012,"TEXTURE29":34013,"TEXTURE30":34014,"TEXTURE31":34015,"ACTIVE_TEXTURE":34016,"REPEAT":10497,"CLAMP_TO_EDGE":33071,"MIRRORED_REPEAT":33648,"FLOAT_VEC2":35664,"FLOAT_VEC3":35665,"FLOAT_VEC4":35666,"INT_VEC2":35667,"INT_VEC3":35668,"INT_VEC4":35669,"BOOL":35670,"BOOL_VEC2":35671,"BOOL_VEC3":35672,"BOOL_VEC4":35673,"FLOAT_MAT2":35674,"FLOAT_MAT3":35675,"FLOAT_MAT4":35676,"SAMPLER_2D":35678,"SAMPLER_CUBE":35680,"VERTEX_ATTRIB_ARRAY_ENABLED":34338,"VERTEX_ATTRIB_ARRAY_SIZE":34339,"VERTEX_ATTRIB_ARRAY_STRIDE":34340,"VERTEX_ATTRIB_ARRAY_TYPE":34341,"VERTEX_ATTRIB_ARRAY_NORMALIZED":34922,"VERTEX_ATTRIB_ARRAY_POINTER":34373,"VERTEX_ATTRIB_ARRAY_BUFFER_BINDING":34975,"IMPLEMENTATION_COLOR_READ_TYPE":35738,"IMPLEMENTATION_COLOR_READ_FORMAT":35739,"COMPILE_STATUS":35713,"LOW_FLOAT":36336,"MEDIUM_FLOAT":36337,"HIGH_FLOAT":36338,"LOW_INT":36339,"MEDIUM_INT":36340,"HIGH_INT":36341,"FRAMEBUFFER":36160,"RENDERBUFFER":36161,"RGBA4":32854,"RGB5_A1":32855,"RGB565":36194,"DEPTH_COMPONENT16":33189,"STENCIL_INDEX":6401,"STENCIL_INDEX8":36168,"DEPTH_STENCIL":34041,"RENDERBUFFER_WIDTH":36162,"RENDERBUFFER_HEIGHT":36163,"RENDERBUFFER_INTERNAL_FORMAT":36164,"RENDERBUFFER_RED_SIZE":36176,"RENDERBUFFER_GREEN_SIZE":36177,"RENDERBUFFER_BLUE_SIZE":36178,"RENDERBUFFER_ALPHA_SIZE":36179,"RENDERBUFFER_DEPTH_SIZE":36180,"RENDERBUFFER_STENCIL_SIZE":36181,"FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE":36048,"FRAMEBUFFER_ATTACHMENT_OBJECT_NAME":36049,"FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL":36050,"FRAMEBUFFER_ATTACHMENT_TEXTURE_CUBE_MAP_FACE":36051,"COLOR_ATTACHMENT0":36064,"DEPTH_ATTACHMENT":36096,"STENCIL_ATTACHMENT":36128,"DEPTH_STENCIL_ATTACHMENT":33306,"NONE":0,"FRAMEBUFFER_COMPLETE":36053,"FRAMEBUFFER_INCOMPLETE_ATTACHMENT":36054,"FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT":36055,"FRAMEBUFFER_INCOMPLETE_DIMENSIONS":36057,"FRAMEBUFFER_UNSUPPORTED":36061,"FRAMEBUFFER_BINDING":36006,"RENDERBUFFER_BINDING":36007,"MAX_RENDERBUFFER_SIZE":34024,"INVALID_FRAMEBUFFER_OPERATION":1286,"UNPACK_FLIP_Y_WEBGL":37440,"UNPACK_PREMULTIPLY_ALPHA_WEBGL":37441,"CONTEXT_LOST_WEBGL":37442,"UNPACK_COLORSPACE_CONVERSION_WEBGL":37443,"BROWSER_DEFAULT_WEBGL":37444}')
+	obj_gl["IS_OPENGL_ES"]=IS_OPENGL_ES;
+	obj_gl["activeTexture"]=function(JSContext JS){
+		texture=JS.Param(0).as(GLenum);
+		glActiveTexture(texture);
+		return 0;
+	}
+	obj_gl["attachShader"]=function(JSContext JS){
+		program=JS.Param(0).as(GLuint);
+		shader=JS.Param(1).as(GLuint);
+		glAttachShader(program,shader);
+		return 0;
+	}
+	obj_gl["bindAttribLocation"]=function(JSContext JS){
+		program=JS.Param(0).as(GLuint);
+		index=JS.Param(1).as(GLuint);
+		name=JS.Param(2).as(string);
+		glBindAttribLocation(program,index,__pointer(name.d));
+		return 0;
+	}
+	obj_gl["bindBuffer"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		buffer=JS.Param(1).or(GLuint(0));
+		glBindBuffer(target,buffer);
+		return 0;
+	}
+	obj_gl["bindFramebuffer"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		framebuffer=JS.Param(1).as(GLuint);
+		glBindFramebuffer(target,framebuffer);
+		return 0;
+	}
+	obj_gl["bindRenderbuffer"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		renderbuffer=JS.Param(1).as(GLuint);
+		glBindRenderbuffer(target,renderbuffer);
+		return 0;
+	}
+	obj_gl["bindTexture"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		texture=JS.Param(1).as(GLuint);
+		glBindTexture(target,texture);
+		return 0;
+	}
+	obj_gl["blendColor"]=function(JSContext JS){
+		red=JS.Param(0).as(GLclampf);
+		green=JS.Param(1).as(GLclampf);
+		blue=JS.Param(2).as(GLclampf);
+		alpha=JS.Param(3).as(GLclampf);
+		glBlendColor(red,green,blue,alpha);
+		return 0;
+	}
+	obj_gl["blendEquation"]=function(JSContext JS){
+		mode=JS.Param(0).as(GLenum);
+		glBlendEquation(mode);
+		return 0;
+	}
+	obj_gl["blendEquationSeparate"]=function(JSContext JS){
+		modeRGB=JS.Param(0).as(GLenum);
+		modeAlpha=JS.Param(1).as(GLenum);
+		glBlendEquationSeparate(modeRGB,modeAlpha);
+		return 0;
+	}
+	obj_gl["blendFunc"]=function(JSContext JS){
+		sfactor=JS.Param(0).as(GLenum);
+		dfactor=JS.Param(1).as(GLenum);
+		glBlendFunc(sfactor,dfactor);
+		return 0;
+	}
+	obj_gl["blendFuncSeparate"]=function(JSContext JS){
+		sfactorRGB=JS.Param(0).as(GLenum);
+		dfactorRGB=JS.Param(1).as(GLenum);
+		sfactorAlpha=JS.Param(2).as(GLenum);
+		dfactorAlpha=JS.Param(3).as(GLenum);
+		glBlendFuncSeparate(sfactorRGB,dfactorRGB,sfactorAlpha,dfactorAlpha);
+		return 0;
+	}
+	obj_gl["bufferData"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		data=JS.Param(1).as(u8[]);
+		usage=JS.Param(2).as(GLenum);
+		glBufferData(target,data.n,GLPTR(data),usage);
+		return 0;
+	}
+	obj_gl["bufferSubData"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		offset=JS.Param(1).as(GLintptr);
+		data=JS.Param(2).as(u8[]);
+		glBufferSubData(target,offset,data.n,GLPTR(data));
+		return 0;
+	}
+	obj_gl["checkFramebufferStatus"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		glCheckFramebufferStatus(target);
+		return 0;
+	}
+	obj_gl["clear"]=function(JSContext JS){
+		mask=JS.Param(0).as(GLbitfield);
+		glClear(mask);
+		return 0;
+	}
+	obj_gl["clearColor"]=function(JSContext JS){
+		red=JS.Param(0).as(GLclampf);
+		green=JS.Param(1).as(GLclampf);
+		blue=JS.Param(2).as(GLclampf);
+		alpha=JS.Param(3).as(GLclampf);
+		glClearColor(red,green,blue,alpha);
+		return 0;
+	}
+	obj_gl["clearDepth"]=function(JSContext JS){
+		depth=JS.Param(0).as(float);
+		glClearDepthf(depth);
+		return 0;
+	}
+	obj_gl["clearStencil"]=function(JSContext JS){
+		s=JS.Param(0).as(GLint);
+		glClearStencil(s);
+		return 0;
+	}
+	obj_gl["colorMask"]=function(JSContext JS){
+		red=JS.Param(0).as(GLboolean);
+		green=JS.Param(1).as(GLboolean);
+		blue=JS.Param(2).as(GLboolean);
+		alpha=JS.Param(3).as(GLboolean);
+		glColorMask(red,green,blue,alpha);
+		return 0;
+	}
+	obj_gl["compileShader"]=function(JSContext JS){
+		shader=JS.Param(0).as(GLuint);
+		glCompileShader(shader);
+		return 0;
+	}
+	obj_gl["compressedTexImage2D"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		level=JS.Param(1).as(GLint);
+		internalFormat=JS.Param(2).as(GLenum);
+		width=JS.Param(3).as(GLsizei);
+		height=JS.Param(4).as(GLsizei);
+		border=JS.Param(5).as(GLint);
+		imageSize=JS.Param(6).as(GLsizei);
+		data=JS.Param(7).as(u8[]);
+		glCompressedTexImage2D(target,level,internalFormat,width,height,border,imageSize,GLPTR(data));
+		return 0;
+	}
+	obj_gl["compressedTexSubImage2D"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		level=JS.Param(1).as(GLint);
+		xoffset=JS.Param(2).as(GLint);
+		yoffset=JS.Param(3).as(GLint);
+		width=JS.Param(4).as(GLsizei);
+		height=JS.Param(5).as(GLsizei);
+		format=JS.Param(6).as(GLenum);
+		imageSize=JS.Param(7).as(GLsizei);
+		data=JS.Param(8).as(u8[]);
+		glCompressedTexSubImage2D(target,level,xoffset,yoffset,width,height,format,imageSize,GLPTR(data));
+		return 0;
+	}
+	obj_gl["copyTexImage2D"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		level=JS.Param(1).as(GLint);
+		internalFormat=JS.Param(2).as(GLenum);
+		x=JS.Param(3).as(GLint);
+		y=JS.Param(4).as(GLint);
+		width=JS.Param(5).as(GLsizei);
+		height=JS.Param(6).as(GLsizei);
+		border=JS.Param(7).as(GLint);
+		glCopyTexImage2D(target,level,internalFormat,x,y,width,height,border);
+		return 0;
+	}
+	obj_gl["copyTexSubImage2D"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		level=JS.Param(1).as(GLint);
+		xoffset=JS.Param(2).as(GLint);
+		yoffset=JS.Param(3).as(GLint);
+		x=JS.Param(4).as(GLint);
+		y=JS.Param(5).as(GLint);
+		width=JS.Param(6).as(GLsizei);
+		height=JS.Param(7).as(GLsizei);
+		glCopyTexSubImage2D(target,level,xoffset,yoffset,x,y,width,height);
+		return 0;
+	}
+	obj_gl["createBuffer"]=function(JSContext JS){
+		buf=GLuint(0)
+		glGenBuffers(1,&buf)
+		return JS.Return(buf);
+	}
+	obj_gl["createFramebuffer"]=function(JSContext JS){
+		buf=GLuint(0)
+		glGenFramebuffers(1,&buf)
+		return JS.Return(buf);
+	}
+	obj_gl["createProgram"]=function(JSContext JS){
+		return JS.Return(glCreateProgram());
+	}
+	obj_gl["createRenderbuffer"]=function(JSContext JS){
+		buf=GLuint(0)
+		glGenRenderbuffers(1,&buf)
+		return JS.Return(buf);
+	}
+	obj_gl["createShader"]=function(JSContext JS){
+		type=JS.Param(0).as(GLenum);
+		return JS.Return(glCreateShader(type));
+	}
+	obj_gl["createTexture"]=function(JSContext JS){
+		tex=GLuint(0)
+		glGenTextures(1,&tex)
+		return JS.Return(tex);
+	}
+	obj_gl["cullFace"]=function(JSContext JS){
+		mode=JS.Param(0).as(GLenum);
+		glCullFace(mode);
+		return 0;
+	}
+	obj_gl["deleteBuffer"]=function(JSContext JS){
+		buf=JS.Param(0).as(GLuint)
+		glDeleteBuffers(1,&buf)
+		return 0;
+	}
+	obj_gl["deleteFramebuffer"]=function(JSContext JS){
+		buf=JS.Param(0).as(GLuint)
+		glDeleteFramebuffers(1,&buf)
+		return 0;
+	}
+	obj_gl["deleteProgram"]=function(JSContext JS){
+		program=JS.Param(0).as(GLuint);
+		glDeleteProgram(program);
+		return 0;
+	}
+	obj_gl["deleteRenderbuffer"]=function(JSContext JS){
+		buf=JS.Param(0).as(GLuint)
+		glDeleteRenderbuffers(1,&buf)
+		return 0;
+	}
+	obj_gl["deleteShader"]=function(JSContext JS){
+		shader=JS.Param(0).as(GLuint);
+		glDeleteShader(shader);
+		return 0;
+	}
+	obj_gl["deleteTexture"]=function(JSContext JS){
+		tex=JS.Param(0).as(GLuint)
+		glDeleteTextures(1,&tex)
+		return 0;
+	}
+	obj_gl["depthFunc"]=function(JSContext JS){
+		func=JS.Param(0).as(GLenum);
+		glDepthFunc(func);
+		return 0;
+	}
+	obj_gl["depthMask"]=function(JSContext JS){
+		flag=JS.Param(0).as(GLboolean);
+		glDepthMask(flag);
+		return 0;
+	}
+	obj_gl["depthRange"]=function(JSContext JS){
+		near=JS.Param(0).as(double);
+		far=JS.Param(1).as(double);
+		if IS_OPENGL_ES:
+			glDepthRangef(float(near),float(far))
+		else
+			glDepthRange(near,far)
+		return 0;
+	}
+	obj_gl["detachShader"]=function(JSContext JS){
+		program=JS.Param(0).as(GLuint);
+		shader=JS.Param(1).as(GLuint);
+		glDetachShader(program,shader);
+		return 0;
+	}
+	obj_gl["disable"]=function(JSContext JS){
+		cap=JS.Param(0).as(GLenum);
+		glDisable(cap);
+		return 0;
+	}
+	obj_gl["disableVertexAttribArray"]=function(JSContext JS){
+		index=JS.Param(0).as(GLuint);
+		glDisableVertexAttribArray(index);
+		return 0;
+	}
+	obj_gl["drawArrays"]=function(JSContext JS){
+		mode=JS.Param(0).as(GLenum);
+		first=JS.Param(1).as(GLint);
+		count=JS.Param(2).as(GLsizei);
+		glDrawArrays(mode,first,count);
+		return 0;
+	}
+	obj_gl["drawElements"]=function(JSContext JS){
+		mode=JS.Param(0).as(GLenum);
+		count=JS.Param(1).as(GLsizei);
+		type=JS.Param(2).as(GLenum);
+		indices=JS.Param(3).as(u8[]);
+		glDrawElements(mode,count,type,GLPTR(indices));
+		return 0;
+	}
+	obj_gl["enable"]=function(JSContext JS){
+		cap=JS.Param(0).as(GLenum);
+		glEnable(cap);
+		return 0;
+	}
+	obj_gl["enableVertexAttribArray"]=function(JSContext JS){
+		index=JS.Param(0).as(GLuint);
+		glEnableVertexAttribArray(index);
+		return 0;
+	}
+	obj_gl["finish"]=function(JSContext JS){
+		glFinish();
+		return 0;
+	}
+	obj_gl["flush"]=function(JSContext JS){
+		glFlush()
+		return 0;
+	}
+	obj_gl["framebufferRenderbuffer"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		attachment=JS.Param(1).as(GLenum);
+		renderbuffertarget=JS.Param(2).as(GLenum);
+		renderbuffer=JS.Param(3).as(GLuint);
+		glFramebufferRenderbuffer(target,attachment,renderbuffertarget,renderbuffer);
+		return 0;
+	}
+	obj_gl["framebufferTexture2D"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		attachment=JS.Param(1).as(GLenum);
+		textarget=JS.Param(2).as(GLenum);
+		texture=JS.Param(3).as(GLuint);
+		level=JS.Param(4).as(GLint);
+		glFramebufferTexture2D(target,attachment,textarget,texture,level);
+		return 0;
+	}
+	obj_gl["frontFace"]=function(JSContext JS){
+		mode=JS.Param(0).as(GLenum);
+		glFrontFace(mode);
+		return 0;
+	}
+	obj_gl["generateMipmap"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		glGenerateMipmap(target);
+		return 0;
+	}
+	obj_gl["getActiveAttrib"]=function(JSContext JS){
+		program=JS.Param(0).as(GLuint);
+		index=JS.Param(1).as(GLuint);
+		len=0L
+		glGetProgramiv(program,GL_ACTIVE_ATTRIBUTE_MAX_LENGTH,&len)
+		name=new char[len]
+		size=GLint(0)
+		type=GLenum(0)
+		glGetActiveAttrib(program,index,int(len),&len,&size,&type,GLPTR(name));
+		ret=JS.New()
+		ret["name"]=name
+		ret["size"]=size
+		ret["type"]=type
+		return JS.Return(ret);
+	}
+	obj_gl["getActiveUniform"]=function(JSContext JS){
+		program=JS.Param(0).as(GLuint);
+		index=JS.Param(1).as(GLuint);
+		len=0L
+		glGetProgramiv(program,GL_ACTIVE_UNIFORM_MAX_LENGTH,&len)
+		name=new char[len]
+		size=GLint(0)
+		type=GLenum(0)
+		glGetActiveUniform(program,index,int(len),&len,&size,&type,GLPTR(name));
+		ret=JS.New()
+		ret["name"]=name
+		ret["size"]=size
+		ret["type"]=type
+		return JS.Return(ret);
+	}
+	obj_gl["getAttachedShaders"]=function(JSContext JS){
+		program=JS.Param(0).as(GLuint);
+		maxCount=0
+		glGetProgramiv(program,GL_ATTACHED_SHADERS,&maxCount)
+		count=0
+		shaders=new GLuint[maxCount];
+		if maxCount:
+			glGetAttachedShaders(program,maxCount,&count,GLPTR(shaders));
+		return JS.Return(shaders);
+	}
+	obj_gl["getAttribLocation"]=function(JSContext JS){
+		program=JS.Param(0).as(GLuint);
+		name=JS.Param(1).as(string);
+		return JS.Return(glGetAttribLocation(program,__pointer(name.d)));
+	}
+	obj_gl["getBufferParameter"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		pname=JS.Param(1).as(GLenum);
+		ret=0
+		glGetBufferParameteriv(target,pname,&ret)
+		return JS.Return(ret);
+	}
+	//coulddo: implement getContextAttributes in js
+	obj_gl["getContextAttributes"]=function(JSContext JS){
+		ret=JS.New()
+		return JS.Return(ret);
+	}
+	obj_gl["getError"]=function(JSContext JS){
+		return JS.Return(glGetError());
+	}
+	obj_gl["getExtension"]=function(JSContext JS){
+		sname=JS.Param(0).as(string)
+		if sname=="EXT_texture_filter_anisotropic":
+			if SDL.detail.SDL_GL_ExtensionSupported("GL_EXT_texture_filter_anisotropic"):
+				ret=JS.New()
+				ret["MAX_TEXTURE_MAX_ANISOTROPY_EXT"]=GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT
+				ret["TEXTURE_MAX_ANISOTROPY_EXT"]=GL_TEXTURE_MAX_ANISOTROPY_EXT
+				return JS.Return(ret)
+		//coulddo: support more extensions
+		return 0;
+	}
+	obj_gl["getFramebufferAttachmentParameter"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		attachment=JS.Param(1).as(GLenum);
+		pname=JS.Param(2).as(GLenum);
+		ret=0
+		glGetFramebufferAttachmentParameteriv(target,attachment,pname,&ret)
+		return JS.Return(ret)
+	}
+	glGetTyped=inline(T,pname){
+		//else if T==GLint64:
+		//	ret=T(0)
+		//	glGetInteger64v(pname,&ret)
+		//	return ret
+		if T==GLenum||T==GLint||T==GLuint:
+			ret=T(0)
+			glGetIntegerv(pname,&ret)
+			return ret
+		else if T==GLboolean:
+			ret=T(0)
+			glGetBooleanv(pname,&ret)
+			return ret
+		else if T==GLfloat:
+			ret=T(0)
+			glGetFloatv(pname,&ret)
+			return ret
+		else
+			__error("invalid type in glGetTyped")
+			return 0
+	}
+	glGetArray=inline(T,n,pname){
+		ret=new T[n]
+		if T==GLenum||T==GLint||T==GLuint:
+			glGetIntegerv(pname,__pointer(ret.d))
+			return ret
+		else if T==GLboolean:
+			glGetIntegerv(pname,__pointer(ret.d))
+			return ret
+		else if T==GLfloat:
+			glGetFloatv(pname,__pointer(ret.d))
+			return ret
+		else
+			__error("invalid type in glGetArray")
+			return 0
+	}
+	obj_gl["getParameter"]=function(JSContext JS){
+		pname=JS.Param(0).as(GLenum)
+		switch(pname){
+		case GL_ACTIVE_TEXTURE:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		}
+		case GL_ALIASED_LINE_WIDTH_RANGE{
+			return JS.Return(glGetArray(float,2,pname))
+		}
+		case GL_ALIASED_POINT_SIZE_RANGE{
+			return JS.Return(glGetArray(float,2,pname))
+		}
+		case GL_ALPHA_BITS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_ARRAY_BUFFER_BINDING:{
+			return JS.Return(glGetTyped(WebGLBuffer,pname))
+		}
+		case GL_BLEND:{
+			return JS.Return(glGetTyped(GLboolean,pname))
+		} 
+		case GL_BLEND_COLOR:{
+			return JS.Return(glGetArray(float,4,pname))
+		}
+		case GL_BLEND_DST_ALPHA:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_BLEND_DST_RGB:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		}
+		//case GL_BLEND_EQUATION:{
+		//	return JS.Return(glGetTyped(GLenum,pname))
+		//} 
+		case GL_BLEND_EQUATION_ALPHA:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_BLEND_EQUATION_RGB:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_BLEND_SRC_ALPHA:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_BLEND_SRC_RGB:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_BLUE_BITS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_COLOR_CLEAR_VALUE:{
+			return JS.Return(glGetArray(float,4,pname))
+		}
+		case GL_COLOR_WRITEMASK:{
+			return JS.Return(glGetArray(GLboolean,4,pname))
+		}
+		case GL_COMPRESSED_TEXTURE_FORMATS:{
+			return JS.Return(glGetArray(u32,glGetTyped(GLint,GL_NUM_COMPRESSED_TEXTURE_FORMATS),pname))
+		}
+		case GL_CULL_FACE:{
+			return JS.Return(glGetTyped(GLboolean,pname))
+		} 
+		case GL_CULL_FACE_MODE:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_CURRENT_PROGRAM:{
+			return JS.Return(glGetTyped(WebGLProgram,pname))
+		} 
+		case GL_DEPTH_BITS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_DEPTH_CLEAR_VALUE:{
+			return JS.Return(glGetTyped(GLfloat,pname))
+		} 
+		case GL_DEPTH_FUNC:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_DEPTH_RANGE{
+			return JS.Return(glGetArray(float,2,pname))
+		}
+		case GL_DEPTH_TEST:{
+			return JS.Return(glGetTyped(GLboolean,pname))
+		} 
+		case GL_DEPTH_WRITEMASK:{
+			return JS.Return(glGetTyped(GLboolean,pname))
+		} 
+		case GL_DITHER:{
+			return JS.Return(glGetTyped(GLboolean,pname))
+		} 
+		case GL_ELEMENT_ARRAY_BUFFER_BINDING:{
+			return JS.Return(glGetTyped(WebGLBuffer,pname))
+		} 
+		case GL_FRAMEBUFFER_BINDING:{
+			return JS.Return(glGetTyped(WebGLFramebuffer,pname))
+		} 
+		case GL_FRONT_FACE:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_GENERATE_MIPMAP_HINT:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_GREEN_BITS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_IMPLEMENTATION_COLOR_READ_FORMAT_OES:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_IMPLEMENTATION_COLOR_READ_TYPE_OES:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_LINE_WIDTH:{
+			return JS.Return(glGetTyped(GLfloat,pname))
+		} 
+		case GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_MAX_CUBE_MAP_TEXTURE_SIZE:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_MAX_FRAGMENT_UNIFORM_VECTORS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_MAX_RENDERBUFFER_SIZE_EXT:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_MAX_TEXTURE_IMAGE_UNITS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_MAX_TEXTURE_SIZE:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_MAX_VARYING_VECTORS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_MAX_VERTEX_ATTRIBS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_MAX_VERTEX_UNIFORM_VECTORS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_MAX_VIEWPORT_DIMS{
+			return JS.Return(glGetArray(int,2,pname))
+		}
+		case GL_PACK_ALIGNMENT:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_POLYGON_OFFSET_FACTOR:{
+			return JS.Return(glGetTyped(GLfloat,pname))
+		} 
+		case GL_POLYGON_OFFSET_FILL:{
+			return JS.Return(glGetTyped(GLboolean,pname))
+		} 
+		case GL_POLYGON_OFFSET_UNITS:{
+			return JS.Return(glGetTyped(GLfloat,pname))
+		} 
+		case GL_RED_BITS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_RENDERBUFFER_BINDING_EXT:{
+			return JS.Return(glGetTyped(GLuint,pname))
+		} 
+		case GL_SAMPLE_BUFFERS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_SAMPLE_COVERAGE_INVERT:{
+			return JS.Return(glGetTyped(GLboolean,pname))
+		} 
+		case GL_SAMPLE_COVERAGE_VALUE:{
+			return JS.Return(glGetTyped(GLfloat,pname))
+		} 
+		case GL_SAMPLES:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_SCISSOR_BOX{
+			return JS.Return(glGetArray(int,4,pname))
+		}
+		case GL_SCISSOR_TEST:{
+			return JS.Return(glGetTyped(GLboolean,pname))
+		} 
+		case GL_STENCIL_BACK_FAIL:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_STENCIL_BACK_FUNC:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_STENCIL_BACK_PASS_DEPTH_FAIL:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_STENCIL_BACK_PASS_DEPTH_PASS:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_STENCIL_BACK_REF:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_STENCIL_BACK_VALUE_MASK:{
+			return JS.Return(glGetTyped(GLuint,pname))
+		} 
+		case GL_STENCIL_BACK_WRITEMASK:{
+			return JS.Return(glGetTyped(GLuint,pname))
+		} 
+		case GL_STENCIL_BITS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_STENCIL_CLEAR_VALUE:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_STENCIL_FAIL:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_STENCIL_FUNC:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_STENCIL_PASS_DEPTH_FAIL:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_STENCIL_PASS_DEPTH_PASS:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_STENCIL_REF:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_STENCIL_TEST:{
+			return JS.Return(glGetTyped(GLboolean,pname))
+		} 
+		case GL_STENCIL_VALUE_MASK:{
+			return JS.Return(glGetTyped(GLuint,pname))
+		} 
+		case GL_STENCIL_WRITEMASK:{
+			return JS.Return(glGetTyped(GLuint,pname))
+		} 
+		case GL_SUBPIXEL_BITS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_TEXTURE_BINDING_2D:{
+			return JS.Return(glGetTyped(WebGLTexture,pname))
+		} 
+		case GL_TEXTURE_BINDING_CUBE_MAP:{
+			return JS.Return(glGetTyped(WebGLTexture,pname))
+		} 
+		case GL_UNPACK_ALIGNMENT:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		//case GL_UNPACK_COLORSPACE_CONVERSION_WEBGL:{
+		//	return JS.Return(glGetTyped(GLenum,pname))
+		//} 
+		//case GL_UNPACK_FLIP_Y_WEBGL:{
+		//	return JS.Return(glGetTyped(GLboolean,pname))
+		//} 
+		//case GL_UNPACK_PREMULTIPLY_ALPHA_WEBGL:{
+		//	return JS.Return(glGetTyped(GLboolean,pname))
+		//} 
+		case GL_VENDOR,GL_VERSION,GL_SHADING_LANGUAGE_VERSION,GL_RENDERER:{
+			return JS.Return(System.detail.pcharToString(glGetString(pname)))
+		} 
+		case GL_VIEWPORT:{
+			return JS.Return(glGetArray(int,4,pname))
+		}
+		//case GL_COPY_READ_BUFFER_BINDING:{
+		//	return JS.Return(glGetTyped(WebGLBuffer,pname))
+		//} 
+		//case GL_COPY_WRITE_BUFFER_BINDING:{
+		//	return JS.Return(glGetTyped(WebGLBuffer,pname))
+		//}
+		case GL_DRAW_BUFFER0,GL_DRAW_BUFFER1,GL_DRAW_BUFFER2,GL_DRAW_BUFFER3,GL_DRAW_BUFFER4,GL_DRAW_BUFFER5,GL_DRAW_BUFFER6,GL_DRAW_BUFFER7,GL_DRAW_BUFFER8,GL_DRAW_BUFFER9,GL_DRAW_BUFFER10,GL_DRAW_BUFFER11,GL_DRAW_BUFFER12,GL_DRAW_BUFFER13,GL_DRAW_BUFFER14,GL_DRAW_BUFFER15:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		//case GL_DRAW_FRAMEBUFFER_BINDING:{
+		//	return JS.Return(glGetTyped(WebGLFramebuffer,pname))
+		//} 
+		case GL_FRAGMENT_SHADER_DERIVATIVE_HINT:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_MAX_3D_TEXTURE_SIZE:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_MAX_ARRAY_TEXTURE_LAYERS_EXT:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		//case GL_MAX_CLIENT_WAIT_TIMEOUT_WEBGL:{
+		//	return JS.Return(glGetTyped(GLint64,pname))
+		//} 
+		case GL_MAX_COLOR_ATTACHMENTS_EXT:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		//case GL_MAX_COMBINED_FRAGMENT_UNIFORM_COMPONENTS:{
+		//	return JS.Return(glGetTyped(GLint64,pname))
+		//} 
+		//case GL_MAX_COMBINED_UNIFORM_BLOCKS:{
+		//	return JS.Return(glGetTyped(GLint,pname))
+		//} 
+		//case GL_MAX_COMBINED_VERTEX_UNIFORM_COMPONENTS:{
+		//	return JS.Return(glGetTyped(GLint64,pname))
+		//} 
+		case GL_MAX_DRAW_BUFFERS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		//case GL_MAX_ELEMENT_INDEX:{
+		//	return JS.Return(glGetTyped(GLint64,pname))
+		//} 
+		case GL_MAX_ELEMENTS_INDICES:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_MAX_ELEMENTS_VERTICES:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		//case GL_MAX_FRAGMENT_INPUT_COMPONENTS:{
+		//	return JS.Return(glGetTyped(GLint,pname))
+		//} 
+		//case GL_MAX_FRAGMENT_UNIFORM_BLOCKS:{
+		//	return JS.Return(glGetTyped(GLint,pname))
+		//} 
+		case GL_MAX_FRAGMENT_UNIFORM_COMPONENTS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_MAX_PROGRAM_TEXEL_OFFSET_EXT:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		//case GL_MAX_SAMPLES:{
+		//	return JS.Return(glGetTyped(GLint,pname))
+		//}
+		//case GL_MAX_SERVER_WAIT_TIMEOUT:{
+		//	return JS.Return(glGetTyped(GLint64,pname))
+		//} 
+		case GL_MAX_TEXTURE_LOD_BIAS:{
+			return JS.Return(glGetTyped(GLfloat,pname))
+		} 
+		//case GL_MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS:{
+		//	return JS.Return(glGetTyped(GLint,pname))
+		//}
+		//case GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS:{
+		//	return JS.Return(glGetTyped(GLint,pname))
+		//} 
+		//case GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS:{
+		//	return JS.Return(glGetTyped(GLint,pname))
+		//} 
+		//case GL_MAX_UNIFORM_BLOCK_SIZE:{
+		//	return JS.Return(glGetTyped(GLint64,pname))
+		//} 
+		//case GL_MAX_UNIFORM_BUFFER_BINDINGS:{
+		//	return JS.Return(glGetTyped(GLint,pname))
+		//} 
+		//case GL_MAX_VARYING_COMPONENTS:{
+		//	return JS.Return(glGetTyped(GLint,pname))
+		//} 
+		//case GL_MAX_VERTEX_OUTPUT_COMPONENTS:{
+		//	return JS.Return(glGetTyped(GLint,pname))
+		//} 
+		//case GL_MAX_VERTEX_UNIFORM_BLOCKS:{
+		//	return JS.Return(glGetTyped(GLint,pname))
+		//} 
+		case GL_MAX_VERTEX_UNIFORM_COMPONENTS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_MIN_PROGRAM_TEXEL_OFFSET_EXT:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_PACK_ROW_LENGTH:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_PACK_SKIP_PIXELS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_PACK_SKIP_ROWS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_PIXEL_PACK_BUFFER_BINDING:{
+			return JS.Return(glGetTyped(WebGLBuffer,pname))
+		} 
+		case GL_PIXEL_UNPACK_BUFFER_BINDING:{
+			return JS.Return(glGetTyped(WebGLBuffer,pname))
+		} 
+		case GL_RASTERIZER_DISCARD_NV:{
+			return JS.Return(glGetTyped(GLboolean,pname))
+		} 
+		case GL_READ_BUFFER:{
+			return JS.Return(glGetTyped(GLenum,pname))
+		} 
+		case GL_READ_FRAMEBUFFER_BINDING:{
+			return JS.Return(glGetTyped(WebGLFramebuffer,pname))
+		} 
+		case GL_SAMPLE_ALPHA_TO_COVERAGE:{
+			return JS.Return(glGetTyped(GLboolean,pname))
+		} 
+		case GL_SAMPLE_COVERAGE:{
+			return JS.Return(glGetTyped(GLboolean,pname))
+		} 
+		//case GL_SAMPLER_BINDING:{
+		//	return JS.Return(glGetTyped(WebGLSampler,pname))
+		//} 
+		case GL_TEXTURE_BINDING_2D_ARRAY_EXT:{
+			return JS.Return(glGetTyped(WebGLTexture,pname))
+		} 
+		case GL_TEXTURE_BINDING_3D:{
+			return JS.Return(glGetTyped(WebGLTexture,pname))
+		} 
+		//case GL_TRANSFORM_FEEDBACK_ACTIVE:{
+		//	return JS.Return(glGetTyped(GLboolean,pname))
+		//} 
+		//case GL_TRANSFORM_FEEDBACK_BINDING:{
+		//	return JS.Return(glGetTyped(WebGLTransformFeedback,pname))
+		//} 
+		case GL_TRANSFORM_FEEDBACK_BUFFER_BINDING_NV:{
+			return JS.Return(glGetTyped(WebGLBuffer,pname))
+		} 
+		//case GL_TRANSFORM_FEEDBACK_PAUSED:{
+		//	return JS.Return(glGetTyped(GLboolean,pname))
+		//} 
+		case GL_UNIFORM_BUFFER_BINDING_EXT:{
+			return JS.Return(glGetTyped(WebGLBuffer,pname))
+		} 
+		//case GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT:{
+		//	return JS.Return(glGetTyped(GLint,pname))
+		//} 
+		case GL_UNPACK_IMAGE_HEIGHT:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_UNPACK_ROW_LENGTH:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_UNPACK_SKIP_IMAGES:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_UNPACK_SKIP_PIXELS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		case GL_UNPACK_SKIP_ROWS:{
+			return JS.Return(glGetTyped(GLint,pname))
+		} 
+		//case GL_VERTEX_ARRAY_BINDING:{
+		//	return JS.Return(glGetTyped(WebGLVertexArrayObject,pname))
+		//} 
+		case GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT:{
+			return JS.Return(glGetTyped(GLfloat,pname))
+		}}
+		return 0;
+	}
+	obj_gl["getProgramParameter"]=function(JSContext JS){
+		program=JS.Param(0).as(GLuint);
+		pname=JS.Param(1).as(GLenum);
+		ret=0
+		glGetProgramiv(program,pname,&ret)
+		return JS.Return(ret);
+	}
+	obj_gl["getProgramInfoLog"]=function(JSContext JS){
+		program=JS.Param(0).as(GLuint);
+		return JS.Return(glGetProgramInfoLogString(program));
+	}
+	obj_gl["getRenderbufferParameter"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		pname=JS.Param(1).as(GLenum);
+		ret=0
+		glGetRenderbufferParameteriv(target,pname,&ret)
+		return JS.Return(ret);
+	}
+	obj_gl["getShaderParameter"]=function(JSContext JS){
+		target=JS.Param(0).as(GLuint);
+		pname=JS.Param(1).as(GLenum);
+		ret=0
+		glGetShaderiv(target,pname,&ret)
+		return JS.Return(ret);
+	}
+	obj_gl["getShaderInfoLog"]=function(JSContext JS){
+		shader=JS.Param(0).as(GLuint);
+		return JS.Return(glGetShaderInfoLogString(shader));
+	}
+	obj_gl["getShaderPrecisionFormat"]=function(JSContext JS){
+		//shadertype=JS.Param(0).as(GLenum);
+		//precisiontype=JS.Param(1).as(GLenum);
+		//range=JS.Param(2).as(GLint);
+		//precision=JS.Param(3).as(GLint);
+		//glGetShaderPrecisionFormat(shadertype,precisiontype, range, precision);
+		//return 0;
+		//todo
+		return JS.ReturnError("not implemented");
+	}
+	obj_gl["getShaderSource"]=function(JSContext JS){
+		shader=JS.Param(0).as(GLuint);
+		len=0
+		glGetShaderiv(shader,GL_SHADER_SOURCE_LENGTH,&len);
+		if len>0:
+			s=new char[len]
+			glGetShaderSource(shader,len,&len,__pointer(s.d))
+			if s.n&&!s.back():s.pop()
+		else
+			s=new string
+		return JS.Return(s);
+	}
+	obj_gl["getSupportedExtensions"]=function(JSContext JS){
+		//coulddo: actually test the stuff
+		ret=JS.NewArray()
+		p=0L
+		if SDL.detail.SDL_GL_ExtensionSupported("GL_EXT_texture_filter_anisotropic"):
+			ret[p]="EXT_texture_filter_anisotropic"
+			p++
+		return JS.Return(ret);
+	}
+	obj_gl["getTexParameter"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		pname=JS.Param(1).as(GLenum);
+		if pname==GL_TEXTURE_MAX_ANISOTROPY_EXT||pname==GL_TEXTURE_MAX_LOD||pname==GL_TEXTURE_MIN_LOD:
+			retf=0.f
+			glGetTexParameterfv(target,pname,&retf)
+			return JS.Return(retf);
+		else
+			ret=0
+			glGetTexParameteriv(target,pname,&ret)
+			return JS.Return(ret);
+	}
+	obj_gl["getUniform"]=function(JSContext JS){
+		//todo
+		return JS.ReturnError("not implemented");
+	}
+	obj_gl["getUniformLocation"]=function(JSContext JS){
+		program=JS.Param(0).as(GLuint);
+		name=JS.Param(1).as(string);
+		return JS.Return(glGetUniformLocation(program,__pointer(name.d)));
+	}
+	obj_gl["getVertexAttrib"]=function(JSContext JS){
+		//todo
+		return JS.ReturnError("not implemented");
+	}
+	obj_gl["getVertexAttribOffset"]=function(JSContext JS){
+		//todo
+		return JS.ReturnError("not implemented");
+	}
+	obj_gl["hint"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		mode=JS.Param(1).as(GLenum);
+		glHint(target,mode);
+		return 0;
+	}
+	obj_gl["isBuffer"]=function(JSContext JS){
+		buffer=JS.Param(0).as(GLuint);
+		glIsBuffer(buffer);
+		return 0;
+	}
+	obj_gl["isContextLost"]=function(JSContext JS){
+		//override this if context loss is actually possible 
+		return JS.Return(0);
+	}
+	obj_gl["isEnabled"]=function(JSContext JS){
+		cap=JS.Param(0).as(GLenum);
+		glIsEnabled(cap);
+		return 0;
+	}
+	obj_gl["isFramebuffer"]=function(JSContext JS){
+		framebuffer=JS.Param(0).as(GLuint);
+		glIsFramebuffer(framebuffer);
+		return 0;
+	}
+	obj_gl["isProgram"]=function(JSContext JS){
+		program=JS.Param(0).as(GLuint);
+		glIsProgram(program);
+		return 0;
+	}
+	obj_gl["isRenderbuffer"]=function(JSContext JS){
+		renderbuffer=JS.Param(0).as(GLuint);
+		glIsRenderbuffer(renderbuffer);
+		return 0;
+	}
+	obj_gl["isShader"]=function(JSContext JS){
+		shader=JS.Param(0).as(GLuint);
+		glIsShader(shader);
+		return 0;
+	}
+	obj_gl["isTexture"]=function(JSContext JS){
+		texture=JS.Param(0).as(GLuint);
+		glIsTexture(texture);
+		return 0;
+	}
+	obj_gl["lineWidth"]=function(JSContext JS){
+		width=JS.Param(0).as(GLfloat);
+		glLineWidth(width);
+		return 0;
+	}
+	obj_gl["linkProgram"]=function(JSContext JS){
+		program=JS.Param(0).as(GLuint);
+		glLinkProgram(program);
+		return 0;
+	}
+	obj_gl["pixelStorei"]=function(JSContext JS){
+		pname=JS.Param(0).as(GLenum);
+		param=JS.Param(1).as(GLint);
+		glPixelStorei(pname,param);
+		return 0;
+	}
+	obj_gl["polygonOffset"]=function(JSContext JS){
+		factor=JS.Param(0).as(GLfloat);
+		units=JS.Param(1).as(GLfloat);
+		glPolygonOffset(factor,units);
+		return 0;
+	}
+	obj_gl["readPixels"]=function(JSContext JS){
+		x=JS.Param(0).as(GLint);
+		y=JS.Param(1).as(GLint);
+		width=JS.Param(2).as(GLsizei);
+		height=JS.Param(3).as(GLsizei);
+		format=JS.Param(4).as(GLenum);
+		type=JS.Param(5).as(GLenum);
+		pixels=JS.Param(6).as(u8[]);
+		glReadPixels(x,y,width,height,format,type,GLPTR(pixels));
+		return 0;
+	}
+	obj_gl["renderbufferStorage"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		internalformat=JS.Param(1).as(GLenum);
+		width=JS.Param(2).as(GLsizei);
+		height=JS.Param(3).as(GLsizei);
+		glRenderbufferStorage(target,internalformat,width,height);
+		return 0;
+	}
+	obj_gl["sampleCoverage"]=function(JSContext JS){
+		value=JS.Param(0).as(GLclampf);
+		invert=JS.Param(1).as(GLboolean);
+		glSampleCoverage(value,invert);
+		return 0;
+	}
+	obj_gl["scissor"]=function(JSContext JS){
+		x=JS.Param(0).as(GLint);
+		y=JS.Param(1).as(GLint);
+		width=JS.Param(2).as(GLsizei);
+		height=JS.Param(3).as(GLsizei);
+		glScissor(x,y,width,height)
+		return 0;
+	}
+	obj_gl["shaderSource"]=function(JSContext JS){
+		shader=JS.Param(0).as(GLuint);
+		str=JS.Param(1).as(string);
+		psrc=str.d
+		glShaderSource(shader,1,&psrc,NULL);
+		__force_alive(str)
+		return 0;
+	}
+	obj_gl["stencilFunc"]=function(JSContext JS){
+		func=JS.Param(0).as(GLenum);
+		ref=JS.Param(1).as(GLint);
+		mask=JS.Param(2).as(GLuint);
+		glStencilFunc(func,ref,mask);
+		return 0;
+	}
+	obj_gl["stencilFuncSeparate"]=function(JSContext JS){
+		frontfunc=JS.Param(0).as(GLenum);
+		backfunc=JS.Param(1).as(GLenum);
+		ref=JS.Param(2).as(GLint);
+		mask=JS.Param(3).as(GLuint);
+		glStencilFuncSeparate(frontfunc,backfunc,ref,mask);
+		return 0;
+	}
+	obj_gl["stencilMask"]=function(JSContext JS){
+		mask=JS.Param(0).as(GLuint);
+		glStencilMask(mask);
+		return 0;
+	}
+	obj_gl["stencilMaskSeparate"]=function(JSContext JS){
+		face=JS.Param(0).as(GLenum);
+		mask=JS.Param(1).as(GLuint);
+		glStencilMaskSeparate(face,mask);
+		return 0;
+	}
+	obj_gl["stencilOp"]=function(JSContext JS){
+		fail=JS.Param(0).as(GLenum);
+		zfail=JS.Param(1).as(GLenum);
+		zpass=JS.Param(2).as(GLenum);
+		glStencilOp(fail,zfail,zpass);
+		return 0;
+	}
+	obj_gl["stencilOpSeparate"]=function(JSContext JS){
+		face=JS.Param(0).as(GLenum);
+		sfail=JS.Param(1).as(GLenum);
+		dpfail=JS.Param(2).as(GLenum);
+		dppass=JS.Param(3).as(GLenum);
+		glStencilOpSeparate(face,sfail,dpfail,dppass);
+		return 0;
+	}
+	obj_gl["texParameterf"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		pname=JS.Param(1).as(GLenum);
+		param=JS.Param(2).as(GLfloat);
+		glTexParameterf(target,pname,param);
+		return 0;
+	}
+	obj_gl["texParameteri"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		pname=JS.Param(1).as(GLenum);
+		param=JS.Param(2).as(GLint);
+		glTexParameteri(target,pname,param);
+		return 0;
+	}
+	obj_gl["texImage2D"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		level=JS.Param(1).as(GLint);
+		internalFormat=JS.Param(2).as(GLint);
+		width=JS.Param(3).as(GLsizei);
+		height=JS.Param(4).as(GLsizei);
+		border=JS.Param(5).as(GLint);
+		format=JS.Param(6).as(GLenum);
+		type=JS.Param(7).as(GLenum);
+		pixels=JS.Param(8).as(u8[]);
+		glTexImage2D(target,level,internalFormat,width,height,border,format,type,GLPTR(pixels));
+		return 0;
+	}
+	obj_gl["texSubImage2D"]=function(JSContext JS){
+		target=JS.Param(0).as(GLenum);
+		level=JS.Param(1).as(GLint);
+		xoffset=JS.Param(2).as(GLint);
+		yoffset=JS.Param(3).as(GLint);
+		width=JS.Param(4).as(GLsizei);
+		height=JS.Param(5).as(GLsizei);
+		format=JS.Param(6).as(GLenum);
+		type=JS.Param(7).as(GLenum);
+		pixels=JS.Param(8).as(u8[]);
+		glTexSubImage2D(target,level,xoffset,yoffset,width,height,format,type, GLPTR(pixels));
+		return 0;
+	}
+	obj_gl["uniform1f"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		v0=JS.Param(1).as(GLfloat);
+		glUniform1f(location,v0);
+		return 0;
+	}
+	obj_gl["uniform1fv"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		value=JS.Param(1).as(u8[]);
+		glUniform1fv(location,int(value.n/sizeof(float)),GLPTR(value));
+		return 0;
+	}
+	obj_gl["uniform1i"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		v0=JS.Param(1).as(GLint);
+		glUniform1i(location,v0);
+		return 0;
+	}
+	obj_gl["uniform1iv"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		value=JS.Param(1).as(u8[]);
+		glUniform1iv(location,int(value.n/sizeof(int)),GLPTR(value));
+		return 0;
+	}
+	obj_gl["uniform2f"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		v0=JS.Param(1).as(GLfloat);
+		v1=JS.Param(2).as(GLfloat);
+		glUniform2f(location,v0,v1);
+		return 0;
+	}
+	obj_gl["uniform2fv"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		value=JS.Param(1).as(u8[]);
+		glUniform2fv(location,int(value.n/(sizeof(float)*2)),GLPTR(value));
+		return 0;
+	}
+	obj_gl["uniform2i"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		v0=JS.Param(1).as(GLint);
+		v1=JS.Param(2).as(GLint);
+		glUniform2i(location,v0,v1);
+		return 0;
+	}
+	obj_gl["uniform2iv"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		value=JS.Param(1).as(u8[]);
+		glUniform2iv(location,int(value.n/(sizeof(int)*2)),GLPTR(value));
+		return 0;
+	}
+	obj_gl["uniform3f"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		v0=JS.Param(1).as(GLfloat);
+		v1=JS.Param(2).as(GLfloat);
+		v2=JS.Param(3).as(GLfloat);
+		glUniform3f(location,v0,v1,v2);
+		return 0;
+	}
+	obj_gl["uniform3fv"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		value=JS.Param(1).as(u8[]);
+		glUniform3fv(location,int(value.n/(sizeof(float)*3)),GLPTR(value));
+		return 0;
+	}
+	obj_gl["uniform3i"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		v0=JS.Param(1).as(GLint);
+		v1=JS.Param(2).as(GLint);
+		v2=JS.Param(3).as(GLint);
+		glUniform3i(location,v0,v1,v2);
+		return 0;
+	}
+	obj_gl["uniform3iv"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		value=JS.Param(1).as(u8[]);
+		glUniform3iv(location,int(value.n/(sizeof(int)*3)),GLPTR(value));
+		return 0;
+	}
+	obj_gl["uniform4f"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		v0=JS.Param(1).as(GLfloat);
+		v1=JS.Param(2).as(GLfloat);
+		v2=JS.Param(3).as(GLfloat);
+		v3=JS.Param(4).as(GLfloat);
+		glUniform4f(location,v0,v1,v2,v3);
+		return 0;
+	}
+	obj_gl["uniform4fv"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		value=JS.Param(1).as(u8[]);
+		glUniform4fv(location,int(value.n/(sizeof(float)*4)),GLPTR(value));
+		return 0;
+	}
+	obj_gl["uniform4i"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		v0=JS.Param(1).as(GLint);
+		v1=JS.Param(2).as(GLint);
+		v2=JS.Param(3).as(GLint);
+		v3=JS.Param(4).as(GLint);
+		glUniform4i(location,v0,v1,v2,v3);
+		return 0;
+	}
+	obj_gl["uniform4iv"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		value=JS.Param(1).as(u8[]);
+		glUniform4iv(location,int(value.n/(sizeof(int)*4)),GLPTR(value));
+		return 0;
+	}
+	obj_gl["uniformMatrix2fv"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		transpose=JS.Param(1).as(GLboolean);
+		value=JS.Param(2).as(u8[]);
+		glUniformMatrix2fv(location,int(value.n/(sizeof(float)*4)),transpose,GLPTR(value));
+		return 0;
+	}
+	obj_gl["uniformMatrix3fv"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		transpose=JS.Param(1).as(GLboolean);
+		value=JS.Param(2).as(u8[]);
+		glUniformMatrix3fv(location,int(value.n/(sizeof(float)*9)),transpose,GLPTR(value));
+		return 0;
+	}
+	obj_gl["uniformMatrix4fv"]=function(JSContext JS){
+		location=JS.Param(0).as(GLint);
+		transpose=JS.Param(1).as(GLboolean);
+		value=JS.Param(2).as(u8[]);
+		glUniformMatrix4fv(location,int(value.n/(sizeof(float)*16)),transpose,GLPTR(value));
+		return 0;
+	}
+	obj_gl["useProgram"]=function(JSContext JS){
+		program=JS.Param(0).as(GLuint);
+		glUseProgram(program);
+		return 0;
+	}
+	obj_gl["validateProgram"]=function(JSContext JS){
+		program=JS.Param(0).as(GLuint);
+		glValidateProgram(program);
+		return 0;
+	}
+	obj_gl["vertexAttrib1f"]=function(JSContext JS){
+		index=JS.Param(0).as(GLuint);
+		x=JS.Param(1).as(GLfloat);
+		glVertexAttrib1f(index,x);
+		return 0;
+	}
+	obj_gl["vertexAttrib1fv"]=function(JSContext JS){
+		index=JS.Param(0).as(GLuint);
+		v=JS.Param(1).as(u8[]);
+		glVertexAttrib1fv(index,GLPTR(v));
+		return 0;
+	}
+	obj_gl["vertexAttrib2f"]=function(JSContext JS){
+		index=JS.Param(0).as(GLuint);
+		x=JS.Param(1).as(GLfloat);
+		y=JS.Param(2).as(GLfloat);
+		glVertexAttrib2f(index,x,y);
+		return 0;
+	}
+	obj_gl["vertexAttrib2fv"]=function(JSContext JS){
+		index=JS.Param(0).as(GLuint);
+		v=JS.Param(1).as(u8[]);
+		glVertexAttrib2fv(index,GLPTR(v));
+		return 0;
+	}
+	obj_gl["vertexAttrib3f"]=function(JSContext JS){
+		index=JS.Param(0).as(GLuint);
+		x=JS.Param(1).as(GLfloat);
+		y=JS.Param(2).as(GLfloat);
+		z=JS.Param(3).as(GLfloat);
+		glVertexAttrib3f(index,x,y,z);
+		return 0;
+	}
+	obj_gl["vertexAttrib3fv"]=function(JSContext JS){
+		index=JS.Param(0).as(GLuint);
+		v=JS.Param(1).as(u8[]);
+		glVertexAttrib3fv(index,GLPTR(v));
+		return 0;
+	}
+	obj_gl["vertexAttrib4f"]=function(JSContext JS){
+		index=JS.Param(0).as(GLuint);
+		x=JS.Param(1).as(GLfloat);
+		y=JS.Param(2).as(GLfloat);
+		z=JS.Param(3).as(GLfloat);
+		w=JS.Param(4).as(GLfloat);
+		glVertexAttrib4f(index,x,y,z,w);
+		return 0;
+	}
+	obj_gl["vertexAttrib4fv"]=function(JSContext JS){
+		index=JS.Param(0).as(GLuint);
+		v=JS.Param(1).as(u8[]);
+		glVertexAttrib4fv(index,GLPTR(v));
+		return 0;
+	}
+	obj_gl["vertexAttribPointer"]=function(JSContext JS){
+		index=JS.Param(0).as(GLuint);
+		size=JS.Param(1).as(GLint);
+		type=JS.Param(2).as(GLenum);
+		normalized=JS.Param(3).as(GLboolean);
+		stride=JS.Param(4).as(GLsizei);
+		pointer=JS.Param(5).as(u8[]);
+		glVertexAttribPointer(index,size,type,normalized,stride,GLPTR(pointer));
+		return 0;
+	}
+	obj_gl["viewport"]=function(JSContext JS){
+		x=JS.Param(0).as(GLint);
+		y=JS.Param(1).as(GLint);
+		width=JS.Param(2).as(GLsizei);
+		height=JS.Param(3).as(GLsizei);
+		glViewport(x,y,width,height);
+		return 0;
+	}
+	return JS.Return(obj_gl)
+}

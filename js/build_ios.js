@@ -70,8 +70,6 @@ g_action_handlers.make=function(){
 	if(g_json.is_library){
 		//skeleton makefile
 		smakefile=[];
-		smakefile.push('lib'+g_main_name+'.a: libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a libtmp-emu.a\n')
-		smakefile.push('	lipo -create -output lib'+g_main_name+'.a libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a libtmp-emu.a\n\n')
 	}else{
 		if(!FileExists(g_work_dir+"/SDL_setup")){
 			//the SDL skeleton project
@@ -134,6 +132,23 @@ g_action_handlers.make=function(){
 	var c_files=CreateProjectForStandardFiles(g_work_dir+"/upload/")
 	if(g_json.is_library){
 		//library makefile
+		if(g_lib_files){
+			smakefile.push('lib'+g_main_name+'.a: libtmp.a')
+			for(var i=0;i<g_lib_files.length;i++){
+				smakefile.push(' ',g_lib_files[i]);
+			}
+			smakefile.push('\n\tlibtool -static -o lib'+g_main_name+'.a libtmp.a')
+			for(var i=0;i<g_lib_files.length;i++){
+				smakefile.push(' ',g_lib_files[i]);
+			}
+			smakefile.push('\n\n')
+			smakefile.push('libtmp.a: libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a libtmp-emu.a\n')
+			smakefile.push('	lipo -create -output libtmp.a libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a libtmp-emu.a\n\n')
+		}else{
+			smakefile.push('lib'+g_main_name+'.a: libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a libtmp-emu.a\n')
+			smakefile.push('	lipo -create -output lib'+g_main_name+'.a libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a libtmp-emu.a\n\n')
+		}
+		////////////////////////////////
 		var s_extra_cflags=[];
 		if(g_json.ios_frameworks){
 			for(var i=0;g_json.ios_frameworks[i];i++){
@@ -243,7 +258,7 @@ g_action_handlers.make=function(){
 		sshell.push('echo "--- Setting and unlocking keychains ---";')
 		sshell.push('security default-keychain -s ios.keychain;')
 		sshell.push('security unlock-keychain -p \'\' ios.keychain;')
-		sshell.push('security set-keychain-settings -t 3600 -u ios.keychain;')
+		//sshell.push('security set-keychain-settings -t 3600 -u ios.keychain;')
 	}
 	if(g_json.is_library){
 		sshell.push('export IOSSDK=`ls /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/ | grep [0-9]\\.`;')
@@ -304,7 +319,7 @@ g_action_handlers.make=function(){
 		if(g_json.is_library){
 			_rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/lib'+g_main_name+'.a',g_bin_dir)
 		}else if(g_build!="debug"){
-			_rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/'+g_main_name+'.ipa',g_bin_dir)
+			_rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/build/Release-iphoneos/'+g_main_name+'.ipa',g_bin_dir)
 		}
 	}else{
 		CreateFile(g_work_dir+"/build_local.sh",sshell.join(""))

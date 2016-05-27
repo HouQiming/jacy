@@ -1,0 +1,25 @@
+import 'system.jc'
+import 'g-l.jc'
+import GL.*
+import System.Console.*
+
+__export("testNormalFunction",function(int a){
+	Writeln('printing a message from the lib, a=',a)
+	return a+42;
+})
+
+g_tech=new GLTechnique
+__export("testGL",function(){
+	//glClearColor(0.f,0.f,1.f,1.f)
+	//glClear(GL_COLOR_BUFFER_BIT)
+	glDisable(GL_CULL_FACE)
+	glDisable(GL_DEPTH_TEST)
+	g_tech.SetFragmentShader("
+		void main(){
+			gl_FragColor=vec4(st,0.0,1.0);
+		}
+	")
+	did=g_tech.DrawScreenQuad()
+	if Platform.BUILD=="debug":
+		Writeln('debug: ',did)
+})

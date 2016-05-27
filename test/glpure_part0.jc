@@ -2902,7 +2902,7 @@ auto glGetProgramInfoLogString(GLuint obj)
 auto glAddShader(GLuint prg,string src,GLenum what)
 	obj=glCreateShader(what)
 	psrc=src.d
-	glShaderSource(obj,1,&psrc,NULL);
+	glShaderSource(obj,1,__pointer(&psrc),NULL);
 	glCompileShader(obj)
 	if Platform.BUILD=="debug":
 		err=glGetShaderInfoLogString(obj)

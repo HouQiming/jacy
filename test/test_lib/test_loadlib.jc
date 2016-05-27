@@ -1,0 +1,65 @@
+import "javascript.jc"
+import "gui2d.jc"
+import "text-box.jc"
+import Javascript.*
+import Gui2D.*
+import System.Console.*
+
+//specify the icon file name
+//__generate_json("icon_file","icon256.png")
+
+if Platform.ARCH=='win32':
+	if Platform.BUILD=="debug":
+		__generate_json("lib_files","bin/win32/test_lib.lib")
+		__generate_json("dll_files","bin/win32/test_lib.dll")
+	else
+		__generate_json("lib_files","bin/win32_release/test_lib.lib")
+		__generate_json("dll_files","bin/win32_release/test_lib.dll")
+else if Platform.ARCH=='win64':
+	if Platform.BUILD=="debug":
+		__generate_json("lib_files","bin/win64/test_lib.lib")
+		__generate_json("dll_files","bin/win64/test_lib.dll")
+	else
+		__generate_json("lib_files","bin/win64_release/test_lib.lib")
+		__generate_json("dll_files","bin/win64_release/test_lib.dll")
+else if Platform.ARCH=='android':
+	//todo
+else if Platform.ARCH=='mac':
+	//todo
+else if Platform.ARCH=='ios':
+	//todo
+else
+	//todo
+
+init_library_test_lib=__c_function(int,"init_library_test_lib","test_lib.h")
+testNormalFunction=__c_function(int,"testNormalFunction","test_lib.h")
+testGL=__c_function(int,"testGL","test_lib.h")
+
+(function(){
+	//create a Javascript interpreter context
+	//variables automatically goes to the lowest-appeared scope
+	JS=new JSContext
+	//setup the UI modules and load res/* files from the platform's asset storage
+	sbox=setupModuleSystem(JS,1)
+	sbox.UILoadZip(string.NULL)
+	inited=0
+	//g_tech=new GL.GLTechnique
+	JS["CallLibFunction"]=function(JSContext JS){
+		if !inited:
+			inited=1
+			init_library_test_lib();
+			Writeln('testNormalFunction(100)=',testNormalFunction(100))
+		testGL();
+		//Writeln(GL.glGetError())
+		//g_tech.SetFragmentShader("
+		//	void main(){
+		//		gl_FragColor=vec4(st,0.0,1.0);
+		//	}
+		//")
+		//g_tech.DrawScreenQuad()
+		return 0
+	}
+	/////////////
+	//give control to the JS main
+	sbox.UIRunJS(JS,"res/ui_main.js")
+})()

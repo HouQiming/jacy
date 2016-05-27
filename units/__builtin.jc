@@ -223,7 +223,7 @@ class __array(T)
 			n=n0+1
 			this[n0]=T(a)
 		else
-			__error("invalid operation @1[].push(@2)",Array(T),TA)
+			__error("invalid operation @1[].push(@2)",T,TA)
 	inline pop()
 		if Platform.BUILD=="debug":
 			if !n:
