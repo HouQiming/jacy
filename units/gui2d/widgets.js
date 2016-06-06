@@ -1740,7 +1740,7 @@ W.SliderLabel_prototype={
 	OnMouseUp:function(){
 		this.is_dragging=0
 		UI.ReleaseMouse(this)
-		obj.EndContinuousChange()
+		this.parent.EndContinuousChange()
 	},
 	OnMouseMove:function(event){
 		if(!this.is_dragging){return;}
@@ -1774,17 +1774,19 @@ W.Slider=function(id,attrs){
 			color:obj.middle_bar.color, border_width:obj.middle_bar.border_width, border_color:obj.middle_bar.border_color})
 	}
 	if(obj.label_text){
-		var tmp={w:1e17,h:1e17,font:obj.label_font,text:obj.label_text}
-		UI.LayoutText(tmp);
+		//var tmp={w:1e17,h:1e17,font:obj.label_font,text:obj.label_text}
+		//UI.LayoutText(tmp);
+		var dim=UI.MeasureText(obj.label_font,obj.label_text.toString());
 		UI.Begin(obj)
 			var obj_label={}
-			obj_label.x=obj.x+w_value-tmp.w_text*0.5
-			obj_label.y=obj.y+obj.h-tmp.h_text*obj.label_raise
-			obj_label.w=tmp.w_text
-			obj_label.h=tmp.h_text
+			obj_label.x=obj.x+w_value-dim.w*0.5;
+			obj_label.y=obj.y+obj.h-dim.h*(obj.label_raise||0)
+			obj_label.w=dim.w
+			obj_label.h=dim.h
 			obj_label.parent=obj
 			W.Region("label",obj_label,W.SliderLabel_prototype)
-			UI.DrawTextControl(tmp,obj_label.x,obj_label.y,obj.label_color)
+			//UI.DrawTextControl(tmp,obj_label.x,obj_label.y,obj.label_color)
+			W.Text("",{x:obj_label.x,y:obj_label.y,font:obj.label_font,text:obj.label_text,color:obj.label_color})
 		UI.End()
 	}
 	return obj;

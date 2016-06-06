@@ -8705,6 +8705,7 @@ auto deadelim()
 				if isBuiltin(pe,g_id_if):
 					val_cond=getExprValue(readPool(pe+EXPR_OFS_ARGS+0))
 					if val_cond.tid==g_vtid_UNINIT:
+						//todo: dfs into the cond to give a better message
 						errorAtExpr(ETYPE_ERROR,readPool(pe+EXPR_OFS_ARGS+0),"unresolved if condition")
 						if g_enable_dump:
 							Writeln('cond ',dumpExpr(readPool(pe+EXPR_OFS_ARGS+0),fcolor_abbrv_blocks))

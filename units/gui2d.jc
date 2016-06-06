@@ -2328,3 +2328,13 @@ auto DoFileDialog(int is_save,string filterList,string defaultPath)
 
 OpenDialog=inline(filterList,defaultPath){return DoFileDialog(0,filterList,defaultPath)}
 SaveDialog=inline(filterList,defaultPath){return DoFileDialog(1,filterList,defaultPath)}
+
+UIMain=function(){
+	JS=new JSContext
+	//setup the UI modules and load res/* files from the platform's asset storage
+	sbox=setupModuleSystem(JS,1)
+	sbox.UILoadZip(string.NULL)
+	/////////////
+	//give control to the JS main
+	sbox.UIRunJS(JS,"res/ui_main.js")
+}
