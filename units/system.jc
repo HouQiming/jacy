@@ -8694,7 +8694,7 @@ module Console
 		if g_auto_flush_console:
 			System.IO.stdout().Flush()
 	auto GetCommandLine()
-		if Platform.IS_MOBILE:
+		if Platform.IS_MOBILE||Platform.ARCH=="web":
 			return [new string]
 		else
 			argv=NULL

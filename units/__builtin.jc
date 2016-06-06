@@ -864,6 +864,28 @@ class __array(T)
 					else if a<0L:
 						__reportRangeCheckError(a,n)
 				return __memory(T,d+a)
+		inline ReadAtU(a,T)
+			if arguments.length>2:
+				if arguments.length>3:
+					__error("ReadAt can only take 2 or 3 parameters")
+					n2=1L
+				else
+					n2=iptr(arguments[2])
+					if Platform.BUILD=="debug":
+						slice(a,a+sizeof(T)*n2-1)
+			else
+				n2=1
+				if Platform.BUILD=="debug":
+					if uptr(a+sizeof(T))>uptr(n):
+						__reportRangeCheckError(a+sizeof(T),n)
+					else if a<0L:
+						__reportRangeCheckError(a,n)
+			ret=new T[n2]
+			__basic_api.memcpy(__pointer(ret.d),__pointer(d+a),sizeof(T)*n2)
+			if arguments.length>2:
+				return ret
+			else
+				return ret[0]
 		inline PushUnicode(int chi)
 			if chi>=65536:
 				this.push(char(((chi>>18)&0xf)+0xf0))
@@ -1736,26 +1758,49 @@ module __detail
 		rem = len & 3;
 		len >>= 2;
 		/* Main loop */
-		for (;len > 0; len--)
-			h  += u32(__memory(u16,data));
-			tmp = ((u32(__memory(u16,data+sizeof(u16)))) << 11) ^ h;
-			h	= (h << 16) ^ tmp;
-			data  += 2*sizeof(u16);
-			h  += h >> 11;
-		/* Handle end cases */
-		if rem==3:
-			h += u32(__memory(u16,data));
-			h ^= h << 16;
-			h ^= u32(__memory(u8,data+2L)) << 18;
-			h += h >> 11;
-		else if rem==2:
-			h += u32(__memory(u16,data));
-			h ^= h << 11;
-			h += h >> 17;
-		else if rem==1:
-			h += u32(__memory(u8,data));
-			h ^= h << 10;
-			h += h >> 1;
+		if data&1:
+			//unaligned case
+			for (;len > 0; len--)
+				h  += (u32(__memory(u8,data+1L))<<8)+u32(__memory(u8,data+0L));
+				tmp = (((u32(__memory(u8,data+3L))<<8)+u32(__memory(u8,data+2L))) << 11) ^ h;
+				h	= (h << 16) ^ tmp;
+				data  += 2*sizeof(u16);
+				h  += h >> 11;
+			/* Handle end cases */
+			if rem==3:
+				h += (u32(__memory(u8,data+1L))<<8)+u32(__memory(u8,data+0L));
+				h ^= h << 16;
+				h ^= u32(__memory(u8,data+2L)) << 18;
+				h += h >> 11;
+			else if rem==2:
+				h += (u32(__memory(u8,data+1L))<<8)+u32(__memory(u8,data+0L));
+				h ^= h << 11;
+				h += h >> 17;
+			else if rem==1:
+				h += u32(__memory(u8,data));
+				h ^= h << 10;
+				h += h >> 1;
+		else
+			for (;len > 0; len--)
+				h  += u32(__memory(u16,data));
+				tmp = ((u32(__memory(u16,data+sizeof(u16)))) << 11) ^ h;
+				h	= (h << 16) ^ tmp;
+				data  += 2*sizeof(u16);
+				h  += h >> 11;
+			/* Handle end cases */
+			if rem==3:
+				h += u32(__memory(u16,data));
+				h ^= h << 16;
+				h ^= u32(__memory(u8,data+2L)) << 18;
+				h += h >> 11;
+			else if rem==2:
+				h += u32(__memory(u16,data));
+				h ^= h << 11;
+				h += h >> 17;
+			else if rem==1:
+				h += u32(__memory(u8,data));
+				h ^= h << 10;
+				h += h >> 1;
 		/* Force "avalanching" of final 127 bits */
 		h=__hash_avalanche(h)
 		return uptr(h);

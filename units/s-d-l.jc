@@ -996,7 +996,10 @@ module detail
 		//else if Platform.ARCH=="win64":
 		//	__generate_json("lib_files","lib/x64/sdl2.lib")
 		//	__generate_json("dll_files","lib/x64/sdl2.dll")
-		if Platform.IS_LINUX&&Platform.ARCH!="android":
+		if Platform.ARCH=="web":
+			__generate_json("cflags","-s USE_SDL=2")
+			__generate_json("ldflags","-s USE_SDL=2")
+		else if Platform.IS_LINUX&&Platform.ARCH!="android":
 			//linux is too messy for our own copy of SDL to work
 			__generate_json("cflags","-I/usr/include/SDL2")
 			__generate_json("cflags","-I/usr/local/include/SDL2")

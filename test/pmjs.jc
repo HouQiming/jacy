@@ -579,7 +579,7 @@ auto jszip(JSContext JS)
 		fn_C=JS.Param(1).as(string)
 		zip_data=System.IO.ReadAll(fn_zip)
 		if zip_data:
-			s_ret=new('#include "wrapper_defines.h"\nstatic const unsigned char g_res_zip[]={')
+			s_ret=new('#include "wrapper_defines.h"\n#ifdef _WIN32\n#define __attribute__(x)\n#endif\n\nstatic __attribute__((aligned(32))) const unsigned char g_res_zip[]={')
 			foreach ch,I in zip_data
 				if !(I&1023):
 					s_ret.push('\n')

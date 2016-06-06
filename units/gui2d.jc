@@ -259,7 +259,8 @@ class CUISandbox
 				return System.IO.ReadAll(sfn_i)
 		if m_ui_zip:
 			return m_ui_zip.ReadAll(s_fname)
-		return string.NULL
+		else
+			return string.NULL
 	auto UILoadStaticZip()
 		__generate_json("use_static_res","1")
 		sz=0L
@@ -267,6 +268,7 @@ class CUISandbox
 		if pzip:
 			arr_res_zip=new string
 			arr_res_zip.__bind(1,iptr(pzip),iptr(sz))
+			//Writeln('>>> ',pzip,' ',sz)
 			m_ui_zip=ParseZip(arr_res_zip)
 	auto UILoadZip(string szipname)
 		arr_res_zip=szipname
@@ -389,6 +391,10 @@ class CRenderer
 	//////////////
 	//single vbo for simplicity
 	m_vbo=new int[]
+	m_gl_vbo=0u
+	m_gl_vbo_tiny=0u
+	m_gl_vbo_sz=0L
+	m_vbo_uploaded=0
 	m_drawcall_start=0
 	m_crd16_scale=1
 	m_window_w=1.f
@@ -494,10 +500,10 @@ class CRenderer
 	auto EndFrame()
 		//pack m_dynamic_textures and apply the dynamic drawcalls
 		if m_StretchDIBits_calls.n:
-			m_vbo.resize(m_StretchDIBits_calls.n*(VERTEX_SIZE*4))
+			m_vbo.resize(m_StretchDIBits_calls.n*(VERTEX_SIZE*6))
 			foreach scall,I in m_StretchDIBits_calls
 				packed=m_packed_textures[scall.bmpid]
-				n0=I*(VERTEX_SIZE*4)
+				n0=I*(VERTEX_SIZE*6)
 				vdata=scall.vdata
 				u0=__int_as_float(0x4b000000+1+packed.x)-8388608.f
 				v0=__int_as_float(0x4b000000+1+packed.y)-8388608.f
@@ -531,13 +537,21 @@ class CRenderer
 				m_vbo[n0+(VERTEX_SIZE*2+0)]=vdata.y
 				m_vbo[n0+(VERTEX_SIZE*2+1)]=v1i+u1i
 				m_vbo[n0+(VERTEX_SIZE*2+2)]=scall.C[2]
-				m_vbo[n0+(VERTEX_SIZE*3+0)]=(vdata.x&0xffff)+(vdata.y&0xffff0000)
-				m_vbo[n0+(VERTEX_SIZE*3+1)]=v1i+u0i
-				m_vbo[n0+(VERTEX_SIZE*3+2)]=scall.C[3]
+				//////////////////////////////////////////
+				m_vbo[n0+(VERTEX_SIZE*3+0)]=vdata.x
+				m_vbo[n0+(VERTEX_SIZE*3+1)]=v0i+u0i
+				m_vbo[n0+(VERTEX_SIZE*3+2)]=scall.C[0]
+				m_vbo[n0+(VERTEX_SIZE*4+0)]=vdata.y
+				m_vbo[n0+(VERTEX_SIZE*4+1)]=v1i+u1i
+				m_vbo[n0+(VERTEX_SIZE*4+2)]=scall.C[2]
+				m_vbo[n0+(VERTEX_SIZE*5+0)]=(vdata.x&0xffff)+(vdata.y&0xffff0000)
+				m_vbo[n0+(VERTEX_SIZE*5+1)]=v1i+u0i
+				m_vbo[n0+(VERTEX_SIZE*5+2)]=scall.C[3]
 				//Writeln(u0,' ',v0,' ',du,' ',dv,' ',formatNumber(u32(scall.C),{base:16,align:8}))
 			m_StretchDIBits_calls=TStretchDIBits[].NULL
 			//dt=System.Time.tick64()-tick0
 			//Writeln('dyntex=',formatNumber(System.Time.TicksToSeconds(dt)*1000.,{frac:2}),'ms')
+		m_vbo_uploaded=0
 		m_frame_ticks=System.Time.tick64()-m_tick0
 	//inline texsubimage_format()
 	//	if m_srgb_supported&&IS_OPENGL_ES:
@@ -601,6 +615,24 @@ class CRenderer
 			if ((i/VERTEX_SIZE)&3)==3:
 				Writeln('-------')
 	auto DrawWindow(JSContext JS,__pointer hwnd_onlydraw,float2 translation,float2 scale)
+		if !m_vbo_uploaded:
+			if m_gl_vbo_sz<m_vbo.sz:
+				buf_ret=[m_gl_vbo]
+				m_gl_vbo_sz=0L
+				m_gl_vbo=0u
+				glDeleteBuffers(1,__pointer(buf_ret.d))
+				buf_ret.discard()
+			if !m_gl_vbo:
+				buf_ret=[0u]
+				glGenBuffers(1,__pointer(buf_ret.d))
+				m_gl_vbo=buf_ret[0]
+				m_gl_vbo_sz=m_vbo.sz
+				glBindBuffer(GL_ARRAY_BUFFER,m_gl_vbo)
+				glBufferData(GL_ARRAY_BUFFER,m_gl_vbo_sz*sizeof(int),NULL,GL_DYNAMIC_DRAW)
+				//glBindBuffer(GL_ARRAY_BUFFER,0u)
+				buf_ret.discard()
+			glBindBuffer(GL_ARRAY_BUFFER,m_gl_vbo)
+			glBufferSubData(GL_ARRAY_BUFFER,0L,m_vbo.n*sizeof(int),__pointer(m_vbo.d))
 		TestSRGB()
 		wnd_viewport=new int[4]
 		glGetIntegerv(GL_VIEWPORT,__pointer(wnd_viewport.d));
@@ -683,15 +715,15 @@ class CRenderer
 					//	m_tech.SetFragmentShader("void main(){vec4 C_tex=texture2D(tex0,uv);gl_FragColor=vec4(pow(C_tex.xyz,vec3("+formatNumber(m_gamma,{frac:7})+")),C_tex.w)*C;}")
 					//else
 					m_tech.SetFragmentShader("void main(){gl_FragColor=vec4(1.0,1.0,1.0,texture2D(tex0,uv).w)*C;}")
-				pslice=m_vbo[dc.pv:]
-				m_tech.SetVertexPointer("P", 2,GL_UNSIGNED_SHORT,0, VERTEX_SIZE*sizeof(int),pslice.d)
-				m_tech.SetVertexPointer("uv_vert", 2,GL_UNSIGNED_SHORT,0, VERTEX_SIZE*sizeof(int),pslice.d+1*sizeof(int))
-				m_tech.SetVertexPointer("C_vert", 4,GL_UNSIGNED_BYTE,1, VERTEX_SIZE*sizeof(int),pslice.d+2*sizeof(int))
+				//pslice=m_vbo[dc.pv:]
+				m_tech.SetVertexPointer("P", 2,GL_UNSIGNED_SHORT,0, VERTEX_SIZE*sizeof(int),dc.pv*sizeof(int))
+				m_tech.SetVertexPointer("uv_vert", 2,GL_UNSIGNED_SHORT,0, VERTEX_SIZE*sizeof(int),(dc.pv+1)*sizeof(int))
+				m_tech.SetVertexPointer("C_vert", 4,GL_UNSIGNED_BYTE,1, VERTEX_SIZE*sizeof(int),(dc.pv+2)*sizeof(int))
 				scale_scr=float2(scale.x*2.f/f32(dc.window_w),-scale.y*2.f/f32(dc.window_h))
 				m_tech.SetUniform("scale",float4(scale_scr.x/f32(dc.crd16_scale),scale_scr.y/f32(dc.crd16_scale), 1.f/f32(m_texture_width*m_uv16_scale),1.f/f32(m_texture_height*m_uv16_scale)))
 				m_tech.SetUniform("trans",float2(-1.f,1.f)+translation*scale_scr)
 				m_tech.SetTexture2D("tex0", m_texid)
-				m_tech.Draw(0u,GL_QUADS,dc.nv)
+				m_tech.Draw(m_gl_vbo,GL_TRIANGLES,dc.nv)
 		if m_srgb_supported==2:
 			//manual sRGB
 			glBindFramebuffer(GL_FRAMEBUFFER,bk_fbo[0])
@@ -708,6 +740,18 @@ class CRenderer
 			tech.SetUniform("scale",float2(float(wnd_w)/float(m_srgb_fbo.w),float(wnd_h)/float(m_srgb_fbo.h)))
 			tech.SetTexture2D("tex0",m_srgb_fbo.m_tex)
 			tech.DrawScreenQuad()
+	auto UploadMiniVBO(int[] mini_vbo)
+		if !m_gl_vbo_tiny:
+			buf_ret=[0u]
+			glGenBuffers(1,__pointer(buf_ret.d))
+			m_gl_vbo_tiny=buf_ret[0]
+			glBindBuffer(GL_ARRAY_BUFFER,m_gl_vbo_tiny)
+			glBufferData(GL_ARRAY_BUFFER,65536,NULL,GL_DYNAMIC_DRAW)
+			//glBindBuffer(GL_ARRAY_BUFFER,0u)
+			buf_ret.discard()
+		glBindBuffer(GL_ARRAY_BUFFER,m_gl_vbo_tiny)
+		glBufferSubData(GL_ARRAY_BUFFER,0L,mini_vbo.n*sizeof(int),__pointer(mini_vbo.d))
+		return m_gl_vbo_tiny
 	auto DrawCaret(float x,float y,float w,float h,int C)
 		m_caret_tech.SetVarying("vec4 C;")
 		m_caret_tech.SetVertexShader("
@@ -716,20 +760,19 @@ class CRenderer
 			"+(m_srgb_supported?"C=vec4(pow(C_vert.xyz,vec3("+formatNumber(m_gamma,{frac:7})+")),C_vert.w);":"C=C_vert;")+"
 			gl_Position=vec4(P_scr.x-1.0,1.0-P_scr.y,1.0,1.0);
 		}")
-		mini_vbo=[
+		vbo=UploadMiniVBO([
 			__float_as_int(x),__float_as_int(y),
 			__float_as_int(x+w),__float_as_int(y),
 			__float_as_int(x+w),__float_as_int(y+h),
 			__float_as_int(x),__float_as_int(y+h),
-			C,C,C,C]
+			C,C,C,C])
 		m_caret_tech.SetFragmentShader("void main(){gl_FragColor=C;}")
-		m_caret_tech.SetVertexPointer("P", 2,GL_FLOAT,0, 2*sizeof(int),mini_vbo.d)
-		m_caret_tech.SetVertexPointer("C_vert", 4,GL_UNSIGNED_BYTE,1, sizeof(int),mini_vbo.d+8*sizeof(float))
+		m_caret_tech.SetVertexPointer("P", 2,GL_FLOAT,0, 2*sizeof(int),0L)
+		m_caret_tech.SetVertexPointer("C_vert", 4,GL_UNSIGNED_BYTE,1, sizeof(int),0L+8*sizeof(float))
 		prev_viewport=new int[4]
 		glGetIntegerv(GL_VIEWPORT,__pointer(prev_viewport.d));
 		m_caret_tech.SetUniform("scale",float2(2.f/f32(prev_viewport[2]),2.f/f32(prev_viewport[3])))
-		m_caret_tech.Draw(0u,GL_QUADS,4)
-		mini_vbo.discard()
+		m_caret_tech.Draw(vbo,GL_TRIANGLE_FAN,4)
 		//only draw caret for the last drawcall
 	//////////////
 	//avoid caching the resampled / original bitmaps - batched loadStaticResources
@@ -749,8 +792,8 @@ class CRenderer
 		if m_window_w&&m_window_h&&m_drawcall_start<int(m_StretchDIBits_calls.n):
 			m_drawcalls.push(TDrawCall(){
 				hwnd:m_hwnd,
-				pv:m_drawcall_start*(VERTEX_SIZE*4),
-				nv:(int(m_StretchDIBits_calls.n)-m_drawcall_start)*4,
+				pv:m_drawcall_start*(VERTEX_SIZE*6),
+				nv:(int(m_StretchDIBits_calls.n)-m_drawcall_start)*6,
 				crd16_scale:m_crd16_scale,
 				window_w:m_window_w,
 				window_h:m_window_h})
@@ -2141,22 +2184,23 @@ auto ParseZip(string dat)
 		if Platform.BUILD=="debug":
 			Writeln('unable to parse zip file, size=',dat.n)
 		return CZipFile.NULL
-	nfiles=iptr(dat.ReadAt(ptail+10,u16))
-	ofs=iptr(dat.ReadAt(ptail+16,u32))
+	//Writeln('>>> ',__pointer(ptail))
+	nfiles=iptr(dat.ReadAtU(ptail+10,u16))
+	ofs=iptr(dat.ReadAtU(ptail+16,u32))
 	if uptr(ofs)>=uptr(dat.n):return CZipFile.NULL
 	for i=0:nfiles-1
 		pos0=ofs
 		if uptr(pos0+46L)>=uptr(dat.n):return NULL
-		nmk=dat.ReadAt(pos0+28L,u16,3)
+		nmk=dat.ReadAtU(pos0+28L,u16,3)
 		szcrap=iptr(nmk[0])+iptr(nmk[1])+iptr(nmk[2])
-		ofs_local=iptr(dat.ReadAt(pos0+42L,u32))
+		ofs_local=iptr(dat.ReadAtU(pos0+42L,u32))
 		if uptr(pos0+46L+szcrap)>=uptr(dat.n):return NULL
 		////////////
 		if uptr(ofs_local+30L)>=uptr(dat.n)||uptr(ofs_local)>=uptr(dat.n):return NULL
-		method=int(dat.ReadAt(ofs_local+8L,i16))
-		szdata=iptr(dat.ReadAt(ofs_local+18L,u32))
-		szname=iptr(dat.ReadAt(ofs_local+26L,u16))
-		szextra=iptr(dat.ReadAt(ofs_local+28L,u16))
+		method=int(dat.ReadAtU(ofs_local+8L,i16))
+		szdata=iptr(dat.ReadAtU(ofs_local+18L,u32))
+		szname=iptr(dat.ReadAtU(ofs_local+26L,u16))
+		szextra=iptr(dat.ReadAtU(ofs_local+28L,u16))
 		if uptr(ofs_local+30L+szname)>=uptr(dat.n):return NULL
 		sname=dat.substr(ofs_local+30L,szname)
 		pfiledata=ofs_local+30L+szname+szextra
@@ -2166,6 +2210,11 @@ auto ParseZip(string dat)
 		ofs=pos0+46L+szcrap
 	return ret
 
+if Platform.ARCH=='web':
+	function() g_emscripten_mainloop
+	__export("s7_emscripten_mainloop",function(){
+		g_emscripten_mainloop();
+	})
 auto setupModuleSystem(JSContext JS,int is_real)
 	__generate_json("android_activity_manifest","android:configChanges=orientation|screenSize|keyboard|keyboardHidden")
 	__generate_json("include_js","res_zip.js")
@@ -2240,6 +2289,15 @@ auto setupModuleSystem(JSContext JS,int is_real)
 			Writeln(JS.Param(0).or(""))
 		return JS.Return(0)
 	}
+	if Platform.ARCH=='web':
+		global["Duktape"]["__EmscriptenSetMainLoop"]=function(JSContext JS){
+			g_emscripten_mainloop=function(){
+				obj_junk=JS["Duktape"].CallMethod(JSObject,"__EmscriptenMainLoop")
+			}
+			emscripten_set_main_loop=__c_function(int,"emscripten_set_main_loop","emscripten.h")
+			emscripten_set_main_loop(__C(__pointer,"s7_emscripten_mainloop"),0,1)
+			return 0;
+		}
 	global["console"]=JS.New()
 	global["console"]["log"]=function(JSContext JS){
 		s=new string

@@ -849,7 +849,8 @@ W.Edit_prototype={
 	},
 	GetEnhancedHome:function(ccnt){
 		var ccnt_lhome=this.SeekLC(this.GetLC(ccnt)[0],0);
-		return this.SnapToValidLocation(this.ed.MoveToBoundary(ccnt_lhome,1,"space"),1)
+		//in case there is \r, we need to snap before it, thus the -1
+		return this.SnapToValidLocation(this.ed.MoveToBoundary(ccnt_lhome,1,"space"),-1);
 	},
 	GetEnhancedEnd:function(ccnt){
 		var ccnt_lend=this.SeekLC(this.GetLC(ccnt)[0],1e17);

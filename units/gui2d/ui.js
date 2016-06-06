@@ -1807,8 +1807,6 @@ UI.TestEventInPollJob=function(){
 UI.Run=function(){
 	if(!UI.is_real){return;}
 	var event=undefined;
-	var t_kill_mousedown=undefined;
-	var t_linux_bogus_keys=undefined;
 	for(;;){
 		if(UI.need_to_refresh){
 			UI.m_frame_is_invalid=0;
@@ -1863,6 +1861,10 @@ UI.Run=function(){
 			}
 			if(UI.enable_timing){
 				console.log("--- idle ---");
+			}
+			if(UI.Platform.ARCH=="web"){
+				//emscripten has a different mainloop design
+				return;
 			}
 			event=UI.SDL_WaitEvent();
 		}
@@ -1939,7 +1941,7 @@ UI.Run=function(){
 					}
 					break;
 				case UI.SDL_WINDOWEVENT_ENTER:
-					t_kill_mousedown=event.timestamp;
+					UI.t_kill_mousedown=event.timestamp;
 					break;
 				case UI.SDL_WINDOWEVENT_FOCUS_GAINED:
 					var obj_window=UI.m_window_map[event.windowID.toString()];
@@ -1950,7 +1952,7 @@ UI.Run=function(){
 						UI.OnApplicationSwitch()
 					}
 					if(UI.IS_LINUX){
-						t_linux_bogus_keys=event.timestamp+LINUX_BOGUS_KEYS_INTERVAL;
+						UI.t_linux_bogus_keys=event.timestamp+LINUX_BOGUS_KEYS_INTERVAL;
 					}
 					break;
 				case UI.SDL_WINDOWEVENT_FOCUS_LOST:
@@ -1965,10 +1967,10 @@ UI.Run=function(){
 			case UI.SDL_KEYUP:
 				if(UI.inside_IME){break;}
 				if(UI.IS_LINUX){
-					if(event.timestamp<t_linux_bogus_keys){
+					if(event.timestamp<UI.t_linux_bogus_keys){
 						break;
 					}else{
-						t_linux_bogus_keys=undefined;
+						UI.t_linux_bogus_keys=undefined;
 					}
 				}
 				if(UI.unify_enters_versions){
@@ -2070,7 +2072,7 @@ UI.Run=function(){
 			case UI.SDL_MOUSEBUTTONUP:
 				event.x*=UI.SDL_bad_coordinate_corrector
 				event.y*=UI.SDL_bad_coordinate_corrector
-				if(t_kill_mousedown==event.timestamp&&event.type==UI.SDL_MOUSEBUTTONDOWN){
+				if(UI.t_kill_mousedown==event.timestamp&&event.type==UI.SDL_MOUSEBUTTONDOWN){
 					//filter out the bogus mousedowns sent by SDL
 					break
 				}
@@ -2177,6 +2179,12 @@ UI.Run=function(){
 	//console.log("=== run gc inside UI.Run 2")
 	//Duktape.gc()
 	return UI;
+}
+if(UI.Platform.ARCH=="web"){
+	Duktape.__EmscriptenMainLoop=UI.Run;
+	UI.Run=function(){
+		Duktape.__EmscriptenSetMainLoop();
+	}
 }
 
 if(UI.Platform.ARCH=="android"){

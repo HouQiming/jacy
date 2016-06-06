@@ -132,18 +132,23 @@ typedef DWORD TLSID;
 	#define __declspec(arg)
 #else
 	#ifndef PM_IS_LIBRARY
-		#ifdef LINUX
+		#if defined(LINUX)||defined(WEB)
 			#include "SDL.h"
 		#else
 			#include "SDL/include/SDL.h"
 		#endif
+	#endif
+	#ifdef WEB
+		#define HAS_GLOB
+		#include <glob.h>
+		#define NEED_MAIN_WRAPPING
 	#endif
 	#ifndef _WIN32
 		#define __declspec(arg)
 	#endif
 #endif
 
-#ifdef LINUX
+#if defined(LINUX)||defined(WEB)
 //emulate the windows-based custom extensions
 char* SDL_GetInputEventText(SDL_Event* pevent){return pevent->text.text;}
 void SDL_FreeInputEventText(SDL_Event* pevent){}
@@ -565,7 +570,7 @@ EXPORT void spapPopCallStack(){
 /////////////////////////////////////////////////////////////////
 //unix wrappers
 #if !defined(_WIN32)
-#if !defined(HAS_GLOB) 
+#if !defined(HAS_GLOB)
 ///////////////////////////////
 //glob.c
 /*
@@ -1619,34 +1624,38 @@ EXPORT int osal_EndFind(void* handle){
 #define OSAL_CP_PIPE_STDOUT 2
 #define OSAL_CP_PIPE_STDERR 4
 EXPORT int osal_CreateProcess(int* ret, char** zargv,char* spath,int flags){
-	int pipes[4];
-	int pid=0;
-	pipes[0]=-1;pipes[1]=-1;
-	pipes[2]=-1;pipes[3]=-1;
-	//pipes[4]=-1;pipes[5]=-1;
-	if(flags&OSAL_CP_PIPE_STDIN){pipe(pipes+0);}
-	if(flags&(OSAL_CP_PIPE_STDOUT|OSAL_CP_PIPE_STDERR)){pipe(pipes+2);}
-	//if(flags&OSAL_CP_PIPE_STDERR){pipe(pipes+4);}
-	pid=fork();
-	if(pid==0){
-		chdir(spath);
-		//child
-		if(flags&OSAL_CP_PIPE_STDIN){dup2(pipes[0+0], STDIN_FILENO);close(pipes[0+0]);close(pipes[0+1]);}
-		if(flags&OSAL_CP_PIPE_STDOUT){dup2(pipes[2+1], STDOUT_FILENO);}
-		if(flags&OSAL_CP_PIPE_STDERR){dup2(pipes[2+1], STDERR_FILENO);}
-		if(flags&(OSAL_CP_PIPE_STDOUT|OSAL_CP_PIPE_STDERR)){close(pipes[2+0]);close(pipes[2+1]);}
-		execvp(zargv[0],zargv);
-		_exit(1);
-	}else{
-		//parent
-		if(pid<0){return 0;}
-		ret[0]=pid;
-		ret[1]=-1;
-		ret[2]=-1;
-		if(flags&OSAL_CP_PIPE_STDIN){close(pipes[0+0]);ret[1]=pipes[0+1];}
-		if(flags&(OSAL_CP_PIPE_STDOUT|OSAL_CP_PIPE_STDERR)){close(pipes[2+1]);ret[2]=pipes[2+0];}
-	}
-	return 1;
+	#ifdef WEB
+		return 0;
+	#else
+		int pipes[4];
+		int pid=0;
+		pipes[0]=-1;pipes[1]=-1;
+		pipes[2]=-1;pipes[3]=-1;
+		//pipes[4]=-1;pipes[5]=-1;
+		if(flags&OSAL_CP_PIPE_STDIN){pipe(pipes+0);}
+		if(flags&(OSAL_CP_PIPE_STDOUT|OSAL_CP_PIPE_STDERR)){pipe(pipes+2);}
+		//if(flags&OSAL_CP_PIPE_STDERR){pipe(pipes+4);}
+		pid=fork();
+		if(pid==0){
+			chdir(spath);
+			//child
+			if(flags&OSAL_CP_PIPE_STDIN){dup2(pipes[0+0], STDIN_FILENO);close(pipes[0+0]);close(pipes[0+1]);}
+			if(flags&OSAL_CP_PIPE_STDOUT){dup2(pipes[2+1], STDOUT_FILENO);}
+			if(flags&OSAL_CP_PIPE_STDERR){dup2(pipes[2+1], STDERR_FILENO);}
+			if(flags&(OSAL_CP_PIPE_STDOUT|OSAL_CP_PIPE_STDERR)){close(pipes[2+0]);close(pipes[2+1]);}
+			execvp(zargv[0],zargv);
+			_exit(1);
+		}else{
+			//parent
+			if(pid<0){return 0;}
+			ret[0]=pid;
+			ret[1]=-1;
+			ret[2]=-1;
+			if(flags&OSAL_CP_PIPE_STDIN){close(pipes[0+0]);ret[1]=pipes[0+1];}
+			if(flags&(OSAL_CP_PIPE_STDOUT|OSAL_CP_PIPE_STDERR)){close(pipes[2+1]);ret[2]=pipes[2+0];}
+		}
+		return 1;
+	#endif
 }
 
 EXPORT int osal_GetExitCodeProcess(int pid){

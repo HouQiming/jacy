@@ -11,6 +11,7 @@ return {
 	"DEFAULT_SEARCH_PATHS":[g_root+"/wrapper"],
 	"OSSLIB_PATH":g_root+"/osslib",
 	"ADK_PATH":g_root+"/osslib/android",
+	"EMSCRIPTEN_PATH":g_root+"/osslib/emscripten",
 	"SDL_PATH":g_root+"/osslib",
 	"IOS_SKELETON_PATH":g_root+"/osslib/ios/skeleton_project",
 	"MAC_SKELETON_PATH":g_root+"/osslib/mac/skeleton_project",

@@ -2812,7 +2812,7 @@ GL_MAX_VERTEX_UNIFORM_VECTORS=0x8DFB
 GL_TEXTURE_EXTERNAL_OES=0x8D65
 
 //tegra K1 also needs GLES after r21...
-IS_OPENGL_ES=(Platform.ARCH=="android"||Platform.ARCH=="ios"||Platform.ARCH=="rasppi"||Platform.ARCH=="linux32")
+IS_OPENGL_ES=(Platform.ARCH=="android"||Platform.ARCH=="ios"||Platform.ARCH=="rasppi"||Platform.ARCH=="linux32"||Platform.ARCH=="web")
 
 auto mygluGetErrorString(GLenum err)
 	switch(err){
