@@ -1804,6 +1804,7 @@ UI.TestEventInPollJob=function(){
 	UI.m_poll_job_termination_event=UI.SDL_PollEvent();
 	return !!UI.m_poll_job_termination_event;
 }
+UI.m_absolute_mouse_position={x:0,y:0};
 UI.Run=function(){
 	if(!UI.is_real){return;}
 	var event=undefined;
@@ -1847,7 +1848,13 @@ UI.Run=function(){
 			}else{
 				event=UI.SDL_PollEvent();
 			}
-			if(!event){continue;}
+			if(!event){
+				if(UI.Platform.ARCH=="web"){
+					//emscripten only presents the result when we return
+					return;
+				}
+				continue;
+			}
 		}else{
 			//only call GC when we become idle
 			if(UI.m_need_gc_call>0){
@@ -1864,9 +1871,14 @@ UI.Run=function(){
 			}
 			if(UI.Platform.ARCH=="web"){
 				//emscripten has a different mainloop design
-				return;
+				event=UI.SDL_PollEvent();
+				if(!event){
+					//console.log("reached SDL_WaitEvent, returning");
+					return;
+				}
+			}else{
+				event=UI.SDL_WaitEvent();
 			}
-			event=UI.SDL_WaitEvent();
 		}
 		while(event){
 			if(UI.enable_timing){
@@ -2076,6 +2088,8 @@ UI.Run=function(){
 					//filter out the bogus mousedowns sent by SDL
 					break
 				}
+				UI.m_absolute_mouse_position.x=event.x;
+				UI.m_absolute_mouse_position.y=event.y;
 				var regions=UI.context_regions;
 				var lg=regions.length;
 				var nd_mouse_receiver=undefined;
@@ -2173,6 +2187,10 @@ UI.Run=function(){
 			}
 			event=UI.SDL_PollEvent();
 			if(!event)break;
+		}
+		if(UI.Platform.ARCH=="web"){
+			//emscripten only presents the result when we return
+			return;
 		}
 	}
 	UI.SDL_Quit()

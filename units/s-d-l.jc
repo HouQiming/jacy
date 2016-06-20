@@ -988,6 +988,8 @@ module detail
 			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS,1)
 			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES,g_msaa_rate)
 			SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 0);
+		else if Platform.ARCH=="web":
+			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS,0)
 	auto createSDLJSObject(JSObject JS_SDL,int do_consts)
 		//__generate_json("search_paths","SDL_PATH")
 		//if Platform.ARCH=="win32":

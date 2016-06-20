@@ -2968,6 +2968,7 @@ auto glCreateProgramFromString(TShaderItem[] strs,function(GLuint) fprelink)
 			else
 				return prg
 
+g_screen_quad_vbo=0u
 class GLTechnique
 	struct TDeclItem
 		//let's check the attr-ness using decl_code[0]
@@ -3259,14 +3260,17 @@ class GLTechnique
 		m_instance_count=c
 	//////////////////
 	auto DrawScreenQuad()
+		if !g_screen_quad_vbo:
+			g_screen_quad_vbo=glCreateBuffer(GL_ARRAY_BUFFER,[0.f,0.f, 1.f,0.f, 1.f,1.f, 0.f,1.f])
 		SetVarying("vec2 st;")
-		SetVertexArray("P_quad",[float2(0.f,0.f),float2(1.f,0.f),float2(1.f,1.f),float2(0.f,1.f)])
+		//SetVertexArray("P_quad",[float2(0.f,0.f),float2(1.f,0.f),float2(1.f,1.f),float2(0.f,1.f)])
+		SetVertexPointer("P_quad",2,GL_FLOAT,0,0,0L)
 		SetVertexShader("
 		void main(){
 			gl_Position=vec4(P_quad*2.0-1.0,1.0,1.0);
 			st=P_quad;
 		}")
-		return Draw(0u,GL_TRIANGLE_FAN,4)
+		return Draw(g_screen_quad_vbo,GL_TRIANGLE_FAN,4)
 	/////////////////////////////////////////////////////////
 	//JS part
 	JS_SetUniform=function(JSContext JS){
@@ -3393,7 +3397,7 @@ auto glCreateTexture(int format,int w,int h, int filter,int wraps,int wrapt,__po
 		t=GL_FLOAT
 		break
 	case GL_RGBA16F:
-		if Platform.ARCH=="ios":
+		if Platform.ARCH=="ios"||Platform.ARCH=="web":
 			//ios needs OES here but not when reading...
 			t=GL_HALF_FLOAT_OES
 		else
@@ -3413,7 +3417,7 @@ auto glCreateTexture(int format,int w,int h, int filter,int wraps,int wrapt,__po
 		break
 	case GL_RGB16F:
 		channels=GL_RGB
-		if Platform.ARCH=="ios":
+		if Platform.ARCH=="ios"||Platform.ARCH=="web":
 			//ios needs OES here but not when reading...
 			t=GL_HALF_FLOAT_OES
 		else
@@ -3429,7 +3433,7 @@ auto glCreateTexture(int format,int w,int h, int filter,int wraps,int wrapt,__po
 		break
 	case GL_RG16F:
 		channels=GL_RG
-		if Platform.ARCH=="ios":
+		if Platform.ARCH=="ios"||Platform.ARCH=="web":
 			//ios needs OES here but not when reading...
 			t=GL_HALF_FLOAT_OES
 		else
@@ -3522,12 +3526,18 @@ auto glCreateRenderToTextureContext(GLenum format,int w,int h,int flags)
 		glGetIntegerv(GL_RENDERBUFFER_BINDING_OES,__pointer(p_old_rbo.d))
 		glGenRenderbuffers(1,&rbo);
 		glBindRenderbuffer(GL_RENDERBUFFER,rbo);
-		glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH24_STENCIL8,w,h);
+		if Platform.ARCH=="web":
+			glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH_COMPONENT16,w,h);
+		else
+			glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH24_STENCIL8,w,h);
 		glBindRenderbuffer(GL_RENDERBUFFER,p_old_rbo[0]);
 	glBindFramebuffer(GL_FRAMEBUFFER,fbo);
 	glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,tex,0);
 	if flags&GL_RTT_DEPTH:
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_STENCIL_ATTACHMENT,GL_RENDERBUFFER,rbo);
+		if Platform.ARCH=="web":
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,rbo);
+		else
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_STENCIL_ATTACHMENT,GL_RENDERBUFFER,rbo);
 	glBindFramebuffer(GL_FRAMEBUFFER,p_old_fbo[0]);
 	return new CJSGLRenderToTextureContext(){m_tex:tex,m_rbo:rbo,m_fbo:fbo,w:w,h:h}
 

@@ -70,16 +70,14 @@ g_action_handlers.make=function(){
 	if(g_json.is_library){
 		//skeleton makefile
 		smakefile=[];
+		smakefile.push('IOSSDK=$(shell ls /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/ | grep [0-9]\\.)\n')
+		smakefile.push('EMUSDK=$(shell ls /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/ | grep [0-9]\\.)\n')
 	}else{
 		if(!FileExists(g_work_dir+"/SDL_setup")){
 			//the SDL skeleton project
 			shell(["cp","-r",g_config.IOS_SKELETON_PATH+"/*",g_work_dir+"/upload/"])
 			var s_text=ReadFile(g_work_dir+"/upload/___PROJECTNAME___.xcodeproj/project.pbxproj")
 			CreateFile(g_work_dir+"/upload/___PROJECTNAME___.xcodeproj/project.pbxproj",s_text.replace(new RegExp("___PROJECTNAME___","g"),g_main_name))
-			s_text=ReadFile(g_work_dir+"/upload/Info.plist")
-			var s_display_name=(g_json.app_display_name&&g_json.app_display_name[0]||g_main_name);
-			s_text=s_text.replace(/__display_name__/g,s_display_name);
-			CreateFile(g_work_dir+"/upload/Info.plist",s_text.replace(new RegExp("com.yourcompany.*\\}","g"),"com.spap."+g_main_name.replace(new RegExp("_","g"),"")))
 			shell(["mv",g_work_dir+'/upload/___PROJECTNAME___.xcodeproj',g_work_dir+'/upload/'+g_main_name+'.xcodeproj'])
 			CreateFile(g_work_dir+"/SDL_setup","1")
 		}
@@ -99,6 +97,19 @@ g_action_handlers.make=function(){
 		}
 		sbuildtmp=ReadFile(g_work_dir+"/buildtmp_ready")
 	}
+	//////////////////////
+	var s_text=ReadFile(g_config.IOS_SKELETON_PATH+"/Info.plist")
+	var s_display_name=(g_json.app_display_name&&g_json.app_display_name[0]||g_main_name);
+	s_text=s_text.replace(/__display_name__/g,s_display_name);
+	var a_extra_plist_keys=[];
+	if(g_json.extra_plist_keys){
+		for(var i=0;i<g_json.extra_plist_keys.length;i++){
+			a_extra_plist_keys.push(g_json.extra_plist_keys[i])
+		}
+	}
+	s_text=s_text.replace("__extra_keys__",a_extra_plist_keys.join(''))
+	CreateIfDifferent(g_work_dir+"/upload/Info.plist",s_text.replace(new RegExp("com.yourcompany.*\\}","g"),"com.spap."+g_main_name.replace(new RegExp("_","g"),"")))
+	//////////////////////
 	var fn_c_32=g_work_dir+"/s7main.c";
 	var fn_c_64=g_work_dir+"/s7main64.c";
 	var fn_c_bi=g_work_dir+"/s7main_bi.c";
@@ -261,8 +272,8 @@ g_action_handlers.make=function(){
 		//sshell.push('security set-keychain-settings -t 3600 -u ios.keychain;')
 	}
 	if(g_json.is_library){
-		sshell.push('export IOSSDK=`ls /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/ | grep [0-9]\\.`;')
-		sshell.push('export EMUSDK=`ls /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/ | grep [0-9]\\.`;')
+		//sshell.push('export IOSSDK=`ls /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/ | grep [0-9]\\.`;')
+		//sshell.push('export EMUSDK=`ls /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/ | grep [0-9]\\.`;')
 		sshell.push('echo "----building----";')
 		sshell.push('make lib'+g_main_name+'.a;')
 	}else{

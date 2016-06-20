@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>$PROJECT_NAME</title>
+    <style>
+      html, body { background:#ddd; margin: 0; padding: 0; border: 0; overflow:hidden }
+      #canvas { 
+        border: 0px none; display: block; 
+        position: relative; 
+        -webkit-transform: translate(-50%, -50%); 
+        transform: translate(-50%, -50%); 
+        background:#ffffff;
+        border-radius: 8px;
+        box-shadow: 2px 2px 12px #888888 
+      }
+    </style>
+  </head>
+  <body>
+    $PROLOG
+    <div style="position: absolute; left:50%; top:50%">
+      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" onkeydown="event.preventDefault()"></canvas>
+    </div>
+    <script type='text/javascript'>
+
+      var Module = {
+        preRun: [],
+        postRun: [],
+        print: (function() {
+          return function(text) {
+            console.log(text);
+          };
+        })(),
+        printErr: function(text) {
+          if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+          if (0) { // XXX disabled for safety typeof dump == 'function') {
+            dump(text + '\n'); // fast, straight to the real console
+          } else {
+            console.error(text);
+          }
+        },
+        canvas: (function() {
+          var canvas = document.getElementById('canvas');
+
+          // As a default initial behavior, pop up an alert when webgl context is lost. To make your
+          // application robust, you may want to override this behavior before shipping!
+          // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
+          canvas.addEventListener("webglcontextlost", function(e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
+
+          return canvas;
+        })(),
+        setStatus: function(text) {
+          if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
+          if (text === Module.setStatus.text) return;
+        },
+        totalDependencies: 0,
+        monitorRunDependencies: function(left) {
+          this.totalDependencies = Math.max(this.totalDependencies, left);
+          Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+        }
+      };
+      Module.setStatus('Downloading...');
+      window.onerror = function(event) {
+        // TODO: do not warn on ok events like simulating an infinite loop or exitStatus
+        //Module.setStatus('Exception thrown, see JavaScript console');
+        //spinnerElement.style.display = 'none';
+        Module.setStatus = function(text) {
+          if (text) Module.printErr('[post-exception status] ' + text);
+        };
+      };
+    </script>
+    <script>
+		(function() {
+          var memoryInitializer = '$PROJECT_NAME.js.mem';
+          if (typeof Module['locateFile'] === 'function') {
+            memoryInitializer = Module['locateFile'](memoryInitializer);
+          } else if (Module['memoryInitializerPrefixURL']) {
+            memoryInitializer = Module['memoryInitializerPrefixURL'] + memoryInitializer;
+          }
+          var xhr = Module['memoryInitializerRequest'] = new XMLHttpRequest();
+          xhr.open('GET', memoryInitializer, true);
+          xhr.responseType = 'arraybuffer';
+          xhr.send(null);
+        })();
+
+        var script = document.createElement('script');
+        script.src = "$PROJECT_NAME.js";
+        document.body.appendChild(script);
+
+    </script>
+  </body>
+</html>

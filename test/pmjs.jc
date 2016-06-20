@@ -320,6 +320,8 @@ auto jszip(JSContext JS)
 	global=JS.GetGlobal()
 	global["ReadFile"]=function(JSContext JS){
 		fn=JS.Param(0).or(new string)
+		if !fn:
+			return 0
 		ret=System.IO.ReadAll(fn)
 		if !ret:
 			return 0

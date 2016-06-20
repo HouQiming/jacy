@@ -76,30 +76,31 @@ g_action_handlers.make=function(){
 		var fn_icon=SearchForFile(g_json.icon_file[0]);
 		var fntouch=g_work_dir+"/ic_launcher.png._touch"
 		if(IsNewerThan(fn_icon,fntouch)){
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.png',57,57)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-72.png',72,72)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-Small.png',29,29)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-Small-50.png',50,50)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon@2x.png',114,114)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-72@2x.png',144,144)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-Small@2x.png',58,58)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-Small-50@2x.png',100,100)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-76.png',76,76)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-60.png',60,60)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-76@2x.png',152,152)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon-60@2x.png',120,120)
+			mkdir(g_work_dir+"/upload/Icon.iconset")
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_16x16.png',16,16)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_16x16@2x.png',16*2,16*2)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_32x32.png',32,32)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_32x32@2x.png',32*2,32*2)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_128x128.png',128,128)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_128x128@2x.png',128*2,128*2)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_256x256.png',256,256)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_256x256@2x.png',256*2,256*2)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_512x512.png',512,512)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_512x512@2x.png',512*2,512*2)
 			CreateFile(fntouch,fn_icon)
 		}
+		MAC.c_file_list.push('Icon.iconset');
 	}
-	if(g_json.default_screen_file){
-		var fn_icon=SearchForFile(g_json.default_screen_file[0])
-		var fntouch=g_work_dir+"/Default.png._touch"
-		if(IsNewerThan(fn_icon,fntouch)){
-			ResampleImage(fn_icon,g_work_dir+'/upload/Default.png',320,480)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Default-568h.png',320,568)
-			CreateFile(fntouch,fn_icon)
-		}
-	}
+	//coulddo: http://stackoverflow.com/questions/96882/how-do-i-create-a-nice-looking-dmg-for-mac-os-x-using-command-line-tools
+	//if(g_json.default_screen_file){
+	//	var fn_icon=SearchForFile(g_json.default_screen_file[0])
+	//	var fntouch=g_work_dir+"/Default.png._touch"
+	//	if(IsNewerThan(fn_icon,fntouch)){
+	//		ResampleImage(fn_icon,g_work_dir+'/upload/Default.png',320,480)
+	//		ResampleImage(fn_icon,g_work_dir+'/upload/Default-568h.png',320,568)
+	//		CreateFile(fntouch,fn_icon)
+	//	}
+	//}
 	var spython=[]
 	spython.push('from modxproj import XcodeProject\n')
 	spython.push('project = XcodeProject.Load("'+g_main_name+'.xcodeproj/project.pbxproj")\n')
@@ -150,7 +151,10 @@ g_action_handlers.make=function(){
 		sdirname="Debug"
 	}
 	if(g_need_ssh_for_mac){
-		sshell.push('mkdir -p download; cd build/'+sdirname+'/; strip '+g_main_name+'.app/Contents/MacOS/'+g_main_name+'; tar -czf '+g_main_name+'.tar.gz '+g_main_name+'.app; mv '+g_main_name+'.tar.gz ../../download/;')
+		//hdiutil create -volname WhatYouWantTheDiskToBeNamed -srcfolder /path/to/the/folder/you/want/to/create -ov -format UDZO name.dmg
+		sshell.push('mkdir -p download; cd build/',sdirname,'/; strip '+g_main_name,'.app/Contents/MacOS/',g_main_name)
+		//sshell.push('; tar -czf '+g_main_name+'.tar.gz '+g_main_name+'.app; mv '+g_main_name+'.tar.gz ../../download/;')
+		sshell.push('; hdiutil create -volname ',g_main_name,' -srcfolder ',g_main_name,'.app -ov -format UDZO ',g_main_name,'.dmg; mv '+g_main_name+'.dmg ../../download/;')
 		sshell.push('exit')
 		envssh('mac',sshell.join(""))
 		rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/download',g_bin_dir)

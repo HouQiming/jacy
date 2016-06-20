@@ -320,6 +320,11 @@ UI.ChooseScalingFactor=function(obj){
 		var display_mode=UI.SDL_GetCurrentDisplayMode();
 		var design_screen_dim=obj.designated_screen_size||Math.min(obj.w,obj.h)||1600;
 		var screen_dim=Math.min(display_mode.w,display_mode.h);
+		if(!(screen_dim>0)){
+			//hack for emscripten
+			screen_dim=1080;
+		}
+		//console.log('display_mode:',display_mode.w,display_mode.h);
 	}
 	UI.pixels_per_unit=screen_dim/design_screen_dim;
 	UI.ResetRenderer(UI.pixels_per_unit,obj.gamma||2.2);

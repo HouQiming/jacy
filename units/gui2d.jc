@@ -616,6 +616,7 @@ class CRenderer
 				Writeln('-------')
 	auto DrawWindow(JSContext JS,__pointer hwnd_onlydraw,float2 translation,float2 scale)
 		if !m_vbo_uploaded:
+			m_vbo_uploaded=1
 			if m_gl_vbo_sz<m_vbo.sz:
 				buf_ret=[m_gl_vbo]
 				m_gl_vbo_sz=0L

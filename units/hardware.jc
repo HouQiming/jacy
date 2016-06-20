@@ -23,6 +23,11 @@ module Camera
 			__generate_json("mac_frameworks","System/Library/Frameworks/AVFoundation.framework")
 			__generate_json("mac_frameworks","System/Library/Frameworks/CoreMedia.framework")
 			__generate_json("mac_frameworks","System/Library/Frameworks/CoreVideo.framework")
+		else if Platform.ARCH=="web":
+			__generate_json("c_files","camera_web.c")
+			__generate_json("exported_functions","cam_get_buffer_pointer")
+			__generate_json("exported_functions","cam_callback")
+			__generate_json('shim_prolog','<video id="webcam_video" style="display:none;"></video><canvas id="webcam_data" style="display:none;"></canvas>')
 		else
 			__generate_json("c_files","camera_win.cpp")
 		w=0

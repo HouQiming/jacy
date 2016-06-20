@@ -66,11 +66,23 @@ function call7z(sdir,fnzip0,fnames,sextra_arg){
 	}
 	if(!needed){
 		var files=find(g_base_dir+"/assets/*")
-		for(i=0;i<files.length;i++){
+		for(var i=0;i<files.length;i++){
 			var fn=files[i];
 			if(IsNewerThan(fn,fnzip)){
 				needed=1;
 				break;
+			}
+		}
+	}
+	if(!needed&&g_json.extra_resource_dirs){
+		for(var di=0;di<g_json.extra_resource_dirs.length;di++){
+			var files=find(g_base_dir+"/"+g_json.extra_resource_dirs[di]+"/*")
+			for(var i=0;i<files.length;i++){
+				var fn=files[i];
+				if(IsNewerThan(fn,fnzip)){
+					needed=1;
+					break;
+				}
 			}
 		}
 	}
@@ -111,6 +123,11 @@ function call7z(sdir,fnzip0,fnames,sextra_arg){
 	}
 	call7z(g_base_dir,fnzip_temp,s_7z_0,"-mx=0")
 	call7z(g_base_dir,fnzip_temp,s_7z_1)
+	if(g_json.extra_resource_dirs){
+		for(var di=0;di<g_json.extra_resource_dirs.length;di++){
+			call7z(g_base_dir,fnzip_temp,g_json.extra_resource_dirs[di]);
+		}
+	}
 	var s_7z_2=[];
 	var ret=shell(["mv",g_base_dir+"/"+fnzip_temp,g_root+"/units/"+fnzip_temp]);
 	if(!!ret){throw new Error("mv returned an error code '@1'".replace("@1",ret.toString()));}
