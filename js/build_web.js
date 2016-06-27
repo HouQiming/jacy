@@ -7,6 +7,19 @@ var onlydir=function(sdir,serr){
 	}
 };
 
+var BLOCK_SIZE=1048576;
+var SplitAndUpdate=function(fntar,fnsrc){
+	var data=new Buffer(ReadFileBuffer(fnsrc));
+	var sz=data.length;
+	var n=0;
+	for(var i=0;i<sz;i+=BLOCK_SIZE){
+		var szi=Math.min(sz-i,BLOCK_SIZE);
+		CreateFile(fntar+(i/BLOCK_SIZE|0).toString()+'.bin',data.slice(i,i+szi))
+		n++;
+	}
+	return n;
+};
+
 g_action_handlers.make=function(){
 	mkdir(g_work_dir+"/upload/");
 	var c_files=CreateProjectForStandardFiles(g_work_dir+"/upload/")
@@ -121,14 +134,19 @@ g_action_handlers.make=function(){
 	if(ret!=0){
 		throw new Error("make returned an error code of @1".replace("@1",ret.toString()));
 	}
-	UpdateTo(s_qualified_emcc_output,g_work_dir+"/upload/"+s_emcc_output)
-	if(FileExists(g_work_dir+"/upload/"+s_emcc_output+".mem")){
-		UpdateTo(s_qualified_emcc_output+".mem",g_work_dir+"/upload/"+s_emcc_output+".mem")
-	}
+	//todo: split, put #s in shim
+	var n_js_blocks=SplitAndUpdate(s_qualified_emcc_output,g_work_dir+"/upload/"+s_emcc_output);
+	//UpdateTo(s_qualified_emcc_output,g_work_dir+"/upload/"+s_emcc_output)
+	//if(FileExists(g_work_dir+"/upload/"+s_emcc_output+".mem")){
+	var n_mem_blocks=SplitAndUpdate(s_qualified_emcc_output+".mem",g_work_dir+"/upload/"+s_emcc_output+".mem")
+	//}
 	if(is_default_build){
 		var fn_shim=SearchForFile("shim.html");
 		var s_prolog=(g_json.shim_prolog||[]);
-		var s_shim=ReadFile(fn_shim).replace(/[$]PROJECT_NAME/g,g_main_name).replace(/[$]PROLOG/,s_prolog.join(''));
+		var s_shim=ReadFile(fn_shim).
+			replace(/[$]PROJECT_NAME/g,g_main_name).
+			replace(/[$]PROLOG/,s_prolog.join('')).
+			replace(/[$]BLOCK_COUNTS/g,['{js:',n_js_blocks.toString(),',mem:',n_mem_blocks.toString(),'}'].join(''));
 		CreateIfDifferent(RemoveExtension(s_qualified_emcc_output)+".html",s_shim);
 	}
 	return 1;

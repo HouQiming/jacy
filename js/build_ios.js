@@ -126,7 +126,7 @@ g_action_handlers.make=function(){
 	}
 	var got_original_main_c=0;
 	for(var i=0;i<g_json.c_files.length;i++){
-		if(g_base_dir+"/"+g_json.c_files[i]==fn_c_32){
+		if(g_base_dir+"/"+g_json.c_files[i]==fn_c_32||g_json.c_files[i]==fn_c_32){
 			got_original_main_c=1;
 			g_json.c_files[i]=fn_c_bi;
 			break;

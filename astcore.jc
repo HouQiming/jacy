@@ -404,6 +404,9 @@ auto transformCodeEx(PExpression pesrc, ftransformer_callback ftransformer, PExp
 	n_args=(g_ctobject_pool.n-(pe_new_block+EXPR_OFS_ARGS))
 	if n_args==1:
 		pe_new_block=readPool(pe_new_block+EXPR_OFS_ARGS+0)
+		//n_args=getExprNArgs(pe_new_block)
+		//in that case, we don't need the caller reset anymore
+		n_args=0
 	else
 		writePool(pe_new_block,int(EFLAG_FCALL+n_args))
 	//replace pe_block_level with pe_new_block
@@ -411,6 +414,10 @@ auto transformCodeEx(PExpression pesrc, ftransformer_callback ftransformer, PExp
 	if queue_reach:
 		sccpQueueReach(pe_new_block)
 	for i=0:n_args-1
+		//if readPool(pe_new_block+EXPR_OFS_ARGS+i)>=536000000:
+		//	Writeln('bad arg: ',i,' ',readPool(pe_new_block+EXPR_OFS_ARGS+i),' ',n_args,' ',pe_block_level,' ',
+		//		pesrc,' ',dumpExpr(pe_block_level,__zero(fcolorer_callback)),' ',
+		//		pe_new_block,' ',dumpExpr(pe_new_block,__zero(fcolorer_callback)))
 		writePool(readPool(pe_new_block+EXPR_OFS_ARGS+i)+EXPR_OFS_CALLER,pe_new_block)
 	//Writeln("TT>> "+dumpExpr(pe_new_block,function(PExpression pe_test){
 	//	if pe_test==pe_block_level||pe_test==pesrc:return 9;
@@ -7884,10 +7891,11 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 				if isExpr(pe,EFLAG_VARIABLE)&&is_different_from_code:
 					//variable renaming case
 					//n0=g_ctobject_pool.n
-					if DEBUG_DUMP_GVN_DETAILS:{Writeln('>>> replace ',dumpExpr(pe,__zero(fcolorer_callback)))}
+					if DEBUG_DUMP_GVN_DETAILS:{Writeln('>>> replace ',dumpExpr(pe,__zero(fcolorer_callback)),' from ',dumpExpr(readPool(pe+EXPR_OFS_CALLER),__zero(fcolorer_callback)))}
 					p_newly_generated_point=int(g_ctobject_pool.n)
 					as_just_generated_cse=new PExpression[]
 					pe_replacement=gvn_generate(gvn_id,1)
+					//if DEBUG_DUMP_GVN_DETAILS:Writeln('pe_replacement=',pe_replacement)
 					transformCode(pe,__zero(ftransformer_callback), as_just_generated_cse,pe_replacement,PExpression[].NULL)
 					if DEBUG_DUMP_GVN_DETAILS:{Writeln('<<< into ',dumpExpr(pe_replacement,__zero(fcolorer_callback)))}
 					did=1

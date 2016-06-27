@@ -750,6 +750,9 @@ class CRenderer
 			glBufferData(GL_ARRAY_BUFFER,65536,NULL,GL_DYNAMIC_DRAW)
 			//glBindBuffer(GL_ARRAY_BUFFER,0u)
 			buf_ret.discard()
+		if mini_vbo.n*sizeof(int)>65536:
+			assert(mini_vbo.n*sizeof(int)<=65536)
+			return 0u
 		glBindBuffer(GL_ARRAY_BUFFER,m_gl_vbo_tiny)
 		glBufferSubData(GL_ARRAY_BUFFER,0L,mini_vbo.n*sizeof(int),__pointer(mini_vbo.d))
 		return m_gl_vbo_tiny

@@ -75,6 +75,7 @@ class ITextStateHandler
 	////////////////////
 	//for JS operations
 	__variant __this
+	//function(JSObject proto) __JS_prototype
 	function(JSObject proto) __JS_prototype
 
 auto combineEditorOffset(long2 bb0,long2 bb1)

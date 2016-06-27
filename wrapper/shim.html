@@ -8,19 +8,40 @@
       html, body { background:#ddd; margin: 0; padding: 0; border: 0; overflow:hidden }
       #canvas { 
         border: 0px none; display: block; 
-        position: relative; 
+        position: relative;
         -webkit-transform: translate(-50%, -50%); 
         transform: translate(-50%, -50%); 
         background:#ffffff;
         border-radius: 8px;
         box-shadow: 2px 2px 12px #888888 
       }
+      .progress_container{
+        position: relative;-webkit-transform: translate(-50%, -50%);transform: translate(-50%, -50%);display:block;
+        width:512px;height:20px;border-radius: 8px;background-color:#e8e8e8;
+      }
+      .progress_bar{
+        background: #a7cfdf; /* Old browsers */
+        background: -moz-linear-gradient(top, #a7cfdf 0%, #23538a 100%); /* FF3.6-15 */
+        background: -webkit-linear-gradient(top, #a7cfdf 0%,#23538a 100%); /* Chrome10-25,Safari5.1-6 */
+        background: linear-gradient(to bottom, #a7cfdf 0%,#23538a 100%); /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+        filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#a7cfdf', endColorstr='#23538a',GradientType=0 ); /* IE6-9 */
+        height:100%;
+        border-radius: 8px;
+        line-height:inherit;
+      }
     </style>
   </head>
   <body>
     $PROLOG
     <div style="position: absolute; left:50%; top:50%">
-      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" onkeydown="event.preventDefault()"></canvas>
+      <canvas class="emscripten" id="canvas" style="width:640px;height:480px;" oncontextmenu="event.preventDefault()" onkeydown="event.preventDefault()"></canvas>
+    </div>
+    <div id="progress" style="position: absolute; left:50%; top:50%">
+      <div class="progress_container">
+        <div id="progress_bar" class="progress_bar">
+        </div>
+        <div id="loading_error" style="position:relative;left:0px;top:-44px;width:100%;text-align:center;font-family:arial,sans-serif;font-size:18px;color:#444444;display:block;">Loading...</div>
+      </div>
     </div>
     <script type='text/javascript'>
 
@@ -34,11 +55,7 @@
         })(),
         printErr: function(text) {
           if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
-          if (0) { // XXX disabled for safety typeof dump == 'function') {
-            dump(text + '\n'); // fast, straight to the real console
-          } else {
-            console.error(text);
-          }
+          console.error(text);
         },
         canvas: (function() {
           var canvas = document.getElementById('canvas');
@@ -71,22 +88,75 @@
       };
     </script>
     <script>
-		(function() {
-          var memoryInitializer = '$PROJECT_NAME.js.mem';
-          if (typeof Module['locateFile'] === 'function') {
-            memoryInitializer = Module['locateFile'](memoryInitializer);
-          } else if (Module['memoryInitializerPrefixURL']) {
-            memoryInitializer = Module['memoryInitializerPrefixURL'] + memoryInitializer;
-          }
-          var xhr = Module['memoryInitializerRequest'] = new XMLHttpRequest();
-          xhr.open('GET', memoryInitializer, true);
-          xhr.responseType = 'arraybuffer';
-          xhr.send(null);
+        //todo: split up and do a progress bar - memoryInitializerRequest, fill its .response
+        (function() {
+          var g_block_counts=$BLOCK_COUNTS;
+          var g_tot_count=g_block_counts.js+g_block_counts.mem;
+          //////////////////////
+          var postRequest=function(url, rtype, success, error) {  
+            var xhr = XMLHttpRequest ? new XMLHttpRequest() : 
+                                       new ActiveXObject("Microsoft.XMLHTTP"); 
+            xhr.open("GET", url, true); 
+            xhr.responseType = rtype;
+            xhr.onreadystatechange = function(){ 
+              if ( xhr.readyState == 4 ) { 
+                if ( xhr.status == 200 ) { 
+              success(xhr.response); 
+                } else { 
+              error(xhr, xhr.status); 
+                } 
+              } 
+            }; 
+            xhr.onerror = function () { 
+              error(xhr, xhr.status); 
+            }; 
+            xhr.send(null); 
+          };
+          var g_js_blobs=[];
+          var g_mem_blobs=[];
+          var fdownload_next=function(id){
+            var url;
+            var rtype;
+            var data_out;
+            document.getElementById('progress_bar').style["width"]=(100*id/g_tot_count).toString()+"%";
+            if(id<g_block_counts.js){
+                url='$PROJECT_NAME.js'+id.toString()+'.bin';
+                rtype='text';
+                data_out=g_js_blobs;
+            }else if(id-g_block_counts.js<g_block_counts.mem){
+                url='$PROJECT_NAME.js.mem'+(id-g_block_counts.js).toString()+'.bin';
+                rtype='arraybuffer';
+                data_out=g_mem_blobs;
+            }else{
+                var lg=0;
+                for(var i=0;i<g_mem_blobs.length;i++){
+                    lg+=g_mem_blobs[i].byteLength;
+                }
+                var ret=new Uint8Array(lg);
+                var lg=0;
+                for(var i=0;i<g_mem_blobs.length;i++){
+                    ret.set(new Uint8Array(g_mem_blobs[i]), lg);
+                    lg+=g_mem_blobs[i].byteLength;
+                }
+                g_mem_blobs=undefined;
+                Module['memoryInitializerRequest'] = {status:200,response:ret};
+                var nd_script = document.createElement('script');
+                nd_script.text = g_js_blobs.join('');
+                document.body.appendChild(nd_script);
+                document.getElementById('progress').style["display"]="none";
+                return;
+            }
+            postRequest (url,rtype, function (response) { // success callback
+              data_out.push(response);
+              window.setTimeout(fdownload_next.bind(null,id+1),10);
+            }, function (xhr, status) { // error callback
+              var error=document.getElementById('loading_error')
+              error.textContent='Error loading data, error '+status.toString();
+              error.style.color="#e31a1c";
+            });
+          };
+          fdownload_next(0);
         })();
-
-        var script = document.createElement('script');
-        script.src = "$PROJECT_NAME.js";
-        document.body.appendChild(script);
 
     </script>
   </body>

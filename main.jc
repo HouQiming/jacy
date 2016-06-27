@@ -150,27 +150,27 @@ auto doBuild()
 tm_all=tnew("***all")
 g_s_help='Usage: jc [options] <files>
 Output-related options:
-	-aARCH, --arch=ARCH: build for platform "ARCH"
-		Possible values: win32, win64, mac, linux32, linux64, android, ios
-		Default: same as compiler platform
-	-bBUILD, --build=BUILD: do a "BUILD" build
-		Possible values: debug, release
-		Default: debug
-	-c: generate C code without making it
-	-oEXE_FILE: write the executable to "EXE_FILE"
-	--c=C_FILE: write the C code to "C_FILE"
-	--json=JSON_FILE: write the metadata JSON to "JSON_FILE"
-	--epilog=EPILOG: use "EPILOG" as the C code epilog
-	--run: run the generated executable if build is successful
-	--cpp: generate C++ code instead of C code
-	-S, --shared: generate a library instead of an executable
+    -aARCH, --arch=ARCH: build for platform "ARCH"
+        Possible values: win32, win64, mac, linux32, linux64, android, ios
+        Default: same as compiler platform
+    -bBUILD, --build=BUILD: do a "BUILD" build
+        Possible values: debug, release
+        Default: debug
+    -c: generate C code without making it
+    -oEXE_FILE: write the executable to "EXE_FILE"
+    --c=C_FILE: write the C code to "C_FILE"
+    --json=JSON_FILE: write the metadata JSON to "JSON_FILE"
+    --epilog=EPILOG: use "EPILOG" as the C code epilog
+    --run: run the generated executable if build is successful
+    --cpp: generate C++ code instead of C code
+    -S, --shared: generate a library instead of an executable
 
 Customizations:
-	--32, --64: enforce a bit size
-	--rebuild: enforce a rebuild
-	--readable_c_code: generate readable C code
-	--no_c_lines: do not generate #lines in C code
-	-DMACRO=VALUE: set "MACRO" to "VALUE" in the metadata JSON
+    --32, --64: enforce a bit size
+    --rebuild: enforce a rebuild
+    --readable_c_code: generate readable C code
+    --no_c_lines: do not generate #lines in C code
+    -DMACRO=VALUE: set "MACRO" to "VALUE" in the metadata JSON
 '
 auto main()
 	args=GetCommandLine()

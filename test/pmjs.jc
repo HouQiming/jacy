@@ -328,9 +328,22 @@ auto jszip(JSContext JS)
 		else
 			return JS.Return(ret)
 	}
+	global["ReadFileBuffer"]=function(JSContext JS){
+		fn=JS.Param(0).or(new string)
+		if !fn:
+			return 0
+		ret=System.IO.ReadAll(fn)
+		if !ret:
+			return 0
+		else
+			return JS.Return(ret.ConvertToAsBinary(u8))
+	}
 	global["CreateFile"]=function(JSContext JS){
 		fn=JS.Param(0).or(new string)
-		data=JS.Param(1).or(new string)
+		datau=JS.Param(1).as(u8[])
+		if datau:
+			return JS.Return(System.IO.CreateFileWithContent(fn,datau)?datau.n:0L)
+		data=JS.Param(1).as(string)
 		f=System.IO.CreateFile(fn)
 		if f:
 			lg=f.Write(data)

@@ -31,20 +31,23 @@ var clean=function(dir){
 	copydir("wrapper")
 	copydir("doc")
 	//test programs
-	shell(["rm","-rf","../jc/test"])
-	mkdir("../jc/test")
-	clean("test/app_example")
-	clean("test/app_example1")
-	shell(["rsync","-qrtpzu","test/*.jc","../jc/test/"]);
-	shell(["rsync","-qrtpzu","test/app_example","../jc/test/"]);
-	shell(["rsync","-qrtpzu","test/app_example1","../jc/test/"]);
+	//shell(["rm","-rf","../jc/test"])
+	//mkdir("../jc/test")
+	//clean("test/app_example")
+	//clean("test/app_example1")
+	//shell(["rsync","-qrtpzu","test/*.jc","../jc/test/"]);
+	//shell(["rsync","-qrtpzu","test/app_example","../jc/test/"]);
+	//shell(["rsync","-qrtpzu","test/app_example1","../jc/test/"]);
 	//development environments
-	mkdir("../jc/osslib/lib/x86")
-	mkdir("../jc/osslib/lib/x64")
-	copyosslib("lib/x86/sdl2.lib")
-	copyosslib("lib/x86/sdl2.dll")
-	copyosslib("lib/x64/sdl2.lib")
-	copyosslib("lib/x64/sdl2.dll")
-	shell(["rsync","-rtpzuv",'osslib/ios',"../jc/osslib/"]);
-	shell(["rsync","-rtpzuv",'osslib/include',"../jc/osslib/"]);
+	//mkdir("../jc/osslib/lib/x86")
+	//mkdir("../jc/osslib/lib/x64")
+	mkdir("../jc/osslib/ios")
+	mkdir("../jc/osslib/android")
+	//copyosslib("lib/x86/sdl2.lib")
+	//copyosslib("lib/x86/sdl2.dll")
+	//copyosslib("lib/x64/sdl2.lib")
+	//copyosslib("lib/x64/sdl2.dll")
+	shell(["rsync","-rtpzuv",'osslib/ios/skeleton_project',"../jc/osslib/ios/"]);
+	shell(["rsync","-rtpzuv",'osslib/android/skeleton_project',"../jc/osslib/android/"]);
+	//shell(["rsync","-rtpzuv",'osslib/include',"../jc/osslib/"]);
 })()

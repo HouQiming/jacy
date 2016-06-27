@@ -3194,6 +3194,8 @@ class GLTechnique
 			SetMatrix(name,a)
 		else
 			__error("invalid uniform type '@1'",T)
+	inline SetUniformColor(string name,int C)
+		SetUniform(name,float4(float(C&0xff),float((C>>8)&0xff),float((C>>16)&0xff),float(int(u32(C)>>24)&0xff))*(1.f/255.f))
 	//////////////////
 	m_ebo=GLuint(0)
 	m_ebo_ofs=0L
