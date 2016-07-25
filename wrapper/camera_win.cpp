@@ -72,6 +72,7 @@ static int g_n_cameras=0;
 static TCamera g_cameras[MAX_DEVICES];
 
 static int initDShowStuff(){
+	//printf("entering initDShowStuff\n");fflush(stdout);
 	if(g_inited){return g_inited;}
 	g_inited=-1;
 	//////////////
@@ -81,16 +82,23 @@ static int initDShowStuff(){
 	//
 	ICreateDevEnum*		dev_enum=NULL;
 	IEnumMoniker*		enum_moniker=NULL;
-	IMoniker*			moniker=NULL;
+	IMoniker*			moniker[MAX_DEVICES]={NULL};
 	hr = CoCreateInstance(CLSID_SystemDeviceEnum, NULL,CLSCTX_INPROC_SERVER,IID_ICreateDevEnum,(void**) &dev_enum);
 	if (hr < 0) {return -1;}
 	hr = dev_enum->CreateClassEnumerator(CLSID_VideoInputDeviceCategory,&enum_moniker,NULL);
 	if (hr < 0) {return -1;}
 	if (hr == S_FALSE) {return -1;}
 	ULONG dev_count=0;
-	enum_moniker->Next(MAX_DEVICES, &moniker, &dev_count);
+	enum_moniker->Next(MAX_DEVICES, moniker, &dev_count);
 	memset(g_cameras,0,sizeof(g_cameras));
 	g_n_cameras=(int)dev_count;
+	//void* fengshui[1000];
+	//for (int i=0; i<1000; i++){
+	//	fengshui[i]=malloc(i*100);
+	//}
+	//for (int i=0; i<1000; i++){
+	//	free(fengshui[i]);
+	//}
 	for (int i=0; i<(int)dev_count; i++){
 		//we could afford leaks on failure - it's a constant amount anyway, and it's rather unlikely
 		////////////////////////
@@ -102,7 +110,7 @@ static int initDShowStuff(){
 		hr = g_cameras[i].graph->QueryInterface(IID_IMediaControl, (void**) &g_cameras[i].control);
 		if (hr < 0) {continue;}
 		g_cameras[i].capture->SetFiltergraph(g_cameras[i].graph);
-		hr = g_cameras[i].graph->AddSourceFilterForMoniker(moniker+i, 0, L"Source", &g_cameras[i].source_filter);
+		hr = g_cameras[i].graph->AddSourceFilterForMoniker(moniker[i], 0, L"Source", &g_cameras[i].source_filter);
 		if (hr != S_OK){continue;}
 		//moniker[i].Release();
 		///////////////////////
@@ -123,6 +131,7 @@ static int initDShowStuff(){
 		// must be deeper problem. 24 bpp seems to work fine for now.
 		hr = g_cameras[i].samplegrabber->SetMediaType(&g_cameras[i].mt);
 		if (hr != S_OK) {continue;}
+		g_cameras[i].m_cam_mutex=SDL_CreateMutex(); //create mutex before callback-setting for safety
 		g_cameras[i].cb=new DShowCallbackHandler;
 		g_cameras[i].cb->id=i;
 		g_cameras[i].samplegrabber->SetCallback(g_cameras[i].cb,1);
@@ -133,9 +142,16 @@ static int initDShowStuff(){
 		g_cameras[i].graph->AddFilter(g_cameras[i].nullrenderer, L"Null Renderer");
 		///////////////////////
 		//the camera seems valid
-		g_cameras[i].m_cam_mutex=SDL_CreateMutex();
 		g_cameras[i].m_is_valid=1;
+		//hack for Intel RealSense: the depth camera crashes during initialization and we have to do with what we have
+		break;
 	}
+	//for (int i=0; i<1000; i++){
+	//	fengshui[i]=malloc(i*100);
+	//}
+	//for (int i=0; i<1000; i++){
+	//	free(fengshui[i]);
+	//}
 	g_inited=1;
 	return 1;
 }
@@ -218,7 +234,11 @@ static void SetResolution(int cam_id,int w,int h,int fps){
 	// Get the resulting video capability
 	pmt=NULL;
 	hr = pConfig->GetStreamCaps(iBest, &pmt, (BYTE*)&scc);
-	if (!SUCCEEDED(hr)){return;}
+	if (!SUCCEEDED(hr)){
+		pConfig->Release();
+		pConfig=NULL;
+		return;
+	}
 	// default capture format, reusing the space
 	_DeleteMediaType(pmt);pmt=NULL;
 	pConfig->GetFormat(&pmt);
@@ -226,6 +246,10 @@ static void SetResolution(int cam_id,int w,int h,int fps){
 		VIDEOINFOHEADER *pvi = (VIDEOINFOHEADER *)pmt->pbFormat;
 		pvi->bmiHeader.biWidth = scc.MaxOutputSize.cx;
 		pvi->bmiHeader.biHeight = scc.MaxOutputSize.cy;
+		//pmt->subtype=MEDIASUBTYPE_RGB24;
+		if(fps>0){
+			pvi->AvgTimePerFrame = 10000000 / fps;
+		}
 		hr = pConfig->SetFormat(pmt);
 		_DeleteMediaType(pmt);pmt=NULL;
 	}
@@ -332,6 +356,7 @@ HRESULT DShowCallbackHandler::BufferCB(double time, BYTE *buffer, long len){
 	if(len!=w*h*3){return S_OK;}
 	//real callback content
 	TCamera* cam=g_cameras+id;
+	if(!cam->m_is_valid){return S_OK;}
 	SDL_LockMutex(cam->m_cam_mutex);
 	if(!cam->m_is_on){
 		SDL_UnlockMutex(cam->m_cam_mutex);

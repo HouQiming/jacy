@@ -3395,6 +3395,10 @@ auto glCreateTexture(int format,int w,int h, int filter,int wraps,int wrapt,__po
 		if Platform.BUILD=="debug":
 			__basic_api.spapReportError('unsupported texture format @1'.Replace(["@1",formatNumber(format,{base:16,align:4})]))
 		return 0u
+	case GL_LUMINANCE:
+		channels=GL_LUMINANCE
+		t=GL_UNSIGNED_BYTE
+		break
 	case GL_RGBA32F:
 		t=GL_FLOAT
 		break
