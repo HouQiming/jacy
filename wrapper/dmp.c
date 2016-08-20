@@ -1,3 +1,56 @@
+#include "dmp.h"
+#include <stdint.h>
+
+typedef int dmp_pos;
+
+typedef struct {
+	const char *text;
+	uint32_t len;
+	int op;
+	dmp_pos next;
+} dmp_node;
+
+typedef struct {
+	dmp_pos start, end;
+} dmp_range;
+
+typedef struct {
+	dmp_node *pool;
+	uint32_t pool_size, pool_used;
+	dmp_pos free_list;
+	int error;
+} dmp_pool;
+
+extern int dmp_pool_alloc(dmp_pool *pool, uint32_t start_pool);
+
+extern void dmp_pool_free(dmp_pool *list);
+
+extern dmp_pos dmp_range_init(
+	dmp_pool *list, dmp_range *run,
+	int op, const char *data, uint32_t offset, uint32_t len);
+
+extern dmp_pos dmp_range_insert(
+	dmp_pool *list, dmp_range *run, dmp_pos pos,
+	int op, const char *data, uint32_t offset, uint32_t len);
+
+extern void dmp_range_splice(
+	dmp_pool *list, dmp_range *onto, dmp_pos pos, dmp_range *from);
+
+extern int dmp_range_len(dmp_pool *pool, dmp_range *run);
+
+/* remove all 0-length nodes and advance 'end' to actual end */
+extern void dmp_range_normalize(dmp_pool *pool, dmp_range *range);
+
+extern void dmp_node_release(dmp_pool *pool, dmp_pos idx);
+
+#define dmp_node_at(POOL,POS)   (&((POOL)->pool[(POS)]))
+
+#define dmp_node_pos(POOL,NODE) ((dmp_pos)((NODE) - (POOL)->pool))
+
+#define dmp_range_foreach(POOL, RANGE, IDX, PTR) \
+	for (IDX = (RANGE)->start; IDX >= 0; IDX = (PTR)->next)	\
+		if (((PTR) = dmp_node_at((POOL),IDX))->len > 0)
+
 /**
  * dmp_pool.c
  *
@@ -8,8 +61,6 @@
  *
  * See included LICENSE file for license details.
  */
-#include "dmp.h"
-#include "dmp_pool.h"
 #include <stdlib.h>
 #include <assert.h>
 
@@ -220,9 +271,7 @@ void dmp_range_normalize(dmp_pool *pool, dmp_range *range)
  * See included LICENSE file for license details.
  */
 
-#include "dmp.h"
-#include "dmp_pool.h"
-#include <sys/types.h>
+//#include <sys/types.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <ctype.h>
@@ -607,6 +656,7 @@ static int diff_cleanup_merge(dmp_diff *diff, dmp_range *list)
 			else {
 				last->next = node->next; /* collapse node */
 				dmp_node_release(pool, i);
+				node=last;
 			}
 			break;
 		case DMP_DIFF_DELETE:
@@ -617,6 +667,7 @@ static int diff_cleanup_merge(dmp_diff *diff, dmp_range *list)
 			else {
 				last->next = node->next; /* collapse node */
 				dmp_node_release(pool, i);
+				node=last;
 			}
 			break;
 		case DMP_DIFF_EQUAL:
@@ -662,6 +713,8 @@ static int diff_cleanup_merge(dmp_diff *diff, dmp_range *list)
 				last->len += node->len;
 				last->next = node->next;
 				dmp_node_release(pool, i);
+				node=last;
+				continue;
 			}
 
 			count_insert = count_delete = 0;
@@ -828,8 +881,10 @@ uint32_t dmp_common_suffix(
 	const char *start;
 
 	if (l1 > l2) {
-		const char *tswap = t1; t1 = t2; t2 = tswap;
-		uint32_t lswap = l1; l1 = l2; l2 = lswap;
+		const char *tswap = t1; 
+		uint32_t lswap = l1; 
+		t1 = t2; t2 = tswap;
+		l1 = l2; l2 = lswap;
 	}
 
 	start = t1;
@@ -923,4 +978,39 @@ const char *dmp_strstr(
 	default:
 		return Railgun_Doublet(haystack, needle, lh, ln);
 	}
+}
+
+/********************************************/
+/*
+\brief wrapper that returns ccnt-sz-s triplets, unlike TEditOp, though, here sz is the insertion length if s is not NULL
+*/
+int dmp_diff_to_i64_list(const dmp_diff *diff,int64_t* ret){
+	int pos;
+	const dmp_node *node;
+	int n=0;
+	int64_t ccnt=(int64_t)0;
+
+	dmp_range_foreach(&diff->pool, &diff->list, pos, node) {
+		if(node->op==DMP_DIFF_EQUAL){
+			ccnt=(int64_t)(node->text - diff->t1) + node->len;
+			continue;
+		}else if(node->op==DMP_DIFF_DELETE){
+			if(ret){
+				ret[n+0]=(int64_t)(node->text - diff->t1);
+				ret[n+1]=(int64_t)node->len;
+				ret[n+2]=0LL;
+			}
+			ccnt=(int64_t)(node->text - diff->t1) + node->len;
+			n+=3;
+		}else if(node->op==DMP_DIFF_INSERT){
+			if(ret){
+				ret[n+0]=ccnt;
+				ret[n+1]=(int64_t)node->len;
+				ret[n+2]=(int64_t)(intptr_t)node->text;
+			}
+			n+=3;
+		}
+	}
+
+	return n;
 }
