@@ -2105,7 +2105,7 @@ EXPORT int FTW_GetGlyphId(FT_Face ft,int ch){
 	return stbtt_FindGlyphIndex(ft,ch);
 }
 
-EXPORT u8* FTW_GetCharacterEx(FT_Face ft,float h,
+EXPORT u8* FTW_GetGlyphEx(FT_Face ft,float h,
 int x_aa,int y_aa, 
 float* x_filter,float* y_filter,int x_htaps,int y_htaps,
 float embolden, int ch,float* ret){
@@ -2121,8 +2121,8 @@ float embolden, int ch,float* ret){
 	}*/
 	stbtt_GetFontVMetrics(ft, &ascent, &descent, &lineGap);
 	ch&=0xffffff;
-	stbtt_GetCodepointHMetrics(ft, ch, &advance, &lsb);
-	stbtt_GetCodepointBitmapBoxSubpixel(ft, ch, (float)x_aa*scale,(float)y_aa*scale,0.f,0, emboldenf,&x0,&y0,&x1,&y1);
+	stbtt_GetGlyphHMetrics(ft, ch, &advance, &lsb);
+	stbtt_GetGlyphBitmapBoxSubpixel(ft, ch, (float)x_aa*scale,(float)y_aa*scale,0.f,0, emboldenf,&x0,&y0,&x1,&y1);
 	if(x1<x0){x1=x0;}
 	if(y1<y0){y1=y0;}
 	y0_pixel=y0/y_aa;y0_pixel+=(y0_pixel>>31);
@@ -2138,7 +2138,7 @@ float embolden, int ch,float* ret){
 		g_buf=(u8*)STBTT_malloc(sz_needed,ft->userdata);
 	}
 	STBTT_memset(g_buf,0,sz_needed);
-	stbtt_MakeCodepointBitmapSubpixel(ft, g_buf, x1-x0,y1-y0,x1-x0, (float)x_aa*scale,(float)y_aa*scale,0.f,0.f, emboldenf,ch);
+	stbtt_MakeGlyphBitmapSubpixel(ft, g_buf, x1-x0,y1-y0,x1-x0, (float)x_aa*scale,(float)y_aa*scale,0.f,0.f, emboldenf,ch);
 	{
 		//filter it
 		int i,j,k,x,y;

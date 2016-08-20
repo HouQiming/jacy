@@ -17,44 +17,48 @@
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
 #import <CoreVideo/CoreVideo.h>
+#import <math.h>
 #include <stdlib.h>
 #include "wrapper_defines.h"
 #include "SDL.h"
 #include "TargetConditionals.h"
+#include "camera_ios.h"
+#include "ios_exposure_manager.h"
 
 #define IOS_CAMERA_FRONT 0
 #define IOS_CAMERA_BACK 1
 
-@interface CIOSCamCallBack: NSObject <AVCaptureVideoDataOutputSampleBufferDelegate> {
-	int m_cam_id;
-}
-@end
-
-typedef unsigned char u8;
-typedef unsigned int u32;
-typedef struct{
-	//AVCaptureDeviceInput* m_input;
-	int w_prev,h_prev,fps_prev;
-	AVCaptureDevice* m_device;
-	AVCaptureSession* m_session;
-	CIOSCamCallBack* m_callback;
-	////////
-	int m_is_on;
-	SDL_mutex* m_cam_mutex;
-	SDL_mutex* m_cam_mutex_2;
-	////////
-	u32* m_image_front;
-	u32* m_image_back;
-	int m_w,m_h,m_image_ready;
-}TCamera;
-
 static TCamera g_cameras[2]={{0}};
+static float OptimalLuminance = 100;
+static ExposureManager * exposure_manager;
+static int luminance_sample_points[80001]; 
+static int frame_count = 0;
+
+EXPORT int osal_IOSAutoAdjustCameraExposure(int cam_id, int face, int* random_points){
+	if(cam_id!=IOS_CAMERA_FRONT&&cam_id!=IOS_CAMERA_BACK){return -1;}
+	TCamera* cam=&g_cameras[cam_id];
+	if(!cam->m_is_on){return -1;}
+
+	int i;
+	for (i=0;random_points[i]>=0;i++){
+		luminance_sample_points[i]=random_points[i];
+	}
+	luminance_sample_points[i++]=-1;
+
+	return face;
+}
 
 EXPORT int osal_TurnOnCamera(int cam_id,int w,int h,int fps){
 	if(cam_id!=IOS_CAMERA_FRONT&&cam_id!=IOS_CAMERA_BACK){return 0;}
 	TCamera* cam=&g_cameras[cam_id];
 	if(cam->m_is_on){return 1;}
 	//////////////////
+
+	exposure_manager = [[ExposureManager alloc]init];
+	[exposure_manager initializeVar];
+	luminance_sample_points[0]=-1;
+	frame_count = 0;
+
 	if(!cam->m_cam_mutex){
 		cam->m_cam_mutex=SDL_CreateMutex();
 		cam->m_cam_mutex_2=SDL_CreateMutex();
@@ -85,6 +89,7 @@ EXPORT int osal_TurnOnCamera(int cam_id,int w,int h,int fps){
 			preset=AVCaptureSessionPresetHigh;
 		}
 	}
+	preset=AVCaptureSessionPresetPhoto;
 	if(!cam->m_device){
 		NSArray *devices = [AVCaptureDevice devices];
 		AVCaptureDevice *cam_mine=NULL;
@@ -100,8 +105,11 @@ EXPORT int osal_TurnOnCamera(int cam_id,int w,int h,int fps){
 		if(!cam_mine){return 0;}
 		cam->m_device=cam_mine;
 		cam->m_callback=[[CIOSCamCallBack alloc] initWithId:cam_id];
+
+		cam->m_expect_T = -1;
 	}
 	if(!cam->m_session){
+		[exposure_manager initializeCamera: cam->m_device];
 		AVCaptureDeviceInput *captureInput=
 			[AVCaptureDeviceInput 
 				deviceInputWithDevice:cam->m_device
@@ -137,8 +145,8 @@ EXPORT int osal_TurnOnCamera(int cam_id,int w,int h,int fps){
 	return 1;
 }
 
-@implementation CIOSCamCallBack
 
+@implementation CIOSCamCallBack
 - (id)initWithId:(int)param_variable_cam_id {
 	self->m_cam_id=param_variable_cam_id;
 	return self;
@@ -195,15 +203,74 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 	SDL_UnlockMutex(cam->m_cam_mutex);
 	//BGRA to RGBA
 	//printf("%08x %d %d %08x\n",cam->m_image_back,w,h,pimg);
+
+	
 	for(int i=0;i<h;i++){
 		int* tar=pback+w*i;
 		int* src=pimg+(stride>>2)*i;
-		for(int j=0;j<w;j++){
-			u32 bgra=src[j];
-			tar[j]=(bgra&0xff00ff00u)+((bgra>>16)&0xffu)+((bgra<<16)&0xff0000u);
+		memcpy(tar, src, w * 4);
+	}
+
+	double ev_luminance = 0.0;
+	int luminance_count = 0;
+
+	if (luminance_sample_points[0]>=0) {
+		// face detected
+		for(int s=0;luminance_sample_points[s]>=0;s+=2){
+			int j=luminance_sample_points[s];
+			int i=luminance_sample_points[s+1];
+			if ((i>=0&&i<h)&&(j>=0&&j<w)){
+				int* src=pimg+(stride>>2)*i;
+				u32 bgra=src[j];
+				u32 r = ((bgra>>16)&0xffu);
+				u32 g = ((bgra>>8)&0xffu);
+				u32 b = ((bgra)&0xffu);
+				u32 l = (r + r + r + g + g + g + g + b)>>3;
+				ev_luminance += l;
+				luminance_count ++;	
+			}	
 		}
+		if (luminance_count > 0)
+			ev_luminance /= (double)luminance_count;
+	}
+	else {
+		// no face deteceted
+		// lock in the center of the screen
+		int target_half_w=w/4;
+		int target_half_h=h/4;
+		for(int i=h/2-target_half_h;i<h/2+target_half_h;i++){
+			int* src=pimg+(stride>>2)*i;
+			for(int j=w/2-target_half_w;j<w/2+target_half_w;j++){
+				u32 bgra=src[j];
+				u32 r = ((bgra>>16)&0xffu);
+				u32 g = ((bgra>>8)&0xffu);
+				u32 b = ((bgra)&0xffu);
+				u32 l = (r + r + r + g + g + g + g + b)>>3;
+				ev_luminance += l;
+				luminance_count ++;
+			}
+		}
+
+		if (luminance_count > 0)
+			ev_luminance /= (double)luminance_count;
 	}
 	SDL_LockMutex(cam->m_cam_mutex);
+	// calculate luminance and expected exposure duration
+	frame_count = (frame_count + 1) % 5;
+	if (frame_count == 0) {
+		cam->m_ev_luminance = ev_luminance;
+		if (cam->m_ev_luminance > 1) {
+			CMTime duration = cam->m_device.exposureDuration;
+			double dura = CMTimeGetSeconds(duration);
+			int target_luminance = 90;
+			double delta_log = log(cam->m_ev_luminance) - log(target_luminance);
+			double expect_log_t = log(dura) - delta_log;
+			cam->m_expect_T = exp(expect_log_t);
+			[exposure_manager getSuitableTandISO: cam];
+		}
+	}
+	[exposure_manager setTandISO: cam];
+	////////////////
 	cam->m_image_ready=1;
 	SDL_UnlockMutex(cam->m_cam_mutex);
 	CVPixelBufferUnlockBaseAddress(imageBuffer,0);

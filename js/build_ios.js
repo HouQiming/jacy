@@ -5,7 +5,8 @@ build: CODE_SIGN_IDENTITY="iPhone Distribution:"
 ----
 /usr/bin/xcrun -sdk iphoneos PackageApplication -v $FULL_PATH_TO_APP -o the-ipa --sign "iPhone Distribution:" --embed *.mobileprovision
 codesign -s "Distribution" the-ipa
-xcrun -sdk iphoneos Validation -online -upload -verbose "path to ipa"
+/Applications/Xcode.app/Contents/Applications/Application\ Loader.app/Contents/Frameworks/ITunesSoftwareService.framework/Support/altool -v -f APP.ipa -u itunesconnect@user.com
+/Applications/Xcode.app/Contents/Applications/Application\ Loader.app/Contents/Frameworks/ITunesSoftwareService.framework/Support/altool --upload-app -f ./build/Release-iphoneos/fudemo.ipa -u itunesconnect@user.com
 ----
 #setting up a new system
 security create-keychain -p '' ios.keychain
@@ -85,6 +86,12 @@ g_action_handlers.make=function(){
 	var sbuildtmp;
 	if(g_need_ssh_for_mac){
 		if(!FileExists(g_work_dir+"/buildtmp_ready")){
+			var s_machine_tag="";
+			if(g_current_arch=="win32"||g_current_arch=="win64"){
+				s_machine_tag=ExpandEnvironmentStrings("%APPDATA%%PATH%")
+			}else{
+				s_machine_tag=ExpandEnvironmentStrings("${APPDATA}${PATH}")
+			}
 			sbuildtmp=SHA1(g_work_dir,8)
 			CreateFile(g_work_dir+"/buildtmp_ready",sbuildtmp)
 			mkdir(g_work_dir+"/upload/")
@@ -98,9 +105,14 @@ g_action_handlers.make=function(){
 		sbuildtmp=ReadFile(g_work_dir+"/buildtmp_ready")
 	}
 	//////////////////////
+	var s_build_number=(ReadFile(g_work_dir+"/build_number")||'0');
+	s_build_number=((parseInt(s_build_number)||0)+1).toString();
 	var s_text=ReadFile(g_config.IOS_SKELETON_PATH+"/Info.plist")
 	var s_display_name=(g_json.app_display_name&&g_json.app_display_name[0]||g_main_name);
 	s_text=s_text.replace(/__display_name__/g,s_display_name);
+	var s_version_string=(g_json.app_version&&g_json.app_version[0]||"1.0");
+	s_text=s_text.replace(/__build_version__/g,s_version_string+"."+s_build_number);
+	s_text=s_text.replace(/__version__/g,s_version_string);
 	var a_extra_plist_keys=[];
 	if(g_json.extra_plist_keys){
 		for(var i=0;i<g_json.extra_plist_keys.length;i++){
@@ -108,6 +120,7 @@ g_action_handlers.make=function(){
 		}
 	}
 	s_text=s_text.replace("__extra_keys__",a_extra_plist_keys.join(''))
+	CreateIfDifferent(g_work_dir+"/build_number",s_build_number)
 	CreateIfDifferent(g_work_dir+"/upload/Info.plist",s_text.replace(new RegExp("com.yourcompany.*\\}","g"),"com.spap."+g_main_name.replace(new RegExp("_","g"),"")))
 	//////////////////////
 	var fn_c_32=g_work_dir+"/s7main.c";
@@ -230,9 +243,9 @@ g_action_handlers.make=function(){
 			}
 		}
 		if(FileExists(g_base_dir+"/dist.mobileprovision")){
-			UpdateTo(g_work_dir+'/upload/dist.mobileprovision',g_base_dir+"/dist.mobileprovision")
+			CreateIfDifferent(g_work_dir+'/upload/dist.mobileprovision',ReadFile(g_base_dir+"/dist.mobileprovision"))
 		}
-		var spython=[]
+		var spython=[];
 		spython.push('from modxproj import XcodeProject\n')
 		spython.push('project = XcodeProject.Load("'+g_main_name+'.xcodeproj/project.pbxproj")\n')
 		//we don't have to add main.c
@@ -291,6 +304,10 @@ g_action_handlers.make=function(){
 			for(var i=0;i<g_json.xcode_flags.length;i++){
 				s_xcode_flags.push(g_json.xcode_flags[i]);
 			}
+		}
+		sshell.push('rm ~/Library/MobileDevice/Provisioning\\ Profiles/*;')
+		if(FileExists(g_base_dir+"/dist.mobileprovision")){
+			sshell.push('cp dist.mobileprovision ~/Library/MobileDevice/Provisioning\\ Profiles/;')
 		}
 		if(g_build!="debug"){
 			sshell.push('xcodebuild -sdk iphoneos -configuration Release build '+s_xcode_flags.join(' ')+' CODE_SIGN_IDENTITY="iPhone Distribution" OTHER_CFLAGS=\'${inherited} -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src \' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')

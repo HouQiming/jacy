@@ -6517,6 +6517,7 @@ module IO
 	ENUM_DIR=2
 	ENUM_RECURSIVE=4
 	ENUM_DOT=8
+	g_dtor_unmap=0
 	/**
 	 * \brief Map a file into the process address space
 	 *
@@ -6531,7 +6532,6 @@ module IO
 	 * @note The returned string *cannot be resized*. The file remains open until the returned string is discarded.
 	 * @see ReadAll(), which is implemented using MapFile()
 	*/
-	g_dtor_unmap=0
 	auto MapFile(string fn,int mode)
 		isrw=!!(mode&OPEN_WRITE)
 		if Platform.IS_UNIX:

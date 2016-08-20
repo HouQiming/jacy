@@ -9,32 +9,22 @@
 */
 #include "sdl.h"
 #include <jni.h>
+#include <math.h>
 #include <string.h>
 #include <android/log.h>
 #include "wrapper_defines.h"
+#include "camera_android.h"
+#include "android_exposure_manager.h"
 #define MAX_CAMERAS 8
-typedef unsigned char u8;
-typedef unsigned int u32;
-
-typedef struct _TCamera{
-	int m_inited;
-	jobject m_cam_object;
-	////////
-	int m_is_on;
-	SDL_mutex* m_cam_mutex;
-	////////
-	u32* m_image_front;
-	u32* m_image_back;
-	int m_w,m_h,m_image_ready;
-	int m_android_texid;
-	int m_android_is_texid_valid;
-}TCamera;
+#define MAX_RETINEX_SCALES 5
 
 static TCamera g_cameras[MAX_CAMERAS]={0};
+static int luminance_sample_points[80001];
 
 //the output is BGR, (likely) in sRGB
 //we can't have _ in the method name
 //todo: write to a "backbuffer", the getter merely swaps them in a lock
+
 JNIEXPORT void JNICALL Java_com_spap_wrapper_camera_sendresult(JNIEnv* env,jclass cls,jint cam_id,jbyteArray a,jint w,jint h){
 	jboolean is_copy;
 	TCamera* cam=&g_cameras[cam_id];
@@ -42,10 +32,7 @@ JNIEXPORT void JNICALL Java_com_spap_wrapper_camera_sendresult(JNIEnv* env,jclas
 	int need_post=0;
 	//__android_log_print(ANDROID_LOG_ERROR,"STDOUT","image coming");
 	SDL_LockMutex(cam->m_cam_mutex);
-	if(!cam->m_is_on){
-		SDL_UnlockMutex(cam->m_cam_mutex);
-		return;
-	}
+	if(!cam->m_is_on){ SDL_UnlockMutex(cam->m_cam_mutex); return; }
 	if(cam->m_w!=w||cam->m_h!=h){
 		if(cam->m_image_back){
 			free(cam->m_image_back);
@@ -58,50 +45,28 @@ JNIEXPORT void JNICALL Java_com_spap_wrapper_camera_sendresult(JNIEnv* env,jclas
 		cam->m_w=w;
 		cam->m_h=h;
 	}
-	if(!cam->m_image_back){
-		cam->m_image_back=malloc(4*w*h);
-	}
+	// yuvy, the last Y channel is for SDK.
+	if(!cam->m_image_back) cam->m_image_back=malloc(4*w*h);
+	u8*out=(u8*)cam->m_image_back;
 	img_nv21=(*env)->GetByteArrayElements(env,a,&is_copy);
-	//convert NV21 to rgb
 	{
-		int size=w*h;
-		int offset=size;
-		u32* out=cam->m_image_back;
-		int i,j,k;//,w3=w*3;
-		for(i=0, k=0, j=0; i < size; ) {
-			int y1=(int)img_nv21[i];
-			int y2=(int)img_nv21[i+1];
-			int y3=(int)img_nv21[w+i];
-			int y4=(int)img_nv21[w+i+1];
-			int v=(int)img_nv21[size+k]-128;
-			int u=(int)img_nv21[size+k+1]-128;
-			//int i3=i*3;
-			u32* pt;
-			int tmp;
-			unsigned int tmp2;
-			u32 val;
-			//pt=out+i3;
-			pt=out+i;
-			//coulddo: neon?
-			#define convertYUVtoARGB(y,u,v) val=0xff000000u;\
-				tmp=y+((116130*v)>>16);			val+=(u32)(!(tmp2=tmp>>8)?tmp:(0xff^(tmp2>>24)));\
-				tmp=y-((22544*v+46793*u)>>16);	val+=(u32)(!(tmp2=tmp>>8)?tmp:(0xff^(tmp2>>24)))<<8;\
-				tmp=y+((91881*u)>>16);			val+=(u32)(!(tmp2=tmp>>8)?tmp:(0xff^(tmp2>>24)))<<16;\
-				pt[0]=val;
-			convertYUVtoARGB(y1, u, v);pt+=3;
-			convertYUVtoARGB(y2, u, v);
-			//pt=out+(w3+i3);
-			pt=out+(w+i);
-			convertYUVtoARGB(y3, u, v);pt+=3;
-			convertYUVtoARGB(y4, u, v);
-			#undef convertYUVtoARGB
-			i+=2; k+=2; j+=2;
-			if(j>=w){
-				i+=j;
-				j=0;
-			}
+		float total_luminance = 0.0f;
+		int i, j, k, size = w * h, size2 = size * 2;
+		u8 u, v;
+		for(i = 0, j = 0, k = 0; i < size;) {
+			u = img_nv21[size + k + 1];
+			v = img_nv21[size + k];
+			total_luminance += img_nv21[i] + img_nv21[i + 1] + img_nv21[i + w] + img_nv21[i + w + 1];
+			out[i] = img_nv21[i]; out[i + 1] = img_nv21[i + 1]; out[i + w] = img_nv21[i + w]; out[i + w + 1] = img_nv21[i + w + 1];
+			out[size  + i] = u; out[size  + i + 1] = u; out[size  + i + w] = u; out[size  + i + w + 1] = u;
+			out[size2 + i] = v; out[size2 + i + 1] = v; out[size2 + i + w] = v; out[size2 + i + w + 1] = v;
+			
+			i += 2; j += 2; k += 2;
+			if (j >= w) { i += j; j = 0; }
 		}
+		process_luminance(luminance_sample_points, out, img_nv21, cam, w, h, total_luminance);
 	}
+
 	(*env)->ReleaseByteArrayElements(env,a,img_nv21,JNI_ABORT);
 	cam->m_w=w;
 	cam->m_h=h;
@@ -140,6 +105,20 @@ EXPORT u32* osal_GetCameraImage(int cam_id, int* pw,int* ph){
 	}
 }
 
+EXPORT int osal_AndroidAutoAdjustCameraExposure(int cam_id, int face, int* random_points){
+	if((unsigned int)cam_id>=(unsigned int)MAX_CAMERAS) return -1;
+	TCamera* cam=&g_cameras[cam_id];
+	if(!cam->m_is_on){return -1;}
+
+	int i;
+	for (i=0;random_points[i]>=0;i++){
+		luminance_sample_points[i]=random_points[i];
+	}
+	luminance_sample_points[i++]=-1;
+
+	return face;
+}
+
 //main thread only
 EXPORT int osal_TurnOnCamera(int cam_id,int w,int h,int fps){
 	JNIEnv* env=(JNIEnv*)SDL_AndroidGetJNIEnv();
@@ -169,6 +148,8 @@ EXPORT int osal_TurnOnCamera(int cam_id,int w,int h,int fps){
 	ret=(*env)->CallIntMethodA(env,cam->m_cam_object,method_id,args);
 	SDL_UnlockMutex(cam->m_cam_mutex);
 	//__android_log_print(ANDROID_LOG_ERROR,"STDOUT","call method %p %p ret=%d",cam->m_clazz,method_id,ret);
+	// init for auto exposure adjust
+	luminance_sample_points[0] = -1;
 	return ret;
 }
 

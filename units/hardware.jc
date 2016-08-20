@@ -11,11 +11,13 @@ module Camera
 		osal_AndroidCallUpdateTexImage=__c_function(int,"osal_AndroidCallUpdateTexImage","osal_camera.h")
 	auto osal_GetCameraImageManaged(int cam_id)
 		if Platform.ARCH=="android":
+			__generate_json("c_files","camera_android.h")
 			__generate_json("c_files","camera_android.c")
 			__generate_json("java_files","camera.java")
 			__generate_json("android_permissions","android.permission.CAMERA")
 			__generate_json("android_features","android:hardware.camera")
 		else if Platform.ARCH=="ios"||Platform.ARCH=="mac":
+			__generate_json("c_files","camera_ios.h")
 			__generate_json("c_files","camera_ios.m")
 			__generate_json("ios_frameworks","System/Library/Frameworks/AVFoundation.framework")
 			__generate_json("ios_frameworks","System/Library/Frameworks/CoreMedia.framework")

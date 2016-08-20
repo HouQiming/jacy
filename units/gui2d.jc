@@ -12,7 +12,7 @@ import System.Console.*
 
 module detail{
 FTW_LoadFont=__c_function(__pointer,"FTW_LoadFont","stb_truetype.h", "c_files","stb_truetype.c")
-FTW_GetCharacterEx=__c_function(__pointer,"FTW_GetCharacterEx","stb_truetype.h", "c_files","stb_truetype.c")
+FTW_GetGlyphEx=__c_function(__pointer,"FTW_GetGlyphEx","stb_truetype.h", "c_files","stb_truetype.c")
 FTW_UnloadFont=__c_function(int,"FTW_UnloadFont","stb_truetype.h", "c_files","stb_truetype.c")
 FTW_GetGlyphId=__c_function(int,"FTW_GetGlyphId","stb_truetype.h", "c_files","stb_truetype.c")
 FTW_GetAscent=__c_function(float,"FTW_GetAscent","stb_truetype.h", "c_files","stb_truetype.c")
@@ -190,6 +190,7 @@ struct TChainFont
 struct TChainCacheItem
 	float dx
 	int fntid
+	int gid
 
 class CFontChain
 	TChainFont[] fonts
@@ -200,13 +201,22 @@ class CFontChain
 	auto CreateCodePoint(int ch)
 		fntid=-1
 		dx=0.f
+		gid=0
 		for cfnt,I in fonts
 			gid=FTW_GetGlyphId(cfnt.hfnt.hfnt,ch)
 			if gid:
 				dx=FTW_GetGlyphAdvance(cfnt.hfnt.hfnt,cfnt.scale,gid)
 				fntid=int(I+1)
 				break
-		ci=TChainCacheItem(){dx:dx,fntid:fntid}
+		if fntid<0:
+			//the "missing" glyph
+			fntid=int(fonts.n)
+			if ch=='\t'||ch=='\r'||ch=='\n':
+				gid=FTW_GetGlyphId(fonts[fntid-1].hfnt.hfnt,32)
+				dx=0.f
+			else
+				dx=FTW_GetGlyphAdvance(fonts[fntid-1].hfnt.hfnt,fonts[fntid-1].scale,0)
+		ci=TChainCacheItem(){dx:dx,fntid:fntid,gid:gid}
 		if ch<128:
 			cache_ascii[ch]=ci
 		else
@@ -1024,51 +1034,51 @@ class CRenderer
 		dx=0.f
 		pchain=fnt.pfnt
 		ci=pchain.QueryCodePoint(ch)
-		if ci.fntid<0:
-			//there is no glyph, return NULL
-		else
-			cfnt=pchain.fonts[ci.fntid-1]
-			hfnt=cfnt.hfnt
-			draw_dxdy=float2(cfnt.draw_dx,cfnt.draw_dy)*fnt.h
-			//ci.dx already has cfnt.scale counted in
-			dx=ci.dx*fnt.h
-			key=int3(hfnt.id*1024+max(min(fnt.embolden+512,1023),0),__float_as_int(fnt.h*cfnt.scale),ch)
-			ret=m_glyph_cache[key]
-			if !ret:
-				m_has_new_glyph_cache_entry=1
-				dims=new float[6]
-				x_aa=3
-				y_aa=3
-				if fnt.h<16.f:
-					x_aa=5
-					y_aa=5
-				if !m_filter3:
-					m_filter3=lanczos_filter(3,2,m_font_sharpening)
-					m_filter5=lanczos_filter(5,2,m_font_sharpening)
-				assert(x_aa==3||x_aa==5)
-				assert(y_aa==3||y_aa==5)
-				x_filter=(x_aa==3?m_filter3:m_filter5)
-				y_filter=(y_aa==3?m_filter3:m_filter5)
-				x_htaps=int(x_filter.n>>1)
-				y_htaps=int(y_filter.n>>1)
-				embolden=float(max(min(fnt.embolden,511),-512))*fnt.h*cfnt.scale
-				pbitmap=FTW_GetCharacterEx(hfnt.hfnt,fnt.h*cfnt.scale,x_aa,y_aa, x_filter,y_filter,x_htaps,y_htaps, embolden, ch,dims)
-				w=int(dims[2])
-				h=int(dims[3])
-				buf=new u8[(w+2)*(h+2)]
-				for i=0:h-1
-					lbase=(i+1)*(w+2)+1
-					lbase_src=i*w
-					for j=0:w-1
-						buf[lbase+j]=__memory(u8,iptr(pbitmap)+lbase_src+j)
-				ret=new CGlyphCacheItem
-				if w&&h:
-					ret.tex_id=CreatePackedTexture(buf,w+2,h+2)
-				ret.x_draw=dims[0]
-				ret.y_draw=dims[1]
-				ret.w_draw=dims[4]
-				ret.h_draw=float(h)
-				m_glyph_cache[key]=ret
+		//if ci.fntid<0:
+		//	//there is no glyph, return NULL
+		//else
+		cfnt=pchain.fonts[ci.fntid-1]
+		hfnt=cfnt.hfnt
+		draw_dxdy=float2(cfnt.draw_dx,cfnt.draw_dy)*fnt.h
+		//ci.dx already has cfnt.scale counted in
+		dx=ci.dx*fnt.h
+		key=int3(hfnt.id*1024+max(min(fnt.embolden+512,1023),0),__float_as_int(fnt.h*cfnt.scale),ci.gid)
+		ret=m_glyph_cache[key]
+		if !ret:
+			m_has_new_glyph_cache_entry=1
+			dims=new float[6]
+			x_aa=3
+			y_aa=3
+			if fnt.h<16.f:
+				x_aa=5
+				y_aa=5
+			if !m_filter3:
+				m_filter3=lanczos_filter(3,2,m_font_sharpening)
+				m_filter5=lanczos_filter(5,2,m_font_sharpening)
+			assert(x_aa==3||x_aa==5)
+			assert(y_aa==3||y_aa==5)
+			x_filter=(x_aa==3?m_filter3:m_filter5)
+			y_filter=(y_aa==3?m_filter3:m_filter5)
+			x_htaps=int(x_filter.n>>1)
+			y_htaps=int(y_filter.n>>1)
+			embolden=float(max(min(fnt.embolden,511),-512))*fnt.h*cfnt.scale
+			pbitmap=FTW_GetGlyphEx(hfnt.hfnt,fnt.h*cfnt.scale,x_aa,y_aa, x_filter,y_filter,x_htaps,y_htaps, embolden, ci.gid,dims)
+			w=int(dims[2])
+			h=int(dims[3])
+			buf=new u8[(w+2)*(h+2)]
+			for i=0:h-1
+				lbase=(i+1)*(w+2)+1
+				lbase_src=i*w
+				for j=0:w-1
+					buf[lbase+j]=__memory(u8,iptr(pbitmap)+lbase_src+j)
+			ret=new CGlyphCacheItem
+			if w&&h:
+				ret.tex_id=CreatePackedTexture(buf,w+2,h+2)
+			ret.x_draw=dims[0]
+			ret.y_draw=dims[1]
+			ret.w_draw=dims[4]
+			ret.h_draw=float(h)
+			m_glyph_cache[key]=ret
 		return (ret,draw_dxdy,dx)
 	auto DrawChar(TFont fnt, float x,float y,int C, int ch)
 		(gcitem,draw_dxdy,dx)=CacheGlyph(fnt,ch)
@@ -1213,7 +1223,7 @@ class CRenderer
 			xmax=max(xmax,x)
 		if ndrawn<s32.n&&(flags&EDT_END_ELLIPSIS):
 			U_ELLIPSIS=0x2026
-			if fnt.pfnt.QueryCodePoint(U_ELLIPSIS).fntid>0:
+			if fnt.pfnt.QueryCodePoint(U_ELLIPSIS).gid://fntid>0:
 				w_remove=GetCharacterAdvance(fnt,U_ELLIPSIS)
 				s_elli=[U_ELLIPSIS]
 			else

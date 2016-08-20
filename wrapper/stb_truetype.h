@@ -4,7 +4,7 @@
 void* FTW_LoadFont(char* a,int sz);
 int FTW_UnloadFont(void* ft);
 int FTW_GetGlyphId(void* ft,int ch);
-unsigned char* FTW_GetCharacterEx(void* ft,float h,
+unsigned char* FTW_GetGlyphEx(void* ft,float h,
 	int x_aa,int y_aa, 
 	float* x_filter,float* y_filter,int x_htaps,int y_htaps,
 	float embolden, int ch,float* ret);

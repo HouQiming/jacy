@@ -1858,6 +1858,7 @@ W.EditBox=function(id,attrs){
 				UI.SetFocus(obj.edit)
 				obj.edit.sel0.ccnt=0
 				obj.edit.sel1.ccnt=obj.edit.ed.GetTextSize()
+				obj.edit.AutoScroll('show')
 				UI.InvalidateCurrentFrame()
 			}
 			if(obj.tab_stop){
