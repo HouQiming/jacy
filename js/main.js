@@ -31,7 +31,9 @@ UpdateToCLike=function(fn_old,fn_new,use_symlink){
 			return 0;
 		}
 	}else{
-		CreateFile(fn_old,['#line 1 "',fn_new,'"\n',ReadFile(fn_new)].join(""))
+		CreateFile(fn_old,[
+			g_json.is_library?'#define PM_IS_LIBRARY\n':'',
+			'#line 1 "',fn_new,'"\n',ReadFile(fn_new)].join(""))
 	}
 	return 1;
 };

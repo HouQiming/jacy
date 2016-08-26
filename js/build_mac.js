@@ -137,7 +137,9 @@ g_action_handlers.make=function(){
 		//sshell.push('security list-keychains -s login.keychain;')
 		//sshell.push('security default-keychain -s login.keychain;')
 		//todo: prompt for pwd instead? could find a local-only solution
-		sshell.push('security unlock-keychain -p \'\' login.keychain;')
+		sshell.push('echo "--- Setting and unlocking keychains ---";')
+		sshell.push('security default-keychain -s ios.keychain;')
+		sshell.push('security unlock-keychain -p \'\' ios.keychain;')
 	}
 	if(g_build!="debug"){
 		sshell.push('xcodebuild -sdk macosx -configuration Release build OTHER_CFLAGS=\'${inherited} -w -Isdl/include -Isdl/src \';')

@@ -118,6 +118,9 @@ typedef DWORD TLSID;
 		#ifndef PM_IS_LIBRARY
 		#include "SDL/include/SDL.h"
 		#endif
+		#define HAS_GLOB
+		#define NEED_MAIN_WRAPPING
+		#include <glob.h>
 	#elif TARGET_OS_MAC
 		// Mac OS
 		#ifndef PM_IS_LIBRARY
@@ -371,7 +374,7 @@ EXPORT void spapDebugV2Start(){}
 EXPORT void spapPushCallStack(TCallStackItemEx* p){}
 EXPORT void spapPopCallStack(){}
 #else
-static int g_tls_cur_stack=0;
+static TLSID g_tls_cur_stack=0;
 static int g_debug_inited=0;//version number after init
 static HMUTEX g_stackdump_lock;
 static char dump_temp[1024];
@@ -388,7 +391,7 @@ void dump_call_stack(char* reason){
 			int p_dump=0,lg_fn=0;
 			for(;li;li=li->next){
 				const char* s=li->s;
-				int lg=strlen(s);
+				int lg=(int)strlen(s);
 				if(p_dump+lg>=1024){
 					dump_temp[p_dump]=0;
 					osal_WriteLog(dump_temp);
@@ -402,7 +405,7 @@ void dump_call_stack(char* reason){
 					p_dump=0;
 				}
 			}
-			lg_fn=strlen(stk->fnn);
+			lg_fn=(int)strlen(stk->fnn);
 			memcpy(dump_temp+p_dump,stk->fnn,lg_fn);
 			p_dump+=lg_fn;
 			dump_temp[p_dump]=0;
@@ -688,7 +691,7 @@ static char sccsid[] = "@(#)glob.c	8.3 (Berkeley) 10/13/93";
 #define	_GLOB_H_
 
 #include <sys/cdefs.h>
-#ifdef LINUX
+#if defined(ANDROID)||defined(__ANDROID__)||defined(LINUX)
 #include <sys/types.h>
 #else
 #include <sys/_types.h>

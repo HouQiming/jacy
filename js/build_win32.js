@@ -44,7 +44,7 @@ VC.Compile=function(fnsrc,soutput){
 		sopt0=sopt0+" /DPM_RELEASE";
 	}
 	if(g_json.is_library){
-		sopt0=sopt0+" /DPM_IS_LIBRARY";
+		//sopt0=sopt0+" /DPM_IS_LIBRARY";
 	}else{
 		sopt0=sopt0+" /DNEED_MAIN_WRAPPING";
 	}

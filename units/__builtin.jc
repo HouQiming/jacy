@@ -259,6 +259,13 @@ class __array(T)
 		n=bound_sz
 		sz=bound_sz
 		destructor_nbound_or_slice_reference=iptr(dtor_id*2)
+	/*
+	\brief Bind a JC array to a native pointer
+	\param ptr is the native pointer
+	\param n_elements is the number of elements available at that pointer
+	*/
+	inline BindToPointer(__pointer ptr,iptr n_elements)
+		__bind(1,iptr(ptr),n_elements)
 	inline discard()
 		__done__()
 		d=0L

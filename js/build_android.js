@@ -80,6 +80,44 @@ g_action_handlers.make=function(){
 		}
 	}
 	//////////////////////////////////////
+	//64-bit build
+	if(g_json.android_enable_arm64){
+		var fn_c_32=g_work_dir+"/s7main.c";
+		var fn_c_64=g_work_dir+"/s7main64.c";
+		var fn_c_bi=g_work_dir+"/s7main_bi.c";
+		if(IsNewerThan(fn_c_32,fn_c_64)){
+			//64-bit build
+			var jc_cmdline=[g_root+"/bin/win32_release/jc.exe","--64","-a"+g_arch,"-b"+g_build,"-c","--c="+fn_c_64];
+			if(g_json.is_library){
+				jc_cmdline.push('--shared');
+			}
+			for(var i=0;i<g_json.input_files.length;i++){
+				jc_cmdline.push(g_json.input_files);
+			}
+			shell(jc_cmdline);
+		}
+		var got_original_main_c=0;
+		for(var i=0;i<g_json.c_files.length;i++){
+			if(g_base_dir+"/"+g_json.c_files[i]==fn_c_32||g_json.c_files[i]==fn_c_32){
+				got_original_main_c=1;
+				g_json.c_files[i]=fn_c_bi;
+				break;
+			}
+		}
+		if(!got_original_main_c){
+			print(JSON.stringify(g_json.c_files),fn_c_32)
+			throw new Error("cannot find s7main.c in c_files")
+		}
+		var s_c_64=ReadFile(fn_c_64)
+		var s_c_32=ReadFile(fn_c_32)
+		CreateIfDifferent(fn_c_bi,
+			['#if __LP64__\n',
+				s_c_64,
+			'\n#else\n',
+				s_c_32,
+			'\n#endif\n'].join(''))
+	}
+	//////////////////////////////////////
 	//build the project in the work dir
 	//icon: ic_launcher.png resampling
 	if(g_json.icon_file){
@@ -138,6 +176,9 @@ g_action_handlers.make=function(){
 	//	abis=['armeabi-v7a','x86']
 	//}
 	abis=['armeabi-v7a','x86']
+	if(g_json.android_enable_arm64){
+		abis.push('arm64-v8a');
+	}
 	if(!g_json.is_library){
 		//no SDL for libraries
 		CopySkeletonFile("/jni/src/main/android","SDL_android_main.c")
@@ -241,7 +282,7 @@ g_action_handlers.make=function(){
 		s_android_mk.push('LOCAL_CFLAGS += -O0 -fno-var-tracking-assignments -std=c99\n')
 	}
 	if(g_json.is_library){
-		s_android_mk.push('LOCAL_CFLAGS += -DPM_IS_LIBRARY\n')
+		//s_android_mk.push('LOCAL_CFLAGS += -DPM_IS_LIBRARY\n')
 	}else{
 		s_android_mk.push('LOCAL_CFLAGS += -DNEED_MAIN_WRAPPING\n')
 	}

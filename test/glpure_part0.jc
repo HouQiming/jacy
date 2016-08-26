@@ -557,7 +557,7 @@ GL_INVALID_OPERATION=0x0502
 GL_STACK_OVERFLOW=0x0503
 GL_STACK_UNDERFLOW=0x0504
 GL_OUT_OF_MEMORY=0x0505
-
+GL_INVALID_FRAMEBUFFER_OPERATION=0x0506
 
 GL_CURRENT_BIT=0x00000001
 GL_POINT_BIT=0x00000002
@@ -2823,6 +2823,7 @@ auto mygluGetErrorString(GLenum err)
 	case GL_STACK_OVERFLOW:return "GL_STACK_OVERFLOW"
 	case GL_STACK_UNDERFLOW:return "GL_STACK_UNDERFLOW"
 	case GL_OUT_OF_MEMORY:return "GL_OUT_OF_MEMORY"
+	case GL_INVALID_FRAMEBUFFER_OPERATION:return "GL_INVALID_FRAMEBUFFER_OPERATION"
 	}
 	return "error code 0x"+formatNumber(err,{base:16,align:4})
 
@@ -2969,6 +2970,7 @@ auto glCreateProgramFromString(TShaderItem[] strs,function(GLuint) fprelink)
 				return prg
 
 g_screen_quad_vbo=0u
+g_n_shaders_compiled=0
 class GLTechnique
 	struct TDeclItem
 		//let's check the attr-ness using decl_code[0]
@@ -3072,6 +3074,12 @@ class GLTechnique
 				if di.decl_code[0]!='a':
 					s_native=new(di.loc_name);s_native.push(char(0))
 					m_slot_map[di.loc_name]=glGetUniformLocation(m_prg,__pointer(s_native.d))
+			if Platform.BUILD=="debug":
+				g_n_shaders_compiled++
+				if g_n_shaders_compiled>200:
+					Writeln('WARNING: more than 200 shaders compiled!')
+					g_n_shaders_compiled=0
+					assert(0)
 		//use the program and actually bind the stuff
 		glUseProgram(m_prg)
 		glBindBuffer(GL_ARRAY_BUFFER,vbo)
@@ -3115,7 +3123,7 @@ class GLTechnique
 		glGetError()//clear the error
 		if m_ebo_type!=GL_INVALID_ENUM:
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,m_ebo)
-			if m_instance_count>1:
+			if m_instance_count>1&&!Platform.IS_MOBILE:
 				glDrawElementsInstanced(mode,count,m_ebo_type,__pointer(m_ebo_ofs),m_instance_count)
 			else
 				//Writeln('count=',count)
@@ -3125,7 +3133,7 @@ class GLTechnique
 			err_draw=glGetError()
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0u)
 		else
-			if m_instance_count>1:
+			if m_instance_count>1&&!Platform.IS_MOBILE:
 				glDrawArraysInstanced(mode,0,count,m_instance_count)
 			else
 				glDrawArrays(mode,0,count)

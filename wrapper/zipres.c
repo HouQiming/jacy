@@ -4,6 +4,7 @@
 #include <android/asset_manager.h>
 #include <android/asset_manager_jni.h>
 #include "wrapper_defines.h"
+#include "spaprt_portable.h"
 
 static void* g_res_zip=NULL;
 static iptr g_res_size=0;

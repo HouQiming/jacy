@@ -149,9 +149,20 @@ g_action_handlers.make=function(){
 		print(JSON.stringify(g_json.c_files),fn_c_32)
 		throw new Error("cannot find s7main.c in c_files")
 	}
-	g_json.h_files.push(fn_c_64)
-	g_json.h_files.push(fn_c_32)
-	CreateIfDifferent(fn_c_bi,'#if __LP64__\n#include "s7main64.c"\n#else\n#include "s7main.c"\n#endif\n')
+	if(g_json.is_library){
+		var s_c_64=ReadFile(fn_c_64)
+		var s_c_32=ReadFile(fn_c_32)
+		CreateIfDifferent(fn_c_bi,
+			['#if __LP64__\n',
+				s_c_64,
+			'\n#else\n',
+				s_c_32,
+			'\n#endif\n'].join(''))
+	}else{
+		g_json.h_files.push(fn_c_64)
+		g_json.h_files.push(fn_c_32)
+		CreateIfDifferent(fn_c_bi,'#if __LP64__\n#include "s7main64.c"\n#else\n#include "s7main.c"\n#endif\n')
+	}
 	//////////////////////
 	var c_files=CreateProjectForStandardFiles(g_work_dir+"/upload/")
 	if(g_json.is_library){

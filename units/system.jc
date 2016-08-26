@@ -8380,7 +8380,10 @@ module Algorithm
 		else
 			b=a
 			return __SHA1(iptr(&b),sizeof(b))
-	//! \brief Computes the 160-bit SHA1 hash of a variable as a hexadecimal string
+	/*! 
+	\brief Computes the 160-bit SHA1 hash of a variable as a hexadecimal string
+	@return The digest string, in lower case hex
+	*/
 	inline SHA1Digest(a)
 		b=SHA1(a)
 		ret=char[40]
