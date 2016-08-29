@@ -146,7 +146,8 @@ g_action_handlers.make=function(){
 		var s_shim=ReadFile(fn_shim).
 			replace(/[$]PROJECT_NAME/g,g_main_name).
 			replace(/[$]PROLOG/,s_prolog.join('')).
-			replace(/[$]BLOCK_COUNTS/g,['{js:',n_js_blocks.toString(),',mem:',n_mem_blocks.toString(),'}'].join(''));
+			replace(/[$]BLOCK_COUNTS/g,['{js:',n_js_blocks.toString(),',mem:',n_mem_blocks.toString(),'}'].join('')).
+			replace(/[$]EXTRA_JS/g,(g_json.shim_extra_js||[]).join(''));
 		CreateIfDifferent(RemoveExtension(s_qualified_emcc_output)+".html",s_shim);
 	}
 	return 1;

@@ -64,6 +64,7 @@ module duktape
 	duk_push_error_object=__c_function(int,"duk_push_error_object","duktape.h")
 	duk_push_error_object_raw=__c_function(int,"duk_push_error_object_raw","duktape.h")
 	duk_is_error=__c_function(int,"duk_is_error","duktape.h")
+	duk_gc=__c_function(int,"duk_gc","duktape.h")
 	///////
 	DUK_COMPILE_EVAL=(1 << 3)
 	DUK_COMPILE_FUNCTION=(1 << 4)
@@ -429,6 +430,8 @@ module duktape
 		auto New()
 			duk_push_object(_ctx())
 			return _pop_typed(JSObject,1)
+		auto FromHandle(int handle)
+			return new JSObject(){m_jsctx:this,m_handle:handle}
 		//auto NewFixedBuffer(iptr size)
 		//	duk_push_buffer(_ctx(),size,0)
 		//	return _pop_typed(JSObject,1)
@@ -583,6 +586,8 @@ module duktape
 			fnamen=new(fname)
 			fnamen.push(char(0))
 			return debugEval(scode,fnamen)
+		inline gc()
+			duk_gc(m_hctx,0)
 		/////////
 		if Platform.BUILD=="debug":
 			//i8[iptr] m_is_function_dumped
@@ -928,6 +933,10 @@ module duktape
 			m_jsctx._push_object(proto.m_handle)
 			duk_set_prototype(_ctx(),-2)
 			duk_pop(_ctx())
+		inline ToHandle()
+			auto ret=m_handle
+			m_handle=0
+			return ret
 		auto __done__()
 			if m_handle:
 				m_jsctx._free_refid(m_handle)

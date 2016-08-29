@@ -294,6 +294,16 @@ g_action_handlers.make=function(){
 		}
 		s_android_mk.push('\n')
 	}
+	s_android_mk.push('ifeq ($(TARGET_ARCH_ABI),x86)\n')
+	s_android_mk.push('\tLOCAL_CFLAGS += -DANDROID_X86\n')
+	s_android_mk.push('else\n')
+	s_android_mk.push('\tLOCAL_CFLAGS += -DANDROID_ARM -DHAS_NEON\n')
+	s_android_mk.push('\tifeq ($(TARGET_ARCH_ABI),arm64-v8a)\n')
+	s_android_mk.push('\t\tLOCAL_CFLAGS += -march=armv8-a \n')
+	s_android_mk.push('\telse\n')
+	s_android_mk.push('\t\tLOCAL_CFLAGS += -mfpu=neon \n')
+	s_android_mk.push('\tendif\n')
+	s_android_mk.push('endif\n')
 	s_android_mk.push('LOCAL_SHARED_LIBRARIES := ')
 	for(var j=0;g_json.android_libnames&&g_json.android_libnames[j];j++){
 		s_android_mk.push(' '+g_json.android_libnames[j])

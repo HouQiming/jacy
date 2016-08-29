@@ -72,24 +72,26 @@ g_action_handlers.make=function(){
 		MAC.CopyToUpload(g_work_dir+"/reszip.bundle")
 	}
 	//icons
+	var need_icon_conversion=0;
 	if(g_json.icon_file){
 		var fn_icon=SearchForFile(g_json.icon_file[0]);
 		var fntouch=g_work_dir+"/ic_launcher.png._touch"
 		if(IsNewerThan(fn_icon,fntouch)){
 			mkdir(g_work_dir+"/upload/Icon.iconset")
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_16x16.png',16,16)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_16x16@2x.png',16*2,16*2)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_32x32.png',32,32)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_32x32@2x.png',32*2,32*2)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_128x128.png',128,128)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_128x128@2x.png',128*2,128*2)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_256x256.png',256,256)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_256x256@2x.png',256*2,256*2)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_512x512.png',512,512)
-			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/Icon_512x512@2x.png',512*2,512*2)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/icon_16x16.png',16,16)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/icon_16x16@2x.png',16*2,16*2)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/icon_32x32.png',32,32)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/icon_32x32@2x.png',32*2,32*2)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/icon_128x128.png',128,128)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/icon_128x128@2x.png',128*2,128*2)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/icon_256x256.png',256,256)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/icon_256x256@2x.png',256*2,256*2)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/icon_512x512.png',512,512)
+			ResampleImage(fn_icon,g_work_dir+'/upload/Icon.iconset/icon_512x512@2x.png',512*2,512*2)
 			CreateFile(fntouch,fn_icon)
+			need_icon_conversion=1;
 		}
-		MAC.c_file_list.push('Icon.iconset');
+		//MAC.c_file_list.push('Icon.iconset');
 	}
 	//coulddo: http://stackoverflow.com/questions/96882/how-do-i-create-a-nice-looking-dmg-for-mac-os-x-using-command-line-tools
 	//if(g_json.default_screen_file){
@@ -132,6 +134,9 @@ g_action_handlers.make=function(){
 	}
 	//the re-add approach has guid issues
 	sshell.push('python ./tmp.py;')
+	if(g_json.icon_file){
+		sshell.push('iconutil --convert icns Icon.iconset --output Icon.icns;')
+	}
 	sshell.push('echo "----building----";')
 	if(g_build!="debug"){
 		//sshell.push('security list-keychains -s login.keychain;')
@@ -152,11 +157,16 @@ g_action_handlers.make=function(){
 	}else{
 		sdirname="Debug"
 	}
+	if(g_json.icon_file){
+		sshell.push('mkdir -p build/',sdirname,'/',g_main_name,'.app/Contents/Resources;')
+		sshell.push('cp Icon.icns build/',sdirname,'/',g_main_name,'.app/Contents/Resources/;')
+	}
 	if(g_need_ssh_for_mac){
 		//hdiutil create -volname WhatYouWantTheDiskToBeNamed -srcfolder /path/to/the/folder/you/want/to/create -ov -format UDZO name.dmg
-		sshell.push('mkdir -p download; cd build/',sdirname,'/; strip '+g_main_name,'.app/Contents/MacOS/',g_main_name)
+		sshell.push('mkdir -p download; cd build/',sdirname,'/; strip '+g_main_name,'.app/Contents/MacOS/',g_main_name,';')
+		sshell.push('rm -rf dmg; mkdir -p dmg; cp -r ',g_main_name,'.app dmg/; ln -s /Applications dmg/Applications;')
 		//sshell.push('; tar -czf '+g_main_name+'.tar.gz '+g_main_name+'.app; mv '+g_main_name+'.tar.gz ../../download/;')
-		sshell.push('; hdiutil create -volname ',g_main_name,' -srcfolder ',g_main_name,'.app -ov -format UDZO ',g_main_name,'.dmg; mv '+g_main_name+'.dmg ../../download/;')
+		sshell.push('hdiutil create -volname ',g_main_name,' -srcfolder dmg/ -ov -format UDZO ',g_main_name,'.dmg; mv '+g_main_name+'.dmg ../../download/;')
 		sshell.push('exit')
 		envssh('mac',sshell.join(""))
 		rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/download',g_bin_dir)
