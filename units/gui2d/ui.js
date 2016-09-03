@@ -1905,7 +1905,7 @@ UI.Run=function(){
 				}
 				return UI;
 			}
-			switch(event.type){
+			if(!UI.EventFilter||UI.EventFilter(event)){switch(event.type){
 			case UI.SDL_USEREVENT:
 				if(event.code==1){
 					//close
@@ -2184,7 +2184,7 @@ UI.Run=function(){
 			case UI.SDL_DROPFILE:
 				UI.OpenFile(event.file)
 				break
-			}
+			}}
 			event=UI.SDL_PollEvent();
 			if(!event)break;
 		}

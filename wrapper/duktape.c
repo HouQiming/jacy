@@ -9897,7 +9897,6 @@ DUK_INTERNAL void duk_default_fatal_handler(duk_context *ctx, duk_errcode_t code
 
 #if !defined(DUK_USE_PANIC_HANDLER)
 DUK_INTERNAL void duk_default_panic_handler(duk_errcode_t code, const char *msg) {
-	*(int*)4+=4;//todo
 #if defined(DUK_USE_FILE_IO)
 	DUK_FPRINTF(DUK_STDERR, "PANIC %ld: %s ("
 #if defined(DUK_USE_PANIC_ABORT)

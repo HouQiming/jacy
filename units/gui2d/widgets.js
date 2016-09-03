@@ -2302,7 +2302,7 @@ W.ListView_prototype={
 		var sel=this.value
 		var dim=this.dimension
 		var wh_dim=(dim=='y'?'h':'w')
-		var item_sel=this["$"+sel]
+		var item_sel=this[(sel!=undefined&&this.items[sel].id)||("$"+sel)]
 		if(item_sel){
 			var pos_sel=item_sel[dim]-this[dim]+this.position
 			var pos_goal=Math.max(Math.min(this.position,pos_sel),pos_sel+item_sel[wh_dim]-this[wh_dim])
@@ -2424,6 +2424,11 @@ W.ListView_prototype={
 			if(obj_sel&&obj_sel.OnDblClick){
 				obj_sel.OnDblClick();
 			}
+		}else{
+			var obj_sel=this["$"+value]
+			if(obj_sel&&obj_sel.OnKeyDown){
+				obj_sel.OnKeyDown(event);
+			}
 		}
 	},
 	///////////////
@@ -2510,12 +2515,13 @@ W.ListView=function(id,attrs){
 		obj.value++;
 		id_changed=1;
 	}
-	var dim_tot=obj.layout_spacing*(items.length+1)
+	var layout_spacing=(obj.layout_spacing||0);
+	var dim_tot=layout_spacing*(items.length+1)
 	if(obj.dimension=="y"){
 		for(var i=0;i<items.length;i++){
 			dim_tot+=items[i].h;
 			if(items[i].is_hidden){
-				dim_tot-=obj.layout_spacing;
+				dim_tot-=layout_spacing;
 			}
 		}
 		dim_tot=Math.max(dim_tot,0)
@@ -2526,7 +2532,7 @@ W.ListView=function(id,attrs){
 		for(var i=0;i<items.length;i++){
 			dim_tot+=items[i].w;
 			if(items[i].is_hidden){
-				dim_tot-=obj.layout_spacing;
+				dim_tot-=layout_spacing;
 			}
 		}
 		dim_tot=Math.max(dim_tot,0)
@@ -2535,9 +2541,9 @@ W.ListView=function(id,attrs){
 		obj.layout_scroll_y=0
 	}
 	obj.dim_tot=dim_tot
-	obj.selection={};if(obj.value!=undefined){obj.selection['$'+obj.value]=1}
+	obj.selection={};if(obj.value!=undefined){obj.selection[items[obj.value]&&items[obj.value].id||('$'+obj.value)]=1}
 	UI.RoundRect(obj);
-	if(!obj.no_region){W.PureRegion(id,obj)}//region goes before children
+	if(obj.no_listview_region==0||!obj.no_region){W.PureRegion(id,obj)}//region goes before children
 	if(!obj.no_clipping){UI.PushCliprect(obj.x,obj.y,obj.w,obj.h)}
 	if(!obj.dragging_samples){obj.Simulate()}
 	//forced clicksel

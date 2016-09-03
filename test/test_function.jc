@@ -1,3 +1,4 @@
+import "system.jc"
 printf=__c_function(int,"printf","stdio.h")
 
 auto pf
