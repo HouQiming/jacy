@@ -983,18 +983,32 @@ var fauto_refresher=UI.HackCallback(function(){
 
 UI.AutoRefresh=function(){
 	if(!UI.is_real){return;}
+	var is_good=0;
+	for(var k in UI.m_window_map){
+		var obj_window=UI.m_window_map[k];
+		if(obj_window&&obj_window.m_window_has_focus){
+			is_good=1;
+			break;
+		}
+	}
+	var frame_rate=UI.animation_framerate;
+	if(!is_good){
+		//reduce auto-refresh frame rate when we don't have the focus
+		frame_rate=1;
+		//return;
+	}
 	UI.n_auto_refreshes++;
-	if(UI.animation_framerate>20){
+	if(frame_rate>20){
 		UI.Refresh()
 	}else{
 		if(g_auto_refresh_timer_id==undefined){
 			UI.Refresh()
-			g_auto_refresh_timer_id=UI.setInterval(fauto_refresher,1000/UI.animation_framerate)
+			g_auto_refresh_timer_id=UI.setInterval(fauto_refresher,1000/frame_rate)
 		}else{
 			g_need_auto_refresh=1;
 		}
 	}
-}
+};
 
 UI.SetAnimationFrameRate=function(fps){
 	if(g_auto_refresh_timer_id!=undefined){
@@ -1698,7 +1712,9 @@ UI.DrawFrame=function(){
 UI.JSDrawWindow=function(obj){
 	//var tick0=Duktape.__ui_get_tick()
 	UI.GL_Begin(obj.__hwnd)
-	UI.Clear(obj.bgcolor||0xffffffff)
+	if(!(obj.bgcolor==0)){
+		UI.Clear(obj.bgcolor||0xffffffff);
+	}
 	UI.DrawWindow(obj.__hwnd);
 	UI.GL_End(obj.__hwnd)
 	//console.log('DrawWindow=',(Duktape.__ui_seconds_between_ticks(tick0,Duktape.__ui_get_tick())*1000).toFixed(2),'ms')

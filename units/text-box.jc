@@ -2149,6 +2149,9 @@ class CEditableText
 	JS_GetUndoQueueLength=function(JSContext JS){
 		return JS.Return(m_undo_queue.n)
 	}
+	JS_GetRedoQueueLength=function(JSContext JS){
+		return JS.Return(m_redo_queue.n)
+	}
 	JS_GetText=function(JSContext JS){
 		ed=this
 		range0=0LL
@@ -2565,6 +2568,7 @@ class CEditableText
 		proto.ExportMethod(this,"MoveToBoundary",JS_MoveToBoundary)
 		proto.ExportMethod(this,"Undo",JS_Undo)
 		proto.ExportMethod(this,"GetUndoQueueLength",JS_GetUndoQueueLength)
+		proto.ExportMethod(this,"GetRedoQueueLength",JS_GetRedoQueueLength)
 		proto.ExportMethod(this,"GetUtf8CharNeighborhood",JS_GetUtf8CharNeighborhood)
 		proto.ExportMethod(this,"ConvertUTF8OffsetToBytesize",JS_ConvertUTF8OffsetToBytesize)
 		proto.ExportMethod(this,"GetHandlerByID",JS_GetHandlerByID)

@@ -937,6 +937,8 @@ module detail
 	SDL_GetError=__c_function(__pointer,"SDL_GetError","SDL.h")
 	SDL_CreateWindow=__c_function(__pointer,"SDL_CreateWindow","SDL.h")
 	SDL_DestroyWindow=__c_function(int,"SDL_DestroyWindow","SDL.h")
+	SDL_GetWindowFlags=__c_function(int,"SDL_GetWindowFlags","SDL.h")
+	SDL_EventState=__c_function(int,"SDL_EventState","SDL.h")
 	SDL_Init=__c_function(__pointer,"SDL_Init","SDL.h")
 	SDL_Quit=__c_function(__pointer,"SDL_Quit","SDL.h")
 	SDL_PollEvent=__c_function(int,"SDL_PollEvent","SDL.h")
@@ -1565,6 +1567,7 @@ module detail
 			if !hwnd:
 				//if Platform.BUILD=="debug":
 				return JS.ReturnError(System.detail.pcharToString(SDL_GetError()))
+			SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 			if PLATFORM_DEBUG:
 				Writeln('after SDL_CreateWindow ',iptr(hwnd))
 			////////////////

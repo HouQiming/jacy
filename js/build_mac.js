@@ -28,8 +28,6 @@ g_action_handlers.make=function(){
 		shell(["cp","-r",g_config.MAC_SKELETON_PATH+"/*",g_work_dir+"/upload/"])
 		var s_text=ReadFile(g_work_dir+"/upload/__SDL_TEMPLATE_PROJECT__.xcodeproj/project.pbxproj")
 		CreateFile(g_work_dir+"/upload/__SDL_TEMPLATE_PROJECT__.xcodeproj/project.pbxproj",s_text.replace(new RegExp("__SDL_TEMPLATE_PROJECT__","g"),g_main_name))
-		//s_text=ReadFile(g_work_dir+"/upload/Info.plist")
-		//CreateFile(g_work_dir+"/upload/Info.plist",s_text.replace(new RegExp("com.yourcompany.*\\}","g"),"com.spap."+g_main_name.replace(new RegExp("_","g"),"")))
 		shell(["mv",g_work_dir+'/upload/__SDL_TEMPLATE_PROJECT__.xcodeproj',g_work_dir+'/upload/'+g_main_name+'.xcodeproj'])
 		CreateFile(g_work_dir+"/SDL_setup","1")
 	}
@@ -71,6 +69,25 @@ g_action_handlers.make=function(){
 	if(FileExists(g_work_dir+"/reszip.bundle")){
 		MAC.CopyToUpload(g_work_dir+"/reszip.bundle")
 	}
+	//////////////////////
+	//info.plist
+	var s_build_number=(ReadFile(g_work_dir+"/build_number")||'0');
+	s_build_number=((parseInt(s_build_number)||0)+1).toString();
+	var s_text=ReadFile(g_config.MAC_SKELETON_PATH+"/Info.plist")
+	var s_display_name=(g_json.app_display_name&&g_json.app_display_name[0]||g_main_name);
+	s_text=s_text.replace(/__display_name__/g,s_display_name);
+	var s_version_string=(g_json.app_version&&g_json.app_version[0]||"1.0");
+	s_text=s_text.replace(/__build_version__/g,s_version_string+"."+s_build_number);
+	s_text=s_text.replace(/__version__/g,s_version_string);
+	var a_extra_plist_keys=[];
+	if(g_json.extra_plist_keys){
+		for(var i=0;i<g_json.extra_plist_keys.length;i++){
+			a_extra_plist_keys.push(g_json.extra_plist_keys[i])
+		}
+	}
+	s_text=s_text.replace("__extra_keys__",a_extra_plist_keys.join(''))
+	CreateIfDifferent(g_work_dir+"/build_number",s_build_number)
+	CreateIfDifferent(g_work_dir+"/upload/Info.plist",s_text.replace(new RegExp("com.yourcompany.*\\}","g"),"com.spap."+g_main_name.replace(new RegExp("_","g"),"")))
 	//icons
 	var need_icon_conversion=0;
 	if(g_json.icon_file){
