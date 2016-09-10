@@ -4,6 +4,14 @@
 #undef _WIN32
 #endif
 
+#ifdef _WIN32
+	#include <windows.h>
+	typedef INT_PTR iptr;
+#else
+	#include <stdint.h>
+	typedef intptr_t iptr;
+#endif
+
 #ifndef _WIN32
 	#define __declspec(x)
 	#define __stdcall
@@ -24,9 +32,11 @@
 	#endif
 #endif
 
+/*
 #ifdef _M_AMD64
 typedef long long iptr;
 #else
 typedef long iptr;
 #endif
+*/
 #endif

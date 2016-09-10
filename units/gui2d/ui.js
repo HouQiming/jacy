@@ -981,8 +981,7 @@ var fauto_refresher=UI.HackCallback(function(){
 	}
 })
 
-UI.AutoRefresh=function(){
-	if(!UI.is_real){return;}
+UI.MyWindowHasFocus=function(){
 	var is_good=0;
 	for(var k in UI.m_window_map){
 		var obj_window=UI.m_window_map[k];
@@ -991,8 +990,13 @@ UI.AutoRefresh=function(){
 			break;
 		}
 	}
+	return is_good;
+};
+
+UI.AutoRefresh=function(){
+	if(!UI.is_real){return;}
 	var frame_rate=UI.animation_framerate;
-	if(!is_good){
+	if(!UI.MyWindowHasFocus()){
 		//reduce auto-refresh frame rate when we don't have the focus
 		frame_rate=1;
 		//return;

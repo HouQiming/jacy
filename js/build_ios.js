@@ -5,7 +5,7 @@ build: CODE_SIGN_IDENTITY="iPhone Distribution:"
 ----
 /usr/bin/xcrun -sdk iphoneos PackageApplication -v $FULL_PATH_TO_APP -o the-ipa --sign "iPhone Distribution:" --embed *.mobileprovision
 codesign -s "Distribution" the-ipa
-/Applications/Xcode.app/Contents/Applications/Application\ Loader.app/Contents/Frameworks/ITunesSoftwareService.framework/Support/altool -v -f APP.ipa -u itunesconnect@user.com
+/Applications/Xcode.app/Contents/Applications/Application\ Loader.app/Contents/Frameworks/ITunesSoftwareService.framework/Support/altool -v -f ./build/Release-iphoneos/fudemo.ipa -u itunesconnect@user.com
 /Applications/Xcode.app/Contents/Applications/Application\ Loader.app/Contents/Frameworks/ITunesSoftwareService.framework/Support/altool --upload-app -f ./build/Release-iphoneos/fudemo.ipa -u itunesconnect@user.com
 ----
 #setting up a new system

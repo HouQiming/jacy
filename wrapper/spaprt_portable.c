@@ -303,7 +303,7 @@ typedef struct _TCallStackItemEx{
 }TCallStackItemEx;
 
 //#undef PM_RELEASE_DISABLE_LOG
-#ifdef PM_RELEASE
+#if defined(PM_RELEASE)&&!defined(PM_IS_LIBRARY)
 #define PM_RELEASE_DISABLE_LOG
 #endif
 #ifdef PM_RELEASE_DISABLE_LOG

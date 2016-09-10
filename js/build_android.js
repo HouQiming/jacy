@@ -140,6 +140,8 @@ g_action_handlers.make=function(){
 		for(var i=0;i<g_json.java_files.length;i++){
 			CopyJavaFile(g_json.java_files[i])
 		}
+	}else{
+		mkdir(g_work_dir+"/src")
 	}
 	//copy-in the C files, which includes s7main.c
 	mkdir(g_work_dir+"/jni")

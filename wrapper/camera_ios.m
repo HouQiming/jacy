@@ -85,11 +85,13 @@ EXPORT int osal_TurnOnCamera(int cam_id,int w,int h,int fps){
 			preset=AVCaptureSessionPresetLow;
 		}else if(h<720){
 			preset=AVCaptureSessionPresetMedium;
-		}else{
+		}else if(h<1080){
 			preset=AVCaptureSessionPresetHigh;
+		}else{
+			preset=AVCaptureSessionPresetPhoto;
 		}
 	}
-	preset=AVCaptureSessionPresetPhoto;
+	preset=AVCaptureSessionPresetPhoto;//todo
 	if(!cam->m_device){
 		NSArray *devices = [AVCaptureDevice devices];
 		AVCaptureDevice *cam_mine=NULL;

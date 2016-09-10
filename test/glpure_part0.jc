@@ -2810,6 +2810,13 @@ GL_MAX_FRAGMENT_UNIFORM_VECTORS=0x8DFD
 GL_MAX_VARYING_VECTORS=0x8DFC
 GL_MAX_VERTEX_UNIFORM_VECTORS=0x8DFB
 GL_TEXTURE_EXTERNAL_OES=0x8D65
+///////
+GL_MAP_READ_BIT=0x0001
+GL_MAP_WRITE_BIT=0x0002
+GL_MAP_INVALIDATE_RANGE_BIT=0x0004
+GL_MAP_INVALIDATE_BUFFER_BIT=0x0008
+GL_MAP_FLUSH_EXPLICIT_BIT=0x0010
+GL_MAP_UNSYNCHRONIZED_BIT=0x0020
 
 //tegra K1 also needs GLES after r21...
 IS_OPENGL_ES=(Platform.ARCH=="android"||Platform.ARCH=="ios"||Platform.ARCH=="rasppi"||Platform.ARCH=="linux32"||Platform.ARCH=="web")
@@ -2914,7 +2921,7 @@ auto glAddShader(GLuint prg,string src,GLenum what)
 		s=glGetShaderInfoLogString(obj)
 		glDeleteShader(obj)
 		if Platform.BUILD=="debug":
-			Writeln(src,'=============== error ==============\n',s)
+			Writeln('=============== error ==============\n',s)
 		return 0
 	else
 		glAttachShader(prg,obj)
@@ -2922,7 +2929,7 @@ auto glAddShader(GLuint prg,string src,GLenum what)
 		glDeleteShader(obj)
 		if Platform.BUILD=="debug":
 			if err.n:
-				Writeln(src,'=============== warning ==============\n',err)
+				Writeln('=============== warning ==============\n',err)
 		return 1
 struct TShaderItem
 	what=0
@@ -2946,7 +2953,7 @@ auto glCreateProgramFromString(TShaderItem[] strs,function(GLuint) fprelink)
 		err=glGetProgramInfoLogString(prg)
 		glDeleteProgram(prg)
 		if Platform.BUILD=="debug":
-			Writeln(strs,'=============== error ==============\n',err)
+			Writeln('=============== error ==============\n',err)
 		return 0u
 	else
 		validated=0
@@ -2958,7 +2965,7 @@ auto glCreateProgramFromString(TShaderItem[] strs,function(GLuint) fprelink)
 			err=glGetProgramInfoLogString(prg)
 			glDeleteProgram(prg)
 			if Platform.BUILD=="debug":
-				Writeln(strs,'=============== error ==============\n',err)
+				Writeln('=============== error ==============\n',err)
 			return 0u
 		else
 			if Platform.BUILD=="debug":

@@ -1,10 +1,20 @@
 #ifndef __SPAPRT_PORTABLE_H
 #define __SPAPRT_PORTABLE_H
+
+#ifdef _WIN32
+	#include <windows.h>
+	typedef INT_PTR iptr;
+#else
+	#include <stdint.h>
+	typedef intptr_t iptr;
+#endif
+/*
 #if S7_POINTER_BITS==64
 typedef long long iptr;
 #else
 typedef int iptr;
 #endif
+*/
 
 typedef struct _TLineInfoItemEx{
 	const char* s;

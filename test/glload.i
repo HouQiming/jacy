@@ -1176,6 +1176,7 @@ glBufferData,"void()stdcall(GLenum target,GLsizeiptr size,GLvoid*data,GLenum usa
 glBufferSubData,"void()stdcall(GLenum target,GLintptr offset,GLsizeiptr size,GLvoid*data)":"glBufferSubData"
 glGetBufferSubData,"void()stdcall(GLenum target,GLintptr offset,GLsizeiptr size,GLvoid*data)":"glGetBufferSubData"
 glMapBuffer,"GLvoid()stdcall(GLenum target,GLenum access)":"glMapBuffer"
+glMapBufferRange,"GLvoid()stdcall(GLenum target,GLintptr offset,GLsizeiptr length,GLbitfield access)":"glMapBufferRange"
 glUnmapBuffer,"GLboolean()stdcall(GLenum target)":"glUnmapBuffer"
 glGetBufferParameteriv,"void()stdcall(GLenum target,GLenum pname,GLint*params)":"glGetBufferParameteriv"
 glGetBufferPointerv,"void()stdcall(GLenum target,GLenum pname,GLvoid**params)":"glGetBufferPointerv"
