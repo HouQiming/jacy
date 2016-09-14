@@ -13,6 +13,8 @@ module Camera
 		if Platform.ARCH=="android":
 			__generate_json("h_files","camera_android.h")
 			__generate_json("c_files","camera_android.c")
+			__generate_json("h_files","android_exposure_manager.h")
+			__generate_json("c_files","android_exposure_manager.c")
 			__generate_json("java_files","camera.java")
 			__generate_json("android_permissions","android.permission.CAMERA")
 			__generate_json("android_features","android:hardware.camera")

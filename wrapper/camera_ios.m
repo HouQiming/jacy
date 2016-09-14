@@ -256,7 +256,6 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 		if (luminance_count > 0)
 			ev_luminance /= (double)luminance_count;
 	}
-	SDL_LockMutex(cam->m_cam_mutex);
 	// calculate luminance and expected exposure duration
 	frame_count = (frame_count + 1) % 5;
 	if (frame_count == 0) {
@@ -273,6 +272,7 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 	}
 	[exposure_manager setTandISO: cam];
 	////////////////
+	SDL_LockMutex(cam->m_cam_mutex);
 	cam->m_image_ready=1;
 	SDL_UnlockMutex(cam->m_cam_mutex);
 	CVPixelBufferUnlockBaseAddress(imageBuffer,0);

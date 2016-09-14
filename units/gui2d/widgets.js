@@ -893,17 +893,19 @@ W.Edit_prototype={
 		}
 		return xy0;
 	},
-	SeekXY:function(x,y){
+	SeekXY:function(x,y,ignore_newline_before){
 		var ed=this.ed
 		var ccnt=ed.SeekXY(x,y)
 		//skip invisible
-		var ccnt_maybe_newline=this.SkipInvisibles(ccnt,-1)
-		if(ccnt_maybe_newline>0&&ed.GetUtf8CharNeighborhood(ccnt_maybe_newline)[0]==10){
-			//it's a newline before
-			var xy=ed.XYFromCcnt(ccnt)
-			if(xy.y>y){
-				//we should have landed on the previous line
-				ccnt=ccnt_maybe_newline-1
+		if(!ignore_newline_before){
+			var ccnt_maybe_newline=this.SkipInvisibles(ccnt,-1)
+			if(ccnt_maybe_newline>0&&ed.GetUtf8CharNeighborhood(ccnt_maybe_newline)[0]==10){
+				//it's a newline before
+				var xy=ed.XYFromCcnt(ccnt)
+				if(xy.y>y){
+					//we should have landed on the previous line
+					ccnt=ccnt_maybe_newline-1
+				}
 			}
 		}
 		if(ccnt==ed.GetTextSize()){
@@ -912,9 +914,9 @@ W.Edit_prototype={
 		}
 		return ccnt
 	},
-	MoveCursorToXY:function(x,y){
+	MoveCursorToXY:function(x,y, side){
 		var ed=this.ed;
-		this.sel1.ccnt=this.SeekXY(x,y);
+		this.sel1.ccnt=this.SeekXY(x,y,side>0&&this.ignore_newline_before_for_down);
 		this.caret_is_wrapped=0;
 		//print("IsAtLineWrap",this.sel1.ccnt,ed.IsAtLineWrap(this.sel1.ccnt),ed.GetUtf8CharNeighborhood(this.sel1.ccnt))
 		var lwmode=ed.IsAtLineWrap(this.sel1.ccnt)
@@ -1174,14 +1176,14 @@ W.Edit_prototype={
 		}else if(IsHotkey(event,"UP SHIFT+UP")){
 			var ed_caret=this.GetCaretXY();
 			var bk=this.x_updown;
-			this.MoveCursorToXY(this.x_updown,ed_caret.y-1.0);
+			this.MoveCursorToXY(this.x_updown,ed_caret.y-1.0, -1);
 			epilog();
 			this.x_updown=bk;
 		}else if(IsHotkey(event,"DOWN SHIFT+DOWN")){
 			var hc=this.GetCharacterHeightAtCaret();
 			var ed_caret=this.GetCaretXY();
 			var bk=this.x_updown;
-			this.MoveCursorToXY(this.x_updown,ed_caret.y+hc);
+			this.MoveCursorToXY(this.x_updown,ed_caret.y+hc, 1);
 			epilog();
 			this.x_updown=bk;
 		}else if(IsHotkey(event,"LEFT SHIFT+LEFT")){
@@ -1325,7 +1327,7 @@ W.Edit_prototype={
 			var hc=this.GetCharacterHeightAtCaret();
 			var bk=this.x_updown;
 			var ed_caret=this.GetCaretXY();
-			this.MoveCursorToXY(this.x_updown,ed_caret.y-Math.max(Math.floor(this.h/hc-(this.page_guard_lines||0)),1)*hc);
+			this.MoveCursorToXY(this.x_updown,ed_caret.y-Math.max(Math.floor(this.h/hc-(this.page_guard_lines||0)),1)*hc, -1);
 			var ed_caret2=this.GetCaretXY();
 			this.scroll_y+=ed_caret2.y-ed_caret.y
 			epilog();
@@ -1334,7 +1336,7 @@ W.Edit_prototype={
 			var hc=this.GetCharacterHeightAtCaret();
 			var bk=this.x_updown;
 			var ed_caret=this.GetCaretXY();
-			this.MoveCursorToXY(this.x_updown,ed_caret.y+Math.max(Math.floor(this.h/hc-(this.page_guard_lines||0)),1)*hc);
+			this.MoveCursorToXY(this.x_updown,ed_caret.y+Math.max(Math.floor(this.h/hc-(this.page_guard_lines||0)),1)*hc, 1);
 			var ed_caret2=this.GetCaretXY();
 			this.scroll_y+=ed_caret2.y-ed_caret.y
 			epilog();
