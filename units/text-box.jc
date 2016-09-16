@@ -2460,13 +2460,13 @@ class CEditableText
 		else if stype=="invisible_boundary":
 			hid=m_handler_registration["renderer"].as(int)
 			handler=m_handlers[hid]
-			if !handler.IsCharInvisible:
-				fcheck=function(int c0,int c1){return 1}
-				//return JS.Return(ccnt)
-			else if direction<0:
-				fcheck=function(int c0,int c1){return !handler.IsCharInvisible(c0)}
+			fcheckInvisible=handler.IsCharInvisible
+			if !fcheckInvisible:
+				fcheckInvisible=function(int ch){return ch=='\r'}
+			if direction<0:
+				fcheck=function(int c0,int c1){return !fcheckInvisible(c0)}
 			else
-				fcheck=function(int c0,int c1){return !handler.IsCharInvisible(c1)}
+				fcheck=function(int c0,int c1){return !fcheckInvisible(c1)}
 		else
 			fcheck=function(int c0,int c1){return 1}
 		return fcheck

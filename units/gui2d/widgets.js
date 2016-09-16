@@ -908,6 +908,10 @@ W.Edit_prototype={
 				}
 			}
 		}
+		var chneib=ed.GetUtf8CharNeighborhood(ccnt);
+		if(chneib[0]==13&&chneib[1]==10){
+			ccnt--;
+		}
 		if(ccnt==ed.GetTextSize()){
 			//eof special case for mousing
 			ccnt=ed.SeekXY(x,ed.XYFromCcnt(ccnt).y)
