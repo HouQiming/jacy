@@ -917,6 +917,25 @@ class __array(T)
 				this.push(char(0x80+(chi&63)))
 			else
 				this.push(char(chi))
+	else if T==__array(char):
+		__init__=__builtin_ctor
+		auto join(__array(char) s_separator)
+			auto lg=0L
+			if n>0:
+				lg=s_separator.n*(n-1)
+			for i=0:n-1
+				lg+=this[i].n
+			auto ret=new char[lg]
+			auto ofs=ret.d
+			for i=0:n-1
+				auto s=this[i]
+				if i&&s_separator.n:
+					__basic_api.memcpy(__pointer(ofs),__pointer(s_separator.d),s_separator.n)
+					ofs+=s_separator.n
+				if s.n:
+					__basic_api.memcpy(__pointer(ofs),__pointer(s.d),s.n)
+					ofs+=s.n
+			return ret
 	else
 		__init__=__builtin_ctor
 

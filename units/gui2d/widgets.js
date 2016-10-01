@@ -1249,14 +1249,14 @@ W.Edit_prototype={
 				this.caret_is_wrapped=0;
 				epilog();
 			}
-		}else if(IsHotkey(event,"BACKSPACE")||IsHotkey(event,"DELETE")){
+		}else if(IsHotkey(event,"BACKSPACE")||IsHotkey(event,"SHIFT+BACKSPACE")||IsHotkey(event,"DELETE")){
 			var ccnt0=sel0.ccnt;
 			var ccnt1=sel1.ccnt;
-			var is_backspace=(IsHotkey(event,"BACKSPACE"));
+			var is_backspace=(!IsHotkey(event,"DELETE"));
 			var bk_m_user_just_typed_char=this.m_user_just_typed_char
 			if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
 			if(ccnt0==ccnt1){
-				if(IsHotkey(event,"BACKSPACE")){
+				if(is_backspace){
 					if(ccnt0>0){ccnt0=ed.SnapToCharBoundary(this.SkipInvisibles(ccnt0,-1)-1,-1);}
 				}else{
 					if(ccnt1<ed.GetTextSize()){ccnt1=ed.SnapToCharBoundary(this.SkipInvisibles(ccnt1,1)+1,1);}
