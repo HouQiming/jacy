@@ -256,6 +256,9 @@ g_action_handlers.make=function(){
 		if(FileExists(g_base_dir+"/dist.mobileprovision")){
 			CreateIfDifferent(g_work_dir+'/upload/dist.mobileprovision',ReadFile(g_base_dir+"/dist.mobileprovision"))
 		}
+		if(FileExists(g_base_dir+"/dev.mobileprovision")){
+			CreateIfDifferent(g_work_dir+'/upload/dev.mobileprovision',ReadFile(g_base_dir+"/dev.mobileprovision"))
+		}
 		var spython=[];
 		spython.push('from modxproj import XcodeProject\n')
 		spython.push('project = XcodeProject.Load("'+g_main_name+'.xcodeproj/project.pbxproj")\n')
@@ -320,13 +323,16 @@ g_action_handlers.make=function(){
 		if(FileExists(g_base_dir+"/dist.mobileprovision")){
 			sshell.push('cp dist.mobileprovision ~/Library/MobileDevice/Provisioning\\ Profiles/;')
 		}
+		if(FileExists(g_base_dir+"/dev.mobileprovision")){
+			sshell.push('cp dev.mobileprovision ~/Library/MobileDevice/Provisioning\\ Profiles/;')
+		}
 		if(g_build!="debug"){
 			sshell.push('xcodebuild -sdk iphoneos -configuration Release build '+s_xcode_flags.join(' ')+' CODE_SIGN_IDENTITY="iPhone Distribution" OTHER_CFLAGS=\'${inherited} -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src \' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')
 		}else{
 			if(g_config.IOS_USE_REAL_PHONE){
-				sshell.push('xcodebuild -sdk iphoneos -configuration Debug build '+s_xcode_flags.join(' ')+' OTHER_CFLAGS=\'${inherited} -O0 -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src -L./ \' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')
+				sshell.push('xcodebuild -sdk iphoneos -configuration Debug build '+s_xcode_flags.join(' ')+' CODE_SIGN_IDENTITY="iPhone Developer" OTHER_CFLAGS=\'${inherited} -O0 -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src -L./ \' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')
 			}else{
-				sshell.push('xcodebuild -sdk iphonesimulator -configuration Debug build '+s_xcode_flags.join(' ')+' OTHER_CFLAGS=\'${inherited} -O0 -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src -L./ \' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')
+				sshell.push('xcodebuild -sdk iphonesimulator -configuration Debug build '+s_xcode_flags.join(' ')+' CODE_SIGN_IDENTITY="iPhone Developer" OTHER_CFLAGS=\'${inherited} -O0 -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src -L./ \' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')
 			}
 		}
 		if(g_build!="debug"){

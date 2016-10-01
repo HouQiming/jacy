@@ -176,7 +176,7 @@ CopyToWorkDir=function(c_files,sprefix){
 	}
 };
 
-var g_regexp_is_absolute_path=new RegExp("^(([a-zA-Z]:[\\\\/])|[\\\\/]|(pm_tmp/)|(.*/pm_tmp/)).*$");
+var g_regexp_is_absolute_path=new RegExp("^(([a-zA-Z]:[\\\\/])|[\\\\/]|(pm_tmp/)|(.*/pm_tmp/)|([.][.][\\\\/])).*$");
 CreateProjectForFileSet=function(is_c_like,c_files,s_target_dir,use_symlink){
 	if(!c_files){return undefined;}
 	var ret=[];

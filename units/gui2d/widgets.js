@@ -1363,8 +1363,9 @@ W.Edit_prototype={
 		}
 	},
 	SetSelection:function(ccnt0,ccnt1){
-		this.sel0.ccnt=ccnt0
-		this.sel1.ccnt=ccnt1
+		var ccnt_tot=this.ed.GetTextSize();
+		this.sel0.ccnt=Math.min(Math.max(ccnt0,0),ccnt_tot);
+		this.sel1.ccnt=Math.min(Math.max(ccnt1,0),ccnt_tot);
 		//this.AutoScroll(mode&&this.sel0.ccnt==ccnt0&&this.sel1.ccnt==ccnt1?"center":"center_if_hidden");
 		this.AutoScroll("center_if_hidden");
 		this.caret_is_wrapped=0

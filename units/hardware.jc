@@ -9,6 +9,7 @@ module Camera
 	if Platform.ARCH=='android':
 		osal_AndroidSetCameraPreviewTexture=__c_function(int,"osal_AndroidSetCameraPreviewTexture","osal_camera.h")
 		osal_AndroidCallUpdateTexImage=__c_function(int,"osal_AndroidCallUpdateTexImage","osal_camera.h")
+		osal_AndroidSetNV21Mode=__c_function(int,"osal_AndroidSetNV21Mode","osal_camera.h")
 	auto osal_GetCameraImageManaged(int cam_id)
 		if Platform.ARCH=="android":
 			__generate_json("h_files","camera_android.h")

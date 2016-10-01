@@ -3078,7 +3078,7 @@ class GLTechnique
 					Writeln("Failed to compile the following shaders:\n"+svs[:svs.n-2]+'\n====================\n'+sfs[:sfs.n-2]+"\n")
 				return 0
 			foreach di in m_ditems
-				if di.decl_code[0]!='a':
+				if di.decl_code[0]!='a'&&di.decl_code[0]!='\n':
 					s_native=new(di.loc_name);s_native.push(char(0))
 					m_slot_map[di.loc_name]=glGetUniformLocation(m_prg,__pointer(s_native.d))
 			if Platform.BUILD=="debug":
@@ -3215,6 +3215,11 @@ class GLTechnique
 	m_ebo=GLuint(0)
 	m_ebo_ofs=0L
 	m_ebo_type=GL_INVALID_ENUM
+	auto SwitchVBO(GLuint vbo)
+		f=function(int slot){
+			glBindBuffer(GL_ARRAY_BUFFER,vbo)
+		}
+		Declare("\n"," ",f)
 	auto SetVertexPointer(string name, int dim,int type,int normalized, iptr stride,iptr ofs)
 		f=function(int slot){
 			glVertexAttribPointer(u32(slot),dim,type,GLboolean(normalized),int(stride),__pointer(ofs))

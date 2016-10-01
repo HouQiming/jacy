@@ -20,6 +20,7 @@
 
 static TCamera g_cameras[MAX_CAMERAS]={0};
 static int luminance_sample_points[80001];
+static int g_android_is_nv21_mode=0;
 
 //the output is BGR, (likely) in sRGB
 //we can't have _ in the method name
@@ -47,12 +48,15 @@ JNIEXPORT void JNICALL Java_com_spap_wrapper_camera_sendresult(JNIEnv* env,jclas
 	}
 	// yuvy, the last Y channel is for SDK.
 	if(!cam->m_image_back) cam->m_image_back=malloc(4*w*h);
-	u8*out=(u8*)cam->m_image_back;
 	img_nv21=(*env)->GetByteArrayElements(env,a,&is_copy);
-	{
+	if(g_android_is_nv21_mode==2){
+		//raw NV21 data
+		memcpy(cam->m_image_back,img_nv21,w*h+((w+1)>>1)*((h+1)>>1)*2);
+	}else if(g_android_is_nv21_mode==1){
 		float total_luminance = 0.0f;
-		int i, j, k, size = w * h, size2 = size * 2;
+		int i, j, k, size = w * h, size2 = size*2;
 		u8 u, v;
+		u8* out=(u8*)cam->m_image_back;
 		for(i = 0, j = 0, k = 0; i < size;) {
 			u = img_nv21[size + k + 1];
 			v = img_nv21[size + k];
@@ -65,6 +69,45 @@ JNIEXPORT void JNICALL Java_com_spap_wrapper_camera_sendresult(JNIEnv* env,jclas
 			if (j >= w) { i += j; j = 0; }
 		}
 		process_luminance(luminance_sample_points, out, img_nv21, cam, w, h, total_luminance);
+	}else{
+		//convert NV21 to rgb
+		int size=w*h;
+		int offset=size;
+		u32* out=cam->m_image_back;
+		int i,j,k;//,w3=w*3;
+		for(i=0, k=0, j=0; i < size; ) {
+			int y1=(int)img_nv21[i];
+			int y2=(int)img_nv21[i+1];
+			int y3=(int)img_nv21[w+i];
+			int y4=(int)img_nv21[w+i+1];
+			int v=(int)img_nv21[size+k]-128;
+			int u=(int)img_nv21[size+k+1]-128;
+			//int i3=i*3;
+			u32* pt;
+			int tmp;
+			unsigned int tmp2;
+			u32 val;
+			//pt=out+i3;
+			pt=out+i;
+			//coulddo: neon?
+			#define convertYUVtoARGB(y,u,v) val=0xff000000u;\
+				tmp=y+((116130*v)>>16);			val+=(u32)(!(tmp2=tmp>>8)?tmp:(0xff^(tmp2>>24)));\
+				tmp=y-((22544*v+46793*u)>>16);	val+=(u32)(!(tmp2=tmp>>8)?tmp:(0xff^(tmp2>>24)))<<8;\
+				tmp=y+((91881*u)>>16);			val+=(u32)(!(tmp2=tmp>>8)?tmp:(0xff^(tmp2>>24)))<<16;\
+				pt[0]=val;
+			convertYUVtoARGB(y1, u, v);pt+=3;
+			convertYUVtoARGB(y2, u, v);
+			//pt=out+(w3+i3);
+			pt=out+(w+i);
+			convertYUVtoARGB(y3, u, v);pt+=3;
+			convertYUVtoARGB(y4, u, v);
+			#undef convertYUVtoARGB
+			i+=2; k+=2; j+=2;
+			if(j>=w){
+				i+=j;
+				j=0;
+			}
+		}
 	}
 
 	(*env)->ReleaseByteArrayElements(env,a,img_nv21,JNI_ABORT);
@@ -213,5 +256,11 @@ EXPORT int osal_AndroidCallUpdateTexImage(int cam_id){
 	method_id=(*env)->GetMethodID(env,clazz,"callUpdateTexImage","()I");
 	args[0].l=NULL;
 	ret=(*env)->CallIntMethodA(env,cam->m_cam_object,method_id,args);
+	return ret;
+}
+
+EXPORT int osal_AndroidSetNV21Mode(int mode){
+	int ret=g_android_is_nv21_mode;
+	g_android_is_nv21_mode=mode;
 	return ret;
 }

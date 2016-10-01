@@ -21,6 +21,17 @@ ANDROID.Detect=function(){
 	}
 	ANDROID.adt_platform=onlydir(ANDROID.adt+"/sdk/platforms/android-*","adt_platform")
 	ANDROID.adb_exe=ANDROID.adt+"/sdk/platform-tools/adb.exe"
+	var paths=[];
+	if(g_current_arch=="win32"||g_current_arch=="win64"){
+		paths=ExpandEnvironmentStrings("%PATH%").split(";").map(function(s){return s.replace(/[\\]/g,'/');});
+	}else{
+		paths=ExpandEnvironmentStrings("${PATH}").split(":");
+	}
+	for(var i=0;i<paths.length;i++){
+		if(FileExists(paths[i]+'/adb.exe')){
+			ANDROID.adb_exe=paths[i]+'/adb.exe';
+		}
+	}
 	ANDROID.c_file_list=[];
 }
 

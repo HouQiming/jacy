@@ -13,6 +13,7 @@ int osal_IOSAutoAdjustCameraExposure(int cam_id,int face,int* random_points);
 	void osal_AndroidSetCameraPreviewTexture(int cam_id,int texid);
 	void osal_AndroidCallUpdateTexImage(int cam_id);
 	int osal_AndroidAutoAdjustCameraExposure(int cam_id,int face,int* random_points);
+	int osal_AndroidSetNV21Mode(int mode);
 #endif
 
 #endif
