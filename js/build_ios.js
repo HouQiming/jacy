@@ -30,7 +30,7 @@ IOS.CopyToUpload=function(fn0){
 }
 
 var pushMakeItem=function(smakefile,fn_c,arch,CC,CFLAGS){
-	smakefile.push(arch,'-',RemoveExtension(fn_c),'.o: ',fn_c,'\n')
+	smakefile.push(RemoveExtension(fn_c),'-',arch,'.o: ',fn_c,'\n')
 	smakefile.push('\t',CC,' ')
 	var s_ext=GetExtension(fn_c).toLowerCase();
 	if(s_ext=='m'||s_ext=='c'){
@@ -38,7 +38,7 @@ var pushMakeItem=function(smakefile,fn_c,arch,CC,CFLAGS){
 	}
 	smakefile.push(' -DPM_IS_LIBRARY ');
 	smakefile.push(CFLAGS,' -w -o $@ -c $<\n\n');
-	return arch+'-'+RemoveExtension(fn_c)+'.o';
+	return RemoveExtension(fn_c)+'-'+arch+'.o';
 };
 
 var pushMakeItemArch=function(smakefile,c_files,arch,CC,CFLAGS,AR){

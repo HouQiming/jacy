@@ -96,6 +96,8 @@ LoadWebP=function(string data){
 	__generate_json("h_files","webp/enc/histogram.h")
 	__generate_json("h_files","webp/enc/vp8enci.h")
 	__generate_json("h_files","webp/enc/vp8li.h")
+	__generate_json("android_system_static_libnames","cpufeatures")
+	__generate_json('android_import_modules','$(call import-module, android/cpufeatures)')
 	WebPGetInfo=__c_function(int,"WebPGetInfo","webp/webp/decode.h")
 	WebPDecodeRGBAInto=__c_function(int,"WebPDecodeRGBAInto","webp/webp/decode.h")
 	img=int[].NULL;w=0;h=0

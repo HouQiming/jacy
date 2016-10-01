@@ -321,9 +321,13 @@ g_action_handlers.make=function(){
 	for(var j=0;g_json.android_libnames&&g_json.android_libnames[j];j++){
 		s_android_mk.push(' '+g_json.android_libnames[j])
 	}
+	s_android_mk.push('\n')
 	s_android_mk.push('LOCAL_STATIC_LIBRARIES := ')
 	for(var j=0;g_json.android_static_libnames&&g_json.android_static_libnames[j];j++){
 		s_android_mk.push(' '+g_json.android_static_libnames[j])
+	}
+	for(var j=0;g_json.android_system_static_libnames&&g_json.android_system_static_libnames[j];j++){
+		s_android_mk.push(' '+g_json.android_system_static_libnames[j])
 	}
 	s_android_mk.push('\n')
 	s_android_mk.push('LOCAL_LDLIBS := -llog -landroid ')
@@ -335,6 +339,9 @@ g_action_handlers.make=function(){
 	}
 	s_android_mk.push('\n')
 	s_android_mk.push('include $(BUILD_SHARED_LIBRARY)\n')
+	for(var j=0;g_json.android_import_modules&&g_json.android_import_modules[j];j++){
+		s_android_mk.push(g_json.android_import_modules[j],'\n')
+	}
 	CreateIfDifferent(g_work_dir+"/jni/Android.mk",s_android_mk.join(""))
 	var s_application_mk=[];
 	if(g_json.android_stl){
