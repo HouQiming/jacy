@@ -1068,6 +1068,32 @@ inline __reduce_Sum(container,fmap,got_if)
 	__internal_run_metalist(container,fmap,fcallback)
 	return ret
 
+inline __reduce_Scan(container,fmap,got_if)
+	T=__uninit()
+	C=__zero(T)
+	if !got_if&&__has_member(container,"getForEachRepeatCount"):
+		n=container.getForEachRepeatCount()
+		ret=new T[n+1]
+		i=0L
+		fcallback=inline(val_i){
+			T=typeof(val_i)
+			ret[i]=C
+			C+=val_i
+			i++
+		}
+		__internal_run_metalist(container,fmap,fcallback)
+		ret[i]=C
+	else
+		ret=new T[]
+		fcallback=inline(val_i){
+			T=typeof(val_i)
+			ret.push(C)
+			C+=val_i
+		}
+		__internal_run_metalist(container,fmap,fcallback)
+		ret.push(C)
+	return ret
+
 inline __reduce_Min(container,fmap,got_if,value0)
 	ret=value0
 	fcallback=inline(val_i){

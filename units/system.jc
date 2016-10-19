@@ -9307,11 +9307,15 @@ module Time
 	auto Sleep(int ms)
 		sleep(ms)
 	g_eta_tick0=0LL
+	g_last_rate=1.f
 	ResetETA=inline(){
 		g_eta_tick0=0LL
 	}
 	FormatETA=inline(rate0){
 		rate=float(rate0)
+		if rate<g_last_rate:
+			ResetETA()
+			g_last_rate=rate
 		tick=System.Time.tick64()
 		if !g_eta_tick0||!rate:
 			g_eta_tick0=tick
