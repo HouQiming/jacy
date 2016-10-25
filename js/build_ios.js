@@ -1,4 +1,3 @@
-//todo: 64-bit c generation
 /*
 security add-generic-password -s Xcode:itunesconnect.apple.com -a LOGIN -w PASSWORD -U
 build: CODE_SIGN_IDENTITY="iPhone Distribution:"
@@ -228,7 +227,7 @@ g_action_handlers.make=function(){
 			"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip");
 		pushMakeItemArch(smakefile,c_files,'emu',
 			'/Applications/Xcode.app/Contents/Developer/usr/bin/gcc',
-			s_extra_cflags.join('')+" -arch i386 -pipe -mdynamic-no-pic -Wno-trigraphs -fpascal-strings -O2 -Wreturn-type -Wunused-variable -fmessage-length=0 -fvisibility=hidden -miphoneos-version-min=3.2 -I/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/${EMUSDK}/usr/include/libxml2 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/${EMUSDK}/",
+			s_extra_cflags.join('')+" -arch x86_64 -pipe -mdynamic-no-pic -Wno-trigraphs -fpascal-strings -DUSE_SSE -O2 -Wreturn-type -Wunused-variable -fmessage-length=0 -fvisibility=hidden -miphoneos-version-min=3.2 -I/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/${EMUSDK}/usr/include/libxml2 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/${EMUSDK}/",
 			"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar",
 			"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip");
 		CreateIfDifferent(g_work_dir+"/upload/Makefile",smakefile.join(""))
@@ -340,17 +339,32 @@ g_action_handlers.make=function(){
 			}
 		}
 		sshell.push('rm ~/Library/MobileDevice/Provisioning\\ Profiles/*;')
+		var s_provision="";
 		if(FileExists(g_base_dir+"/dist.mobileprovision")){
 			sshell.push('cp dist.mobileprovision ~/Library/MobileDevice/Provisioning\\ Profiles/;')
+			if(!s_provision&&g_build!="debug"){s_provision=ReadFile(g_base_dir+"/dist.mobileprovision");}
 		}
 		if(FileExists(g_base_dir+"/dev.mobileprovision")){
 			sshell.push('cp dev.mobileprovision ~/Library/MobileDevice/Provisioning\\ Profiles/;')
+			if(!s_provision&&g_build=="debug"){s_provision=ReadFile(g_base_dir+"/dev.mobileprovision");}
+		}
+		var team_id="no_team";
+		var team_match=s_provision.match(/<key>TeamIdentifier<\/key>[ \t\r\n]*<array>[ \t\r\n]*<string>(.*)<\/string>/);
+		if(team_match){
+			team_id=team_match[1];
+			//print('team_id=',team_id);
+		}
+		var uuid="no_uuid";
+		var uuid_match=s_provision.match(/<key>UUID<\/key>[ \t\r\n]*<string>(.*)<\/string>/);
+		if(uuid_match){
+			uuid=uuid_match[1];
+			//print('team_id=',team_id);
 		}
 		if(g_build!="debug"){
-			sshell.push('xcodebuild -sdk iphoneos -configuration Release build '+s_xcode_flags.join(' ')+' CODE_SIGN_IDENTITY="iPhone Distribution" OTHER_CFLAGS=\'${inherited} -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src \' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')
+			sshell.push('xcodebuild -sdk iphoneos -configuration Release build ',s_xcode_flags.join(' '),' CODE_SIGN_IDENTITY="iPhone Distribution" PROVISIONING_PROFILE="'+uuid+'" OTHER_CFLAGS=\'${inherited} -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src \' DEVELOPMENT_TEAM=\'',team_id,'\' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')
 		}else{
 			if(g_config.IOS_USE_REAL_PHONE){
-				sshell.push('xcodebuild -sdk iphoneos -configuration Debug build '+s_xcode_flags.join(' ')+' CODE_SIGN_IDENTITY="iPhone Developer" OTHER_CFLAGS=\'${inherited} -O0 -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src -L./ \' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')
+				sshell.push('xcodebuild -sdk iphoneos -configuration Debug build '+s_xcode_flags.join(' ')+' CODE_SIGN_IDENTITY="iPhone Developer" OTHER_CFLAGS=\'${inherited} -O0 -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src -L./ \' DEVELOPMENT_TEAM=\'',team_id,'\' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')
 			}else{
 				sshell.push('xcodebuild -sdk iphonesimulator -configuration Debug build '+s_xcode_flags.join(' ')+' CODE_SIGN_IDENTITY="iPhone Developer" OTHER_CFLAGS=\'${inherited} -O0 -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src -L./ \' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')
 			}

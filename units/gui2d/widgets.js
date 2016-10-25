@@ -876,7 +876,7 @@ W.Edit_prototype={
 			xy0.x=this.displayed_wrap_width
 		}
 		//print(this.caret_is_wrapped,xy0.x,xy0.y)
-		return xy0;
+		return xy0||{x:0,y:0};
 	},
 	GetIMECaretXY:function(){
 		var ed=this.ed;
