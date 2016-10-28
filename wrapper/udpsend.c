@@ -42,6 +42,12 @@ EXPORT intptr_t usCreateIPv4Socket(){
 				fcntl(sk, F_SETFL, flags);
 			}
 		#endif
+		#if defined(__APPLE__)
+			// We do not want SIGPIPE
+			// and the darn system doesn't have MSG_NOSIGNAL
+			const int value = 1;
+			setsockopt(sk, SOL_SOCKET, SO_NOSIGPIPE, &value, sizeof(int));
+		#endif
 	}
 	return (intptr_t)sk;
 }
@@ -63,8 +69,7 @@ EXPORT int usSendToIPv4(intptr_t sk,char* buf,size_t sz,int IP,int port){
 				return 0;
 			}
 		#else
-			errno_t err=errno;
-			if(err==ENOTSOCK||err==EPIPE){
+			if(errno==ENOTSOCK||errno==EPIPE){
 				return 0;
 			}
 		#endif
