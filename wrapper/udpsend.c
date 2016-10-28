@@ -5,6 +5,7 @@
 #else
 	#include <stdlib.h>
 	#include <unistd.h>
+	#include <errno.h>
 	#include <sys/types.h>    // Needed for sockets stuff
 	#include <netinet/in.h>   // Needed for sockets stuff
 	#include <sys/socket.h>   // Needed for sockets stuff
@@ -45,12 +46,30 @@ EXPORT intptr_t usCreateIPv4Socket(){
 	return (intptr_t)sk;
 }
 
-EXPORT void usSendToIPv4(intptr_t sk,char* buf,size_t sz,int IP,int port){
+EXPORT int usSendToIPv4(intptr_t sk,char* buf,size_t sz,int IP,int port){
 	struct sockaddr_in   server_addr;
+	int ret=0;
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(port);
 	server_addr.sin_addr.s_addr = (unsigned long)IP;
-	sendto((SOCKET)sk, buf, sz, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+	#ifndef MSG_NOSIGNAL
+		#define MSG_NOSIGNAL 0
+	#endif
+	ret=sendto((SOCKET)sk, buf, sz, MSG_NOSIGNAL, (struct sockaddr *)&server_addr, sizeof(server_addr));
+	if(ret<0){
+		#ifdef _WIN32
+			int err=WSAGetLastError();
+			if(err==WSAENOTSOCK){
+				return 0;
+			}
+		#else
+			errno_t err=errno;
+			if(err==ENOTSOCK||err==EPIPE){
+				return 0;
+			}
+		#endif
+	}
+	return 1;
 }
 
 EXPORT void usCloseSocket(intptr_t sk){

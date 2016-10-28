@@ -481,6 +481,7 @@ static LONG __stdcall exceptionCatcher(EXCEPTION_POINTERS *pep){
 static struct sigaction g_old_action;
 static struct sigaction g_old_action2;
 static struct sigaction g_old_action3;
+static struct sigaction g_old_action4;
 void unix_handler(int sigid){
 	char* reason="CRASHED!\n";
 	switch(sigid){
@@ -498,6 +499,7 @@ void unix_handler(int sigid){
 	sigaction(SIGSEGV,&g_old_action,NULL);
 	sigaction(SIGABRT,&g_old_action2,NULL);
 	sigaction(SIGBUS,&g_old_action3,NULL);
+	sigaction(SIGPIPE,&g_old_action4,NULL);
 	raise(sigid);
 }
 #endif
@@ -526,6 +528,7 @@ static void initDebuggingGlobals(){
 		sigaction(SIGSEGV,&act,&g_old_action);
 		sigaction(SIGABRT,&act,&g_old_action2);
 		sigaction(SIGBUS,&act,&g_old_action3);
+		sigaction(SIGPIPE,&act,&g_old_action4);
 		//__android_log_print(ANDROID_LOG_ERROR,"STDOUT",">>> init debug system, returns %d, old flags == %d",ret,g_old_action.sa_flags);
 	#endif
 }
