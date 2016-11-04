@@ -1955,8 +1955,8 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 				is_underlining=0
 			x+=dx
 			xmax=max(xmax,x)
-		attrs["w"]=xmax
-		attrs["h"]=y+(x>x0?hc:0.f)
+		attrs["w"]=xmax-x0
+		attrs["h"]=y+(x>x0?hc:0.f)-y0
 		return 0
 	}
 	JS_UI["DrawTextControl"]=function(JSContext JS){

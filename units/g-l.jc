@@ -2994,9 +2994,13 @@ class GLTechnique
 	m_is_invalid=0
 	m_instance_count=1
 	m_tunit_counter=0
+	function(GLuint) m_custom_delete_program
 	auto __done__()
 		if m_prg:
-			glDeleteProgram(m_prg)
+			if m_custom_delete_program:
+				m_custom_delete_program(m_prg)
+			else
+				glDeleteProgram(m_prg)
 			m_prg=0u
 	///////////////////////////////////////
 	auto Declare(string cd,string name,function(int) f)

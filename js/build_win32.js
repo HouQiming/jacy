@@ -90,24 +90,35 @@ VC.Link=function(fnlist,soutput){
 	var compiler_path=VC.compiler_path
 	var sbatname=VC.sbatname
 	var sopt1=" ";
-	if(g_is64){
-		sopt1=sopt1+" /MACHINE:x64";
-	}
 	var subsystem=(g_json.subsystem||["console"])[0].toLowerCase();
-	if(subsystem=="windows"&&g_build!="debug"){
-		sopt1=sopt1+" /SUBSYSTEM:WINDOWS";
-	}
-	if(subsystem=="dll"||g_json.is_library){
-		sopt1=sopt1+" /DLL";
-	}
-	if(g_json.ldflags){
-		for(var i=0;i<g_json.ldflags.length;i++){
-			var smain=g_json.ldflags[i]
-			sopt1=sopt1+(" "+smain);
+	if(subsystem=="lib"&&g_json.is_library){
+		if(g_json.ldflags){
+			for(var i=0;i<g_json.ldflags.length;i++){
+				var smain=g_json.ldflags[i]
+				sopt1=sopt1+(" "+smain);
+			}
 		}
+		var scmd;
+		scmd='@echo off\ncall "'+sbatname+'"\nlib /OUT:"'+soutput+'" /NOLOGO  '+sopt1+' '+fnlist;
+	}else{
+		if(g_is64){
+			sopt1=sopt1+" /MACHINE:x64";
+		}
+		if(subsystem=="windows"&&g_build!="debug"){
+			sopt1=sopt1+" /SUBSYSTEM:WINDOWS";
+		}
+		if(subsystem=="dll"||g_json.is_library){
+			sopt1=sopt1+" /DLL";
+		}
+		if(g_json.ldflags){
+			for(var i=0;i<g_json.ldflags.length;i++){
+				var smain=g_json.ldflags[i]
+				sopt1=sopt1+(" "+smain);
+			}
+		}
+		var scmd;
+		scmd='@echo off\ncall "'+sbatname+'"\nlink /DEBUG /OUT:"'+soutput+'" /NOLOGO /OPT:REF /OPT:ICF /DYNAMICBASE /NXCOMPAT /ERRORREPORT:PROMPT /LARGEADDRESSAWARE '+sopt1+' '+fnlist;
 	}
-	var scmd;
-	scmd='@echo off\ncall "'+sbatname+'"\nlink /DEBUG /OUT:"'+soutput+'" /NOLOGO /OPT:REF /OPT:ICF /DYNAMICBASE /NXCOMPAT /ERRORREPORT:PROMPT /LARGEADDRESSAWARE '+sopt1+' '+fnlist;
 	var scallcl=g_work_dir+"/calllink.bat";
 	if(!CreateFile(scallcl,scmd)){
 		throw new Error("can't create calllink.bat");
@@ -134,7 +145,7 @@ var NVCCCompile=function(fnc,fnobj,s_cuda_options){
 g_action_handlers.make=function(){
 	var s_final_output;
 	if(!g_json.output_file){
-		s_final_output=g_bin_dir+"/"+g_main_name+(g_json.is_library?".dll":".exe");
+		s_final_output=g_bin_dir+"/"+g_main_name+(g_json.is_library?g_json.subsystem=="lib"?".lib":".dll":".exe");
 	}else{
 		s_final_output=g_json.output_file[0];
 	}
@@ -222,7 +233,7 @@ g_action_handlers.make=function(){
 		}
 		sopt1.push(' "'+fn_res+'"')
 	}
-	if(g_lib_files){
+	if(g_lib_files&&g_json.subsystem!="lib"){
 		for(var i=0;i<g_lib_files.length;i++){
 			if(FileExists(g_work_dir+"/"+g_lib_files[i])){
 				sopt1.push(' "'+g_work_dir+"/"+g_lib_files[i]+'"');

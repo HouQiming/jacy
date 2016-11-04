@@ -1867,6 +1867,7 @@ auto coreInit()
 		if pobjfn==g_t_root_namespace&&(fn.flags&FFLAG_LAMBDA_NEEDS_CONTEXT):
 			sbk=g_code_buffer
 			g_code_buffer=g_forward_buffer
+			g_code_buffer.push('static ')
 			genClassName(pobjfn)
 			g_code_buffer.push(' s7_BR={2};')
 			g_code_buffer=sbk
