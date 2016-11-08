@@ -968,7 +968,7 @@ __define_comparisons(u16[])
 __define_comparisons(u32[])
 
 __FArrayDtor=function(iptr p,iptr sz):int
-__all_array_dtors=new __FArrayDtor[2]
+__all_array_dtors=__FArrayDtor[].NULL
 __meta_state("stdtype.array")=Array
 __meta_state("stdtype.string")=Array(char)
 __stdfn_make_string=inline(ret){
@@ -979,6 +979,8 @@ __stdfn_make_string=inline(ret){
 __meta_state("stdfn.make_string")=__stdfn_make_string
 
 auto __registerArrayBinder(__FArrayDtor a)
+	if !__all_array_dtors:
+		__all_array_dtors=new __FArrayDtor[2]
 	__all_array_dtors.push(a)
 	assert(__all_array_dtors.n<=16)
 	return int(__all_array_dtors.n-1);
