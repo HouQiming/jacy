@@ -6746,12 +6746,20 @@ module IO
 	*/
 	inline CreateFile(string fn)
 		return fopen(fn,OPEN_WRITE)
+	/**
+	 * \brief Create a new file with some specific content
+	 *
+	 * This function creates a new file using the C Runtime and returns a file object.
+	 * @param fn is the file name, in UTF-8 encoding
+	 * @param data is the content to be written to the file
+	 * @return A non-zero value if the function succeeds, zero if it fails.
+	*/
 	inline CreateFileWithContent(string fn,auto data)
 		f=fopen(fn,OPEN_WRITE)
 		if !f:return 0
-		f.WriteBinary(data)
+		ret_all=f.WriteBinary(data)
 		f.Close()
-		return 1
+		return (ret_all==data.n*sizeof(data.T))
 	struct TFileInfo
 		created_time=u64(0)
 		last_modified_time=u64(0)

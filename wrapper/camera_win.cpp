@@ -77,10 +77,16 @@ static int initDShowStuff(){
 	//////////////
 	// initialize COM
 	HRESULT hr = CoInitializeEx(NULL,COINIT_MULTITHREADED);
+	/*
+	QM: we SHOULD NOT check COM failures - someone may have initialized it in a different mode before us.
+	In that case, we should just continue silently.
+	*/
+	/*
 	if (hr != S_OK) {
 		if (hr == S_FALSE) { CoUninitialize(); }// balance the init 
 		return -1;
 	}
+	*/
 	hr = 0;
 	ICreateDevEnum*		dev_enum=NULL;
 	IEnumMoniker*		enum_moniker=NULL;
