@@ -2076,6 +2076,8 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 	}
 	JS_UI["SetSRGBEnabling"]=function(JSContext JS){
 		g_renderer.m_srgb_supported=JS.Param(0).as(int);
+		if g_renderer.m_srgb_supported==0||g_renderer.m_srgb_supported==2:
+			SDL.g_srgb_needed=0
 		return JS.Return(g_renderer.m_srgb_supported)
 	}
 	///////////////////////////////////

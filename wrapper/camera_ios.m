@@ -30,7 +30,7 @@
 
 static TCamera g_cameras[2]={{0}};
 static float OptimalLuminance = 100;
-static ExposureManager * exposure_manager;
+static ExposureManager * exposure_manager=NULL;
 static int luminance_sample_points[80001]; 
 static int frame_count = 0;
 

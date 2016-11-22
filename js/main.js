@@ -359,6 +359,18 @@ g_action_handlers.runjs=function(){
 			g_search_paths.push(g_config[path]);
 		}
 	}
+	if(g_json.absolute_search_paths){
+		for(var i=0;i<g_json.absolute_search_paths.length;i++){
+			var path=g_json.absolute_search_paths[i];
+			g_search_paths.push(path);
+		}
+	}
+	if(g_json.relative_search_paths){
+		for(var i=0;i<g_json.relative_search_paths.length;i++){
+			var path=g_work_dir+"/"+g_json.relative_search_paths[i];
+			g_search_paths.push(path);
+		}
+	}
 	if(g_config.DEFAULT_SEARCH_PATHS){
 		for(var i=0;i<g_config.DEFAULT_SEARCH_PATHS.length;i++){
 			g_search_paths.push(g_config.DEFAULT_SEARCH_PATHS[i]);

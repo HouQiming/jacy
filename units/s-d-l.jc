@@ -14,6 +14,7 @@ import GL.*
 import System.Console.*
 
 g_msaa_rate=1
+g_srgb_needed=1
 module detail
 	PLATFORM_DEBUG=0
 	SDL_ICONV_ERROR=-1L
@@ -980,7 +981,7 @@ module detail
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-		SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
+		SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, g_srgb_needed);
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 		SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
 		if !IS_OPENGL_ES:
@@ -1559,7 +1560,9 @@ module detail
 			flags=JS.Param(5).or(SDL_WINDOW_RESIZABLE)
 			if PLATFORM_DEBUG:
 				Writeln('before SDL_CreateWindow')
+			//JS["UI"].CallMethod(int,"TimingEvent","before SDL_CreateWindow (native)")
 			hwnd=SDL_CreateWindow(title,x,y,w,h, SDL_WINDOW_OPENGL|SDL_WINDOW_ALLOW_HIGHDPI|flags)
+			//Writeln(hwnd)
 			if !hwnd:
 				//weak-yet-honest platforms
 				SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE,0);
@@ -1567,6 +1570,7 @@ module detail
 			if !hwnd:
 				//if Platform.BUILD=="debug":
 				return JS.ReturnError(System.detail.pcharToString(SDL_GetError()))
+			//JS["UI"].CallMethod(int,"TimingEvent","after SDL_CreateWindow (native)")
 			SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 			if PLATFORM_DEBUG:
 				Writeln('after SDL_CreateWindow ',iptr(hwnd))

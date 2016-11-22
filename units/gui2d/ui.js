@@ -1809,6 +1809,9 @@ UI.TimingEvent=function(s){
 		console.log("=== after "+(Duktape.__ui_seconds_between_ticks(UI.m_timing_tick,event_timing_tick)*1000).toFixed(2)+"ms: "+s);
 	}
 	UI.m_timing_tick=event_timing_tick;
+	//if(UI.StartupBenchmark){
+	//	UI.StartupBenchmark();
+	//}
 }
 
 var LINUX_BOGUS_KEYS_INTERVAL=100;
