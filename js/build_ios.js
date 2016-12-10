@@ -1,4 +1,9 @@
 /*
+todo: update archiving commandline
+	http://bitbar.com/tipstricks-how-to-archive-and-export-ipa-from-script/
+	xcodebuild archive -project BitbarIOSSample.xcodeproj -scheme BitbarIOSSample-cal -archivePath BitbarIOSSample.xcarchive
+	xcodebuild -exportArchive -archivePath <PROJECT_NAME>.xcarchive -exportPath <PROJECT_NAME> -exportFormat ipa -exportProvisioningProfile "Name of Provisioning Profile"
+----
 security add-generic-password -s Xcode:itunesconnect.apple.com -a LOGIN -w PASSWORD -U
 build: CODE_SIGN_IDENTITY="iPhone Distribution:"
 ----
@@ -340,13 +345,16 @@ g_action_handlers.make=function(){
 		}
 		sshell.push('rm ~/Library/MobileDevice/Provisioning\\ Profiles/*;')
 		var s_provision="";
-		if(FileExists(g_base_dir+"/dist.mobileprovision")){
-			sshell.push('cp dist.mobileprovision ~/Library/MobileDevice/Provisioning\\ Profiles/;')
-			if(!s_provision&&g_build!="debug"){s_provision=ReadFile(g_base_dir+"/dist.mobileprovision");}
-		}
-		if(FileExists(g_base_dir+"/dev.mobileprovision")){
-			sshell.push('cp dev.mobileprovision ~/Library/MobileDevice/Provisioning\\ Profiles/;')
-			if(!s_provision&&g_build=="debug"){s_provision=ReadFile(g_base_dir+"/dev.mobileprovision");}
+		if(g_build!="debug"){
+			if(FileExists(g_base_dir+"/dist.mobileprovision")){
+				sshell.push('cp dist.mobileprovision ~/Library/MobileDevice/Provisioning\\ Profiles/;')
+				if(!s_provision&&g_build!="debug"){s_provision=ReadFile(g_base_dir+"/dist.mobileprovision");}
+			}
+		}else{
+			if(FileExists(g_base_dir+"/dev.mobileprovision")){
+				sshell.push('cp dev.mobileprovision ~/Library/MobileDevice/Provisioning\\ Profiles/;')
+				if(!s_provision&&g_build=="debug"){s_provision=ReadFile(g_base_dir+"/dev.mobileprovision");}
+			}
 		}
 		var team_id="no_team";
 		var team_match=s_provision.match(/<key>TeamIdentifier<\/key>[ \t\r\n]*<array>[ \t\r\n]*<string>(.*)<\/string>/);
@@ -364,7 +372,7 @@ g_action_handlers.make=function(){
 			sshell.push('xcodebuild -sdk iphoneos -configuration Release build ',s_xcode_flags.join(' '),' CODE_SIGN_IDENTITY="iPhone Distribution" PROVISIONING_PROFILE="'+uuid+'" OTHER_CFLAGS=\'${inherited} -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src \' DEVELOPMENT_TEAM=\'',team_id,'\' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')
 		}else{
 			if(g_config.IOS_USE_REAL_PHONE){
-				sshell.push('xcodebuild -sdk iphoneos -configuration Debug build '+s_xcode_flags.join(' ')+' CODE_SIGN_IDENTITY="iPhone Developer" OTHER_CFLAGS=\'${inherited} -O0 -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src -L./ \' DEVELOPMENT_TEAM=\'',team_id,'\' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')
+				sshell.push('xcodebuild -sdk iphoneos -configuration Debug build '+s_xcode_flags.join(' ')+' CODE_SIGN_IDENTITY="iPhone Developer" PROVISIONING_PROFILE="'+uuid+'" OTHER_CFLAGS=\'${inherited} -O0 -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src -L./ \' DEVELOPMENT_TEAM=\'',team_id,'\' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')
 			}else{
 				sshell.push('xcodebuild -sdk iphonesimulator -configuration Debug build '+s_xcode_flags.join(' ')+' CODE_SIGN_IDENTITY="iPhone Developer" OTHER_CFLAGS=\'${inherited} -O0 -DNEED_MAIN_WRAPPING -w -Isdl/include -Isdl/src -L./ \' OTHER_LDFLAGS=\' '+s_ld_flags.join(' ')+' \' || exit;')
 			}

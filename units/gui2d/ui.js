@@ -1828,10 +1828,13 @@ UI.TestEventInPollJob=function(){
 	return !!UI.m_poll_job_termination_event;
 }
 UI.m_absolute_mouse_position={x:0,y:0};
+UI.HandleError=function(error){
+	throw error;
+};
 UI.Run=function(){
 	if(!UI.is_real){return;}
 	var event=undefined;
-	for(;;){
+	for(;;){try{
 		if(UI.need_to_refresh){
 			UI.m_frame_is_invalid=0;
 			UI.DrawFrame();
@@ -2210,6 +2213,8 @@ UI.Run=function(){
 			}}
 			event=UI.SDL_PollEvent();
 			if(!event)break;
+		}}catch(error){
+			UI.HandleError(error);
 		}
 		if(UI.Platform.ARCH=="web"){
 			//emscripten only presents the result when we return

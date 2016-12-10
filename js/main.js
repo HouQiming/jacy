@@ -367,7 +367,7 @@ g_action_handlers.runjs=function(){
 	}
 	if(g_json.relative_search_paths){
 		for(var i=0;i<g_json.relative_search_paths.length;i++){
-			var path=g_work_dir+"/"+g_json.relative_search_paths[i];
+			var path=base_dir+"/"+g_json.relative_search_paths[i];
 			g_search_paths.push(path);
 		}
 	}

@@ -297,21 +297,23 @@ class CUISandbox
 			else
 				arr_res_zip=System.IO.ReadAll(System.Env.GetExecutablePath()+"res.zip")
 		m_ui_zip=ParseZip(arr_res_zip)
+	auto ReportError(JSObject err)
+		if Platform.BUILD=="debug":
+			Writeln(err["stack"].or(""))
+		else
+			if g_log_file:
+				if !System.IO.FileExists(g_log_file):
+					f=System.IO.CreateFile(g_log_file)
+				else
+					f=System.IO.fopen(g_log_file,System.IO.OPEN_READ|System.IO.OPEN_WRITE)
+					f.SeekFromEnd(0L)
+				if f:
+					f.Write("\n"+err["stack"].or(""))
+					f.Close()
 	inline UIRunJS(JSContext JS,string fn)
 		err=JS.evalVoid(UIReadAll(fn),fn)
 		if err:
-			if Platform.BUILD=="debug":
-				Writeln(err["stack"].or(""))
-			else
-				if g_log_file:
-					if !System.IO.FileExists(g_log_file):
-						f=System.IO.CreateFile(g_log_file)
-					else
-						f=System.IO.fopen(g_log_file,System.IO.OPEN_READ|System.IO.OPEN_WRITE)
-						f.SeekFromEnd(0L)
-					if f:
-						f.Write("\n"+err["stack"].or(""))
-						f.Close()
+			ReportError(err)
 
 lanczos_filter=function(int aa,int szwnd,float font_sharpening){
 	auto htap=aa*szwnd

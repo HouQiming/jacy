@@ -325,6 +325,9 @@ module duktape
 						LeakDetection.JSAddref(__cast(iptr,obj))
 					__C(int,"duk_push_c_function(@1,s7_CB_duktape_finalizer,1)",_ctx())
 					duk_set_finalizer(_ctx(),-2)
+		inline _put_prop(value)
+			_push_value(value)
+			duk_put_prop(_ctx(),-3)
 		inline _put_prop_and_pop(value)
 			_push_value(value)
 			duk_put_prop(_ctx(),-3)
@@ -432,6 +435,9 @@ module duktape
 			return _pop_typed(JSObject,1)
 		auto FromHandle(int handle)
 			return new JSObject(){m_jsctx:this,m_handle:handle}
+		inline ConvertToObject(a)
+			_push_value(a)
+			return _pop_typed(JSObject,1)
 		//auto NewFixedBuffer(iptr size)
 		//	duk_push_buffer(_ctx(),size,0)
 		//	return _pop_typed(JSObject,1)
@@ -888,6 +894,15 @@ module duktape
 			m_jsctx._push_object(m_handle)
 			_push_subscript(this,name)
 			return _IncompleteJSPropertyAccess(){"m_jsctx":m_jsctx}
+		inline set(a)
+			m_jsctx._push_object(m_handle)
+			members=__member_list(a)
+			for i in crange(members.length):
+				id_name=members[i]
+				id_name1=id_name
+				_push_subscript(this,id_name1)
+				m_jsctx._put_prop(__dot(a,id_name))
+			duk_pop(_ctx())
 		inline set_operator[](name,value)
 			m_jsctx._push_object(m_handle)
 			_push_subscript(this,name)
