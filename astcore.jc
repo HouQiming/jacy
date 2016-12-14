@@ -1822,7 +1822,7 @@ auto coreInit()
 						g_code_buffer.push('\n')
 				genClassName(pobjfn)
 				if pobjfn==g_t_root_namespace:
-					g_code_buffer.push('* s7_BL=&s7_BR;')
+					g_code_buffer.push('* s7_BL=(s7_BR.s7rc=2,&s7_BR);')
 				else
 					g_code_buffer.push('* s7_BL=(')
 					genClassName(pobjfn)
@@ -1865,11 +1865,12 @@ auto coreInit()
 			queueCodeGen(pobjfn_dtor)
 			g_code_buffer.push(';')
 		if pobjfn==g_t_root_namespace&&(fn.flags&FFLAG_LAMBDA_NEEDS_CONTEXT):
+			//zero init should have been more efficient
 			sbk=g_code_buffer
 			g_code_buffer=g_forward_buffer
 			g_code_buffer.push('static ')
 			genClassName(pobjfn)
-			g_code_buffer.push(' s7_BR={2};')
+			g_code_buffer.push(' s7_BR={0};')
 			g_code_buffer=sbk
 			//g_code_buffer.push('s7_BR=s7_BL;')
 		id_return_label=getReturnLabel(pobjfn)
