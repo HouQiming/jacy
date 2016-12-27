@@ -1877,11 +1877,12 @@ W.EditBox=function(id,attrs){
 		}else{
 			//text
 			obj.edit=undefined
+			UI.PushCliprect(obj.x+obj.padding,obj.y+(obj.h-dim_text.h)*0.5,obj.w-obj.padding*2,dim_text.h);
 			W.Text("text",{
-				anchor:'parent',anchor_align:"left",anchor_valign:"center",
-				x:obj.padding,y:0,w:obj.w-obj.padding*2,h:dim_text.h,
+				x:obj.x+obj.padding,y:obj.y+(obj.h-dim_text.h)*0.5,
 				font:obj.font, color:obj.value?obj.text_color:obj.hint_color, text:obj.value||obj.hint_text,
 				});
+			UI.PopCliprect();
 			if(obj.tab_stop){
 				UI.TabStop(obj);
 			}
