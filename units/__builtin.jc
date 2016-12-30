@@ -15,7 +15,13 @@ module __basic_api
 	log=__c_function(__pointer,"log","math.h")
 	__FFLAG_PURE=1<<19
 	__FFLAG_IS_PARALLEL=1<<21
-	__fflag(log)=__FFLAG_PURE
+	__FFLAG_SUPPORT_DYNAMIC_MEMBERS=1<<26
+	__fflag(log)=__FFLAG_PURE //this is actually a |=
+
+__enable_dynamic_members=inline(T){
+	//this is actually a |=
+	__fflag(T)=__basic_api.__FFLAG_SUPPORT_DYNAMIC_MEMBERS
+}
 
 __stdfn_functional_or=inline(f0,f1){
 	return inline(){

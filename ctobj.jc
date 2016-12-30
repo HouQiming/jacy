@@ -679,7 +679,7 @@ FFLAG_IS_EMPTY_CTOR=1<<22
 FFLAG_IS_EMPTY_CTOR_TESTED=1<<23
 FFLAG_LAMBDA_LEAKED=1<<24
 FFLAG_IS_ARRAY_CLASS=1<<25
-//FFLAG_IS_CONVERT_TO_AS_BINARY=1<<26
+FFLAG_SUPPORT_DYNAMIC_MEMBERS=1<<26
 FFLAG_TEMP_IMPURE=0x80000000
 FFLAG_TEMP_UNFLATTENABLE=0x80000000
 FFLAG_CGEN_QUEUED=0x80000000
@@ -715,6 +715,7 @@ FUNCTION_OFS_TEMPLATE=25
 FUNCTION_OFS_TEMPLATE_EPOS0=26
 FUNCTION_OFS_TEMPLATE_EPOS1=27
 FUNCTION_OFS_P_FULL_CALLER_LIST=28
+FUNCTION_OFS_SZ_MEMBER_LIST=29
 struct TFunction
 	int tid
 	int flags
@@ -738,8 +739,9 @@ struct TFunction
 	PCTObject pf_template
 	int template_epos0,template_epos1
 	int p_full_caller_list //this is transient
+	int sz_member_list
 g_tid_TFunction=getid("TFunction")
-g_desc_TFunction=('tid','flags','first_function_user','value_time','pvar_return','plambda_vars','nlambda_vars','pcall_graph_edges','ncall_graph_edges','pinv_call_graph_edges','ninv_call_graph_edges','fn_finalizer','pe_decl','code','nest_depth','id_name','pparam_value_slots','obj_onreach','obj_oneval','obj_oncgen','temp_slot','pmember_list','nmember_list','t_raw_function_type','return_label_cache','pf_template','template_epos0','template_epos1','p_full_caller_list')
+g_desc_TFunction=('tid','flags','first_function_user','value_time','pvar_return','plambda_vars','nlambda_vars','pcall_graph_edges','ncall_graph_edges','pinv_call_graph_edges','ninv_call_graph_edges','fn_finalizer','pe_decl','code','nest_depth','id_name','pparam_value_slots','obj_onreach','obj_oneval','obj_oncgen','temp_slot','pmember_list','nmember_list','t_raw_function_type','return_label_cache','pf_template','template_epos0','template_epos1','p_full_caller_list','sz_member_list')
 g_value_time=1
 //struct TCompilerFunction
 //	int tid

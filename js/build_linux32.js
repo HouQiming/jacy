@@ -37,11 +37,14 @@ g_action_handlers.make=function(){
 	//create a makefile
 	//-ffast-math
 	//var smakefile_array=["CC = gcc\nLD = gcc\nCFLAGS0 = -I$(HOME)/pmenv/SDL2-2.0.3/include -I$(HOME)/pmenv/include -DLINUX\nLDFLAGS = -s -L$(HOME)/pmenv/SDL2-2.0.3/build/.libs -L$(HOME)/pmenv/SDL2-2.0.3/build"];
-	var smakefile_array=["CC = ",g_json.linux_cc?g_json.linux_cc[0]:'gcc',"\nLD = ",g_json.linux_ld?g_json.linux_ld[0]:'gcc',"\nCFLAGS0 = -DLINUX\nLDFLAGS = "];
+	var smakefile_array=["AR = ",g_json.linux_ar?g_json.linux_ar[0]:'ar',"\nCC = ",g_json.linux_cc?g_json.linux_cc[0]:'gcc',"\nLD = ",g_json.linux_ld?g_json.linux_ld[0]:'gcc',"\nCFLAGS0 = -DLINUX\nLDFLAGS = "];
 	if(g_build!="debug"){
 		smakefile_array.push('\nCFLAGS1= -O2 -fno-var-tracking-assignments -fno-exceptions -fno-rtti -fno-unwind-tables -fno-strict-aliasing -w -static-libgcc -DPM_RELEASE ');
 	}else{
 		smakefile_array.push('\nCFLAGS1= -g -fno-var-tracking-assignments -fno-exceptions -fno-rtti -fno-unwind-tables -fno-strict-aliasing -w -static-libgcc ');
+	}
+	if(g_json.is_library){
+		smakefile_array.push(' -fPIC ');
 	}
 	if(g_json.c_include_paths){
 		for(var i=0;i<g_json.c_include_paths.length;i++){
@@ -62,7 +65,11 @@ g_action_handlers.make=function(){
 	}
 	var s_linux_output;
 	if(!g_json.output_file){
-		s_linux_output=g_main_name;
+		if(g_json.is_library){
+			s_linux_output="lib"+g_main_name+".a";
+		}else{
+			s_linux_output=g_main_name;
+		}
 	}else{
 		s_linux_output=RemovePath(g_json.output_file[0]);
 	}
@@ -71,15 +78,23 @@ g_action_handlers.make=function(){
 		var smain=RemoveExtension(c_files[i])
 		smakefile_array.push(" "+smain+".o");
 	}
-	smakefile_array.push("\n\t$(LD) $(LDFLAGS) -o $@")
-	for(var i=0;i<c_files.length;i++){
-		var smain=RemoveExtension(c_files[i])
-		smakefile_array.push(" "+smain+".o");
-	}
-	if(g_json.ldflags){
-		for(var i=0;i<g_json.ldflags.length;i++){
-			var smain=g_json.ldflags[i]
-			smakefile_array.push(" "+smain);
+	if(g_json.is_library){
+		smakefile_array.push("\n\t$(AR) rcs $@")
+		for(var i=0;i<c_files.length;i++){
+			var smain=RemoveExtension(c_files[i])
+			smakefile_array.push(" "+smain+".o");
+		}
+	}else{
+		smakefile_array.push("\n\t$(LD) $(LDFLAGS) -o $@")
+		for(var i=0;i<c_files.length;i++){
+			var smain=RemoveExtension(c_files[i])
+			smakefile_array.push(" "+smain+".o");
+		}
+		if(g_json.ldflags){
+			for(var i=0;i<g_json.ldflags.length;i++){
+				var smain=g_json.ldflags[i]
+				smakefile_array.push(" "+smain);
+			}
 		}
 	}
 	if(g_json.linux_gtk_hack){

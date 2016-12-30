@@ -152,10 +152,11 @@ typedef DWORD TLSID;
 #endif
 
 #if defined(LINUX)||defined(WEB)
-//emulate the windows-based custom extensions
-char* SDL_GetInputEventText(SDL_Event* pevent){return pevent->text.text;}
-void SDL_FreeInputEventText(SDL_Event* pevent){}
-
+	#ifndef PM_IS_LIBRARY
+		//emulate the windows-based custom extensions
+		char* SDL_GetInputEventText(SDL_Event* pevent){return pevent->text.text;}
+		void SDL_FreeInputEventText(SDL_Event* pevent){}
+	#endif
 #endif
 
 #define __cdecl
