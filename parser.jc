@@ -1081,6 +1081,9 @@ auto parseC0(int id_fn_current,TToken[] toks)
 			if tid==TOK_ID||tid==TOK_STRING:
 				if toks[ptr+1].tok==':'&&toks[ptr].tok!=TOK_ID+g_id_default:
 					return parseMap(0,ep0)
+			if want(int('}')):
+				//empty statements shouldn't reach here
+				return fillepos(call(g_id_make_extensible_object),ep0,toks[ptr-1].epos1)
 			auto code=statementList(0)
 			//ret=poolCode(TCnsExpression{.flags_cid=EFLAG_CODEBLOCK+code;'epos0':toks[ptr].epos0;'epos1':toks[ptr].epos1})
 			if !want(int('}')):
@@ -1566,7 +1569,14 @@ auto parseC0(int id_fn_current,TToken[] toks)
 			if want(int(';')):
 				return expriptr(0)
 			if peek()==int('{'):
-				pe=atom()//avoid {}| stupidness
+				//avoid {}| idiocy
+				//and we shouldn't need a map check here
+				//pe=atom()
+				ptr++
+				pe=statementList(0)
+				if !want(int('}')):
+					//assert(0)
+					error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"need a '}' here")
 				skip_statement_end=1
 			else
 				pe=expr(LEVEL_MAX)

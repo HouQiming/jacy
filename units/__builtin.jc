@@ -1997,6 +1997,11 @@ inline max(a,b)
 	else
 		return a>b?a:b
 
+inline __make_extensible_object()
+	class CExtensibleObject{}
+	__enable_dynamic_members(CExtensibleObject)
+	return new CExtensibleObject()
+
 //vector math
 struct float2{x=(float(0));y=(float(0));Telement=float;ndim=2;__is_vector=1;inline __init__(float v_x,float v_y){x=v_x;y=v_y;}inline operator[](int d){if d==0:return x;else return y;}inline set_operator[](int d,float value){if d==0:x=value;else y=value;}inline as(T){return VectorType(T,2)(T(x),T(y));}__min2__=__vec2_min;__max2__=__vec2_max;}
 struct float3{x=(float(0));y=(float(0));z=(float(0));Telement=float;ndim=3;__is_vector=1;inline __init__(float v_x,float v_y,float v_z){x=v_x;y=v_y;z=v_z;}inline operator[](int d){if d==0:return x;else if d==1:return y;else return z;}inline set_operator[](int d,float value){if d==0:x=value;else if d==1:y=value;else z=value;}inline as(T){return VectorType(T,3)(T(x),T(y),T(z));}__min2__=__vec3_min;__max2__=__vec3_max;}

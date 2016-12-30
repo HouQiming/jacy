@@ -8,7 +8,14 @@ __enable_dynamic_members(CClass)
 (function(){
 	c=new CClass
 	c.b=2
-	c.C="test"
+	c.C="test c"
 	c.b+=c.a
 	Writeln(c.a,' ',c.b,' ',c.C)
+	d={}
+	d.e=new string
+	d.e.push("test d")
+	f={}
+	f.g=new string
+	f.g.push("test f")
+	Writeln(d,' ',f)
 })();
