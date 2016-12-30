@@ -836,11 +836,10 @@ module duktape
 			if Platform.BUILD=="debug":
 				m_checker.m_completed=1
 			duk_get_prop(_ctx(),-2)//for the *previous* subscript
-			arguments0=arguments
-			for i in crange(arguments0.length)
+			for i in crange(arguments.length)
 				if i>0:
-					m_jsctx._push_value(arguments0[i])
-			duk_pcall(_ctx(),arguments0.length-1)
+					m_jsctx._push_value(arguments[i])
+			duk_pcall(_ctx(),arguments.length-1)
 			return m_jsctx._pop_typed(T,2)
 		inline PushAsFunction()
 			if Platform.BUILD=="debug":
@@ -853,11 +852,10 @@ module duktape
 				m_checker.m_completed=1
 			duk_get_prop(_ctx(),-2)//for the *previous* subscript
 			m_jsctx._push_value(arg_this)
-			arguments0=arguments
-			for i in crange(arguments0.length)
+			for i in crange(arguments.length)
 				if i>1:
-					m_jsctx._push_value(arguments0[i])
-			duk_pcall_method(_ctx(),arguments0.length-2)
+					m_jsctx._push_value(arguments[i])
+			duk_pcall_method(_ctx(),arguments.length-2)
 			return m_jsctx._pop_typed(T,2)
 		inline CallMethod(T,string fname)
 			if Platform.BUILD=="debug":
@@ -915,33 +913,30 @@ module duktape
 			return m_jsctx._pop_pointer(1)
 		inline Call(T)
 			m_jsctx._push_object(m_handle)
-			arguments0=arguments
-			for i in crange(arguments0.length)
+			for i in crange(arguments.length)
 				if i>0:
-					m_jsctx._push_value(arguments0[i])
-			duk_pcall(_ctx(),arguments0.length-1)
+					m_jsctx._push_value(arguments[i])
+			duk_pcall(_ctx(),arguments.length-1)
 			return m_jsctx._pop_typed(T,1)
 		inline PushAsFunction()
 			m_jsctx._push_object(m_handle)
 		inline CallAsMethod(T,arg_this)
 			m_jsctx._push_object(m_handle)
 			m_jsctx._push_value(arg_this)
-			arguments0=arguments
-			for i in crange(arguments0.length)
+			for i in crange(arguments.length)
 				if i>1:
-					m_jsctx._push_value(arguments0[i])
-			duk_pcall_method(_ctx(),arguments0.length-2)
+					m_jsctx._push_value(arguments[i])
+			duk_pcall_method(_ctx(),arguments.length-2)
 			return m_jsctx._pop_typed(T,1)
 		inline CallMethod(T,string fname)
 			m_jsctx._push_object(m_handle)
 			_push_subscript(this,fname)
 			duk_get_prop(_ctx(),-2)
 			duk_swap_top(_ctx(),-2)
-			arguments0=arguments
-			for i in crange(arguments0.length)
+			for i in crange(arguments.length)
 				if i>1:
-					m_jsctx._push_value(arguments0[i])
-			duk_pcall_method(_ctx(),arguments0.length-2)
+					m_jsctx._push_value(arguments[i])
+			duk_pcall_method(_ctx(),arguments.length-2)
 			return m_jsctx._pop_typed(T,1)
 		inline SetPrototype(JSObject proto)
 			m_jsctx._push_object(m_handle)

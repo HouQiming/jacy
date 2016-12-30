@@ -349,6 +349,11 @@ auto replaceExpr(PExpression pesrc, PExpression pe_replacement)
 	pecaller=readPool(pesrc+EXPR_OFS_CALLER)
 	return sccpQueueReach(insertCallAt(pecaller,pesrc,function(PExpression pe){return pe_replacement}))
 
+auto replaceExprNoQueueReach(PExpression pesrc, PExpression pe_replacement)
+	//return transformCode(pesrc,__zero(ftransformer_callback), PExpression[].NULL,pe_replacement,PExpression[].NULL)
+	pecaller=readPool(pesrc+EXPR_OFS_CALLER)
+	return insertCallAt(pecaller,pesrc,function(PExpression pe){return pe_replacement})
+
 auto transformCodeEx(PExpression pesrc, ftransformer_callback ftransformer, PExpression[] as_before,PExpression pe_replacement,PExpression[] as_after, int queue_reach)
 	if !ftransformer&&(!as_before||!as_before.n)&&!pe_replacement&&(!as_after||!as_after.n):
 		return pesrc
@@ -720,6 +725,7 @@ auto coreInit()
 		//type check
 		//Writeln('fexpand_inline_oneval')
 		pobjfn=getExprFunction(pecall)
+		is_loop_body=(getCcnv(pobjfn)==g_id_inline_loopbody)
 		//Writeln('expanding: ',dumpFunction(pobjfn))
 		n_args=getExprNArgs(pecall)
 		n_funcargs=getNumberOfArguments(pobjfn)
@@ -765,7 +771,7 @@ auto coreInit()
 				//wait for the type later
 				if !pe_param_checks:
 					pe_param_checks=new PExpression[]
-				pe_param_checks.push(fillepos(call(g_id_assert_ctval,exprstr(g_id_assert_type),getid("type mismatch at parameter #@3 of @4: '@1' is expected but '@2' provided".Replace(["@1",dumpType(t_expected),"@2",dumpType(t),"@3",string(i),"@4",dumpFunction(pobjfn)])),
+				pe_param_checks.push(fillepos(call(g_id_assert_ctval,exprstr(g_id_assert_type),getid("type mismatch at parameter #@3 of @4: '@1' is expected but '@2' provided".Replace(["@1",citeexpr(pe_typei),"@2",dumpType(t),"@3",string(i),"@4",dumpFunction(pobjfn)])),
 					cloneExpr(pe_typei),exprctval(t)),readPool(pe_argi+EXPR_OFS_EPOS),0))
 			//Writeln(dumpFunction(pobjfn),' ',i,' ',dumpType(t_expected),' ',dumpType(t))
 			if !parameterTypeCheck(t_expected,t):
@@ -854,27 +860,87 @@ auto coreInit()
 		//bind parameters - ldparam replacement
 		//n_funcargs=(nargs_pecode-2)>>1
 		pvar_arg_ret=new PCTObject[n_args_call] //shouldn't use gencode: lackof decl
-		pv_arguments=PCTObject(0)
+		//pv_arguments=PCTObject(0)
+		p_argument_vars=0L
 		id_return_label=getReturnLabel(pobjfn)
 		need_return_scope=0
-		fdetect_returns=function(PExpression pe){
-			if isBuiltin(pe,g_id_blockex)&&readPool(readPool(pe+EXPR_OFS_ARGS+0))==EFLAG_STRING+id_return_label:
+		createArgumentVars=function(){
+			if !p_argument_vars:
+				p_argument_vars=g_ctobject_pool.n
+				g_ctobject_pool.resize(p_argument_vars+n_args_call+1)
+				g_ctobject_pool[p_argument_vars]=n_args_call
+				for i=0:n_args_call-1
+					if !pvar_arg_ret[i]:
+						pvar_arg_ret[i]=makevar(pf_owner)
+						if !pe_param_checks:
+							pe_param_checks=new PExpression[]
+						pe_param_ass=call(g_id_store,exprvar(pvar_arg_ret[i]),readPool(pecall+EXPR_OFS_ARGS+i))
+						writePool(pvar_arg_ret[i]+VAR_OFS_DEFINING_STORE,pe_param_ass)
+						pe_param_checks.push(pe_param_ass)
+						//sccpQueueReach(pe_param_ass)
+					g_ctobject_pool[p_argument_vars+1+i]=pvar_arg_ret[i]
+				//Writeln('gen p_argument_vars=',p_argument_vars,' n_args_call=',n_args_call);
+		}
+		freplace_args_loop_body=function(PExpression pe){
+			if isBuiltin(pe,g_id_function):
+				pe_ccnv=readPool(pe+EXPR_OFS_ARGS)
+				if readPool(pe_ccnv)==EFLAG_STRING+g_id_inline_loopbody:
+					return 1
+				else
+					return 0
+			else if isBuiltin(pe,g_id_blockex)&&readPool(readPool(pe+EXPR_OFS_ARGS+0))==EFLAG_STRING+id_return_label:
 				need_return_scope=1
-			return 1
+				return 1
+			else if !is_loop_body&&isBuiltin(pe,g_id_arguments_length):
+				replaceExprNoQueueReach(pe,expriptr(n_args_call))
+				return 0
+			else if !is_loop_body&&isBuiltin(pe,g_id_arguments_bracket):
+				createArgumentVars()
+				pe_context_id=readPool(pe+EXPR_OFS_ARGS+0)
+				writePool(pe_context_id,EFLAG_CONST+getid_const(const_type(CTYPE_INT,64),i64(p_argument_vars)))
+				return 0
+			else if !is_loop_body&&isBuiltin(pe,g_id_prototype_matches):
+				createArgumentVars()
+				pe_context_id=readPool(pe+EXPR_OFS_ARGS+0)
+				writePool(pe_context_id,EFLAG_CONST+getid_const(const_type(CTYPE_INT,64),i64(p_argument_vars)))
+				return 0
+			else if !is_loop_body&&isBuiltin(pe,g_id_dot):
+				//Writeln('*** call(arguments) shit ',dumpExpr(pe,__zero(fcolorer_callback)))
+				pe_member_name=readPool(pe+EXPR_OFS_ARGS+1)
+				id_member=getExprValueAs(pe_member_name,g_vtid_STR)
+				if id_member==g_id_call:
+					pecaller=readPool(pe+EXPR_OFS_CALLER)
+					if readPool(pecaller+EXPR_OFS_FUNCTION)==pe:
+						pe_call_arg=readPool(pecaller+EXPR_OFS_ARGS+0)
+						pvar_call_arg=getVariable(pe_call_arg)
+						if pvar_call_arg&&readPool(pvar_call_arg+VAR_OFS_ID)==g_id_arguments:
+							//f0.call(arguments)
+							pe_real_func=readPool(pe+EXPR_OFS_ARGS+0)
+							createArgumentVars()
+							as_call=new PExpression[n_args_call+1]
+							as_call[0]=pe_real_func
+							for i=0:n_args_call-1
+								as_call[i+1]=exprvar(pvar_arg_ret[i])
+							pe_new_caller=replaceExprNoQueueReach(pecaller,indcall(as_call))
+							//Writeln('*** call(arguments)')
+							//Writeln(dumpExpr(pe_new_caller,__zero(fcolorer_callback)))
+							return 0
+				return 1
+			else
+				return 1
 		}
 		disable_inline_return=0
 		freplace_args=function(PExpression pe_store_i){
 			if isBuiltin(pe_store_i,g_id_function):
-				if !need_return_scope:
-					dfsExpr(pe_store_i,fdetect_returns)
+				pe_ccnv=readPool(pe_store_i+EXPR_OFS_ARGS)
+				if readPool(pe_ccnv)==EFLAG_STRING+g_id_inline_loopbody:
+					dfsExpr(pe_store_i,freplace_args_loop_body)
 				return 0
 			if isBuiltin(pe_store_i,g_id_disable_inline_return):
 				disable_inline_return=1
 				setnop(pe_store_i)
 				return 0
 			//if isReturnJump(pe_store_i):
-			if isBuiltin(pe_store_i,g_id_blockex)&&readPool(readPool(pe_store_i+EXPR_OFS_ARGS+0))==EFLAG_STRING+id_return_label:
-				need_return_scope=1
 			if isBuiltin(pe_store_i,g_id_store):
 				pe_var_i=readPool(pe_store_i+EXPR_OFS_ARGS+0)
 				pe_code_i=readPool(pe_store_i+EXPR_OFS_ARGS+1)
@@ -897,7 +963,9 @@ auto coreInit()
 					insertCallAt(pe_store_i,pe_code_i,function(PExpression pe){return pe_param})
 					//sccpQueueReach()
 					return 0
-			if isBuiltin(pe_store_i,g_id_cite_param):
+				else
+					return 1
+			else if isBuiltin(pe_store_i,g_id_cite_param):
 				param_id=0
 				param_id_provided=0
 				if readPool(pe_store_i)==EFLAG_FCALL+1:
@@ -918,32 +986,10 @@ auto coreInit()
 					id_cite=getid("<invalid parameter ID @1>".Replace(["@1",string(param_id)]))
 				else
 					id_cite=getid(citeexpr(readPool(pecall+EXPR_OFS_ARGS+param_id)))
-				replaceExpr(pe_store_i,exprstr(id_cite))
+				replaceExprNoQueueReach(pe_store_i,exprstr(id_cite))
 				return 0
-			if isExpr(pe_store_i,EFLAG_VARIABLE):
-				//translating the arguments
-				pv=getVariable(pe_store_i)
-				if pv&&readPool(pv+VAR_OFS_ID)==g_id_arguments:
-					as=PExpression[].NULL
-					if !pv_arguments:
-						pv_arguments=makevar(pf_owner)
-						writePool(pv_arguments+VAR_OFS_ID,gettempid(g_id_arguments))
-						pe_arguments_tuple=makeTuple(n_args_call)
-						as=new PExpression[]
-						as.push(call(g_id_store,exprvar(pv_arguments),pe_arguments_tuple))
-						writePool(pv_arguments+VAR_OFS_DEFINING_STORE,as[0])
-						for i=0:n_args_call-1
-							if i<pvar_arg_ret.n:
-								if !pvar_arg_ret[i]:
-									pvar_arg_ret[i]=makevar(pf_owner)
-									as.push(call(g_id_store,exprvar(pvar_arg_ret[i]),readPool(pecall+EXPR_OFS_ARGS+i)))
-								pe_call_argi=exprvar(pvar_arg_ret[i])
-							else
-								pe_call_argi=readPool(pecall+EXPR_OFS_ARGS+i)
-							as.push(call(g_id_stdot,exprvar(pv_arguments),exprstr(getTupleId(i)),pe_call_argi))
-					transformCodeEx(pe_store_i,__zero(ftransformer_callback),as,exprvar(pv_arguments),PExpression[].NULL,0)
-				return 0
-			return 1
+			else
+				return freplace_args_loop_body(pe_store_i)
 		}
 		dfsExpr(pe_expanded,freplace_args)
 		if prototype_mismatch:
@@ -1957,6 +2003,35 @@ auto coreInit()
 		return TSCCPValue(){'tid':g_vtid_CTVAL,'val':t_function}
 	}
 	registerPrimitive(g_id_function_type,__zero(fcompiler_callback),ffunction_type_oneval,__zero(fcompiler_callback),FFLAG_SPECIAL)
+	////////////
+	farguments_bracket_oneval=function(PExpression pecall,int expr_oplevel){
+		p_argument_vars=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+0),g_vtid_CNS)
+		if !p_argument_vars:
+			errorAtExpr(ETYPE_ERROR,pecall,"untranslated __arguments_bracket")
+			return TSCCPValue(){'tid':g_vtid_UNINIT}
+		pe_arg_id=readPool(pecall+EXPR_OFS_ARGS+1)
+		val=getExprValue(pe_arg_id)
+		if val.tid==g_vtid_UNINIT:
+			return TSCCPValue(){'tid':g_vtid_UNINIT}
+		if val.tid!=g_vtid_CNS:
+			errorAtExpr(ETYPE_ERROR,pe_arg_id,"the subscript in 'arguments[]' must be a constant")
+			return TSCCPValue(){'tid':g_vtid_UNINIT}
+		n_args_call=g_ctobject_pool[p_argument_vars]
+		argid=getExprValueAs(pe_arg_id,g_vtid_CNS)
+		if !(argid>=0&&argid<n_args_call):
+			//Writeln('p_argument_vars=',p_argument_vars,' n_args_call=',n_args_call);
+			errorAtExpr(ETYPE_ERROR,pe_arg_id,"subscript out of range in 'arguments[@1]': there are only @2 arguments".Replace([
+				"@1",new string(argid),
+				"@2",new string(n_args_call)]))
+			return TSCCPValue(){'tid':g_vtid_UNINIT}
+		pobj_var=g_ctobject_pool[p_argument_vars+1+argid]
+		pecaller=readPool(pecall+EXPR_OFS_CALLER)
+		sccpQueueEval(pecaller)
+		replaceExpr(pecall,exprvar(pobj_var))
+		return TSCCPValue(){'tid':g_vtid_UNINIT}
+	}
+	registerPrimitive(g_id_arguments_bracket,__zero(fcompiler_callback),farguments_bracket_oneval,__zero(fcompiler_callback),FFLAG_SPECIAL)
+	registerPrimitive(g_id_arguments_length,__zero(fcompiler_callback),fdummy_callback,__zero(fcompiler_callback),FFLAG_SPECIAL)
 	////////////
 	fexport_oneval=function(PExpression pecall,int expr_oplevel){
 		n_args=getExprNArgs(pecall)
@@ -3564,7 +3639,8 @@ auto coreInit()
 	registerPrimitive(g_id_generate_json,__zero(fcompiler_callback),fgenerate_json_oneval,fdummy_callback,FFLAG_SPECIAL|FFLAG_IS_PRELIVE)
 	fprototype_matches_oneval=function(PExpression pecall,int expr_oplevel){
 		assert(readPool(pecall)==EFLAG_FCALL+3)
-		pe_arg_tuple=readPool(pecall+EXPR_OFS_ARGS+0)
+		//pe_arg_tuple=readPool(pecall+EXPR_OFS_ARGS+0)
+		pe_p_argument_vars=readPool(pecall+EXPR_OFS_ARGS+0)
 		pobjfn_proto=getExprValueAs(readPool(pecall+EXPR_OFS_ARGS+1),g_vtid_CTVAL)
 		pe_deps=readPool(pecall+EXPR_OFS_ARGS+2)
 		if isExpr(pe_deps,EFLAG_VARIABLE):
@@ -3572,45 +3648,50 @@ auto coreInit()
 			writePool(pe_deps,EFLAG_STRING+g_empty_id)
 		if !pobjfn_proto:
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
-		t_tuple=getExprType(pe_arg_tuple)
-		if !t_tuple||!tistuple(t_tuple)
+		//t_tuple=getExprType(pe_arg_tuple)
+		//if !t_tuple||!tistuple(t_tuple)
+		//	return TSCCPValue(){'tid':g_vtid_UNINIT}
+		//enableNameLookup(t_tuple)
+		//p_members=readPool(t_tuple+FUNCTION_OFS_PMEMBER_LIST)
+		//n_members=readPool(t_tuple+FUNCTION_OFS_NMEMBER_LIST)
+		//n_args_call=0
+		//for i=0:n_members-1
+		//	id_member=readPool(p_members+i)
+		//	if id_member==g_id_length||id_member==g_id_this||id_member==g_id_return:continue
+		//	n_args_call++
+		p_argument_vars=getExprValueAs(pe_p_argument_vars,g_vtid_CNS)
+		if !p_argument_vars:
+			errorAtExpr(ETYPE_ERROR,pecall,"untranslated arguments")
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
-		enableNameLookup(t_tuple)
-		p_members=readPool(t_tuple+FUNCTION_OFS_PMEMBER_LIST)
-		n_members=readPool(t_tuple+FUNCTION_OFS_NMEMBER_LIST)
-		n_args_call=0
-		for i=0:n_members-1
-			id_member=readPool(p_members+i)
-			if id_member==g_id_length||id_member==g_id_this||id_member==g_id_return:continue
-			n_args_call++
+		n_args_call=g_ctobject_pool[p_argument_vars]
 		n_args_proto=getNumberOfArguments(pobjfn_proto)
 		if n_args_call!=n_args_proto:
 			replaceExpr(pecall,expriptr(0))
 			return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,32),0LL)}
 		pedecl_proto=readPool(pobjfn_proto+FUNCTION_OFS_PEDECL)
-		p_args=0
-		for i=0:n_members-1
-			id_member=readPool(p_members+i)
-			if id_member==g_id_length||id_member==g_id_this||id_member==g_id_return:continue
-			pobj_member=lookupFunctionVariable(t_tuple,id_member)
-			pe_proto_i=readPool(pedecl_proto+EXPR_OFS_ARGS+1+p_args*2)
+		//p_args=0
+		for i=0:n_args_call-1
+			//id_member=readPool(p_members+i)
+			//if id_member==g_id_length||id_member==g_id_this||id_member==g_id_return:continue
+			//pobj_member=lookupFunctionVariable(t_tuple,id_member)
+			pobj_arg=g_ctobject_pool[p_argument_vars+1+i]
+			pe_proto_i=readPool(pedecl_proto+EXPR_OFS_ARGS+1+i*2)
 			if isExpr(pe_proto_i,EFLAG_STRING):
 				//template param, always matches that
 			else
-				t_call_i=getVariableType(pobj_member)
+				t_call_i=getVariableType(pobj_arg)
 				if !t_call_i:
 					//we need to know all the arg types - dependency
-					sccpQueueReach(insertCallAt(pecall,~2,function(PExpression pe){return exprvar(pobj_member)}))
+					sccpQueueReach(insertCallAt(pecall,~2,function(PExpression pe){return exprvar(pobj_arg)}))
 					return TSCCPValue(){'tid':g_vtid_UNINIT}
 				t_proto_i=getExprValueAs(pe_proto_i,g_vtid_CTVAL)
-				//Writeln('=? ',dumpType(t_proto_i),' ',dumpType(t_call_i))
+				//Writeln('fprototype_matches_oneval ',i,' =? ',dumpType(t_proto_i),' ',dumpType(t_call_i))
 				if t_proto_i&&t_proto_i!=t_call_i:
 					//a type mismatch
-					//Writeln('mismatch')
+					//Writeln('mismatch ',i)
 					replaceExpr(pecall,expriptr(0))
 					return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,32),0LL)}
-			p_args++
-		//Writeln('match')
+		//Writeln('match ',n_args_call);
 		replaceExpr(pecall,expriptr(1))
 		return TSCCPValue(){'tid':g_vtid_CNS,'val':getid_const(const_type(CTYPE_INT,32),1LL)}
 	}
@@ -6056,15 +6137,17 @@ auto resolveNames(PExpression g_pe_top,int is_initial_resolve)
 			if has_local_scope:
 				if has_local_scope==2:
 					//function level, force-clear the "return" slot, unless it's a foreach inline
+					assert(fid==g_id_function)
 					if define_new_return_var:
 						saved_names.push(TNameStackItem(){'id':g_id_return,'pvar_previous':g_symbols[g_id_return].user_slot})
 						g_symbols[g_id_return].user_slot=0
 					pe_ccnv=readPool(pe+EXPR_OFS_ARGS)
 					if readPool(pe_ccnv)==EFLAG_STRING+g_id_inline:
-						//inline function - define "arguments"
+						//inline function - define "arguments" and the related stuff
 						saved_names.push(TNameStackItem(){'id':g_id_arguments,'pvar_previous':g_symbols[g_id_arguments].user_slot})
 						pv=makevar(pf_owner_new)
 						writePool(pv+VAR_OFS_ID,g_id_arguments)
+						//g_symbols[g_id_arguments].user_slot=pf_owner_new
 						g_symbols[g_id_arguments].user_slot=pv
 				for i=0:n_args-1
 					findStoreDfs(pf_owner_new,pf_return_scope_new,readPool(pe+EXPR_OFS_ARGS+i))
@@ -6483,6 +6566,7 @@ auto mergeValues(PExpression pe,TSCCPValue val_old,TSCCPValue val_new0,PExpressi
 		//meta functions should refuse double-evaluation
 		//this is definitely an error
 		if readPool(val_old.val)==g_tid_TFunction&&readPool(val_new.val)==g_tid_TFunction:
+			//todo: move inline-can't-change checks here
 			//what if we don't know about the return type
 			t_old=getValueTypeEx(pe,val_old)
 			t_new=getValueTypeEx(pe,val_new)

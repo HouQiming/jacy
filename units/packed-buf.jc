@@ -108,8 +108,7 @@ inline PBStruct()
 		__error("PBStruct has to take an even number of args, not @1",arguments.length)
 	else if !arguments.length:
 		__error("an empty PBStruct does not make sense")
-	arguments0=arguments
-	n_members=(arguments0.length>>1)
+	n_members=(arguments.length>>1)
 	T=struct{
 		m_offsets=__uninit();
 		m_types=__uninit();
@@ -122,7 +121,7 @@ inline PBStruct()
 			else
 				auto ret=__uninit()
 				for i in crange(n_members)
-					if a==arguments0[i*2+1]:
+					if a==arguments[i*2+1]:
 						ret=PBValue(m_types[i],ptr+m_offsets[i])
 				return ret
 		}
@@ -131,7 +130,7 @@ inline PBStruct()
 				__error("invalid subscript type @1",typeof(a))
 			else
 				for i in crange(n_members)
-					if a==arguments0[i*2+1]:
+					if a==arguments[i*2+1]:
 						PBValue(m_types[i],ptr+m_offsets[i])=value
 		}
 	}
@@ -140,9 +139,9 @@ inline PBStruct()
 	ret.m_types=__tuple(n_members);
 	ret.m_offsets[0]=0L
 	for i in crange(n_members)
-		sz_i=PBSizeof(arguments0[i*2])
+		sz_i=PBSizeof(arguments[i*2])
 		ret.m_offsets[i+1]=ret.m_offsets[i]+sz_i
-		ret.m_types[i]=arguments0[i*2]
+		ret.m_types[i]=arguments[i*2]
 	return ret
 
 inline PBArray(t0,iptr n)

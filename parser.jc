@@ -1018,6 +1018,20 @@ auto parseC0(int id_fn_current,TToken[] toks)
 				else
 					pe=expriptr(ln0+1)
 				return fillepos(pe,epos0,toks[ptr-1].epos1)
+			else if id0==g_id_arguments:
+				if want(int('.')):
+					if !want(TOK_ID+g_id_length):
+						error(ETYPE_ERROR,toks[ptr-2].epos0,toks[ptr].epos1,"the only valid member for 'arguments' is 'length'")
+					return fillepos(call(g_id_arguments_length),toks[ptr-3].epos0,toks[ptr-1].epos1)
+				else if want(int('[')):
+					eb=expr(LEVEL_SELECT)
+					if !want(int(']')):
+						error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"'[' - ']' mismatch: need a ']' here")
+					return fillepos(call(g_id_arguments_bracket,expriptr(0),eb),toks[ptr-3].epos0,toks[ptr-1].epos1)
+				else
+					//do nothing and fall through, treat it as a normal variable for now
+					//error(ETYPE_ERROR,toks[ptr-1].epos0,toks[ptr-1].epos1,"'arguments' has to be used with '[]' or '.length'")
+					//return expriptr(0)
 			ret=fillepos(exprvar(id0),toks[ptr-1].epos0,toks[ptr-1].epos1)
 			return ret
 		else if lex=='(':
@@ -1156,7 +1170,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 				writePool(ea+2,toks[ptr].epos1)
 				if !want(int(']')):
 					writePool(ea+2,toks[ptr].epos0)
-					error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos1,"'[' - ']' mismatch: need a ']' here")
+					error(ETYPE_ERROR,toks[ptr].epos0,toks[ptr].epos0,"'[' - ']' mismatch: need a ']' here")
 					break
 				continue
 			if !isBuiltinR(ea,g_id_block)&&!isBuiltinR(ea,g_id_store)&&want(int('(')):

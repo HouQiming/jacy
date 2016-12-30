@@ -1026,11 +1026,10 @@ inline copy(a,b)
 //reduce ops
 inline __internal_run_metalist(container,fmap,fcallback)
 	container.forEach(inline(){
-		arguments0=arguments
 		n=arguments.length
 		arg_new=__tuple(n+1)
 		for i in crange(n)
-			arg_new[i+1]=arguments0[i]
+			arg_new[i+1]=arguments[i]
 		arg_new[0]=fcallback
 		fmap.call(arg_new)
 	})

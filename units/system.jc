@@ -8682,17 +8682,15 @@ module Console
 		else
 			__error("I don't know how to format type '@1'",T)
 	inline SWrite(s)
-		arguments0=arguments
-		for i in crange(arguments0.length)
+		for i in crange(arguments.length)
 			if i>0:
-				a=arguments0[i]
+				a=arguments[i]
 				__format_to_string(s,a)
 		return s
 	inline FormatAsText()
-		arguments0=arguments
 		s=string()
-		for i in crange(arguments0.length)
-			auto a=arguments0[i]
+		for i in crange(arguments.length)
+			auto a=arguments[i]
 			__format_to_string(s,a)
 		return s
 	inline Write()
