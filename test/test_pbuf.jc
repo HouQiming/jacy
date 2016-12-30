@@ -38,4 +38,5 @@ import PackedBuf.*
 	pb_value["lm"][5]=77.f
 	Writeln('data=',data)
 	Writeln('pb_value["tr"][2]=',pb_value["tr"][2])
+	Writeln('data.sum()=',[a*a for a in data].Sum())
 })()

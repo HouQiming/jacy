@@ -109,6 +109,9 @@ inline PBStruct()
 	else if !arguments.length:
 		__error("an empty PBStruct does not make sense")
 	n_members=(arguments.length>>1)
+	arguments0=__tuple(arguments.length)
+	for i in crange(arguments.length)
+		arguments0[i]=arguments[i]
 	T=struct{
 		m_offsets=__uninit();
 		m_types=__uninit();
@@ -121,7 +124,7 @@ inline PBStruct()
 			else
 				auto ret=__uninit()
 				for i in crange(n_members)
-					if a==arguments[i*2+1]:
+					if a==arguments0[i*2+1]:
 						ret=PBValue(m_types[i],ptr+m_offsets[i])
 				return ret
 		}
@@ -130,7 +133,7 @@ inline PBStruct()
 				__error("invalid subscript type @1",typeof(a))
 			else
 				for i in crange(n_members)
-					if a==arguments[i*2+1]:
+					if a==arguments0[i*2+1]:
 						PBValue(m_types[i],ptr+m_offsets[i])=value
 		}
 	}
