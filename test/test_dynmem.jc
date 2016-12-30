@@ -1,0 +1,14 @@
+import "system.jc"
+import System.Console.*
+
+class CClass
+	a=1
+__enable_dynamic_members(CClass)
+
+(function(){
+	c=new CClass
+	c.b=2
+	c.C="test"
+	c.b+=c.a
+	Writeln(c.a,' ',c.b,' ',c.C)
+})();

@@ -213,16 +213,27 @@ inline call(int id)
 	pe_func=exprvar(id_or_pobj)
 	n0=poolCode(TExpression(){'flags_n_args':int(arguments.length-1)|EFLAG_FCALL})
 	g_ctobject_pool.push(pe_func)
-	arguments0=arguments
-	for i in crange(arguments0.length)
-		if i>=1:
-			T=typeof(arguments0[i])
-			if T!=int:
-				__error("call can only take ints, not the @1-th argument, which is @2",i,T)
-			else
-				g_ctobject_pool.push(arguments0[i])
-				assert(!!arguments0[i])
-				writePool(arguments0[i]+EXPR_OFS_CALLER,n0)
+	if Platform.VERSION>=0x104:
+		for i in crange(arguments.length)
+			if i>=1:
+				T=typeof(arguments[i])
+				if T!=int:
+					__error("call can only take ints, not the @1-th argument, which is @2",i,T)
+				else
+					g_ctobject_pool.push(arguments[i])
+					assert(!!arguments[i])
+					writePool(arguments[i]+EXPR_OFS_CALLER,n0)
+	else
+		arguments0=arguments
+		for i in crange(arguments0.length)
+			if i>=1:
+				T=typeof(arguments0[i])
+				if T!=int:
+					__error("call can only take ints, not the @1-th argument, which is @2",i,T)
+				else
+					g_ctobject_pool.push(arguments0[i])
+					assert(!!arguments0[i])
+					writePool(arguments0[i]+EXPR_OFS_CALLER,n0)
 	writePool(pe_func+EXPR_OFS_CALLER,n0)
 	//if Platform.BUILD=="debug":
 	//	if g_names_resolved&&id==g_id_store&&va_count==3:
@@ -1218,6 +1229,7 @@ g_id_length=getid("length")
 g_id_arguments=getid("arguments")
 g_id_arguments_length=getid("__arguments_length")
 g_id_arguments_bracket=getid("__arguments_bracket")
+g_id_arguments_placeholder=getid("__arguments_placeholder")
 g_id_tuple_call=getid("__tuple_call")
 g_id_tuple_bracket=getid("__tuple_bracket")
 g_id_prototype_matches=getid("__prototype_matches")

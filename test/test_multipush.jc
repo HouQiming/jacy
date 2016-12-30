@@ -1,0 +1,8 @@
+import "system.jc"
+import System.Console.*
+
+(function(){
+	s=new string
+	s.push('a','b','c')
+	Writeln(s)
+})();

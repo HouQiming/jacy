@@ -8349,7 +8349,7 @@ module Algorithm
 			buf[n++] = 0x80;
 			while(n < 64)
 				buf[n++] = 0;
-			SHA_Transform_512bit(a,d8)
+			SHA_Transform_512bit(a,buf.d)
 			d8+=64;n-=64;
 			while(n < 56)
 				buf[n++] = 0;

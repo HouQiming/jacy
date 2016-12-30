@@ -787,7 +787,7 @@ auto coreInit()
 		pe_func=readPool(pecall+EXPR_OFS_FUNCTION)
 		pe_this=0
 		pe_store_this=0
-		pe_expanded=cloneExprEx(readPool(pobjfn+FUNCTION_OFS_CODE),var_map,CLONE_WIPE_TO_UNREACHED|CLONE_VARS|CLONE_KEEP_VAR_IDS)
+		pe_expanded=cloneExprEx(readPool(pobjfn+FUNCTION_OFS_CODE),var_map,CLONE_WIPE_TO_UNREACHED|CLONE_VARS|(tisclass(pf_owner)?0:CLONE_KEEP_VAR_IDS))
 		/////////
 		//old epos plus function
 		epos_parent=0x80000000+makeAdvEpos(0x80000000+readPool(pecall+1),pobjfn)
@@ -912,8 +912,9 @@ auto coreInit()
 					pecaller=readPool(pe+EXPR_OFS_CALLER)
 					if readPool(pecaller+EXPR_OFS_FUNCTION)==pe:
 						pe_call_arg=readPool(pecaller+EXPR_OFS_ARGS+0)
-						pvar_call_arg=getVariable(pe_call_arg)
-						if pvar_call_arg&&readPool(pvar_call_arg+VAR_OFS_ID)==g_id_arguments:
+						//pvar_call_arg=getVariable(pe_call_arg)
+						//if pvar_call_arg&&readPool(pvar_call_arg+VAR_OFS_ID)==g_id_arguments:
+						if isBuiltin(pe_call_arg,g_id_arguments_placeholder):
 							//f0.call(arguments)
 							pe_real_func=readPool(pe+EXPR_OFS_ARGS+0)
 							createArgumentVars()
@@ -929,7 +930,9 @@ auto coreInit()
 			else
 				return 1
 		}
-		disable_inline_return=0
+		DISABLE_INLINE_RETURN=1
+		DISABLE_SINGLE_ASS_USE=2
+		disabled_optimization_flags=0
 		freplace_args=function(PExpression pe_store_i){
 			if isBuiltin(pe_store_i,g_id_function):
 				pe_ccnv=readPool(pe_store_i+EXPR_OFS_ARGS)
@@ -937,7 +940,10 @@ auto coreInit()
 					dfsExpr(pe_store_i,freplace_args_loop_body)
 				return 0
 			if isBuiltin(pe_store_i,g_id_disable_inline_return):
-				disable_inline_return=1
+				if getExprNArgs(pe_store_i)>0:
+					disabled_optimization_flags|=getExprValueAs(readPool(pe_store_i+EXPR_OFS_ARGS+0),g_vtid_CNS)
+				else
+					disabled_optimization_flags|=DISABLE_INLINE_RETURN
 				setnop(pe_store_i)
 				return 0
 			//if isReturnJump(pe_store_i):
@@ -1013,8 +1019,10 @@ auto coreInit()
 		pvar_arg_ret.Sort()
 		pvar_arg_ret.Unique()
 		need_optimization=0
+		tested_optimization=0
 		setnop_jobs=new PExpression[]
-		if !need_return_scope:
+		if !need_return_scope&&!p_argument_vars&&!(disabled_optimization_flags&DISABLE_SINGLE_ASS_USE):
+			tested_optimization=1
 			cnt_ass=new int[PCTObject]
 			cnt_use=new int[PCTObject]
 			auto fcount_ass_use(PExpression pe,int delta)
@@ -1065,7 +1073,7 @@ auto coreInit()
 		pobj_return_store_replace=0
 		pobj_return_store_replace_with=0
 		is_inline_return_optimized=0
-		if isBuiltin(pecaller_original,g_id_store)&&pvar_return&&!disable_inline_return:
+		if isBuiltin(pecaller_original,g_id_store)&&pvar_return&&!(disabled_optimization_flags&DISABLE_INLINE_RETURN):
 			id_pobjfn=readPool(pobjfn+FUNCTION_OFS_NAME)
 			if (id_pobjfn!=g_id_operator_aa&&
 			id_pobjfn!=g_id_operator_oo&&
@@ -1073,7 +1081,7 @@ auto coreInit()
 			id_pobjfn!=g_id_stdfn_function_or&&
 			id_pobjfn!=g_id_stdfn_make_string):
 				pobj_return_store_replace=pvar_return
-				if !need_return_scope:
+				if tested_optimization:
 					pe_return_store=do_optimization[pvar_return]
 					pe_return_store&=0x7fffffff
 					if pe_return_store:
@@ -2000,7 +2008,8 @@ auto coreInit()
 		t_function=makeFunctionTypeRaw(pecall,pecall,t_return,0)
 		if !t_function:
 			return TSCCPValue(){'tid':g_vtid_UNINIT}
-		return TSCCPValue(){'tid':g_vtid_CTVAL,'val':t_function}
+		else
+			return TSCCPValue(){'tid':g_vtid_CTVAL,'val':t_function}
 	}
 	registerPrimitive(g_id_function_type,__zero(fcompiler_callback),ffunction_type_oneval,__zero(fcompiler_callback),FFLAG_SPECIAL)
 	////////////
@@ -2032,6 +2041,7 @@ auto coreInit()
 	}
 	registerPrimitive(g_id_arguments_bracket,__zero(fcompiler_callback),farguments_bracket_oneval,__zero(fcompiler_callback),FFLAG_SPECIAL)
 	registerPrimitive(g_id_arguments_length,__zero(fcompiler_callback),fdummy_callback,__zero(fcompiler_callback),FFLAG_SPECIAL)
+	registerPrimitive(g_id_arguments_placeholder,__zero(fcompiler_callback),fdummy_callback,__zero(fcompiler_callback),FFLAG_SPECIAL)
 	////////////
 	fexport_oneval=function(PExpression pecall,int expr_oplevel){
 		n_args=getExprNArgs(pecall)

@@ -205,8 +205,7 @@ class __array(T)
 			if NEED_RC:
 				__MassRelease(n_new,n)
 		n=n_new
-	//inline _push_one(a)
-	inline push(a)
+	inline _push_one(a)
 		TA=typeof(a)
 		if TA==T:
 			n0=n
@@ -231,14 +230,13 @@ class __array(T)
 			this[n0]=T(a)
 		else
 			__error("invalid operation @1[].push(@2)",T,TA)
-	//inline push(a)
-	//	n_args=arguments.length
-	//	if n_args>1:
-	//		arguments0=arguments
-	//		for i in crange(n_args)
-	//			_push_one(arguments0[i])
-	//	else
-	//		_push_one(a)
+	inline push(a)
+		n_args=arguments.length
+		if n_args>1:
+			for i in crange(n_args)
+				_push_one(arguments[i])
+		else
+			_push_one(a)
 	inline pop()
 		if Platform.BUILD=="debug":
 			if !n:

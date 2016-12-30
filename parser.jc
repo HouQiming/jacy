@@ -1032,6 +1032,7 @@ auto parseC0(int id_fn_current,TToken[] toks)
 					//do nothing and fall through, treat it as a normal variable for now
 					//error(ETYPE_ERROR,toks[ptr-1].epos0,toks[ptr-1].epos1,"'arguments' has to be used with '[]' or '.length'")
 					//return expriptr(0)
+					return fillepos(call(g_id_arguments_placeholder),toks[ptr-3].epos0,toks[ptr-1].epos1)
 			ret=fillepos(exprvar(id0),toks[ptr-1].epos0,toks[ptr-1].epos1)
 			return ret
 		else if lex=='(':
