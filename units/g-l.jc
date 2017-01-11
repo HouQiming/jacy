@@ -3817,7 +3817,7 @@ _glGetError=inline(){
 glGetString=inline(GLenum name){
 	__lib_import_gl();
 	c_glGetString=__c_function(__pointer,"glGetString",GL_HEADER_FILE);
-	real_ret=c_glGetString(name);
+	real_ret=__C(__pointer,'(void*)(@1)',c_glGetString(name));
 	return real_ret;
 }
 
@@ -5035,7 +5035,7 @@ glIsBuffer=inline(GLuint buffer){
 glMapBuffer=inline(GLenum target,GLenum access){
 	__lib_import_gl();
 	c_glMapBuffer=__c_function(__pointer,"glMapBuffer",GL_HEADER_FILE);
-	real_ret=c_glMapBuffer(target,access);
+	real_ret=__C(__pointer,'(void*)(@1)',c_glMapBuffer(target,access));
 	if Platform.BUILD=='debug':{err=_glGetError();__g_error_buf=err;__g_has_error_buf=1;if err:System.Console.Writeln('glMapBuffer returned error: ',mygluGetErrorString(err))}
 	return real_ret;
 }
@@ -5768,7 +5768,7 @@ glSetFragmentShaderConstant=inline(GLuint dst,__pointer value){
 glMapObjectBuffer=inline(GLuint buffer){
 	__lib_import_gl();
 	c_glMapObjectBuffer=__c_function(__pointer,"glMapObjectBuffer",GL_HEADER_FILE);
-	real_ret=c_glMapObjectBuffer(buffer);
+	real_ret=__C(__pointer,'(void*)(@1)',c_glMapObjectBuffer(buffer));
 	if Platform.BUILD=='debug':{err=_glGetError();__g_error_buf=err;__g_has_error_buf=1;if err:System.Console.Writeln('glMapObjectBuffer returned error: ',mygluGetErrorString(err))}
 	return real_ret;
 }

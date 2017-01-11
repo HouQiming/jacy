@@ -231,6 +231,8 @@ auto once(string ver)
 		SWrite(g_lib_code,'\tc_',name,'=__c_function(',tret=='void'?'int':tret,',"',name,'",GL_HEADER_FILE);','\n')
 		if tret=='void':
 			(SWrite(g_lib_code,"\tc_",name,'('))
+		else if tret=='__pointer':
+			SWrite(g_lib_code,"\treal_ret=__C(__pointer,'(void*)(@1)',c_",name,'(')
 		else
 			(SWrite(g_lib_code,"\treal_ret=c_",name,'('))
 		foreach sparam0 in t[pname+9:].Tokenize("(),")
@@ -245,6 +247,8 @@ auto once(string ver)
 			//if is_pointer&&sparam.IndexOf("GLvoid")<0:
 			//	g_lib_code.push('.__C_autocast()')
 			param_id++
+		if tret=='__pointer':
+			SWrite(g_lib_code,")")
 		(SWrite(g_lib_code,");\n"))
 		if name!="glGetError"&&name!="glGetString":
 			(SWrite(g_lib_code,"\tif Platform.BUILD=='debug':{err=_glGetError();__g_error_buf=err;__g_has_error_buf=1;if err:System.Console.Writeln('",name," returned error: ',mygluGetErrorString(err))}\n"))

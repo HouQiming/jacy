@@ -994,6 +994,8 @@ module detail
 		else if Platform.ARCH=="web":
 			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS,0)
 	auto createSDLJSObject(JSObject JS_SDL,int do_consts)
+		sdlcbInit=__c_function(int,"sdlcbInit","sdl_callbacks.h","c_files","sdl_callbacks.c")
+		sdlcbInit()
 		//__generate_json("search_paths","SDL_PATH")
 		//if Platform.ARCH=="win32":
 		//	__generate_json("lib_files","lib/x86/sdl2.lib")
@@ -1630,14 +1632,19 @@ module detail
 			pobj["refresh_rate"]=__C(int,"((SDL_DisplayMode*)@1)->refresh_rate",pmode)
 			return JS.Return(pobj)
 		}
-		fhandleevent=function(JSContext JS,int is_wait){
+		fhandleevent=function(JSContext JS,int is_wait0){
+			sdlcbCheck=__c_function(int,"sdlcbCheck","sdl_callbacks.h","c_files","sdl_callbacks.c")
 			pevent=__C(__pointer,"@decl:SDL_Event @1={0}")
-			if is_wait:
-				//spapStartRunningCoroutines()
-				got_message=SDL_WaitEvent(pevent)
-				//spapStopRunningCoroutines()
-			else
-				got_message=SDL_PollEvent(pevent)
+			got_message=0
+			is_wait=is_wait0
+			for(;;)
+				if is_wait:
+					got_message=SDL_WaitEvent(pevent)
+				else
+					got_message=SDL_PollEvent(pevent)
+				if !(got_message&&sdlcbCheck(pevent)):
+					break
+				is_wait=0
 			if got_message:
 				duktape.duk_push_object(JS._ctx())
 				__C(int,"s7_CB_SDLEvent_to_duktape(@1,@2)",JS._ctx(),pevent)

@@ -2376,7 +2376,8 @@ auto DoFileDialog(int is_save,string filterList,string defaultPath)
 	if filterList:
 		sfilters=new(filterList)
 		sfilters.push(char(0))
-	if defaultPath:
+	//QM: the library seems to fail for a single "."
+	if defaultPath&&defaultPath!=".":
 		spath=(Platform.IS_WINDOWS?defaultPath.Replace(["/","\\"]):new(defaultPath))
 		spath.push(char(0))
 	pptr_ret=[0L]

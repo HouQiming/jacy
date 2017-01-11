@@ -1089,7 +1089,7 @@ UI.HackAllCallbacks=function(attrs){
 
 UI.CallIfAvailable=function(parent,id,attrs){
 	var cb=parent[id];
-	return cb&&cb.call(parent,attrs);
+	return cb&&parent[id](attrs);
 }
 
 UI.core_font_cache={};
@@ -1894,6 +1894,9 @@ UI.Run=function(){
 			}
 			if(UI.enable_timing){
 				console.log("--- idle ---");
+			}
+			if(UI.OnIdle){
+				UI.OnIdle();
 			}
 			if(UI.Platform.ARCH=="web"){
 				//emscripten has a different mainloop design
