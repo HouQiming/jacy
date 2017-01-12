@@ -1231,9 +1231,12 @@ UI.PushSubWindow=function(x,y,w,h, scale){
 	var w0=Math.max(prev_subwin[0]+Math.min(prev_subwin[2],x+w)-x0,0)
 	var h0=Math.max(prev_subwin[1]+Math.min(prev_subwin[3],y+h)-y0,0)
 	var new_subwin=[x0,y0,w0,h0,prev_subwin[4]*(scale||1)]
+	return UI.PushSubWindowRaw(new_subwin)
+}
+
+UI.PushSubWindowRaw=function(new_subwin){
 	UI.sub_window_stack.push(new_subwin)
 	UI._SwitchToSubWindow(new_subwin[0],new_subwin[1],new_subwin[2],new_subwin[3],0,0)
-	//todo: clipping-generated translation...
 	UI.SetPixelsPerUnit(new_subwin[4])
 	UI.pixels_per_unit=new_subwin[4]
 	UI.sub_window_offset_x=(new_subwin[0])
@@ -2111,15 +2114,16 @@ UI.Run=function(){
 			case UI.SDL_MOUSEMOTION:
 			case UI.SDL_MOUSEBUTTONDOWN:
 			case UI.SDL_MOUSEBUTTONUP:
+				var obj_window=UI.m_window_map[event.windowID.toString()];
 				event.x*=UI.SDL_bad_coordinate_corrector
 				event.y*=UI.SDL_bad_coordinate_corrector
-				if(UI.t_kill_mousedown==event.timestamp&&event.type==UI.SDL_MOUSEBUTTONDOWN){
+				if(UI.t_kill_mousedown==event.timestamp&&event.type==UI.SDL_MOUSEBUTTONDOWN||!obj_window){
 					//filter out the bogus mousedowns sent by SDL
 					break
 				}
 				UI.m_absolute_mouse_position.x=event.x;
 				UI.m_absolute_mouse_position.y=event.y;
-				var regions=UI.context_regions;
+				var regions=obj_window.regions;//UI.context_regions;
 				var lg=regions.length;
 				var nd_mouse_receiver=undefined;
 				var mouse_cursor="arrow";

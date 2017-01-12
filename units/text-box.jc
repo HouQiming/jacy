@@ -2461,12 +2461,16 @@ class CEditableText
 			hid=m_handler_registration["renderer"].as(int)
 			handler=m_handlers[hid]
 			fcheckInvisible=handler.IsCharInvisible
-			if !fcheckInvisible:
-				fcheckInvisible=function(int ch){return ch=='\r'}
-			if direction<0:
-				fcheck=function(int c0,int c1){return !fcheckInvisible(c0)}
+			if fcheckInvisible:
+				if direction<0:
+					fcheck=function(int c0,int c1){return !fcheckInvisible(c0)}
+				else
+					fcheck=function(int c0,int c1){return !fcheckInvisible(c1)}
 			else
-				fcheck=function(int c0,int c1){return !fcheckInvisible(c1)}
+				if direction<0:
+					fcheck=function(int c0,int c1){return c0!='\r'}
+				else
+					fcheck=function(int c0,int c1){return c1!='\r'}
 		else
 			fcheck=function(int c0,int c1){return 1}
 		return fcheck

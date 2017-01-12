@@ -370,6 +370,8 @@ W.Window=function(id,attrs){
 		UI.Clear(obj.bgcolor||0xffffffff);
 	}
 	UI.sub_window_stack=[[0,0,obj.w_in_pixels,obj.h_in_pixels,UI.pixels_per_unit]];
+	obj.regions=[];
+	UI.context_regions=obj.regions;
 	return obj;
 }
 

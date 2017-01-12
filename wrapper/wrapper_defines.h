@@ -22,13 +22,13 @@
 	#if defined(PM_RELEASE)||!defined(_WIN32)
 		#define EXPORT extern "C"
 	#else
-		#define EXPORT extern "C" __declspec(dllexport)
+		#define EXPORT extern "C"
 	#endif
 #else
 	#if defined(PM_RELEASE)||!defined(_WIN32)
 		#define EXPORT
 	#else
-		#define EXPORT __declspec(dllexport)
+		#define EXPORT
 	#endif
 #endif
 

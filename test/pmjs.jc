@@ -317,6 +317,10 @@ auto jszip(JSContext JS)
 		return
 	//////////////
 	//setup the API and run the default script
+	duktape.duk_module_duktape_init(JS._ctx())
+	duktape.duk_print_alert_init(JS._ctx(),0)
+	//duktape.duk_console_init(JS._ctx())
+	
 	global=JS.GetGlobal()
 	global["ReadFile"]=function(JSContext JS){
 		fn=JS.Param(0).or(new string)
