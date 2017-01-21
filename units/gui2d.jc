@@ -411,6 +411,7 @@ class CRenderer
 	m_crd16_scale=1
 	m_window_w=1.f
 	m_window_h=1.f
+	m_viewport_hack_h=1
 	m_uv16_scale=1
 	m_drawcalls=new TDrawCall[]
 	//////////////
@@ -462,6 +463,8 @@ class CRenderer
 	//////////////////////////
 	m_cache_age=0LL
 	auto EmptyCache()
+		//if Platform.BUILD=="debug":
+		//	Writeln('empty cache: ',m_texture_h_packed_to)
 		m_glyph_cache.discard()
 		m_glyph_cache=new CGlyphCacheItem[int3]
 		//////////////
@@ -805,6 +808,7 @@ class CRenderer
 		m_drawcall_start=int(m_StretchDIBits_calls.n)
 		m_window_w=w
 		m_window_h=h
+		m_viewport_hack_h=int(h)
 	auto FlushDrawcall()
 		//create a drawcall
 		if m_window_w&&m_window_h&&m_drawcall_start<int(m_StretchDIBits_calls.n):
@@ -829,10 +833,11 @@ class CRenderer
 	auto InsertNativeDrawCall(function() native_callback)
 		FlushDrawcall()
 		m_drawcalls.push(TDrawCall(){hwnd:m_hwnd,native_callback:native_callback})
-	auto SwitchToSubWindow(int x0,int y0,int w0,int h0,int is_relative,int is_pop)
-		ww=0
-		hw=0
-		SDL.detail.SDL_GL_GetDrawableSize(m_hwnd,&ww,&hw)
+	auto SwitchToSubWindow(int x0,int y0,int w0,int h0,int is_new_window,int is_pop)
+		//ww=0
+		//hw=0
+		//SDL.detail.SDL_GL_GetDrawableSize(m_hwnd,&ww,&hw)
+		hw=m_viewport_hack_h
 		x=x0
 		y=y0
 		w=w0
@@ -846,10 +851,11 @@ class CRenderer
 		InsertNativeDrawCall(function(){
 			//if Platform.ARCH=="linux32"||Platform.ARCH=="linux64":
 			//	glFinish()
-			if is_relative:
-				prev_viewport=new int[4]
-				glGetIntegerv(GL_VIEWPORT,__pointer(prev_viewport.d));
-				glViewport(prev_viewport[0]+x,prev_viewport[1]+prev_viewport[3]-y-h,w,h)
+			if is_new_window:
+				//prev_viewport=new int[4]
+				//glGetIntegerv(GL_VIEWPORT,__pointer(prev_viewport.d));
+				//glViewport(prev_viewport[0]+x,prev_viewport[1]+prev_viewport[3]-y-h,w,h)
+				glViewport(0,0,w,h)
 			else
 				glViewport(x,hw-y-h,w,h)
 		})
@@ -1721,9 +1727,9 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			y=int(floor(yf))
 			w=int(ceil(xf+wf))-x
 			h=int(ceil(yf+hf))-y
-			is_relative=JS.Param(4).or(0)
+			is_new_window=JS.Param(4).or(0)
 			is_pop=JS.Param(5).or(0)
-			g_renderer.SwitchToSubWindow(x,y,w,h,is_relative,is_pop)
+			g_renderer.SwitchToSubWindow(x,y,w,h,is_new_window,is_pop)
 			return 0
 		}
 		//////////
@@ -1761,10 +1767,18 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 			delta_pv=int((g_renderer.m_StretchDIBits_calls.n-saved.sdib_call_base)*(g_renderer.VERTEX_SIZE*6))
 			for dc in saved.dcs
 				dc.pv+=delta_pv
+				dc.hwnd=g_renderer.m_hwnd
 				g_renderer.m_drawcalls.push(dc)
 			g_renderer.m_StretchDIBits_calls.push(saved.sdib_calls)
 			g_renderer.m_drawcall_start=int(g_renderer.m_StretchDIBits_calls.n)
 			return JS.Return(1)
+		}
+		JS_UI["__set_viewport_hack_h"]=function(JSContext JS){
+			g_renderer.m_viewport_hack_h=JS.Param(0).as(int)
+			return 0
+		}
+		JS_UI["__get_viewport_hack_h"]=function(JSContext JS){
+			return JS.Return(g_renderer.m_viewport_hack_h)
 		}
 		//can't do that: we're not in GL when calling
 		/*JS_UI["_GetCurrentSubWindow"]=function(JSContext JS){
@@ -2281,7 +2295,7 @@ auto setupModuleSystem(JSContext JS,int is_real)
 	__generate_json("js_units","gui2d/ui.js")
 	__generate_json("js_units","gui2d/widgets.js")
 	duktape.duk_module_duktape_init(JS._ctx())
-	duktape.duk_console_init(JS._ctx(),0)
+	//duktape.duk_console_init(JS._ctx(),0)
 	sbox=new CUISandbox
 	global=JS.GetGlobal()
 	global["Duktape"]["__ui_native_hack"]=function(JSContext JS){
@@ -2360,17 +2374,17 @@ auto setupModuleSystem(JSContext JS,int is_real)
 			emscripten_set_main_loop(__C(__pointer,"s7_emscripten_mainloop"),0,1)
 			return 0;
 		}
-	//global["console"]=JS.New()
-	//global["console"]["log"]=function(JSContext JS){
-	//	s=new string
-	//	for i=0:JS.GetParamCount()-1
-	//		if i:s.push(' ')
-	//		str=JS.Param(i).as(string)
-	//		if str:
-	//			s.push(str)
-	//	Writeln(s)
-	//	return JS.Return(0)
-	//}
+	global["console"]=JS.New()
+	global["console"]["log"]=function(JSContext JS){
+		s=new string
+		for i=0:JS.GetParamCount()-1
+			if i:s.push(' ')
+			str=JS.Param(i).as(string)
+			if str:
+				s.push(str)
+		Writeln(s)
+		return JS.Return(0)
+	}
 	return sbox
 
 }//module
@@ -2395,8 +2409,8 @@ auto ProvideGLFunctions()
 			createGLJSObject(JS_UI)
 			JS_UI["GetCurrentWindowSize"]=function(JSContext JS){
 				ret=JS.New()
-				ret[0]=Gui2D.detail.g_renderer.m_window_w*Gui2D.detail.g_renderer.m_pixels_per_unit
-				ret[1]=Gui2D.detail.g_renderer.m_window_h*Gui2D.detail.g_renderer.m_pixels_per_unit
+				ret[0]=Gui2D.detail.g_renderer.m_window_w/Gui2D.detail.g_renderer.m_pixels_per_unit
+				ret[1]=Gui2D.detail.g_renderer.m_window_h/Gui2D.detail.g_renderer.m_pixels_per_unit
 				return JS.Return(ret)
 			}
 	})

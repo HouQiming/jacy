@@ -231,7 +231,7 @@ auto DumpPointer(iptr p)
 			Write(formatNumber(uptr(word),{align:sizeof(iptr)*2,base:16}),' ')
 		Writeln()
 		//if iptr==i32:
-		if __memory(iptr,pobj+0*sizeof(iptr))==0x50000042:
+		if __memory(iptr,pobj+0*sizeof(iptr))==0x80000A1:
 			//duktape object
 			p_props=__memory(iptr,pobj+4*sizeof(iptr))
 			e_size=__memory(i16,pobj+6*sizeof(iptr))

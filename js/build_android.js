@@ -338,7 +338,11 @@ g_action_handlers.make=function(){
 		s_android_mk.push(' -l'+g_json.android_system_libnames[j])
 	}
 	s_android_mk.push('\n')
-	s_android_mk.push('include $(BUILD_SHARED_LIBRARY)\n')
+	if(g_json.android_build_static_library){
+		s_android_mk.push('include $(BUILD_STATIC_LIBRARY)\n')
+	}else{
+		s_android_mk.push('include $(BUILD_SHARED_LIBRARY)\n')
+	}
 	for(var j=0;g_json.android_import_modules&&g_json.android_import_modules[j];j++){
 		s_android_mk.push(g_json.android_import_modules[j],'\n')
 	}
@@ -447,7 +451,14 @@ g_action_handlers.make=function(){
 		}
 		shell(["cp",fnjar,g_bin_dir+"/"+g_main_name+".jar"])
 		shell(["rm","-rf",g_bin_dir+"/libs"])
-		shell(["cp","-r",g_work_dir+"/libs",g_bin_dir+"/libs"])
+		if(g_json.android_build_static_library){
+			for(var i=0;i<abis.length;i++){
+				mkdir(g_bin_dir+"/libs/"+abis[i])
+				shell(["cp",g_work_dir+"/obj/local/"+abis[i]+"/lib"+g_main_name+".a",g_bin_dir+"/libs/"+abis[i]+"/"])
+			}
+		}else{
+			shell(["cp","-r",g_work_dir+"/libs",g_bin_dir+"/libs"])
+		}
 	}else{
 		var fnapk;
 		if(ANDROID.is_release){

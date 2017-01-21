@@ -959,6 +959,7 @@ module detail
 	SDL_GetWindowID=__c_function(int,"SDL_GetWindowID","SDL.h")
 	SDL_GetCurrentDisplayMode=__c_function(int,"SDL_GetCurrentDisplayMode","SDL.h")
 	SDL_SetWindowGrab=__c_function(int,"SDL_SetWindowGrab","SDL.h")
+	//SDL_CaptureMouse=__c_function(int,"SDL_CaptureMouse","SDL.h")
 	SDL_StartTextInput=__c_function(int,"SDL_StartTextInput","SDL.h")
 	SDL_StopTextInput=__c_function(int,"SDL_StopTextInput","SDL.h")
 	SDL_SetTextInputRect=__c_function(int,"SDL_SetTextInputRect","SDL.h")
@@ -1636,15 +1637,21 @@ module detail
 			sdlcbCheck=__c_function(int,"sdlcbCheck","sdl_callbacks.h","c_files","sdl_callbacks.c")
 			pevent=__C(__pointer,"@decl:SDL_Event @1={0}")
 			got_message=0
-			is_wait=is_wait0
-			for(;;)
-				if is_wait:
-					got_message=SDL_WaitEvent(pevent)
-				else
-					got_message=SDL_PollEvent(pevent)
-				if !(got_message&&sdlcbCheck(pevent)):
-					break
-				is_wait=0
+			//is_wait=is_wait0
+			//for(;;)
+			//	if is_wait:
+			//		got_message=SDL_WaitEvent(pevent)
+			//	else
+			//		got_message=SDL_PollEvent(pevent)
+			//	if !(got_message&&sdlcbCheck(pevent)):
+			//		break
+			//	is_wait=0
+			//just pass through the user event
+			if is_wait0:
+				got_message=SDL_WaitEvent(pevent)
+			else
+				got_message=SDL_PollEvent(pevent)
+			sdlcbCheck(pevent)
 			if got_message:
 				duktape.duk_push_object(JS._ctx())
 				__C(int,"s7_CB_SDLEvent_to_duktape(@1,@2)",JS._ctx(),pevent)

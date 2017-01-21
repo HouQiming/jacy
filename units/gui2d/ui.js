@@ -1184,7 +1184,8 @@ UI.End=function(is_temp){
 		for(var i=0;i<__prev_children.length;i++){
 			var c_i=__prev_children[i];
 			if(c_i.__ditch&&obj[c_i.__id]==c_i){
-				obj[c_i.__id]=undefined
+				if(c_i.__hwnd){UI.DestroyWindow(c_i);}
+				obj[c_i.__id]=undefined;
 			}
 		}
 		//obj.__children=undefined;
@@ -1231,12 +1232,12 @@ UI.PushSubWindow=function(x,y,w,h, scale){
 	var w0=Math.max(prev_subwin[0]+Math.min(prev_subwin[2],x+w)-x0,0)
 	var h0=Math.max(prev_subwin[1]+Math.min(prev_subwin[3],y+h)-y0,0)
 	var new_subwin=[x0,y0,w0,h0,prev_subwin[4]*(scale||1)]
-	return UI.PushSubWindowRaw(new_subwin)
+	return UI.PushSubWindowRaw(new_subwin,0)
 }
 
-UI.PushSubWindowRaw=function(new_subwin){
+UI.PushSubWindowRaw=function(new_subwin,is_new_window){
 	UI.sub_window_stack.push(new_subwin)
-	UI._SwitchToSubWindow(new_subwin[0],new_subwin[1],new_subwin[2],new_subwin[3],0,0)
+	UI._SwitchToSubWindow(new_subwin[0],new_subwin[1],new_subwin[2],new_subwin[3],is_new_window,0)
 	UI.SetPixelsPerUnit(new_subwin[4])
 	UI.pixels_per_unit=new_subwin[4]
 	UI.sub_window_offset_x=(new_subwin[0])
@@ -1834,6 +1835,7 @@ UI.m_absolute_mouse_position={x:0,y:0};
 UI.HandleError=function(error){
 	throw error;
 };
+var g_focus_age=0;
 UI.Run=function(){
 	if(!UI.is_real){return;}
 	var event=undefined;
@@ -1991,6 +1993,7 @@ UI.Run=function(){
 					var obj_window=UI.m_window_map[event.windowID.toString()];
 					obj_window.m_window_has_focus=1
 					obj_window.caret_state=2
+					obj_window.m_focus_age=g_focus_age++;
 					UI.Refresh()
 					if(UI.OnApplicationSwitch){
 						UI.OnApplicationSwitch()
@@ -2001,9 +2004,11 @@ UI.Run=function(){
 					break;
 				case UI.SDL_WINDOWEVENT_FOCUS_LOST:
 					var obj_window=UI.m_window_map[event.windowID.toString()];
-					if(obj_window.OnWindowBlur){obj_window.OnWindowBlur()};
-					obj_window.m_window_has_focus=0
-					UI.SetFocus(null)
+					if(obj_window){
+						if(obj_window.OnWindowBlur){obj_window.OnWindowBlur()};
+						obj_window.m_window_has_focus=0
+						UI.SetFocus(null)
+					}
 					break;
 				}
 				break
