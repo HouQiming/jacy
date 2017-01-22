@@ -34,35 +34,35 @@ static void PackRGB(const uint8_t* r, const uint8_t* g, const uint8_t* b,
   }
 }
 
-void (*VP8PackARGB)(const uint8_t*, const uint8_t*, const uint8_t*,
+void (*DEDUP_vP8_PackARGB)(const uint8_t*, const uint8_t*, const uint8_t*,
                     const uint8_t*, int, uint32_t*);
-void (*VP8PackRGB)(const uint8_t*, const uint8_t*, const uint8_t*,
+void (*DEDUP_vP8_PackRGB)(const uint8_t*, const uint8_t*, const uint8_t*,
                    int, int, uint32_t*);
 
-extern void VP8EncDspARGBInitMIPSdspR2(void);
-extern void VP8EncDspARGBInitSSE2(void);
+extern void DEDUP_vP8_EncDspARGBInitMIPSdspR2(void);
+extern void DEDUP_vP8_EncDspARGBInitSSE2(void);
 
-static volatile VP8CPUInfo argb_last_cpuinfo_used =
-    (VP8CPUInfo)&argb_last_cpuinfo_used;
+static volatile DEDUP_vP8_CPUInfo argb_last_cpuinfo_used =
+    (DEDUP_vP8_CPUInfo)&argb_last_cpuinfo_used;
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8EncDspARGBInit(void) {
-  if (argb_last_cpuinfo_used == VP8GetCPUInfo) return;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_EncDspARGBInit(void) {
+  if (argb_last_cpuinfo_used == DEDUP_vP8_GetCPUInfo) return;
 
-  VP8PackARGB = PackARGB;
-  VP8PackRGB = PackRGB;
+  DEDUP_vP8_PackARGB = PackARGB;
+  DEDUP_vP8_PackRGB = PackRGB;
 
   // If defined, use CPUInfo() to overwrite some pointers with faster versions.
-  if (VP8GetCPUInfo != NULL) {
+  if (DEDUP_vP8_GetCPUInfo != NULL) {
 #if defined(WEBP_USE_SSE2)
-    if (VP8GetCPUInfo(kSSE2)) {
-      VP8EncDspARGBInitSSE2();
+    if (DEDUP_vP8_GetCPUInfo(kSSE2)) {
+      DEDUP_vP8_EncDspARGBInitSSE2();
     }
 #endif
 #if defined(WEBP_USE_MIPS_DSP_R2)
-    if (VP8GetCPUInfo(kMIPSdspR2)) {
-      VP8EncDspARGBInitMIPSdspR2();
+    if (DEDUP_vP8_GetCPUInfo(kMIPSdspR2)) {
+      DEDUP_vP8_EncDspARGBInitMIPSdspR2();
     }
 #endif
   }
-  argb_last_cpuinfo_used = VP8GetCPUInfo;
+  argb_last_cpuinfo_used = DEDUP_vP8_GetCPUInfo;
 }

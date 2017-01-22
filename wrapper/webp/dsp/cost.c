@@ -15,7 +15,7 @@
 //------------------------------------------------------------------------------
 // Boolean-cost cost table
 
-const uint16_t VP8EntropyCost[256] = {
+const uint16_t DEDUP_vP8_EntropyCost[256] = {
   1792, 1792, 1792, 1536, 1536, 1408, 1366, 1280, 1280, 1216,
   1178, 1152, 1110, 1076, 1061, 1024, 1024,  992,  968,  951,
    939,  911,  896,  878,  871,  854,  838,  820,  811,  794,
@@ -49,7 +49,7 @@ const uint16_t VP8EntropyCost[256] = {
 
 // fixed costs for coding levels, deduce from the coding tree.
 // This is only the part that doesn't depend on the probability state.
-const uint16_t VP8LevelFixedCosts[MAX_LEVEL + 1] = {
+const uint16_t DEDUP_vP8_LevelFixedCosts[MAX_LEVEL + 1] = {
      0,  256,  256,  256,  256,  432,  618,  630,
    731,  640,  640,  828,  901,  948, 1021, 1101,
   1174, 1221, 1294, 1042, 1085, 1115, 1158, 1202,
@@ -311,7 +311,7 @@ const uint16_t VP8LevelFixedCosts[MAX_LEVEL + 1] = {
 //------------------------------------------------------------------------------
 // Tables for level coding
 
-const uint8_t VP8EncBands[16 + 1] = {
+const uint8_t DEDUP_vP8_EncBands[16 + 1] = {
   0, 1, 2, 3, 6, 4, 5, 6, 6, 6, 6, 6, 6, 6, 6, 7,
   0  // sentinel
 };
@@ -319,43 +319,43 @@ const uint8_t VP8EncBands[16 + 1] = {
 //------------------------------------------------------------------------------
 // Mode costs
 
-static int GetResidualCost(int ctx0, const VP8Residual* const res) {
+static int GetResidualCost(int ctx0, const DEDUP_vP8_Residual* const res) {
   int n = res->first;
-  // should be prob[VP8EncBands[n]], but it's equivalent for n=0 or 1
+  // should be prob[DEDUP_vP8_EncBands[n]], but it's equivalent for n=0 or 1
   const int p0 = res->prob[n][ctx0][0];
   CostArrayPtr const costs = res->costs;
   const uint16_t* t = costs[n][ctx0];
   // bit_cost(1, p0) is already incorporated in t[] tables, but only if ctx != 0
   // (as required by the syntax). For ctx0 == 0, we need to add it here or it'll
   // be missing during the loop.
-  int cost = (ctx0 == 0) ? VP8BitCost(1, p0) : 0;
+  int cost = (ctx0 == 0) ? DEDUP_vP8_BitCost(1, p0) : 0;
 
   if (res->last < 0) {
-    return VP8BitCost(0, p0);
+    return DEDUP_vP8_BitCost(0, p0);
   }
   for (; n < res->last; ++n) {
     const int v = abs(res->coeffs[n]);
     const int ctx = (v >= 2) ? 2 : v;
-    cost += VP8LevelCost(t, v);
+    cost += DEDUP_vP8_LevelCost(t, v);
     t = costs[n + 1][ctx];
   }
   // Last coefficient is always non-zero
   {
     const int v = abs(res->coeffs[n]);
     assert(v != 0);
-    cost += VP8LevelCost(t, v);
+    cost += DEDUP_vP8_LevelCost(t, v);
     if (n < 15) {
-      const int b = VP8EncBands[n + 1];
+      const int b = DEDUP_vP8_EncBands[n + 1];
       const int ctx = (v == 1) ? 1 : 2;
       const int last_p0 = res->prob[b][ctx][0];
-      cost += VP8BitCost(0, last_p0);
+      cost += DEDUP_vP8_BitCost(0, last_p0);
     }
   }
   return cost;
 }
 
 static void SetResidualCoeffs(const int16_t* const coeffs,
-                              VP8Residual* const res) {
+                              DEDUP_vP8_Residual* const res) {
   int n;
   res->last = -1;
   assert(res->first == 0 || coeffs[0] == 0);
@@ -371,42 +371,42 @@ static void SetResidualCoeffs(const int16_t* const coeffs,
 //------------------------------------------------------------------------------
 // init function
 
-VP8GetResidualCostFunc VP8GetResidualCost;
-VP8SetResidualCoeffsFunc VP8SetResidualCoeffs;
+DEDUP_vP8_GetResidualCostFunc DEDUP_vP8_GetResidualCost;
+DEDUP_vP8_SetResidualCoeffsFunc DEDUP_vP8_SetResidualCoeffs;
 
-extern void VP8EncDspCostInitMIPS32(void);
-extern void VP8EncDspCostInitMIPSdspR2(void);
-extern void VP8EncDspCostInitSSE2(void);
+extern void DEDUP_vP8_EncDspCostInitMIPS32(void);
+extern void DEDUP_vP8_EncDspCostInitMIPSdspR2(void);
+extern void DEDUP_vP8_EncDspCostInitSSE2(void);
 
-static volatile VP8CPUInfo cost_last_cpuinfo_used =
-    (VP8CPUInfo)&cost_last_cpuinfo_used;
+static volatile DEDUP_vP8_CPUInfo cost_last_cpuinfo_used =
+    (DEDUP_vP8_CPUInfo)&cost_last_cpuinfo_used;
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8EncDspCostInit(void) {
-  if (cost_last_cpuinfo_used == VP8GetCPUInfo) return;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_EncDspCostInit(void) {
+  if (cost_last_cpuinfo_used == DEDUP_vP8_GetCPUInfo) return;
 
-  VP8GetResidualCost = GetResidualCost;
-  VP8SetResidualCoeffs = SetResidualCoeffs;
+  DEDUP_vP8_GetResidualCost = GetResidualCost;
+  DEDUP_vP8_SetResidualCoeffs = SetResidualCoeffs;
 
   // If defined, use CPUInfo() to overwrite some pointers with faster versions.
-  if (VP8GetCPUInfo != NULL) {
+  if (DEDUP_vP8_GetCPUInfo != NULL) {
 #if defined(WEBP_USE_MIPS32)
-    if (VP8GetCPUInfo(kMIPS32)) {
-      VP8EncDspCostInitMIPS32();
+    if (DEDUP_vP8_GetCPUInfo(kMIPS32)) {
+      DEDUP_vP8_EncDspCostInitMIPS32();
     }
 #endif
 #if defined(WEBP_USE_MIPS_DSP_R2)
-    if (VP8GetCPUInfo(kMIPSdspR2)) {
-      VP8EncDspCostInitMIPSdspR2();
+    if (DEDUP_vP8_GetCPUInfo(kMIPSdspR2)) {
+      DEDUP_vP8_EncDspCostInitMIPSdspR2();
     }
 #endif
 #if defined(WEBP_USE_SSE2)
-    if (VP8GetCPUInfo(kSSE2)) {
-      VP8EncDspCostInitSSE2();
+    if (DEDUP_vP8_GetCPUInfo(kSSE2)) {
+      DEDUP_vP8_EncDspCostInitSSE2();
     }
 #endif
   }
 
-  cost_last_cpuinfo_used = VP8GetCPUInfo;
+  cost_last_cpuinfo_used = DEDUP_vP8_GetCPUInfo;
 }
 
 //------------------------------------------------------------------------------

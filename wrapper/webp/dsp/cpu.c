@@ -131,7 +131,7 @@ static int x86CPUInfo(CPUFeature feature) {
   }
   return 0;
 }
-VP8CPUInfo VP8GetCPUInfo = x86CPUInfo;
+DEDUP_vP8_CPUInfo DEDUP_vP8_GetCPUInfo = x86CPUInfo;
 #elif defined(WEBP_ANDROID_NEON)  // NB: needs to be before generic NEON test.
 static int AndroidCPUInfo(CPUFeature feature) {
   const AndroidCpuFamily cpu_family = android_getCpuFamily();
@@ -142,10 +142,10 @@ static int AndroidCPUInfo(CPUFeature feature) {
   }
   return 0;
 }
-VP8CPUInfo VP8GetCPUInfo = AndroidCPUInfo;
+DEDUP_vP8_CPUInfo DEDUP_vP8_GetCPUInfo = AndroidCPUInfo;
 #elif defined(WEBP_USE_NEON)
 // define a dummy function to enable turning off NEON at runtime by setting
-// VP8DecGetCPUInfo = NULL
+// DEDUP_vP8_DecGetCPUInfo = NULL
 static int armCPUInfo(CPUFeature feature) {
   if (feature != kNEON) return 0;
 #if defined(__linux__) && defined(WEBP_HAVE_NEON_RTCD)
@@ -169,7 +169,7 @@ static int armCPUInfo(CPUFeature feature) {
   return 1;
 #endif
 }
-VP8CPUInfo VP8GetCPUInfo = armCPUInfo;
+DEDUP_vP8_CPUInfo DEDUP_vP8_GetCPUInfo = armCPUInfo;
 #elif defined(WEBP_USE_MIPS32) || defined(WEBP_USE_MIPS_DSP_R2) || \
       defined(WEBP_USE_MSA)
 static int mipsCPUInfo(CPUFeature feature) {
@@ -180,8 +180,8 @@ static int mipsCPUInfo(CPUFeature feature) {
   }
 
 }
-VP8CPUInfo VP8GetCPUInfo = mipsCPUInfo;
+DEDUP_vP8_CPUInfo DEDUP_vP8_GetCPUInfo = mipsCPUInfo;
 #else
-VP8CPUInfo VP8GetCPUInfo = NULL;
+DEDUP_vP8_CPUInfo DEDUP_vP8_GetCPUInfo = NULL;
 #endif
 

@@ -223,45 +223,45 @@ static void GradientUnfilter(const uint8_t* prev, const uint8_t* in,
 //------------------------------------------------------------------------------
 // Init function
 
-WebPFilterFunc WebPFilters[WEBP_FILTER_LAST];
-WebPUnfilterFunc WebPUnfilters[WEBP_FILTER_LAST];
+DEDUP_WEBP_FilterFunc DEDUP_WEBP_Filters[WEBP_FILTER_LAST];
+DEDUP_WEBP_UnfilterFunc DEDUP_WEBP_Unfilters[WEBP_FILTER_LAST];
 
-extern void VP8FiltersInitMIPSdspR2(void);
-extern void VP8FiltersInitSSE2(void);
-extern void VP8FiltersInitMSA(void);
+extern void DEDUP_vP8_FiltersInitMIPSdspR2(void);
+extern void DEDUP_vP8_FiltersInitSSE2(void);
+extern void DEDUP_vP8_FiltersInitMSA(void);
 
-static volatile VP8CPUInfo filters_last_cpuinfo_used =
-    (VP8CPUInfo)&filters_last_cpuinfo_used;
+static volatile DEDUP_vP8_CPUInfo filters_last_cpuinfo_used =
+    (DEDUP_vP8_CPUInfo)&filters_last_cpuinfo_used;
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8FiltersInit(void) {
-  if (filters_last_cpuinfo_used == VP8GetCPUInfo) return;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_FiltersInit(void) {
+  if (filters_last_cpuinfo_used == DEDUP_vP8_GetCPUInfo) return;
 
-  WebPUnfilters[WEBP_FILTER_NONE] = NULL;
-  WebPUnfilters[WEBP_FILTER_HORIZONTAL] = HorizontalUnfilter;
-  WebPUnfilters[WEBP_FILTER_VERTICAL] = VerticalUnfilter;
-  WebPUnfilters[WEBP_FILTER_GRADIENT] = GradientUnfilter;
+  DEDUP_WEBP_Unfilters[WEBP_FILTER_NONE] = NULL;
+  DEDUP_WEBP_Unfilters[WEBP_FILTER_HORIZONTAL] = HorizontalUnfilter;
+  DEDUP_WEBP_Unfilters[WEBP_FILTER_VERTICAL] = VerticalUnfilter;
+  DEDUP_WEBP_Unfilters[WEBP_FILTER_GRADIENT] = GradientUnfilter;
 
-  WebPFilters[WEBP_FILTER_NONE] = NULL;
-  WebPFilters[WEBP_FILTER_HORIZONTAL] = HorizontalFilter;
-  WebPFilters[WEBP_FILTER_VERTICAL] = VerticalFilter;
-  WebPFilters[WEBP_FILTER_GRADIENT] = GradientFilter;
+  DEDUP_WEBP_Filters[WEBP_FILTER_NONE] = NULL;
+  DEDUP_WEBP_Filters[WEBP_FILTER_HORIZONTAL] = HorizontalFilter;
+  DEDUP_WEBP_Filters[WEBP_FILTER_VERTICAL] = VerticalFilter;
+  DEDUP_WEBP_Filters[WEBP_FILTER_GRADIENT] = GradientFilter;
 
-  if (VP8GetCPUInfo != NULL) {
+  if (DEDUP_vP8_GetCPUInfo != NULL) {
 #if defined(WEBP_USE_SSE2)
-    if (VP8GetCPUInfo(kSSE2)) {
-      VP8FiltersInitSSE2();
+    if (DEDUP_vP8_GetCPUInfo(kSSE2)) {
+      DEDUP_vP8_FiltersInitSSE2();
     }
 #endif
 #if defined(WEBP_USE_MIPS_DSP_R2)
-    if (VP8GetCPUInfo(kMIPSdspR2)) {
-      VP8FiltersInitMIPSdspR2();
+    if (DEDUP_vP8_GetCPUInfo(kMIPSdspR2)) {
+      DEDUP_vP8_FiltersInitMIPSdspR2();
     }
 #endif
 #if defined(WEBP_USE_MSA)
-    if (VP8GetCPUInfo(kMSA)) {
-      VP8FiltersInitMSA();
+    if (DEDUP_vP8_GetCPUInfo(kMSA)) {
+      DEDUP_vP8_FiltersInitMSA();
     }
 #endif
   }
-  filters_last_cpuinfo_used = VP8GetCPUInfo;
+  filters_last_cpuinfo_used = DEDUP_vP8_GetCPUInfo;
 }

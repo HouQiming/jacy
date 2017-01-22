@@ -237,8 +237,8 @@ static WEBP_INLINE void FilterLoop26(uint8_t* p,
     "sra       %[temp2],  %[temp2],       27             \n\t"
     "subu      %[temp1],  %[temp7],       %[temp1]       \n\t"
     "addu      %[temp2],  %[temp10],      %[temp2]       \n\t"
-    "lbux      %[temp2],  %[temp2](%[VP8kclip1])         \n\t"
-    "lbux      %[temp1],  %[temp1](%[VP8kclip1])         \n\t"
+    "lbux      %[temp2],  %[temp2](%[DEDUP_vP8_kclip1])         \n\t"
+    "lbux      %[temp1],  %[temp1](%[DEDUP_vP8_kclip1])         \n\t"
     "sb        %[temp2],  0(%[temp3])                    \n\t"
     "j         3f                                        \n\t"
     " sb       %[temp1],  0(%[p])                        \n\t"
@@ -266,12 +266,12 @@ static WEBP_INLINE void FilterLoop26(uint8_t* p,
     "addu      %[temp10], %[p],           %[hstride]     \n\t"
     "subu      %[temp9],  %[temp13],      %[temp2]       \n\t"
     "addu      %[temp12], %[temp10],      %[hstride]     \n\t"
-    "lbux      %[temp2],  %[temp1](%[VP8kclip1])         \n\t"
-    "lbux      %[temp3],  %[temp5](%[VP8kclip1])         \n\t"
-    "lbux      %[temp4],  %[temp6](%[VP8kclip1])         \n\t"
-    "lbux      %[temp5],  %[temp8](%[VP8kclip1])         \n\t"
-    "lbux      %[temp6],  %[temp7](%[VP8kclip1])         \n\t"
-    "lbux      %[temp8],  %[temp9](%[VP8kclip1])         \n\t"
+    "lbux      %[temp2],  %[temp1](%[DEDUP_vP8_kclip1])         \n\t"
+    "lbux      %[temp3],  %[temp5](%[DEDUP_vP8_kclip1])         \n\t"
+    "lbux      %[temp4],  %[temp6](%[DEDUP_vP8_kclip1])         \n\t"
+    "lbux      %[temp5],  %[temp8](%[DEDUP_vP8_kclip1])         \n\t"
+    "lbux      %[temp6],  %[temp7](%[DEDUP_vP8_kclip1])         \n\t"
+    "lbux      %[temp8],  %[temp9](%[DEDUP_vP8_kclip1])         \n\t"
     "sb        %[temp2],  0(%[temp15])                   \n\t"
     "sb        %[temp3],  0(%[temp11])                   \n\t"
     "sb        %[temp4],  0(%[temp14])                   \n\t"
@@ -290,7 +290,7 @@ static WEBP_INLINE void FilterLoop26(uint8_t* p,
       [size]"+&r"(size), [p]"+&r"(p)
     : [hstride]"r"(hstride), [thresh2]"r"(thresh2),
       [ithresh]"r"(ithresh),[vstride]"r"(vstride), [hev_thresh]"r"(hev_thresh),
-      [VP8kclip1]"r"(VP8kclip1)
+      [DEDUP_vP8_kclip1]"r"(DEDUP_vP8_kclip1)
     : "memory"
   );
 }
@@ -378,11 +378,11 @@ static WEBP_INLINE void FilterLoop24(uint8_t* p,
     "addu      %[p1],      %[p1],         %[step1]    \n\t"
     "subu      %[q0],      %[q0],         %[temp2]    \n\t"
     "subu      %[q1],      %[q1],         %[step1]    \n\t"
-    "lbux      %[temp2],   %[p0](%[VP8kclip1])        \n\t"
-    "lbux      %[temp3],   %[q0](%[VP8kclip1])        \n\t"
-    "lbux      %[temp4],   %[q1](%[VP8kclip1])        \n\t"
+    "lbux      %[temp2],   %[p0](%[DEDUP_vP8_kclip1])        \n\t"
+    "lbux      %[temp3],   %[q0](%[DEDUP_vP8_kclip1])        \n\t"
+    "lbux      %[temp4],   %[q1](%[DEDUP_vP8_kclip1])        \n\t"
     "sb        %[temp2],   0(%[pTemp0])               \n\t"
-    "lbux      %[temp1],   %[p1](%[VP8kclip1])        \n\t"
+    "lbux      %[temp1],   %[p1](%[DEDUP_vP8_kclip1])        \n\t"
     "subu      %[pTemp0],  %[pTemp0],    %[hstride]   \n\t"
     "sb        %[temp3],   0(%[p])                    \n\t"
     "sb        %[temp4],   0(%[pTemp1])               \n\t"
@@ -401,8 +401,8 @@ static WEBP_INLINE void FilterLoop24(uint8_t* p,
     "sra       %[temp1],   %[temp1],      27          \n\t"
     "addu      %[p0],      %[p0],         %[temp1]    \n\t"
     "subu      %[q0],      %[q0],         %[temp2]    \n\t"
-    "lbux      %[temp1],   %[p0](%[VP8kclip1])        \n\t"
-    "lbux      %[temp2],   %[q0](%[VP8kclip1])        \n\t"
+    "lbux      %[temp1],   %[p0](%[DEDUP_vP8_kclip1])        \n\t"
+    "lbux      %[temp2],   %[q0](%[DEDUP_vP8_kclip1])        \n\t"
     "sb        %[temp2],   0(%[p])                    \n\t"
     "sb        %[temp1],   0(%[pTemp0])               \n\t"
   "0:                                                 \n\t"
@@ -419,7 +419,7 @@ static WEBP_INLINE void FilterLoop24(uint8_t* p,
       [size]"+&r"(size)
     : [vstride]"r"(vstride), [ithresh]"r"(ithresh),
       [hev_thresh]"r"(hev_thresh), [hstride]"r"(hstride),
-      [VP8kclip1]"r"(VP8kclip1), [thresh2]"r"(thresh2)
+      [DEDUP_vP8_kclip1]"r"(DEDUP_vP8_kclip1), [thresh2]"r"(thresh2)
     : "memory"
   );
 }
@@ -524,8 +524,8 @@ static void SimpleVFilter16(uint8_t* p, int stride, int thresh) {
     "sra       %[temp4],    %[temp4],       27           \n\t"
     "addu      %[temp7],    %[temp1],       %[temp0]     \n\t"
     "subu      %[temp2],    %[temp2],       %[temp4]     \n\t"
-    "lbux      %[temp3],    %[temp7](%[VP8kclip1])       \n\t"
-    "lbux      %[temp4],    %[temp2](%[VP8kclip1])       \n\t"
+    "lbux      %[temp3],    %[temp7](%[DEDUP_vP8_kclip1])       \n\t"
+    "lbux      %[temp4],    %[temp2](%[DEDUP_vP8_kclip1])       \n\t"
     "sb        %[temp3],    0(%[p1])                     \n\t"
     "sb        %[temp4],    0(%[p])                      \n\t"
   "1:                                                    \n\t"
@@ -537,7 +537,7 @@ static void SimpleVFilter16(uint8_t* p, int stride, int thresh) {
       [temp3]"=&r"(temp3), [temp4]"=&r"(temp4), [temp5]"=&r"(temp5),
       [temp6]"=&r"(temp6), [temp7]"=&r"(temp7), [temp8]"=&r"(temp8),
       [p]"+&r"(p), [i]"=&r"(i), [p1]"+&r"(p1)
-    : [stride]"r"(stride), [VP8kclip1]"r"(VP8kclip1), [thresh2]"r"(thresh2)
+    : [stride]"r"(stride), [DEDUP_vP8_kclip1]"r"(DEDUP_vP8_kclip1), [thresh2]"r"(thresh2)
     : "memory"
   );
 }
@@ -587,8 +587,8 @@ static void SimpleHFilter16(uint8_t* p, int stride, int thresh) {
     "sra       %[temp4],    %[temp4],       27          \n\t"
     "addu      %[temp7],    %[temp1],       %[temp0]    \n\t"
     "subu      %[temp2],    %[temp2],       %[temp4]    \n\t"
-    "lbux      %[temp3],    %[temp7](%[VP8kclip1])      \n\t"
-    "lbux      %[temp4],    %[temp2](%[VP8kclip1])      \n\t"
+    "lbux      %[temp3],    %[temp7](%[DEDUP_vP8_kclip1])      \n\t"
+    "lbux      %[temp4],    %[temp2](%[DEDUP_vP8_kclip1])      \n\t"
     "sb        %[temp3],    -1(%[p])                    \n\t"
     "sb        %[temp4],    0(%[p])                     \n\t"
   "1:                                                   \n\t"
@@ -599,7 +599,7 @@ static void SimpleHFilter16(uint8_t* p, int stride, int thresh) {
       [temp3]"=&r"(temp3), [temp4]"=&r"(temp4), [temp5]"=&r"(temp5),
       [temp6]"=&r"(temp6), [temp7]"=&r"(temp7), [temp8]"=&r"(temp8),
       [p]"+&r"(p), [i]"=&r"(i)
-    : [stride]"r"(stride), [VP8kclip1]"r"(VP8kclip1), [thresh2]"r"(thresh2)
+    : [stride]"r"(stride), [DEDUP_vP8_kclip1]"r"(DEDUP_vP8_kclip1), [thresh2]"r"(thresh2)
     : "memory"
   );
 }
@@ -953,42 +953,42 @@ TRUE_MOTION(dst, 16)
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8DspInitMIPSdspR2(void);
+extern void DEDUP_vP8_DspInitMIPSdspR2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8DspInitMIPSdspR2(void) {
-  VP8TransformDC = TransformDC;
-  VP8TransformAC3 = TransformAC3;
-  VP8Transform = TransformTwo;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_DspInitMIPSdspR2(void) {
+  DEDUP_vP8_TransformDC = TransformDC;
+  DEDUP_vP8_TransformAC3 = TransformAC3;
+  DEDUP_vP8_Transform = TransformTwo;
 
-  VP8VFilter16 = VFilter16;
-  VP8HFilter16 = HFilter16;
-  VP8VFilter8 = VFilter8;
-  VP8HFilter8 = HFilter8;
-  VP8VFilter16i = VFilter16i;
-  VP8HFilter16i = HFilter16i;
-  VP8VFilter8i = VFilter8i;
-  VP8HFilter8i = HFilter8i;
-  VP8SimpleVFilter16 = SimpleVFilter16;
-  VP8SimpleHFilter16 = SimpleHFilter16;
-  VP8SimpleVFilter16i = SimpleVFilter16i;
-  VP8SimpleHFilter16i = SimpleHFilter16i;
+  DEDUP_vP8_VFilter16 = VFilter16;
+  DEDUP_vP8_HFilter16 = HFilter16;
+  DEDUP_vP8_VFilter8 = VFilter8;
+  DEDUP_vP8_HFilter8 = HFilter8;
+  DEDUP_vP8_VFilter16i = VFilter16i;
+  DEDUP_vP8_HFilter16i = HFilter16i;
+  DEDUP_vP8_VFilter8i = VFilter8i;
+  DEDUP_vP8_HFilter8i = HFilter8i;
+  DEDUP_vP8_SimpleVFilter16 = SimpleVFilter16;
+  DEDUP_vP8_SimpleHFilter16 = SimpleHFilter16;
+  DEDUP_vP8_SimpleVFilter16i = SimpleVFilter16i;
+  DEDUP_vP8_SimpleHFilter16i = SimpleHFilter16i;
 
-  VP8PredLuma4[0] = DC4;
-  VP8PredLuma4[1] = TrueMotion4;
-  VP8PredLuma4[2] = VE4;
-  VP8PredLuma4[4] = RD4;
-  VP8PredLuma4[6] = LD4;
+  DEDUP_vP8_PredLuma4[0] = DC4;
+  DEDUP_vP8_PredLuma4[1] = TrueMotion4;
+  DEDUP_vP8_PredLuma4[2] = VE4;
+  DEDUP_vP8_PredLuma4[4] = RD4;
+  DEDUP_vP8_PredLuma4[6] = LD4;
 
-  VP8PredChroma8[0] = DC8uv;
-  VP8PredChroma8[1] = TrueMotion8;
-  VP8PredChroma8[4] = DC8uvNoTop;
-  VP8PredChroma8[5] = DC8uvNoLeft;
+  DEDUP_vP8_PredChroma8[0] = DC8uv;
+  DEDUP_vP8_PredChroma8[1] = TrueMotion8;
+  DEDUP_vP8_PredChroma8[4] = DC8uvNoTop;
+  DEDUP_vP8_PredChroma8[5] = DC8uvNoLeft;
 
-  VP8PredLuma16[1] = TrueMotion16;
+  DEDUP_vP8_PredLuma16[1] = TrueMotion16;
 }
 
 #else  // !WEBP_USE_MIPS_DSP_R2
 
-WEBP_DSP_INIT_STUB(VP8DspInitMIPSdspR2)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_DspInitMIPSdspR2)
 
 #endif  // WEBP_USE_MIPS_DSP_R2

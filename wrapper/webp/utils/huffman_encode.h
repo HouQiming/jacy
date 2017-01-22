@@ -43,13 +43,13 @@ typedef struct {
 
 // Turn the Huffman tree into a token sequence.
 // Returns the number of tokens used.
-int VP8LCreateCompressedHuffmanTree(const HuffmanTreeCode* const tree,
+int DEDUP_vP8_LCreateCompressedHuffmanTree(const HuffmanTreeCode* const tree,
                                     HuffmanTreeToken* tokens, int max_tokens);
 
 // Create an optimized tree, and tokenize it.
 // 'buf_rle' and 'huff_tree' are pre-allocated and the 'tree' is the constructed
 // huffman code tree.
-void VP8LCreateHuffmanTree(uint32_t* const histogram, int tree_depth_limit,
+void DEDUP_vP8_LCreateHuffmanTree(uint32_t* const histogram, int tree_depth_limit,
                            uint8_t* const buf_rle, HuffmanTree* const huff_tree,
                            HuffmanTreeCode* const tree);
 

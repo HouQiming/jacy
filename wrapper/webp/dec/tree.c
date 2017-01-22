@@ -274,35 +274,35 @@ static const uint8_t kBModesProba[NUM_BMODES][NUM_BMODES][NUM_BMODES - 1] = {
     { 112, 19, 12, 61, 195, 128, 48, 4, 24 } }
 };
 
-void VP8ResetProba(VP8Proba* const proba) {
+void DEDUP_vP8_ResetProba(DEDUP_vP8_Proba* const proba) {
   memset(proba->segments_, 255u, sizeof(proba->segments_));
   // proba->bands_[][] is initialized later
 }
 
-static void ParseIntraMode(VP8BitReader* const br,
-                           VP8Decoder* const dec, int mb_x) {
+static void ParseIntraMode(DEDUP_vP8_BitReader* const br,
+                           DEDUP_vP8_Decoder* const dec, int mb_x) {
   uint8_t* const top = dec->intra_t_ + 4 * mb_x;
   uint8_t* const left = dec->intra_l_;
-  VP8MBData* const block = dec->mb_data_ + mb_x;
+  DEDUP_vP8_MBData* const block = dec->mb_data_ + mb_x;
 
   // Note: we don't save segment map (yet), as we don't expect
   // to decode more than 1 keyframe.
   if (dec->segment_hdr_.update_map_) {
     // Hardcoded tree parsing
-    block->segment_ = !VP8GetBit(br, dec->proba_.segments_[0])
-                    ? VP8GetBit(br, dec->proba_.segments_[1])
-                    : 2 + VP8GetBit(br, dec->proba_.segments_[2]);
+    block->segment_ = !DEDUP_vP8_GetBit(br, dec->proba_.segments_[0])
+                    ? DEDUP_vP8_GetBit(br, dec->proba_.segments_[1])
+                    : 2 + DEDUP_vP8_GetBit(br, dec->proba_.segments_[2]);
   } else {
     block->segment_ = 0;  // default for intra
   }
-  if (dec->use_skip_proba_) block->skip_ = VP8GetBit(br, dec->skip_p_);
+  if (dec->use_skip_proba_) block->skip_ = DEDUP_vP8_GetBit(br, dec->skip_p_);
 
-  block->is_i4x4_ = !VP8GetBit(br, 145);   // decide for B_PRED first
+  block->is_i4x4_ = !DEDUP_vP8_GetBit(br, 145);   // decide for B_PRED first
   if (!block->is_i4x4_) {
     // Hardcoded 16x16 intra-mode decision tree.
     const int ymode =
-        VP8GetBit(br, 156) ? (VP8GetBit(br, 128) ? TM_PRED : H_PRED)
-                           : (VP8GetBit(br, 163) ? V_PRED : DC_PRED);
+        DEDUP_vP8_GetBit(br, 156) ? (DEDUP_vP8_GetBit(br, 128) ? TM_PRED : H_PRED)
+                           : (DEDUP_vP8_GetBit(br, 163) ? V_PRED : DC_PRED);
     block->imodes_[0] = ymode;
     memset(top, ymode, 4 * sizeof(*top));
     memset(left, ymode, 4 * sizeof(*left));
@@ -316,22 +316,22 @@ static void ParseIntraMode(VP8BitReader* const br,
         const uint8_t* const prob = kBModesProba[top[x]][ymode];
 #ifdef USE_GENERIC_TREE
         // Generic tree-parsing
-        int i = kYModesIntra4[VP8GetBit(br, prob[0])];
+        int i = kYModesIntra4[DEDUP_vP8_GetBit(br, prob[0])];
         while (i > 0) {
-          i = kYModesIntra4[2 * i + VP8GetBit(br, prob[i])];
+          i = kYModesIntra4[2 * i + DEDUP_vP8_GetBit(br, prob[i])];
         }
         ymode = -i;
 #else
         // Hardcoded tree parsing
-        ymode = !VP8GetBit(br, prob[0]) ? B_DC_PRED :
-                  !VP8GetBit(br, prob[1]) ? B_TM_PRED :
-                    !VP8GetBit(br, prob[2]) ? B_VE_PRED :
-                      !VP8GetBit(br, prob[3]) ?
-                        (!VP8GetBit(br, prob[4]) ? B_HE_PRED :
-                          (!VP8GetBit(br, prob[5]) ? B_RD_PRED : B_VR_PRED)) :
-                        (!VP8GetBit(br, prob[6]) ? B_LD_PRED :
-                          (!VP8GetBit(br, prob[7]) ? B_VL_PRED :
-                            (!VP8GetBit(br, prob[8]) ? B_HD_PRED : B_HU_PRED)));
+        ymode = !DEDUP_vP8_GetBit(br, prob[0]) ? B_DC_PRED :
+                  !DEDUP_vP8_GetBit(br, prob[1]) ? B_TM_PRED :
+                    !DEDUP_vP8_GetBit(br, prob[2]) ? B_VE_PRED :
+                      !DEDUP_vP8_GetBit(br, prob[3]) ?
+                        (!DEDUP_vP8_GetBit(br, prob[4]) ? B_HE_PRED :
+                          (!DEDUP_vP8_GetBit(br, prob[5]) ? B_RD_PRED : B_VR_PRED)) :
+                        (!DEDUP_vP8_GetBit(br, prob[6]) ? B_LD_PRED :
+                          (!DEDUP_vP8_GetBit(br, prob[7]) ? B_VL_PRED :
+                            (!DEDUP_vP8_GetBit(br, prob[8]) ? B_HD_PRED : B_HU_PRED)));
 #endif    // USE_GENERIC_TREE
         top[x] = ymode;
       }
@@ -341,12 +341,12 @@ static void ParseIntraMode(VP8BitReader* const br,
     }
   }
   // Hardcoded UVMode decision tree
-  block->uvmode_ = !VP8GetBit(br, 142) ? DC_PRED
-                 : !VP8GetBit(br, 114) ? V_PRED
-                 : VP8GetBit(br, 183) ? TM_PRED : H_PRED;
+  block->uvmode_ = !DEDUP_vP8_GetBit(br, 142) ? DC_PRED
+                 : !DEDUP_vP8_GetBit(br, 114) ? V_PRED
+                 : DEDUP_vP8_GetBit(br, 183) ? TM_PRED : H_PRED;
 }
 
-int VP8ParseIntraModeRow(VP8BitReader* const br, VP8Decoder* const dec) {
+int DEDUP_vP8_ParseIntraModeRow(DEDUP_vP8_BitReader* const br, DEDUP_vP8_Decoder* const dec) {
   int mb_x;
   for (mb_x = 0; mb_x < dec->mb_w_; ++mb_x) {
     ParseIntraMode(br, dec, mb_x);
@@ -500,15 +500,15 @@ static const int kBands[16 + 1] = {
   0  // extra entry as sentinel
 };
 
-void VP8ParseProba(VP8BitReader* const br, VP8Decoder* const dec) {
-  VP8Proba* const proba = &dec->proba_;
+void DEDUP_vP8_ParseProba(DEDUP_vP8_BitReader* const br, DEDUP_vP8_Decoder* const dec) {
+  DEDUP_vP8_Proba* const proba = &dec->proba_;
   int t, b, c, p;
   for (t = 0; t < NUM_TYPES; ++t) {
     for (b = 0; b < NUM_BANDS; ++b) {
       for (c = 0; c < NUM_CTX; ++c) {
         for (p = 0; p < NUM_PROBAS; ++p) {
-          const int v = VP8GetBit(br, CoeffsUpdateProba[t][b][c][p]) ?
-                        VP8GetValue(br, 8) : CoeffsProba0[t][b][c][p];
+          const int v = DEDUP_vP8_GetBit(br, CoeffsUpdateProba[t][b][c][p]) ?
+                        DEDUP_vP8_GetValue(br, 8) : CoeffsProba0[t][b][c][p];
           proba->bands_[t][b].probas_[c][p] = v;
         }
       }
@@ -517,9 +517,9 @@ void VP8ParseProba(VP8BitReader* const br, VP8Decoder* const dec) {
       proba->bands_ptr_[t][b] = &proba->bands_[t][kBands[b]];
     }
   }
-  dec->use_skip_proba_ = VP8Get(br);
+  dec->use_skip_proba_ = DEDUP_vP8_Get(br);
   if (dec->use_skip_proba_) {
-    dec->skip_p_ = VP8GetValue(br, 8);
+    dec->skip_p_ = DEDUP_vP8_GetValue(br, 8);
   }
 }
 

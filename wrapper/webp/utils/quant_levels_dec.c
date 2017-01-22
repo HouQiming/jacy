@@ -220,7 +220,7 @@ static int InitParams(uint8_t* const data, int width, int height, int stride,
   const size_t size_m =  width * sizeof(*p->average_);
   const size_t size_lut = (1 + 2 * LUT_SIZE) * sizeof(*p->correction_);
   const size_t total_size = size_scratch_m + size_m + size_lut;
-  uint8_t* mem = (uint8_t*)WebPSafeMalloc(1U, total_size);
+  uint8_t* mem = (uint8_t*)DEDUP_WEBP_SafeMalloc(1U, total_size);
 
   if (mem == NULL) return 0;
   p->mem_ = (void*)mem;
@@ -255,10 +255,10 @@ static int InitParams(uint8_t* const data, int width, int height, int stride,
 }
 
 static void CleanupParams(SmoothParams* const p) {
-  WebPSafeFree(p->mem_);
+  DEDUP_WEBP_SafeFree(p->mem_);
 }
 
-int WebPDequantizeLevels(uint8_t* const data, int width, int height, int stride,
+int DEDUP_WEBP_DequantizeLevels(uint8_t* const data, int width, int height, int stride,
                          int strength) {
   const int radius = 4 * strength / 100;
   if (strength < 0 || strength > 100) return 0;

@@ -27,8 +27,8 @@ extern "C" {
 
 // Structure used for on-the-fly rescaling
 typedef uint32_t rescaler_t;   // type for side-buffer
-typedef struct WebPRescaler WebPRescaler;
-struct WebPRescaler {
+typedef struct DEDUP_WEBP_Rescaler DEDUP_WEBP_Rescaler;
+struct DEDUP_WEBP_Rescaler {
   int x_expand;               // true if we're expanding in the x direction
   int y_expand;               // true if we're expanding in the y direction
   int num_channels;           // bytes to jump between pixels
@@ -47,7 +47,7 @@ struct WebPRescaler {
 };
 
 // Initialize a rescaler given scratch area 'work' and dimensions of src & dst.
-void WebPRescalerInit(WebPRescaler* const rescaler,
+void DEDUP_WEBP_RescalerInit(DEDUP_WEBP_Rescaler* const rescaler,
                       int src_width, int src_height,
                       uint8_t* const dst,
                       int dst_width, int dst_height, int dst_stride,
@@ -58,38 +58,38 @@ void WebPRescalerInit(WebPRescaler* const rescaler,
 // will be calculated preserving the aspect ratio, otherwise the values are
 // left unmodified. Returns true on success, false if either value is 0 after
 // performing the scaling calculation.
-int WebPRescalerGetScaledDimensions(int src_width, int src_height,
+int DEDUP_WEBP_RescalerGetScaledDimensions(int src_width, int src_height,
                                     int* const scaled_width,
                                     int* const scaled_height);
 
 // Returns the number of input lines needed next to produce one output line,
 // considering that the maximum available input lines are 'max_num_lines'.
-int WebPRescaleNeededLines(const WebPRescaler* const rescaler,
+int DEDUP_WEBP_RescaleNeededLines(const DEDUP_WEBP_Rescaler* const rescaler,
                            int max_num_lines);
 
 // Import multiple rows over all channels, until at least one row is ready to
 // be exported. Returns the actual number of lines that were imported.
-int WebPRescalerImport(WebPRescaler* const rescaler, int num_rows,
+int DEDUP_WEBP_RescalerImport(DEDUP_WEBP_Rescaler* const rescaler, int num_rows,
                        const uint8_t* src, int src_stride);
 
 // Export as many rows as possible. Return the numbers of rows written.
-int WebPRescalerExport(WebPRescaler* const rescaler);
+int DEDUP_WEBP_RescalerExport(DEDUP_WEBP_Rescaler* const rescaler);
 
 // Return true if input is finished
 static WEBP_INLINE
-int WebPRescalerInputDone(const WebPRescaler* const rescaler) {
+int DEDUP_WEBP_RescalerInputDone(const DEDUP_WEBP_Rescaler* const rescaler) {
   return (rescaler->src_y >= rescaler->src_height);
 }
 // Return true if output is finished
 static WEBP_INLINE
-int WebPRescalerOutputDone(const WebPRescaler* const rescaler) {
+int DEDUP_WEBP_RescalerOutputDone(const DEDUP_WEBP_Rescaler* const rescaler) {
   return (rescaler->dst_y >= rescaler->dst_height);
 }
 
 // Return true if there are pending output rows ready.
 static WEBP_INLINE
-int WebPRescalerHasPendingOutput(const WebPRescaler* const rescaler) {
-  return !WebPRescalerOutputDone(rescaler) && (rescaler->y_accum <= 0);
+int DEDUP_WEBP_RescalerHasPendingOutput(const DEDUP_WEBP_Rescaler* const rescaler) {
+  return !DEDUP_WEBP_RescalerOutputDone(rescaler) && (rescaler->y_accum <= 0);
 }
 
 //------------------------------------------------------------------------------

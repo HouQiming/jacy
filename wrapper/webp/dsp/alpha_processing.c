@@ -134,7 +134,7 @@ static WEBP_INLINE uint32_t GetScale(uint32_t a, int inverse) {
 
 #endif    // USE_TABLES_FOR_ALPHA_MULT
 
-void WebPMultARGBRowC(uint32_t* const ptr, int width, int inverse) {
+void DEDUP_WEBP_MultARGBRowC(uint32_t* const ptr, int width, int inverse) {
   int x;
   for (x = 0; x < width; ++x) {
     const uint32_t argb = ptr[x];
@@ -154,7 +154,7 @@ void WebPMultARGBRowC(uint32_t* const ptr, int width, int inverse) {
   }
 }
 
-void WebPMultRowC(uint8_t* const ptr, const uint8_t* const alpha,
+void DEDUP_WEBP_MultRowC(uint8_t* const ptr, const uint8_t* const alpha,
                   int width, int inverse) {
   int x;
   for (x = 0; x < width; ++x) {
@@ -174,28 +174,28 @@ void WebPMultRowC(uint8_t* const ptr, const uint8_t* const alpha,
 #undef HALF
 #undef MFIX
 
-void (*WebPMultARGBRow)(uint32_t* const ptr, int width, int inverse);
-void (*WebPMultRow)(uint8_t* const ptr, const uint8_t* const alpha,
+void (*DEDUP_WEBP_MultARGBRow)(uint32_t* const ptr, int width, int inverse);
+void (*DEDUP_WEBP_MultRow)(uint8_t* const ptr, const uint8_t* const alpha,
                     int width, int inverse);
 
 //------------------------------------------------------------------------------
 // Generic per-plane calls
 
-void WebPMultARGBRows(uint8_t* ptr, int stride, int width, int num_rows,
+void DEDUP_WEBP_MultARGBRows(uint8_t* ptr, int stride, int width, int num_rows,
                       int inverse) {
   int n;
   for (n = 0; n < num_rows; ++n) {
-    WebPMultARGBRow((uint32_t*)ptr, width, inverse);
+    DEDUP_WEBP_MultARGBRow((uint32_t*)ptr, width, inverse);
     ptr += stride;
   }
 }
 
-void WebPMultRows(uint8_t* ptr, int stride,
+void DEDUP_WEBP_MultRows(uint8_t* ptr, int stride,
                   const uint8_t* alpha, int alpha_stride,
                   int width, int num_rows, int inverse) {
   int n;
   for (n = 0; n < num_rows; ++n) {
-    WebPMultRow(ptr, alpha, width, inverse);
+    DEDUP_WEBP_MultRow(ptr, alpha, width, inverse);
     ptr += stride;
     alpha += alpha_stride;
   }
@@ -334,50 +334,50 @@ static int ExtractAlpha(const uint8_t* argb, int argb_stride,
   return (alpha_mask == 0xff);
 }
 
-void (*WebPApplyAlphaMultiply)(uint8_t*, int, int, int, int);
-void (*WebPApplyAlphaMultiply4444)(uint8_t*, int, int, int);
-int (*WebPDispatchAlpha)(const uint8_t*, int, int, int, uint8_t*, int);
-void (*WebPDispatchAlphaToGreen)(const uint8_t*, int, int, int, uint32_t*, int);
-int (*WebPExtractAlpha)(const uint8_t*, int, int, int, uint8_t*, int);
+void (*DEDUP_WEBP_ApplyAlphaMultiply)(uint8_t*, int, int, int, int);
+void (*DEDUP_WEBP_ApplyAlphaMultiply4444)(uint8_t*, int, int, int);
+int (*DEDUP_WEBP_DispatchAlpha)(const uint8_t*, int, int, int, uint8_t*, int);
+void (*DEDUP_WEBP_DispatchAlphaToGreen)(const uint8_t*, int, int, int, uint32_t*, int);
+int (*DEDUP_WEBP_ExtractAlpha)(const uint8_t*, int, int, int, uint8_t*, int);
 
 //------------------------------------------------------------------------------
 // Init function
 
-extern void WebPInitAlphaProcessingMIPSdspR2(void);
-extern void WebPInitAlphaProcessingSSE2(void);
-extern void WebPInitAlphaProcessingSSE41(void);
+extern void DEDUP_WEBP_InitAlphaProcessingMIPSdspR2(void);
+extern void DEDUP_WEBP_InitAlphaProcessingSSE2(void);
+extern void DEDUP_WEBP_InitAlphaProcessingSSE41(void);
 
-static volatile VP8CPUInfo alpha_processing_last_cpuinfo_used =
-    (VP8CPUInfo)&alpha_processing_last_cpuinfo_used;
+static volatile DEDUP_vP8_CPUInfo alpha_processing_last_cpuinfo_used =
+    (DEDUP_vP8_CPUInfo)&alpha_processing_last_cpuinfo_used;
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitAlphaProcessing(void) {
-  if (alpha_processing_last_cpuinfo_used == VP8GetCPUInfo) return;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_InitAlphaProcessing(void) {
+  if (alpha_processing_last_cpuinfo_used == DEDUP_vP8_GetCPUInfo) return;
 
-  WebPMultARGBRow = WebPMultARGBRowC;
-  WebPMultRow = WebPMultRowC;
-  WebPApplyAlphaMultiply = ApplyAlphaMultiply;
-  WebPApplyAlphaMultiply4444 = ApplyAlphaMultiply_16b;
-  WebPDispatchAlpha = DispatchAlpha;
-  WebPDispatchAlphaToGreen = DispatchAlphaToGreen;
-  WebPExtractAlpha = ExtractAlpha;
+  DEDUP_WEBP_MultARGBRow = DEDUP_WEBP_MultARGBRowC;
+  DEDUP_WEBP_MultRow = DEDUP_WEBP_MultRowC;
+  DEDUP_WEBP_ApplyAlphaMultiply = ApplyAlphaMultiply;
+  DEDUP_WEBP_ApplyAlphaMultiply4444 = ApplyAlphaMultiply_16b;
+  DEDUP_WEBP_DispatchAlpha = DispatchAlpha;
+  DEDUP_WEBP_DispatchAlphaToGreen = DispatchAlphaToGreen;
+  DEDUP_WEBP_ExtractAlpha = ExtractAlpha;
 
   // If defined, use CPUInfo() to overwrite some pointers with faster versions.
-  if (VP8GetCPUInfo != NULL) {
+  if (DEDUP_vP8_GetCPUInfo != NULL) {
 #if defined(WEBP_USE_SSE2)
-    if (VP8GetCPUInfo(kSSE2)) {
-      WebPInitAlphaProcessingSSE2();
+    if (DEDUP_vP8_GetCPUInfo(kSSE2)) {
+      DEDUP_WEBP_InitAlphaProcessingSSE2();
 #if defined(WEBP_USE_SSE41)
-      if (VP8GetCPUInfo(kSSE4_1)) {
-        WebPInitAlphaProcessingSSE41();
+      if (DEDUP_vP8_GetCPUInfo(kSSE4_1)) {
+        DEDUP_WEBP_InitAlphaProcessingSSE41();
       }
 #endif
     }
 #endif
 #if defined(WEBP_USE_MIPS_DSP_R2)
-    if (VP8GetCPUInfo(kMIPSdspR2)) {
-      WebPInitAlphaProcessingMIPSdspR2();
+    if (DEDUP_vP8_GetCPUInfo(kMIPSdspR2)) {
+      DEDUP_WEBP_InitAlphaProcessingMIPSdspR2();
     }
 #endif
   }
-  alpha_processing_last_cpuinfo_used = VP8GetCPUInfo;
+  alpha_processing_last_cpuinfo_used = DEDUP_vP8_GetCPUInfo;
 }

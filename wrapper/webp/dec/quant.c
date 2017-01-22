@@ -59,16 +59,16 @@ static const uint16_t kAcTable[128] = {
 //------------------------------------------------------------------------------
 // Paragraph 9.6
 
-void VP8ParseQuant(VP8Decoder* const dec) {
-  VP8BitReader* const br = &dec->br_;
-  const int base_q0 = VP8GetValue(br, 7);
-  const int dqy1_dc = VP8Get(br) ? VP8GetSignedValue(br, 4) : 0;
-  const int dqy2_dc = VP8Get(br) ? VP8GetSignedValue(br, 4) : 0;
-  const int dqy2_ac = VP8Get(br) ? VP8GetSignedValue(br, 4) : 0;
-  const int dquv_dc = VP8Get(br) ? VP8GetSignedValue(br, 4) : 0;
-  const int dquv_ac = VP8Get(br) ? VP8GetSignedValue(br, 4) : 0;
+void DEDUP_vP8_ParseQuant(DEDUP_vP8_Decoder* const dec) {
+  DEDUP_vP8_BitReader* const br = &dec->br_;
+  const int base_q0 = DEDUP_vP8_GetValue(br, 7);
+  const int dqy1_dc = DEDUP_vP8_Get(br) ? DEDUP_vP8_GetSignedValue(br, 4) : 0;
+  const int dqy2_dc = DEDUP_vP8_Get(br) ? DEDUP_vP8_GetSignedValue(br, 4) : 0;
+  const int dqy2_ac = DEDUP_vP8_Get(br) ? DEDUP_vP8_GetSignedValue(br, 4) : 0;
+  const int dquv_dc = DEDUP_vP8_Get(br) ? DEDUP_vP8_GetSignedValue(br, 4) : 0;
+  const int dquv_ac = DEDUP_vP8_Get(br) ? DEDUP_vP8_GetSignedValue(br, 4) : 0;
 
-  const VP8SegmentHeader* const hdr = &dec->segment_hdr_;
+  const DEDUP_vP8_SegmentHeader* const hdr = &dec->segment_hdr_;
   int i;
 
   for (i = 0; i < NUM_MB_SEGMENTS; ++i) {
@@ -87,7 +87,7 @@ void VP8ParseQuant(VP8Decoder* const dec) {
       }
     }
     {
-      VP8QuantMatrix* const m = &dec->dqm_[i];
+      DEDUP_vP8_QuantMatrix* const m = &dec->dqm_[i];
       m->y1_mat_[0] = kDcTable[clip(q + dqy1_dc, 127)];
       m->y1_mat_[1] = kAcTable[clip(q + 0,       127)];
 

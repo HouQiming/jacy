@@ -1271,7 +1271,7 @@ static int SSE4x4(const uint8_t* a, const uint8_t* b) {
 "3:                                                          \n\t"
 
 static int QuantizeBlock(int16_t in[16], int16_t out[16],
-                         const VP8Matrix* const mtx) {
+                         const DEDUP_vP8_Matrix* const mtx) {
   int temp0, temp1, temp2, temp3, temp4, temp5,temp6;
   int sign, coeff, level;
   int max_level = MAX_LEVEL;
@@ -1312,7 +1312,7 @@ static int QuantizeBlock(int16_t in[16], int16_t out[16],
 }
 
 static int Quantize2Blocks(int16_t in[32], int16_t out[32],
-                           const VP8Matrix* const mtx) {
+                           const DEDUP_vP8_Matrix* const mtx) {
   int nz;
   nz  = QuantizeBlock(in + 0 * 16, out + 0 * 16, mtx) << 0;
   nz |= QuantizeBlock(in + 1 * 16, out + 1 * 16, mtx) << 1;
@@ -1452,7 +1452,7 @@ static void FTransformWHT(const int16_t* in, int16_t* out) {
 
 static void CollectHistogram(const uint8_t* ref, const uint8_t* pred,
                              int start_block, int end_block,
-                             VP8Histogram* const histo) {
+                             DEDUP_vP8_Histogram* const histo) {
   int j;
   int distribution[MAX_COEFF_THRESH + 1] = { 0 };
   const int max_coeff = (MAX_COEFF_THRESH << 16) + MAX_COEFF_THRESH;
@@ -1460,7 +1460,7 @@ static void CollectHistogram(const uint8_t* ref, const uint8_t* pred,
     int16_t out[16];
     int temp0, temp1, temp2, temp3, temp4, temp5, temp6, temp7, temp8;
 
-    VP8FTransform(ref + VP8DspScan[j], pred + VP8DspScan[j], out);
+    DEDUP_vP8_FTransform(ref + DEDUP_vP8_DspScan[j], pred + DEDUP_vP8_DspScan[j], out);
 
     // Convert coefficients to bin.
     __asm__ volatile (
@@ -1473,7 +1473,7 @@ static void CollectHistogram(const uint8_t* ref, const uint8_t* pred,
       : "memory"
     );
   }
-  VP8SetHistogramData(distribution, histo);
+  DEDUP_vP8_SetHistogramData(distribution, histo);
 }
 
 #undef CONVERT_COEFFS_TO_BIN
@@ -1481,30 +1481,30 @@ static void CollectHistogram(const uint8_t* ref, const uint8_t* pred,
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8EncDspInitMIPSdspR2(void);
+extern void DEDUP_vP8_EncDspInitMIPSdspR2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8EncDspInitMIPSdspR2(void) {
-  VP8FTransform = FTransform;
-  VP8ITransform = ITransform;
-  VP8TDisto4x4 = Disto4x4;
-  VP8TDisto16x16 = Disto16x16;
-  VP8EncPredLuma16 = Intra16Preds;
-  VP8EncPredChroma8 = IntraChromaPreds;
-  VP8EncPredLuma4 = Intra4Preds;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_EncDspInitMIPSdspR2(void) {
+  DEDUP_vP8_FTransform = FTransform;
+  DEDUP_vP8_ITransform = ITransform;
+  DEDUP_vP8_TDisto4x4 = Disto4x4;
+  DEDUP_vP8_TDisto16x16 = Disto16x16;
+  DEDUP_vP8_EncPredLuma16 = Intra16Preds;
+  DEDUP_vP8_EncPredChroma8 = IntraChromaPreds;
+  DEDUP_vP8_EncPredLuma4 = Intra4Preds;
 #if !defined(WORK_AROUND_GCC)
-  VP8SSE16x16 = SSE16x16;
-  VP8SSE8x8 = SSE8x8;
-  VP8SSE16x8 = SSE16x8;
-  VP8SSE4x4 = SSE4x4;
+  DEDUP_vP8_SSE16x16 = SSE16x16;
+  DEDUP_vP8_SSE8x8 = SSE8x8;
+  DEDUP_vP8_SSE16x8 = SSE16x8;
+  DEDUP_vP8_SSE4x4 = SSE4x4;
 #endif
-  VP8EncQuantizeBlock = QuantizeBlock;
-  VP8EncQuantize2Blocks = Quantize2Blocks;
-  VP8FTransformWHT = FTransformWHT;
-  VP8CollectHistogram = CollectHistogram;
+  DEDUP_vP8_EncQuantizeBlock = QuantizeBlock;
+  DEDUP_vP8_EncQuantize2Blocks = Quantize2Blocks;
+  DEDUP_vP8_FTransformWHT = FTransformWHT;
+  DEDUP_vP8_CollectHistogram = CollectHistogram;
 }
 
 #else  // !WEBP_USE_MIPS_DSP_R2
 
-WEBP_DSP_INIT_STUB(VP8EncDspInitMIPSdspR2)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_EncDspInitMIPSdspR2)
 
 #endif  // WEBP_USE_MIPS_DSP_R2

@@ -65,13 +65,13 @@ static void SubtractGreenFromBlueAndRed(uint32_t* argb_data, int num_pixels) {
     vst1q_u8((uint8_t*)argb_data, vsubq_u8(argb, greens));
   }
   // fallthrough and finish off with plain-C
-  VP8LSubtractGreenFromBlueAndRed_C(argb_data, num_pixels & 3);
+  DEDUP_vP8_LSubtractGreenFromBlueAndRed_C(argb_data, num_pixels & 3);
 }
 
 //------------------------------------------------------------------------------
 // Color Transform
 
-static void TransformColor(const VP8LMultipliers* const m,
+static void TransformColor(const DEDUP_vP8_LMultipliers* const m,
                            uint32_t* argb_data, int num_pixels) {
   // sign-extended multiplying constants, pre-shifted by 6.
 #define CST(X)  (((int16_t)(m->X << 8)) >> 6)
@@ -121,7 +121,7 @@ static void TransformColor(const VP8LMultipliers* const m,
     vst1q_s8((int8_t*)(argb_data + i), out);
   }
   // fallthrough and finish off with plain-C
-  VP8LTransformColor_C(m, argb_data + i, num_pixels - i);
+  DEDUP_vP8_LTransformColor_C(m, argb_data + i, num_pixels - i);
 }
 
 #undef USE_VTBLQ
@@ -129,15 +129,15 @@ static void TransformColor(const VP8LMultipliers* const m,
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8LEncDspInitNEON(void);
+extern void DEDUP_vP8_LEncDspInitNEON(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8LEncDspInitNEON(void) {
-  VP8LSubtractGreenFromBlueAndRed = SubtractGreenFromBlueAndRed;
-  VP8LTransformColor = TransformColor;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_LEncDspInitNEON(void) {
+  DEDUP_vP8_LSubtractGreenFromBlueAndRed = SubtractGreenFromBlueAndRed;
+  DEDUP_vP8_LTransformColor = TransformColor;
 }
 
 #else  // !WEBP_USE_NEON
 
-WEBP_DSP_INIT_STUB(VP8LEncDspInitNEON)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_LEncDspInitNEON)
 
 #endif  // WEBP_USE_NEON

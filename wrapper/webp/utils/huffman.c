@@ -22,9 +22,9 @@
 // bytes.
 #define MAX_HTREE_GROUPS    0x10000
 
-HTreeGroup* VP8LHtreeGroupsNew(int num_htree_groups) {
+HTreeGroup* DEDUP_vP8_LHtreeGroupsNew(int num_htree_groups) {
   HTreeGroup* const htree_groups =
-      (HTreeGroup*)WebPSafeMalloc(num_htree_groups, sizeof(*htree_groups));
+      (HTreeGroup*)DEDUP_WEBP_SafeMalloc(num_htree_groups, sizeof(*htree_groups));
   if (htree_groups == NULL) {
     return NULL;
   }
@@ -32,9 +32,9 @@ HTreeGroup* VP8LHtreeGroupsNew(int num_htree_groups) {
   return htree_groups;
 }
 
-void VP8LHtreeGroupsFree(HTreeGroup* const htree_groups) {
+void DEDUP_vP8_LHtreeGroupsFree(HTreeGroup* const htree_groups) {
   if (htree_groups != NULL) {
-    WebPSafeFree(htree_groups);
+    DEDUP_WEBP_SafeFree(htree_groups);
   }
 }
 
@@ -202,7 +202,7 @@ static int BuildHuffmanTable(HuffmanCode* const root_table, int root_bits,
   ((1 << MAX_CACHE_BITS) + NUM_LITERAL_CODES + NUM_LENGTH_CODES)
 // Cut-off value for switching between heap and stack allocation.
 #define SORTED_SIZE_CUTOFF 512
-int VP8LBuildHuffmanTable(HuffmanCode* const root_table, int root_bits,
+int DEDUP_vP8_LBuildHuffmanTable(HuffmanCode* const root_table, int root_bits,
                           const int code_lengths[], int code_lengths_size) {
   int total_size;
   assert(code_lengths_size <= MAX_CODE_LENGTHS_SIZE);
@@ -213,11 +213,11 @@ int VP8LBuildHuffmanTable(HuffmanCode* const root_table, int root_bits,
                                    code_lengths, code_lengths_size, sorted);
   } else {   // rare case. Use heap allocation.
     uint16_t* const sorted =
-        (uint16_t*)WebPSafeMalloc(code_lengths_size, sizeof(*sorted));
+        (uint16_t*)DEDUP_WEBP_SafeMalloc(code_lengths_size, sizeof(*sorted));
     if (sorted == NULL) return 0;
     total_size = BuildHuffmanTable(root_table, root_bits,
                                    code_lengths, code_lengths_size, sorted);
-    WebPSafeFree(sorted);
+    DEDUP_WEBP_SafeFree(sorted);
   }
   return total_size;
 }

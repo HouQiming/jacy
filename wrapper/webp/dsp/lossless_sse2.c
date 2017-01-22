@@ -166,13 +166,13 @@ static void AddGreenToBlueAndRed(uint32_t* argb_data, int num_pixels) {
     _mm_storeu_si128((__m128i*)&argb_data[i], out);
   }
   // fallthrough and finish off with plain-C
-  VP8LAddGreenToBlueAndRed_C(argb_data + i, num_pixels - i);
+  DEDUP_vP8_LAddGreenToBlueAndRed_C(argb_data + i, num_pixels - i);
 }
 
 //------------------------------------------------------------------------------
 // Color Transform
 
-static void TransformColorInverse(const VP8LMultipliers* const m,
+static void TransformColorInverse(const DEDUP_vP8_LMultipliers* const m,
                                   uint32_t* argb_data, int num_pixels) {
   // sign-extended multiplying constants, pre-shifted by 5.
 #define CST(X)  (((int16_t)(m->X << 8)) >> 5)   // sign-extend
@@ -203,7 +203,7 @@ static void TransformColorInverse(const VP8LMultipliers* const m,
     _mm_storeu_si128((__m128i*)&argb_data[i], out);
   }
   // Fall-back to C-version for left-overs.
-  VP8LTransformColorInverse_C(m, argb_data + i, num_pixels - i);
+  DEDUP_vP8_LTransformColorInverse_C(m, argb_data + i, num_pixels - i);
 }
 
 //------------------------------------------------------------------------------
@@ -233,7 +233,7 @@ static void ConvertBGRAToRGBA(const uint32_t* src,
     num_pixels -= 8;
   }
   // left-overs
-  VP8LConvertBGRAToRGBA_C((const uint32_t*)in, num_pixels, (uint8_t*)out);
+  DEDUP_vP8_LConvertBGRAToRGBA_C((const uint32_t*)in, num_pixels, (uint8_t*)out);
 }
 
 static void ConvertBGRAToRGBA4444(const uint32_t* src,
@@ -267,7 +267,7 @@ static void ConvertBGRAToRGBA4444(const uint32_t* src,
     num_pixels -= 8;
   }
   // left-overs
-  VP8LConvertBGRAToRGBA4444_C((const uint32_t*)in, num_pixels, (uint8_t*)out);
+  DEDUP_vP8_LConvertBGRAToRGBA4444_C((const uint32_t*)in, num_pixels, (uint8_t*)out);
 }
 
 static void ConvertBGRAToRGB565(const uint32_t* src,
@@ -306,7 +306,7 @@ static void ConvertBGRAToRGB565(const uint32_t* src,
     num_pixels -= 8;
   }
   // left-overs
-  VP8LConvertBGRAToRGB565_C((const uint32_t*)in, num_pixels, (uint8_t*)out);
+  DEDUP_vP8_LConvertBGRAToRGB565_C((const uint32_t*)in, num_pixels, (uint8_t*)out);
 }
 
 static void ConvertBGRAToBGR(const uint32_t* src,
@@ -337,36 +337,36 @@ static void ConvertBGRAToBGR(const uint32_t* src,
     num_pixels -= 8;
   }
   // left-overs
-  VP8LConvertBGRAToBGR_C((const uint32_t*)in, num_pixels, dst);
+  DEDUP_vP8_LConvertBGRAToBGR_C((const uint32_t*)in, num_pixels, dst);
 }
 
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8LDspInitSSE2(void);
+extern void DEDUP_vP8_LDspInitSSE2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8LDspInitSSE2(void) {
-  VP8LPredictors[5] = Predictor5;
-  VP8LPredictors[6] = Predictor6;
-  VP8LPredictors[7] = Predictor7;
-  VP8LPredictors[8] = Predictor8;
-  VP8LPredictors[9] = Predictor9;
-  VP8LPredictors[10] = Predictor10;
-  VP8LPredictors[11] = Predictor11;
-  VP8LPredictors[12] = Predictor12;
-  VP8LPredictors[13] = Predictor13;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_LDspInitSSE2(void) {
+  DEDUP_vP8_LPredictors[5] = Predictor5;
+  DEDUP_vP8_LPredictors[6] = Predictor6;
+  DEDUP_vP8_LPredictors[7] = Predictor7;
+  DEDUP_vP8_LPredictors[8] = Predictor8;
+  DEDUP_vP8_LPredictors[9] = Predictor9;
+  DEDUP_vP8_LPredictors[10] = Predictor10;
+  DEDUP_vP8_LPredictors[11] = Predictor11;
+  DEDUP_vP8_LPredictors[12] = Predictor12;
+  DEDUP_vP8_LPredictors[13] = Predictor13;
 
-  VP8LAddGreenToBlueAndRed = AddGreenToBlueAndRed;
-  VP8LTransformColorInverse = TransformColorInverse;
+  DEDUP_vP8_LAddGreenToBlueAndRed = AddGreenToBlueAndRed;
+  DEDUP_vP8_LTransformColorInverse = TransformColorInverse;
 
-  VP8LConvertBGRAToRGBA = ConvertBGRAToRGBA;
-  VP8LConvertBGRAToRGBA4444 = ConvertBGRAToRGBA4444;
-  VP8LConvertBGRAToRGB565 = ConvertBGRAToRGB565;
-  VP8LConvertBGRAToBGR = ConvertBGRAToBGR;
+  DEDUP_vP8_LConvertBGRAToRGBA = ConvertBGRAToRGBA;
+  DEDUP_vP8_LConvertBGRAToRGBA4444 = ConvertBGRAToRGBA4444;
+  DEDUP_vP8_LConvertBGRAToRGB565 = ConvertBGRAToRGB565;
+  DEDUP_vP8_LConvertBGRAToBGR = ConvertBGRAToBGR;
 }
 
 #else  // !WEBP_USE_SSE2
 
-WEBP_DSP_INIT_STUB(VP8LDspInitSSE2)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_LDspInitSSE2)
 
 #endif  // WEBP_USE_SSE2

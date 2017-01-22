@@ -223,12 +223,12 @@ static int Disto16x16(const uint8_t* const a, const uint8_t* const b,
 
 static void CollectHistogram(const uint8_t* ref, const uint8_t* pred,
                              int start_block, int end_block,
-                             VP8Histogram* const histo) {
+                             DEDUP_vP8_Histogram* const histo) {
   int j;
   int distribution[MAX_COEFF_THRESH + 1] = { 0 };
   for (j = start_block; j < end_block; ++j) {
     int16_t out[16];
-    VP8FTransform(ref + VP8DspScan[j], pred + VP8DspScan[j], out);
+    DEDUP_vP8_FTransform(ref + DEDUP_vP8_DspScan[j], pred + DEDUP_vP8_DspScan[j], out);
     {
       int k;
       v8i16 coeff0, coeff1;
@@ -246,7 +246,7 @@ static void CollectHistogram(const uint8_t* ref, const uint8_t* pred,
       }
     }
   }
-  VP8SetHistogramData(distribution, histo);
+  DEDUP_vP8_SetHistogramData(distribution, histo);
 }
 
 //------------------------------------------------------------------------------
@@ -276,10 +276,10 @@ static WEBP_INLINE void HE4(uint8_t* dst, const uint8_t* top) {    // horizontal
   const int J = top[-3];
   const int K = top[-4];
   const int L = top[-5];
-  WebPUint32ToMem(dst + 0 * BPS, 0x01010101U * AVG3(X, I, J));
-  WebPUint32ToMem(dst + 1 * BPS, 0x01010101U * AVG3(I, J, K));
-  WebPUint32ToMem(dst + 2 * BPS, 0x01010101U * AVG3(J, K, L));
-  WebPUint32ToMem(dst + 3 * BPS, 0x01010101U * AVG3(K, L, L));
+  DEDUP_WEBP_Uint32ToMem(dst + 0 * BPS, 0x01010101U * AVG3(X, I, J));
+  DEDUP_WEBP_Uint32ToMem(dst + 1 * BPS, 0x01010101U * AVG3(I, J, K));
+  DEDUP_WEBP_Uint32ToMem(dst + 2 * BPS, 0x01010101U * AVG3(J, K, L));
+  DEDUP_WEBP_Uint32ToMem(dst + 3 * BPS, 0x01010101U * AVG3(K, L, L));
 }
 
 static WEBP_INLINE void DC4(uint8_t* dst, const uint8_t* top) {
@@ -797,7 +797,7 @@ static int SSE4x4(const uint8_t* a, const uint8_t* b) {
 // Quantization
 
 static int QuantizeBlock(int16_t in[16], int16_t out[16],
-                         const VP8Matrix* const mtx) {
+                         const DEDUP_vP8_Matrix* const mtx) {
   int sum;
   v8i16 in0, in1, sh0, sh1, out0, out1;
   v8i16 tmp0, tmp1, tmp2, tmp3, tmp4, tmp5, sign0, sign1;
@@ -850,43 +850,43 @@ static int QuantizeBlock(int16_t in[16], int16_t out[16],
 }
 
 static int Quantize2Blocks(int16_t in[32], int16_t out[32],
-                           const VP8Matrix* const mtx) {
+                           const DEDUP_vP8_Matrix* const mtx) {
   int nz;
-  nz  = VP8EncQuantizeBlock(in + 0 * 16, out + 0 * 16, mtx) << 0;
-  nz |= VP8EncQuantizeBlock(in + 1 * 16, out + 1 * 16, mtx) << 1;
+  nz  = DEDUP_vP8_EncQuantizeBlock(in + 0 * 16, out + 0 * 16, mtx) << 0;
+  nz |= DEDUP_vP8_EncQuantizeBlock(in + 1 * 16, out + 1 * 16, mtx) << 1;
   return nz;
 }
 
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8EncDspInitMSA(void);
+extern void DEDUP_vP8_EncDspInitMSA(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8EncDspInitMSA(void) {
-  VP8ITransform = ITransform;
-  VP8FTransform = FTransform;
-  VP8FTransformWHT = FTransformWHT;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_EncDspInitMSA(void) {
+  DEDUP_vP8_ITransform = ITransform;
+  DEDUP_vP8_FTransform = FTransform;
+  DEDUP_vP8_FTransformWHT = FTransformWHT;
 
-  VP8TDisto4x4 = Disto4x4;
-  VP8TDisto16x16 = Disto16x16;
-  VP8CollectHistogram = CollectHistogram;
+  DEDUP_vP8_TDisto4x4 = Disto4x4;
+  DEDUP_vP8_TDisto16x16 = Disto16x16;
+  DEDUP_vP8_CollectHistogram = CollectHistogram;
 
-  VP8EncPredLuma4 = Intra4Preds;
-  VP8EncPredLuma16 = Intra16Preds;
-  VP8EncPredChroma8 = IntraChromaPreds;
+  DEDUP_vP8_EncPredLuma4 = Intra4Preds;
+  DEDUP_vP8_EncPredLuma16 = Intra16Preds;
+  DEDUP_vP8_EncPredChroma8 = IntraChromaPreds;
 
-  VP8SSE16x16 = SSE16x16;
-  VP8SSE16x8 = SSE16x8;
-  VP8SSE8x8 = SSE8x8;
-  VP8SSE4x4 = SSE4x4;
+  DEDUP_vP8_SSE16x16 = SSE16x16;
+  DEDUP_vP8_SSE16x8 = SSE16x8;
+  DEDUP_vP8_SSE8x8 = SSE8x8;
+  DEDUP_vP8_SSE4x4 = SSE4x4;
 
-  VP8EncQuantizeBlock = QuantizeBlock;
-  VP8EncQuantize2Blocks = Quantize2Blocks;
-  VP8EncQuantizeBlockWHT = QuantizeBlock;
+  DEDUP_vP8_EncQuantizeBlock = QuantizeBlock;
+  DEDUP_vP8_EncQuantize2Blocks = Quantize2Blocks;
+  DEDUP_vP8_EncQuantizeBlockWHT = QuantizeBlock;
 }
 
 #else  // !WEBP_USE_MSA
 
-WEBP_DSP_INIT_STUB(VP8EncDspInitMSA)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_EncDspInitMSA)
 
 #endif  // WEBP_USE_MSA

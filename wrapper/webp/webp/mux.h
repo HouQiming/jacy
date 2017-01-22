@@ -7,7 +7,7 @@
 // be found in the AUTHORS file in the root of the source tree.
 // -----------------------------------------------------------------------------
 //
-//  RIFF container manipulation and encoding for WebP images.
+//  RIFF container manipulation and encoding for DEDUP_WEBP_ images.
 //
 // Authors: Urvang (urvang@google.com)
 //          Vikas (vikasa@google.com)
@@ -26,116 +26,116 @@ extern "C" {
 //------------------------------------------------------------------------------
 // Mux API
 //
-// This API allows manipulation of WebP container images containing features
+// This API allows manipulation of DEDUP_WEBP_ container images containing features
 // like color profile, metadata, animation.
 //
-// Code Example#1: Create a WebPMux object with image data, color profile and
+// Code Example#1: Create a DEDUP_WEBP_Mux object with image data, color profile and
 // XMP metadata.
 /*
   int copy_data = 0;
-  WebPMux* mux = WebPMuxNew();
+  DEDUP_WEBP_Mux* mux = DEDUP_WEBP_MuxNew();
   // ... (Prepare image data).
-  WebPMuxSetImage(mux, &image, copy_data);
+  DEDUP_WEBP_MuxSetImage(mux, &image, copy_data);
   // ... (Prepare ICCP color profile data).
-  WebPMuxSetChunk(mux, "ICCP", &icc_profile, copy_data);
+  DEDUP_WEBP_MuxSetChunk(mux, "ICCP", &icc_profile, copy_data);
   // ... (Prepare XMP metadata).
-  WebPMuxSetChunk(mux, "XMP ", &xmp, copy_data);
-  // Get data from mux in WebP RIFF format.
-  WebPMuxAssemble(mux, &output_data);
-  WebPMuxDelete(mux);
+  DEDUP_WEBP_MuxSetChunk(mux, "XMP ", &xmp, copy_data);
+  // Get data from mux in DEDUP_WEBP_ RIFF format.
+  DEDUP_WEBP_MuxAssemble(mux, &output_data);
+  DEDUP_WEBP_MuxDelete(mux);
   // ... (Consume output_data; e.g. write output_data.bytes to file).
-  WebPDataClear(&output_data);
+  DEDUP_WEBP_DataClear(&output_data);
 */
 
-// Code Example#2: Get image and color profile data from a WebP file.
+// Code Example#2: Get image and color profile data from a DEDUP_WEBP_ file.
 /*
   int copy_data = 0;
   // ... (Read data from file).
-  WebPMux* mux = WebPMuxCreate(&data, copy_data);
-  WebPMuxGetFrame(mux, 1, &image);
-  // ... (Consume image; e.g. call WebPDecode() to decode the data).
-  WebPMuxGetChunk(mux, "ICCP", &icc_profile);
+  DEDUP_WEBP_Mux* mux = DEDUP_WEBP_MuxCreate(&data, copy_data);
+  DEDUP_WEBP_MuxGetFrame(mux, 1, &image);
+  // ... (Consume image; e.g. call DEDUP_WEBP_Decode() to decode the data).
+  DEDUP_WEBP_MuxGetChunk(mux, "ICCP", &icc_profile);
   // ... (Consume icc_data).
-  WebPMuxDelete(mux);
+  DEDUP_WEBP_MuxDelete(mux);
   free(data);
 */
 
 // Note: forward declaring enumerations is not allowed in (strict) C and C++,
 // the types are left here for reference.
-// typedef enum WebPMuxError WebPMuxError;
-// typedef enum WebPChunkId WebPChunkId;
-typedef struct WebPMux WebPMux;   // main opaque object.
-typedef struct WebPMuxFrameInfo WebPMuxFrameInfo;
-typedef struct WebPMuxAnimParams WebPMuxAnimParams;
-typedef struct WebPAnimEncoderOptions WebPAnimEncoderOptions;
+// typedef enum DEDUP_WEBP_MuxError DEDUP_WEBP_MuxError;
+// typedef enum DEDUP_WEBP_ChunkId DEDUP_WEBP_ChunkId;
+typedef struct DEDUP_WEBP_Mux DEDUP_WEBP_Mux;   // main opaque object.
+typedef struct DEDUP_WEBP_MuxFrameInfo DEDUP_WEBP_MuxFrameInfo;
+typedef struct DEDUP_WEBP_MuxAnimParams DEDUP_WEBP_MuxAnimParams;
+typedef struct DEDUP_WEBP_AnimEncoderOptions DEDUP_WEBP_AnimEncoderOptions;
 
 // Error codes
-typedef enum WebPMuxError {
+typedef enum DEDUP_WEBP_MuxError {
   WEBP_MUX_OK                 =  1,
   WEBP_MUX_NOT_FOUND          =  0,
   WEBP_MUX_INVALID_ARGUMENT   = -1,
   WEBP_MUX_BAD_DATA           = -2,
   WEBP_MUX_MEMORY_ERROR       = -3,
   WEBP_MUX_NOT_ENOUGH_DATA    = -4
-} WebPMuxError;
+} DEDUP_WEBP_MuxError;
 
 // IDs for different types of chunks.
-typedef enum WebPChunkId {
-  WEBP_CHUNK_VP8X,        // VP8X
+typedef enum DEDUP_WEBP_ChunkId {
+  WEBP_CHUNK_DEDUP_vP8_X,        // DEDUP_vP8_X
   WEBP_CHUNK_ICCP,        // ICCP
   WEBP_CHUNK_ANIM,        // ANIM
   WEBP_CHUNK_ANMF,        // ANMF
   WEBP_CHUNK_DEPRECATED,  // (deprecated from FRGM)
   WEBP_CHUNK_ALPHA,       // ALPH
-  WEBP_CHUNK_IMAGE,       // VP8/VP8L
+  WEBP_CHUNK_IMAGE,       // DEDUP_vP8_/DEDUP_vP8_L
   WEBP_CHUNK_EXIF,        // EXIF
   WEBP_CHUNK_XMP,         // XMP
   WEBP_CHUNK_UNKNOWN,     // Other chunks.
   WEBP_CHUNK_NIL
-} WebPChunkId;
+} DEDUP_WEBP_ChunkId;
 
 //------------------------------------------------------------------------------
 
 // Returns the version number of the mux library, packed in hexadecimal using
 // 8bits for each of major/minor/revision. E.g: v2.5.7 is 0x020507.
-WEBP_EXTERN(int) WebPGetMuxVersion(void);
+WEBP_EXTERN(int) DEDUP_WEBP_GetMuxVersion(void);
 
 //------------------------------------------------------------------------------
 // Life of a Mux object
 
 // Internal, version-checked, entry point
-WEBP_EXTERN(WebPMux*) WebPNewInternal(int);
+WEBP_EXTERN(DEDUP_WEBP_Mux*) DEDUP_WEBP_NewInternal(int);
 
 // Creates an empty mux object.
 // Returns:
 //   A pointer to the newly created empty mux object.
 //   Or NULL in case of memory error.
-static WEBP_INLINE WebPMux* WebPMuxNew(void) {
-  return WebPNewInternal(WEBP_MUX_ABI_VERSION);
+static WEBP_INLINE DEDUP_WEBP_Mux* DEDUP_WEBP_MuxNew(void) {
+  return DEDUP_WEBP_NewInternal(WEBP_MUX_ABI_VERSION);
 }
 
 // Deletes the mux object.
 // Parameters:
 //   mux - (in/out) object to be deleted
-WEBP_EXTERN(void) WebPMuxDelete(WebPMux* mux);
+WEBP_EXTERN(void) DEDUP_WEBP_MuxDelete(DEDUP_WEBP_Mux* mux);
 
 //------------------------------------------------------------------------------
 // Mux creation.
 
 // Internal, version-checked, entry point
-WEBP_EXTERN(WebPMux*) WebPMuxCreateInternal(const WebPData*, int, int);
+WEBP_EXTERN(DEDUP_WEBP_Mux*) DEDUP_WEBP_MuxCreateInternal(const DEDUP_WEBP_Data*, int, int);
 
-// Creates a mux object from raw data given in WebP RIFF format.
+// Creates a mux object from raw data given in DEDUP_WEBP_ RIFF format.
 // Parameters:
-//   bitstream - (in) the bitstream data in WebP RIFF format
+//   bitstream - (in) the bitstream data in DEDUP_WEBP_ RIFF format
 //   copy_data - (in) value 1 indicates given data WILL be copied to the mux
 //               object and value 0 indicates data will NOT be copied.
 // Returns:
 //   A pointer to the mux object created from given data - on success.
 //   NULL - In case of invalid data or memory error.
-static WEBP_INLINE WebPMux* WebPMuxCreate(const WebPData* bitstream,
+static WEBP_INLINE DEDUP_WEBP_Mux* DEDUP_WEBP_MuxCreate(const DEDUP_WEBP_Data* bitstream,
                                           int copy_data) {
-  return WebPMuxCreateInternal(bitstream, copy_data, WEBP_MUX_ABI_VERSION);
+  return DEDUP_WEBP_MuxCreateInternal(bitstream, copy_data, WEBP_MUX_ABI_VERSION);
 }
 
 //------------------------------------------------------------------------------
@@ -143,8 +143,8 @@ static WEBP_INLINE WebPMux* WebPMuxCreate(const WebPData* bitstream,
 
 // Note: Only non-image related chunks should be managed through chunk APIs.
 // (Image related chunks are: "ANMF", "VP8 ", "VP8L" and "ALPH").
-// To add, get and delete images, use WebPMuxSetImage(), WebPMuxPushFrame(),
-// WebPMuxGetFrame() and WebPMuxDeleteFrame().
+// To add, get and delete images, use DEDUP_WEBP_MuxSetImage(), DEDUP_WEBP_MuxPushFrame(),
+// DEDUP_WEBP_MuxGetFrame() and DEDUP_WEBP_MuxDeleteFrame().
 
 // Adds a chunk with id 'fourcc' and data 'chunk_data' in the mux object.
 // Any existing chunk(s) with the same id will be removed.
@@ -160,8 +160,8 @@ static WEBP_INLINE WebPMux* WebPMuxCreate(const WebPData* bitstream,
 //                               or if fourcc corresponds to an image chunk.
 //   WEBP_MUX_MEMORY_ERROR - on memory allocation error.
 //   WEBP_MUX_OK - on success.
-WEBP_EXTERN(WebPMuxError) WebPMuxSetChunk(
-    WebPMux* mux, const char fourcc[4], const WebPData* chunk_data,
+WEBP_EXTERN(DEDUP_WEBP_MuxError) DEDUP_WEBP_MuxSetChunk(
+    DEDUP_WEBP_Mux* mux, const char fourcc[4], const DEDUP_WEBP_Data* chunk_data,
     int copy_data);
 
 // Gets a reference to the data of the chunk with id 'fourcc' in the mux object.
@@ -176,8 +176,8 @@ WEBP_EXTERN(WebPMuxError) WebPMuxSetChunk(
 //                               or if fourcc corresponds to an image chunk.
 //   WEBP_MUX_NOT_FOUND - If mux does not contain a chunk with the given id.
 //   WEBP_MUX_OK - on success.
-WEBP_EXTERN(WebPMuxError) WebPMuxGetChunk(
-    const WebPMux* mux, const char fourcc[4], WebPData* chunk_data);
+WEBP_EXTERN(DEDUP_WEBP_MuxError) DEDUP_WEBP_MuxGetChunk(
+    const DEDUP_WEBP_Mux* mux, const char fourcc[4], DEDUP_WEBP_Data* chunk_data);
 
 // Deletes the chunk with the given 'fourcc' from the mux object.
 // Parameters:
@@ -189,24 +189,24 @@ WEBP_EXTERN(WebPMuxError) WebPMuxGetChunk(
 //                               or if fourcc corresponds to an image chunk.
 //   WEBP_MUX_NOT_FOUND - If mux does not contain a chunk with the given fourcc.
 //   WEBP_MUX_OK - on success.
-WEBP_EXTERN(WebPMuxError) WebPMuxDeleteChunk(
-    WebPMux* mux, const char fourcc[4]);
+WEBP_EXTERN(DEDUP_WEBP_MuxError) DEDUP_WEBP_MuxDeleteChunk(
+    DEDUP_WEBP_Mux* mux, const char fourcc[4]);
 
 //------------------------------------------------------------------------------
 // Images.
 
 // Encapsulates data about a single frame.
-struct WebPMuxFrameInfo {
-  WebPData    bitstream;  // image data: can be a raw VP8/VP8L bitstream
-                          // or a single-image WebP file.
+struct DEDUP_WEBP_MuxFrameInfo {
+  DEDUP_WEBP_Data    bitstream;  // image data: can be a raw DEDUP_vP8_/DEDUP_vP8_L bitstream
+                          // or a single-image DEDUP_WEBP_ file.
   int         x_offset;   // x-offset of the frame.
   int         y_offset;   // y-offset of the frame.
   int         duration;   // duration of the frame (in milliseconds).
 
-  WebPChunkId id;         // frame type: should be one of WEBP_CHUNK_ANMF
+  DEDUP_WEBP_ChunkId id;         // frame type: should be one of WEBP_CHUNK_ANMF
                           // or WEBP_CHUNK_IMAGE
-  WebPMuxAnimDispose dispose_method;  // Disposal method for the frame.
-  WebPMuxAnimBlend   blend_method;    // Blend operation for the frame.
+  DEDUP_WEBP_MuxAnimDispose dispose_method;  // Disposal method for the frame.
+  DEDUP_WEBP_MuxAnimBlend   blend_method;    // Blend operation for the frame.
   uint32_t    pad[1];     // padding for later use
 };
 
@@ -214,22 +214,22 @@ struct WebPMuxFrameInfo {
 // Note: Any existing images (including frames) will be removed.
 // Parameters:
 //   mux - (in/out) object in which the image is to be set
-//   bitstream - (in) can be a raw VP8/VP8L bitstream or a single-image
-//               WebP file (non-animated)
+//   bitstream - (in) can be a raw DEDUP_vP8_/DEDUP_vP8_L bitstream or a single-image
+//               DEDUP_WEBP_ file (non-animated)
 //   copy_data - (in) value 1 indicates given data WILL be copied to the mux
 //               object and value 0 indicates data will NOT be copied.
 // Returns:
 //   WEBP_MUX_INVALID_ARGUMENT - if mux is NULL or bitstream is NULL.
 //   WEBP_MUX_MEMORY_ERROR - on memory allocation error.
 //   WEBP_MUX_OK - on success.
-WEBP_EXTERN(WebPMuxError) WebPMuxSetImage(
-    WebPMux* mux, const WebPData* bitstream, int copy_data);
+WEBP_EXTERN(DEDUP_WEBP_MuxError) DEDUP_WEBP_MuxSetImage(
+    DEDUP_WEBP_Mux* mux, const DEDUP_WEBP_Data* bitstream, int copy_data);
 
 // Adds a frame at the end of the mux object.
 // Notes: (1) frame.id should be WEBP_CHUNK_ANMF
-//        (2) For setting a non-animated image, use WebPMuxSetImage() instead.
+//        (2) For setting a non-animated image, use DEDUP_WEBP_MuxSetImage() instead.
 //        (3) Type of frame being pushed must be same as the frames in mux.
-//        (4) As WebP only supports even offsets, any odd offset will be snapped
+//        (4) As DEDUP_WEBP_ only supports even offsets, any odd offset will be snapped
 //            to an even location using: offset &= ~1
 // Parameters:
 //   mux - (in/out) object to which the frame is to be added
@@ -241,13 +241,13 @@ WEBP_EXTERN(WebPMuxError) WebPMuxSetImage(
 //                               or if content of 'frame' is invalid.
 //   WEBP_MUX_MEMORY_ERROR - on memory allocation error.
 //   WEBP_MUX_OK - on success.
-WEBP_EXTERN(WebPMuxError) WebPMuxPushFrame(
-    WebPMux* mux, const WebPMuxFrameInfo* frame, int copy_data);
+WEBP_EXTERN(DEDUP_WEBP_MuxError) DEDUP_WEBP_MuxPushFrame(
+    DEDUP_WEBP_Mux* mux, const DEDUP_WEBP_MuxFrameInfo* frame, int copy_data);
 
 // Gets the nth frame from the mux object.
 // The content of 'frame->bitstream' is allocated using malloc(), and NOT
 // owned by the 'mux' object. It MUST be deallocated by the caller by calling
-// WebPDataClear().
+// DEDUP_WEBP_DataClear().
 // nth=0 has a special meaning - last position.
 // Parameters:
 //   mux - (in) object from which the info is to be fetched
@@ -259,8 +259,8 @@ WEBP_EXTERN(WebPMuxError) WebPMuxPushFrame(
 //   WEBP_MUX_BAD_DATA - if nth frame chunk in mux is invalid.
 //   WEBP_MUX_MEMORY_ERROR - on memory allocation error.
 //   WEBP_MUX_OK - on success.
-WEBP_EXTERN(WebPMuxError) WebPMuxGetFrame(
-    const WebPMux* mux, uint32_t nth, WebPMuxFrameInfo* frame);
+WEBP_EXTERN(DEDUP_WEBP_MuxError) DEDUP_WEBP_MuxGetFrame(
+    const DEDUP_WEBP_Mux* mux, uint32_t nth, DEDUP_WEBP_MuxFrameInfo* frame);
 
 // Deletes a frame from the mux object.
 // nth=0 has a special meaning - last position.
@@ -272,13 +272,13 @@ WEBP_EXTERN(WebPMuxError) WebPMuxGetFrame(
 //   WEBP_MUX_NOT_FOUND - If there are less than nth frames in the mux object
 //                        before deletion.
 //   WEBP_MUX_OK - on success.
-WEBP_EXTERN(WebPMuxError) WebPMuxDeleteFrame(WebPMux* mux, uint32_t nth);
+WEBP_EXTERN(DEDUP_WEBP_MuxError) DEDUP_WEBP_MuxDeleteFrame(DEDUP_WEBP_Mux* mux, uint32_t nth);
 
 //------------------------------------------------------------------------------
 // Animation.
 
 // Animation parameters.
-struct WebPMuxAnimParams {
+struct DEDUP_WEBP_MuxAnimParams {
   uint32_t bgcolor;  // Background color of the canvas stored (in MSB order) as:
                      // Bits 00 to 07: Alpha.
                      // Bits 08 to 15: Red.
@@ -296,8 +296,8 @@ struct WebPMuxAnimParams {
 //   WEBP_MUX_INVALID_ARGUMENT - if mux or params is NULL.
 //   WEBP_MUX_MEMORY_ERROR - on memory allocation error.
 //   WEBP_MUX_OK - on success.
-WEBP_EXTERN(WebPMuxError) WebPMuxSetAnimationParams(
-    WebPMux* mux, const WebPMuxAnimParams* params);
+WEBP_EXTERN(DEDUP_WEBP_MuxError) DEDUP_WEBP_MuxSetAnimationParams(
+    DEDUP_WEBP_Mux* mux, const DEDUP_WEBP_MuxAnimParams* params);
 
 // Gets the animation parameters from the mux object.
 // Parameters:
@@ -307,8 +307,8 @@ WEBP_EXTERN(WebPMuxError) WebPMuxSetAnimationParams(
 //   WEBP_MUX_INVALID_ARGUMENT - if mux or params is NULL.
 //   WEBP_MUX_NOT_FOUND - if ANIM chunk is not present in mux object.
 //   WEBP_MUX_OK - on success.
-WEBP_EXTERN(WebPMuxError) WebPMuxGetAnimationParams(
-    const WebPMux* mux, WebPMuxAnimParams* params);
+WEBP_EXTERN(DEDUP_WEBP_MuxError) DEDUP_WEBP_MuxGetAnimationParams(
+    const DEDUP_WEBP_Mux* mux, DEDUP_WEBP_MuxAnimParams* params);
 
 //------------------------------------------------------------------------------
 // Misc Utilities.
@@ -316,10 +316,10 @@ WEBP_EXTERN(WebPMuxError) WebPMuxGetAnimationParams(
 // Sets the canvas size for the mux object. The width and height can be
 // specified explicitly or left as zero (0, 0).
 // * When width and height are specified explicitly, then this frame bound is
-//   enforced during subsequent calls to WebPMuxAssemble() and an error is
+//   enforced during subsequent calls to DEDUP_WEBP_MuxAssemble() and an error is
 //   reported if any animated frame does not completely fit within the canvas.
 // * When unspecified (0, 0), the constructed canvas will get the frame bounds
-//   from the bounding-box over all frames after calling WebPMuxAssemble().
+//   from the bounding-box over all frames after calling DEDUP_WEBP_MuxAssemble().
 // Parameters:
 //   mux - (in) object to which the canvas size is to be set
 //   width - (in) canvas width
@@ -328,38 +328,38 @@ WEBP_EXTERN(WebPMuxError) WebPMuxGetAnimationParams(
 //   WEBP_MUX_INVALID_ARGUMENT - if mux is NULL; or
 //                               width or height are invalid or out of bounds
 //   WEBP_MUX_OK - on success.
-WEBP_EXTERN(WebPMuxError) WebPMuxSetCanvasSize(WebPMux* mux,
+WEBP_EXTERN(DEDUP_WEBP_MuxError) DEDUP_WEBP_MuxSetCanvasSize(DEDUP_WEBP_Mux* mux,
                                                int width, int height);
 
 // Gets the canvas size from the mux object.
-// Note: This method assumes that the VP8X chunk, if present, is up-to-date.
+// Note: This method assumes that the DEDUP_vP8_X chunk, if present, is up-to-date.
 // That is, the mux object hasn't been modified since the last call to
-// WebPMuxAssemble() or WebPMuxCreate().
+// DEDUP_WEBP_MuxAssemble() or DEDUP_WEBP_MuxCreate().
 // Parameters:
 //   mux - (in) object from which the canvas size is to be fetched
 //   width - (out) canvas width
 //   height - (out) canvas height
 // Returns:
 //   WEBP_MUX_INVALID_ARGUMENT - if mux, width or height is NULL.
-//   WEBP_MUX_BAD_DATA - if VP8X/VP8/VP8L chunk or canvas size is invalid.
+//   WEBP_MUX_BAD_DATA - if DEDUP_vP8_X/DEDUP_vP8_/DEDUP_vP8_L chunk or canvas size is invalid.
 //   WEBP_MUX_OK - on success.
-WEBP_EXTERN(WebPMuxError) WebPMuxGetCanvasSize(const WebPMux* mux,
+WEBP_EXTERN(DEDUP_WEBP_MuxError) DEDUP_WEBP_MuxGetCanvasSize(const DEDUP_WEBP_Mux* mux,
                                                int* width, int* height);
 
 // Gets the feature flags from the mux object.
-// Note: This method assumes that the VP8X chunk, if present, is up-to-date.
+// Note: This method assumes that the DEDUP_vP8_X chunk, if present, is up-to-date.
 // That is, the mux object hasn't been modified since the last call to
-// WebPMuxAssemble() or WebPMuxCreate().
+// DEDUP_WEBP_MuxAssemble() or DEDUP_WEBP_MuxCreate().
 // Parameters:
 //   mux - (in) object from which the features are to be fetched
 //   flags - (out) the flags specifying which features are present in the
 //           mux object. This will be an OR of various flag values.
-//           Enum 'WebPFeatureFlags' can be used to test individual flag values.
+//           Enum 'DEDUP_WEBP_FeatureFlags' can be used to test individual flag values.
 // Returns:
 //   WEBP_MUX_INVALID_ARGUMENT - if mux or flags is NULL.
-//   WEBP_MUX_BAD_DATA - if VP8X/VP8/VP8L chunk or canvas size is invalid.
+//   WEBP_MUX_BAD_DATA - if DEDUP_vP8_X/DEDUP_vP8_/DEDUP_vP8_L chunk or canvas size is invalid.
 //   WEBP_MUX_OK - on success.
-WEBP_EXTERN(WebPMuxError) WebPMuxGetFeatures(const WebPMux* mux,
+WEBP_EXTERN(DEDUP_WEBP_MuxError) DEDUP_WEBP_MuxGetFeatures(const DEDUP_WEBP_Mux* mux,
                                              uint32_t* flags);
 
 // Gets number of chunks with the given 'id' in the mux object.
@@ -370,59 +370,59 @@ WEBP_EXTERN(WebPMuxError) WebPMuxGetFeatures(const WebPMux* mux,
 // Returns:
 //   WEBP_MUX_INVALID_ARGUMENT - if mux, or num_elements is NULL.
 //   WEBP_MUX_OK - on success.
-WEBP_EXTERN(WebPMuxError) WebPMuxNumChunks(const WebPMux* mux,
-                                           WebPChunkId id, int* num_elements);
+WEBP_EXTERN(DEDUP_WEBP_MuxError) DEDUP_WEBP_MuxNumChunks(const DEDUP_WEBP_Mux* mux,
+                                           DEDUP_WEBP_ChunkId id, int* num_elements);
 
-// Assembles all chunks in WebP RIFF format and returns in 'assembled_data'.
+// Assembles all chunks in DEDUP_WEBP_ RIFF format and returns in 'assembled_data'.
 // This function also validates the mux object.
 // Note: The content of 'assembled_data' will be ignored and overwritten.
 // Also, the content of 'assembled_data' is allocated using malloc(), and NOT
 // owned by the 'mux' object. It MUST be deallocated by the caller by calling
-// WebPDataClear(). It's always safe to call WebPDataClear() upon return,
+// DEDUP_WEBP_DataClear(). It's always safe to call DEDUP_WEBP_DataClear() upon return,
 // even in case of error.
 // Parameters:
 //   mux - (in/out) object whose chunks are to be assembled
-//   assembled_data - (out) assembled WebP data
+//   assembled_data - (out) assembled DEDUP_WEBP_ data
 // Returns:
 //   WEBP_MUX_BAD_DATA - if mux object is invalid.
 //   WEBP_MUX_INVALID_ARGUMENT - if mux or assembled_data is NULL.
 //   WEBP_MUX_MEMORY_ERROR - on memory allocation error.
 //   WEBP_MUX_OK - on success.
-WEBP_EXTERN(WebPMuxError) WebPMuxAssemble(WebPMux* mux,
-                                          WebPData* assembled_data);
+WEBP_EXTERN(DEDUP_WEBP_MuxError) DEDUP_WEBP_MuxAssemble(DEDUP_WEBP_Mux* mux,
+                                          DEDUP_WEBP_Data* assembled_data);
 
 //------------------------------------------------------------------------------
-// WebPAnimEncoder API
+// DEDUP_WEBP_AnimEncoder API
 //
-// This API allows encoding (possibly) animated WebP images.
+// This API allows encoding (possibly) animated DEDUP_WEBP_ images.
 //
 // Code Example:
 /*
-  WebPAnimEncoderOptions enc_options;
-  WebPAnimEncoderOptionsInit(&enc_options);
+  DEDUP_WEBP_AnimEncoderOptions enc_options;
+  DEDUP_WEBP_AnimEncoderOptionsInit(&enc_options);
   // Tune 'enc_options' as needed.
-  WebPAnimEncoder* enc = WebPAnimEncoderNew(width, height, &enc_options);
+  DEDUP_WEBP_AnimEncoder* enc = DEDUP_WEBP_AnimEncoderNew(width, height, &enc_options);
   while(<there are more frames>) {
-    WebPConfig config;
-    WebPConfigInit(&config);
+    DEDUP_WEBP_Config config;
+    DEDUP_WEBP_ConfigInit(&config);
     // Tune 'config' as needed.
-    WebPAnimEncoderAdd(enc, frame, timestamp_ms, &config);
+    DEDUP_WEBP_AnimEncoderAdd(enc, frame, timestamp_ms, &config);
   }
-  WebPAnimEncoderAdd(enc, NULL, timestamp_ms, NULL);
-  WebPAnimEncoderAssemble(enc, webp_data);
-  WebPAnimEncoderDelete(enc);
+  DEDUP_WEBP_AnimEncoderAdd(enc, NULL, timestamp_ms, NULL);
+  DEDUP_WEBP_AnimEncoderAssemble(enc, webp_data);
+  DEDUP_WEBP_AnimEncoderDelete(enc);
   // Write the 'webp_data' to a file, or re-mux it further.
 */
 
-typedef struct WebPAnimEncoder WebPAnimEncoder;  // Main opaque object.
+typedef struct DEDUP_WEBP_AnimEncoder DEDUP_WEBP_AnimEncoder;  // Main opaque object.
 
 // Forward declarations. Defined in encode.h.
-struct WebPPicture;
-struct WebPConfig;
+struct DEDUP_WEBP_Picture;
+struct DEDUP_WEBP_Config;
 
 // Global options.
-struct WebPAnimEncoderOptions {
-  WebPMuxAnimParams anim_params;  // Animation parameters.
+struct DEDUP_WEBP_AnimEncoderOptions {
+  DEDUP_WEBP_MuxAnimParams anim_params;  // Animation parameters.
   int minimize_size;    // If true, minimize the output size (slow). Implicitly
                         // disables key-frame insertion.
   int kmin;
@@ -441,39 +441,39 @@ struct WebPAnimEncoderOptions {
 };
 
 // Internal, version-checked, entry point.
-WEBP_EXTERN(int) WebPAnimEncoderOptionsInitInternal(
-    WebPAnimEncoderOptions*, int);
+WEBP_EXTERN(int) DEDUP_WEBP_AnimEncoderOptionsInitInternal(
+    DEDUP_WEBP_AnimEncoderOptions*, int);
 
-// Should always be called, to initialize a fresh WebPAnimEncoderOptions
+// Should always be called, to initialize a fresh DEDUP_WEBP_AnimEncoderOptions
 // structure before modification. Returns false in case of version mismatch.
-// WebPAnimEncoderOptionsInit() must have succeeded before using the
+// DEDUP_WEBP_AnimEncoderOptionsInit() must have succeeded before using the
 // 'enc_options' object.
-static WEBP_INLINE int WebPAnimEncoderOptionsInit(
-    WebPAnimEncoderOptions* enc_options) {
-  return WebPAnimEncoderOptionsInitInternal(enc_options, WEBP_MUX_ABI_VERSION);
+static WEBP_INLINE int DEDUP_WEBP_AnimEncoderOptionsInit(
+    DEDUP_WEBP_AnimEncoderOptions* enc_options) {
+  return DEDUP_WEBP_AnimEncoderOptionsInitInternal(enc_options, WEBP_MUX_ABI_VERSION);
 }
 
 // Internal, version-checked, entry point.
-WEBP_EXTERN(WebPAnimEncoder*) WebPAnimEncoderNewInternal(
-    int, int, const WebPAnimEncoderOptions*, int);
+WEBP_EXTERN(DEDUP_WEBP_AnimEncoder*) DEDUP_WEBP_AnimEncoderNewInternal(
+    int, int, const DEDUP_WEBP_AnimEncoderOptions*, int);
 
-// Creates and initializes a WebPAnimEncoder object.
+// Creates and initializes a DEDUP_WEBP_AnimEncoder object.
 // Parameters:
 //   width/height - (in) canvas width and height of the animation.
 //   enc_options - (in) encoding options; can be passed NULL to pick
 //                      reasonable defaults.
 // Returns:
-//   A pointer to the newly created WebPAnimEncoder object.
+//   A pointer to the newly created DEDUP_WEBP_AnimEncoder object.
 //   Or NULL in case of memory error.
-static WEBP_INLINE WebPAnimEncoder* WebPAnimEncoderNew(
-    int width, int height, const WebPAnimEncoderOptions* enc_options) {
-  return WebPAnimEncoderNewInternal(width, height, enc_options,
+static WEBP_INLINE DEDUP_WEBP_AnimEncoder* DEDUP_WEBP_AnimEncoderNew(
+    int width, int height, const DEDUP_WEBP_AnimEncoderOptions* enc_options) {
+  return DEDUP_WEBP_AnimEncoderNewInternal(width, height, enc_options,
                                     WEBP_MUX_ABI_VERSION);
 }
 
-// Optimize the given frame for WebP, encode it and add it to the
-// WebPAnimEncoder object.
-// The last call to 'WebPAnimEncoderAdd' should be with frame = NULL, which
+// Optimize the given frame for DEDUP_WEBP_, encode it and add it to the
+// DEDUP_WEBP_AnimEncoder object.
+// The last call to 'DEDUP_WEBP_AnimEncoderAdd' should be with frame = NULL, which
 // indicates that no more frames are to be added. This call is also used to
 // determine the duration of the last frame.
 // Parameters:
@@ -489,36 +489,36 @@ static WEBP_INLINE WebPAnimEncoder* WebPAnimEncoderNew(
 // Returns:
 //   On error, returns false and frame->error_code is set appropriately.
 //   Otherwise, returns true.
-WEBP_EXTERN(int) WebPAnimEncoderAdd(
-    WebPAnimEncoder* enc, struct WebPPicture* frame, int timestamp_ms,
-    const struct WebPConfig* config);
+WEBP_EXTERN(int) DEDUP_WEBP_AnimEncoderAdd(
+    DEDUP_WEBP_AnimEncoder* enc, struct DEDUP_WEBP_Picture* frame, int timestamp_ms,
+    const struct DEDUP_WEBP_Config* config);
 
-// Assemble all frames added so far into a WebP bitstream.
-// This call should be preceded by  a call to 'WebPAnimEncoderAdd' with
+// Assemble all frames added so far into a DEDUP_WEBP_ bitstream.
+// This call should be preceded by  a call to 'DEDUP_WEBP_AnimEncoderAdd' with
 // frame = NULL; if not, the duration of the last frame will be internally
 // estimated.
 // Parameters:
 //   enc - (in/out) object from which the frames are to be assembled.
-//   webp_data - (out) generated WebP bitstream.
+//   webp_data - (out) generated DEDUP_WEBP_ bitstream.
 // Returns:
 //   True on success.
-WEBP_EXTERN(int) WebPAnimEncoderAssemble(WebPAnimEncoder* enc,
-                                         WebPData* webp_data);
+WEBP_EXTERN(int) DEDUP_WEBP_AnimEncoderAssemble(DEDUP_WEBP_AnimEncoder* enc,
+                                         DEDUP_WEBP_Data* webp_data);
 
 // Get error string corresponding to the most recent call using 'enc'. The
 // returned string is owned by 'enc' and is valid only until the next call to
-// WebPAnimEncoderAdd() or WebPAnimEncoderAssemble() or WebPAnimEncoderDelete().
+// DEDUP_WEBP_AnimEncoderAdd() or DEDUP_WEBP_AnimEncoderAssemble() or DEDUP_WEBP_AnimEncoderDelete().
 // Parameters:
 //   enc - (in/out) object from which the error string is to be fetched.
 // Returns:
 //   NULL if 'enc' is NULL. Otherwise, returns the error string if the last call
 //   to 'enc' had an error, or an empty string if the last call was a success.
-WEBP_EXTERN(const char*) WebPAnimEncoderGetError(WebPAnimEncoder* enc);
+WEBP_EXTERN(const char*) DEDUP_WEBP_AnimEncoderGetError(DEDUP_WEBP_AnimEncoder* enc);
 
-// Deletes the WebPAnimEncoder object.
+// Deletes the DEDUP_WEBP_AnimEncoder object.
 // Parameters:
 //   enc - (in/out) object to be deleted
-WEBP_EXTERN(void) WebPAnimEncoderDelete(WebPAnimEncoder* enc);
+WEBP_EXTERN(void) DEDUP_WEBP_AnimEncoderDelete(DEDUP_WEBP_AnimEncoder* enc);
 
 //------------------------------------------------------------------------------
 

@@ -7,7 +7,7 @@
 // be found in the AUTHORS file in the root of the source tree.
 // -----------------------------------------------------------------------------
 //
-// Specific inlined methods for boolean decoder [VP8GetBit() ...]
+// Specific inlined methods for boolean decoder [DEDUP_vP8_GetBit() ...]
 // This file should be included by the .c sources that actually need to call
 // these methods.
 //
@@ -43,18 +43,18 @@ typedef uint16_t lbit_t;
 typedef uint8_t lbit_t;
 #endif
 
-extern const uint8_t kVP8Log2Range[128];
-extern const uint8_t kVP8NewRange[128];
+extern const uint8_t kDEDUP_vP8_Log2Range[128];
+extern const uint8_t kDEDUP_vP8_NewRange[128];
 
 // special case for the tail byte-reading
-void VP8LoadFinalBytes(VP8BitReader* const br);
+void DEDUP_vP8_LoadFinalBytes(DEDUP_vP8_BitReader* const br);
 
 //------------------------------------------------------------------------------
 // Inlined critical functions
 
 // makes sure br->value_ has at least BITS bits worth of data
 static WEBP_UBSAN_IGNORE_UNDEF WEBP_INLINE
-void VP8LoadNewBytes(VP8BitReader* const br) {
+void DEDUP_vP8_LoadNewBytes(DEDUP_vP8_BitReader* const br) {
   assert(br != NULL && br->buf_ != NULL);
   // Read 'BITS' bits at a time if possible.
   if (br->buf_ < br->buf_max_) {
@@ -98,18 +98,18 @@ void VP8LoadNewBytes(VP8BitReader* const br) {
     br->value_ = bits | (br->value_ << BITS);
     br->bits_ += BITS;
   } else {
-    VP8LoadFinalBytes(br);    // no need to be inlined
+    DEDUP_vP8_LoadFinalBytes(br);    // no need to be inlined
   }
 }
 
 // Read a bit with proba 'prob'. Speed-critical function!
-static WEBP_INLINE int VP8GetBit(VP8BitReader* const br, int prob) {
+static WEBP_INLINE int DEDUP_vP8_GetBit(DEDUP_vP8_BitReader* const br, int prob) {
   // Don't move this declaration! It makes a big speed difference to store
-  // 'range' *before* calling VP8LoadNewBytes(), even if this function doesn't
+  // 'range' *before* calling DEDUP_vP8_LoadNewBytes(), even if this function doesn't
   // alter br->range_ value.
   range_t range = br->range_;
   if (br->bits_ < 0) {
-    VP8LoadNewBytes(br);
+    DEDUP_vP8_LoadNewBytes(br);
   }
   {
     const int pos = br->bits_;
@@ -135,8 +135,8 @@ static WEBP_INLINE int VP8GetBit(VP8BitReader* const br, int prob) {
     }
 #endif
     if (range <= (range_t)0x7e) {
-      const int shift = kVP8Log2Range[range];
-      range = kVP8NewRange[range];
+      const int shift = kDEDUP_vP8_Log2Range[range];
+      range = kDEDUP_vP8_NewRange[range];
       br->bits_ -= shift;
     }
     br->range_ = range;
@@ -144,11 +144,11 @@ static WEBP_INLINE int VP8GetBit(VP8BitReader* const br, int prob) {
   }
 }
 
-// simplified version of VP8GetBit() for prob=0x80 (note shift is always 1 here)
+// simplified version of DEDUP_vP8_GetBit() for prob=0x80 (note shift is always 1 here)
 static WEBP_UBSAN_IGNORE_UNSIGNED_OVERFLOW WEBP_INLINE
-int VP8GetSigned(VP8BitReader* const br, int v) {
+int DEDUP_vP8_GetSigned(DEDUP_vP8_BitReader* const br, int v) {
   if (br->bits_ < 0) {
-    VP8LoadNewBytes(br);
+    DEDUP_vP8_LoadNewBytes(br);
   }
   {
     const int pos = br->bits_;

@@ -651,22 +651,22 @@ UPSAMPLE_FUNC(UpsampleRgb565LinePair,   YuvToRgb565,   2)
 //------------------------------------------------------------------------------
 // Entry point
 
-extern WebPUpsampleLinePairFunc WebPUpsamplers[/* MODE_LAST */];
+extern DEDUP_WEBP_UpsampleLinePairFunc DEDUP_WEBP_Upsamplers[/* MODE_LAST */];
 
-extern void WebPInitUpsamplersMSA(void);
+extern void DEDUP_WEBP_InitUpsamplersMSA(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitUpsamplersMSA(void) {
-  WebPUpsamplers[MODE_RGB]       = UpsampleRgbLinePair;
-  WebPUpsamplers[MODE_RGBA]      = UpsampleRgbaLinePair;
-  WebPUpsamplers[MODE_BGR]       = UpsampleBgrLinePair;
-  WebPUpsamplers[MODE_BGRA]      = UpsampleBgraLinePair;
-  WebPUpsamplers[MODE_ARGB]      = UpsampleArgbLinePair;
-  WebPUpsamplers[MODE_rgbA]      = UpsampleRgbaLinePair;
-  WebPUpsamplers[MODE_bgrA]      = UpsampleBgraLinePair;
-  WebPUpsamplers[MODE_Argb]      = UpsampleArgbLinePair;
-  WebPUpsamplers[MODE_RGB_565]   = UpsampleRgb565LinePair;
-  WebPUpsamplers[MODE_RGBA_4444] = UpsampleRgba4444LinePair;
-  WebPUpsamplers[MODE_rgbA_4444] = UpsampleRgba4444LinePair;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_InitUpsamplersMSA(void) {
+  DEDUP_WEBP_Upsamplers[MODE_RGB]       = UpsampleRgbLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_RGBA]      = UpsampleRgbaLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_BGR]       = UpsampleBgrLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_BGRA]      = UpsampleBgraLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_ARGB]      = UpsampleArgbLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_rgbA]      = UpsampleRgbaLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_bgrA]      = UpsampleBgraLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_Argb]      = UpsampleArgbLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_RGB_565]   = UpsampleRgb565LinePair;
+  DEDUP_WEBP_Upsamplers[MODE_RGBA_4444] = UpsampleRgba4444LinePair;
+  DEDUP_WEBP_Upsamplers[MODE_rgbA_4444] = UpsampleRgba4444LinePair;
 }
 
 #endif  // FANCY_UPSAMPLING
@@ -674,5 +674,5 @@ WEBP_TSAN_IGNORE_FUNCTION void WebPInitUpsamplersMSA(void) {
 #endif  // WEBP_USE_MSA
 
 #if !(defined(FANCY_UPSAMPLING) && defined(WEBP_USE_MSA))
-WEBP_DSP_INIT_STUB(WebPInitUpsamplersMSA)
+WEBP_DSP_INIT_STUB(DEDUP_WEBP_InitUpsamplersMSA)
 #endif

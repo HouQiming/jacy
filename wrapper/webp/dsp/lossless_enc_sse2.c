@@ -36,13 +36,13 @@ static void SubtractGreenFromBlueAndRed(uint32_t* argb_data, int num_pixels) {
     _mm_storeu_si128((__m128i*)&argb_data[i], out);
   }
   // fallthrough and finish off with plain-C
-  VP8LSubtractGreenFromBlueAndRed_C(argb_data + i, num_pixels - i);
+  DEDUP_vP8_LSubtractGreenFromBlueAndRed_C(argb_data + i, num_pixels - i);
 }
 
 //------------------------------------------------------------------------------
 // Color Transform
 
-static void TransformColor(const VP8LMultipliers* const m,
+static void TransformColor(const DEDUP_vP8_LMultipliers* const m,
                            uint32_t* argb_data, int num_pixels) {
   const __m128i mults_rb = _mm_set_epi16(
       CST_5b(m->green_to_red_), CST_5b(m->green_to_blue_),
@@ -70,7 +70,7 @@ static void TransformColor(const VP8LMultipliers* const m,
     _mm_storeu_si128((__m128i*)&argb_data[i], out);
   }
   // fallthrough and finish off with plain-C
-  VP8LTransformColor_C(m, argb_data + i, num_pixels - i);
+  DEDUP_vP8_LTransformColor_C(m, argb_data + i, num_pixels - i);
 }
 
 //------------------------------------------------------------------------------
@@ -119,7 +119,7 @@ static void CollectColorBlueTransforms(const uint32_t* argb, int stride,
   {
     const int left_over = tile_width & (SPAN - 1);
     if (left_over > 0) {
-      VP8LCollectColorBlueTransforms_C(argb + tile_width - left_over, stride,
+      DEDUP_vP8_LCollectColorBlueTransforms_C(argb + tile_width - left_over, stride,
                                        left_over, tile_height,
                                        green_to_blue, red_to_blue, histo);
     }
@@ -161,7 +161,7 @@ static void CollectColorRedTransforms(const uint32_t* argb, int stride,
   {
     const int left_over = tile_width & (SPAN - 1);
     if (left_over > 0) {
-      VP8LCollectColorRedTransforms_C(argb + tile_width - left_over, stride,
+      DEDUP_vP8_LCollectColorRedTransforms_C(argb + tile_width - left_over, stride,
                                       left_over, tile_height,
                                       green_to_red, histo);
     }
@@ -226,11 +226,11 @@ static void AddVectorEq(const uint32_t* a, uint32_t* out, int size) {
 
 // Note we are adding uint32_t's as *signed* int32's (using _mm_add_epi32). But
 // that's ok since the histogram values are less than 1<<28 (max picture size).
-static void HistogramAdd(const VP8LHistogram* const a,
-                         const VP8LHistogram* const b,
-                         VP8LHistogram* const out) {
+static void HistogramAdd(const DEDUP_vP8_LHistogram* const a,
+                         const DEDUP_vP8_LHistogram* const b,
+                         DEDUP_vP8_LHistogram* const out) {
   int i;
-  const int literal_size = VP8LHistogramNumCodes(a->palette_code_bits_);
+  const int literal_size = DEDUP_vP8_LHistogramNumCodes(a->palette_code_bits_);
   assert(a->palette_code_bits_ == b->palette_code_bits_);
   if (b != out) {
     AddVector(a->literal_, b->literal_, out->literal_, NUM_LITERAL_CODES);
@@ -258,7 +258,7 @@ static void HistogramAdd(const VP8LHistogram* const a,
 // Used in loop unrolling.
 #define ANALYZE_X_OR_Y(x_or_y, j)                                   \
   do {                                                              \
-    if (x_or_y[i + j] != 0) retval -= VP8LFastSLog2(x_or_y[i + j]); \
+    if (x_or_y[i + j] != 0) retval -= DEDUP_vP8_LFastSLog2(x_or_y[i + j]); \
   } while (0)
 
 // Checks whether the X + Y contribution is worth computing and adding.
@@ -266,7 +266,7 @@ static void HistogramAdd(const VP8LHistogram* const a,
 #define ANALYZE_XY(j)                  \
   do {                                 \
     if (tmp[j] != 0) {                 \
-      retval -= VP8LFastSLog2(tmp[j]); \
+      retval -= DEDUP_vP8_LFastSLog2(tmp[j]); \
       ANALYZE_X_OR_Y(X, j);            \
     }                                  \
   } while (0)
@@ -319,7 +319,7 @@ static float CombinedShannonEntropy(const int X[256], const int Y[256]) {
   _mm_storeu_si128((__m128i*)tmp, sumXY_128);
   sumXY = tmp[3] + tmp[2] + tmp[1] + tmp[0];
 
-  retval += VP8LFastSLog2(sumX) + VP8LFastSLog2(sumXY);
+  retval += DEDUP_vP8_LFastSLog2(sumX) + DEDUP_vP8_LFastSLog2(sumXY);
   return (float)retval;
 }
 #undef ANALYZE_X_OR_Y
@@ -380,20 +380,20 @@ static int VectorMismatch(const uint32_t* const array1,
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8LEncDspInitSSE2(void);
+extern void DEDUP_vP8_LEncDspInitSSE2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8LEncDspInitSSE2(void) {
-  VP8LSubtractGreenFromBlueAndRed = SubtractGreenFromBlueAndRed;
-  VP8LTransformColor = TransformColor;
-  VP8LCollectColorBlueTransforms = CollectColorBlueTransforms;
-  VP8LCollectColorRedTransforms = CollectColorRedTransforms;
-  VP8LHistogramAdd = HistogramAdd;
-  VP8LCombinedShannonEntropy = CombinedShannonEntropy;
-  VP8LVectorMismatch = VectorMismatch;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_LEncDspInitSSE2(void) {
+  DEDUP_vP8_LSubtractGreenFromBlueAndRed = SubtractGreenFromBlueAndRed;
+  DEDUP_vP8_LTransformColor = TransformColor;
+  DEDUP_vP8_LCollectColorBlueTransforms = CollectColorBlueTransforms;
+  DEDUP_vP8_LCollectColorRedTransforms = CollectColorRedTransforms;
+  DEDUP_vP8_LHistogramAdd = HistogramAdd;
+  DEDUP_vP8_LCombinedShannonEntropy = CombinedShannonEntropy;
+  DEDUP_vP8_LVectorMismatch = VectorMismatch;
 }
 
 #else  // !WEBP_USE_SSE2
 
-WEBP_DSP_INIT_STUB(VP8LEncDspInitSSE2)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_LEncDspInitSSE2)
 
 #endif  // WEBP_USE_SSE2

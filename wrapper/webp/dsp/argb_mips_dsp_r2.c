@@ -96,15 +96,15 @@ static void PackRGB(const uint8_t* r, const uint8_t* g, const uint8_t* b,
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8EncDspARGBInitMIPSdspR2(void);
+extern void DEDUP_vP8_EncDspARGBInitMIPSdspR2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8EncDspARGBInitMIPSdspR2(void) {
-  VP8PackARGB = PackARGB;
-  VP8PackRGB = PackRGB;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_EncDspARGBInitMIPSdspR2(void) {
+  DEDUP_vP8_PackARGB = PackARGB;
+  DEDUP_vP8_PackRGB = PackRGB;
 }
 
 #else  // !WEBP_USE_MIPS_DSP_R2
 
-WEBP_DSP_INIT_STUB(VP8EncDspARGBInitMIPSdspR2)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_EncDspARGBInitMIPSdspR2)
 
 #endif  // WEBP_USE_MIPS_DSP_R2

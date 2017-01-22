@@ -48,7 +48,7 @@
   dst = VSHF_UB(src, t0, mask1);                                \
 } while (0)
 
-static void TransformColor(const VP8LMultipliers* const m, uint32_t* data,
+static void TransformColor(const DEDUP_vP8_LMultipliers* const m, uint32_t* data,
                            int num_pixels) {
   v16u8 src0, dst0;
   const v16i8 g2br = (v16i8)__msa_fill_w(m->green_to_blue_ |
@@ -133,15 +133,15 @@ static void SubtractGreenFromBlueAndRed(uint32_t* argb_data, int num_pixels) {
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8LEncDspInitMSA(void);
+extern void DEDUP_vP8_LEncDspInitMSA(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8LEncDspInitMSA(void) {
-  VP8LSubtractGreenFromBlueAndRed = SubtractGreenFromBlueAndRed;
-  VP8LTransformColor = TransformColor;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_LEncDspInitMSA(void) {
+  DEDUP_vP8_LSubtractGreenFromBlueAndRed = SubtractGreenFromBlueAndRed;
+  DEDUP_vP8_LTransformColor = TransformColor;
 }
 
 #else  // !WEBP_USE_MSA
 
-WEBP_DSP_INIT_STUB(VP8LEncDspInitMSA)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_LEncDspInitMSA)
 
 #endif  // WEBP_USE_MSA

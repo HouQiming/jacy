@@ -25,7 +25,7 @@ extern "C" {
 #endif
 
 // Not a trivial literal symbol.
-#define VP8L_NON_TRIVIAL_SYM (0xffffffff)
+#define DEDUP_vP8_L_NON_TRIVIAL_SYM (0xffffffff)
 
 // A simple container for histograms of data.
 typedef struct {
@@ -44,77 +44,77 @@ typedef struct {
   double literal_cost_;      // Cached values of dominant entropy costs:
   double red_cost_;          // literal, red & blue.
   double blue_cost_;
-} VP8LHistogram;
+} DEDUP_vP8_LHistogram;
 
 // Collection of histograms with fixed capacity, allocated as one
-// big memory chunk. Can be destroyed by calling WebPSafeFree().
+// big memory chunk. Can be destroyed by calling DEDUP_WEBP_SafeFree().
 typedef struct {
   int size;         // number of slots currently in use
   int max_size;     // maximum capacity
-  VP8LHistogram** histograms;
-} VP8LHistogramSet;
+  DEDUP_vP8_LHistogram** histograms;
+} DEDUP_vP8_LHistogramSet;
 
 // Create the histogram.
 //
 // The input data is the PixOrCopy data, which models the literals, stop
 // codes and backward references (both distances and lengths).  Also: if
 // palette_code_bits is >= 0, initialize the histogram with this value.
-void VP8LHistogramCreate(VP8LHistogram* const p,
-                         const VP8LBackwardRefs* const refs,
+void DEDUP_vP8_LHistogramCreate(DEDUP_vP8_LHistogram* const p,
+                         const DEDUP_vP8_LBackwardRefs* const refs,
                          int palette_code_bits);
 
 // Return the size of the histogram for a given palette_code_bits.
-int VP8LGetHistogramSize(int palette_code_bits);
+int DEDUP_vP8_LGetHistogramSize(int palette_code_bits);
 
 // Set the palette_code_bits and reset the stats.
-void VP8LHistogramInit(VP8LHistogram* const p, int palette_code_bits);
+void DEDUP_vP8_LHistogramInit(DEDUP_vP8_LHistogram* const p, int palette_code_bits);
 
 // Collect all the references into a histogram (without reset)
-void VP8LHistogramStoreRefs(const VP8LBackwardRefs* const refs,
-                            VP8LHistogram* const histo);
+void DEDUP_vP8_LHistogramStoreRefs(const DEDUP_vP8_LBackwardRefs* const refs,
+                            DEDUP_vP8_LHistogram* const histo);
 
 // Free the memory allocated for the histogram.
-void VP8LFreeHistogram(VP8LHistogram* const histo);
+void DEDUP_vP8_LFreeHistogram(DEDUP_vP8_LHistogram* const histo);
 
 // Free the memory allocated for the histogram set.
-void VP8LFreeHistogramSet(VP8LHistogramSet* const histo);
+void DEDUP_vP8_LFreeHistogramSet(DEDUP_vP8_LHistogramSet* const histo);
 
 // Allocate an array of pointer to histograms, allocated and initialized
 // using 'cache_bits'. Return NULL in case of memory error.
-VP8LHistogramSet* VP8LAllocateHistogramSet(int size, int cache_bits);
+DEDUP_vP8_LHistogramSet* DEDUP_vP8_LAllocateHistogramSet(int size, int cache_bits);
 
 // Allocate and initialize histogram object with specified 'cache_bits'.
 // Returns NULL in case of memory error.
-// Special case of VP8LAllocateHistogramSet, with size equals 1.
-VP8LHistogram* VP8LAllocateHistogram(int cache_bits);
+// Special case of DEDUP_vP8_LAllocateHistogramSet, with size equals 1.
+DEDUP_vP8_LHistogram* DEDUP_vP8_LAllocateHistogram(int cache_bits);
 
 // Accumulate a token 'v' into a histogram.
-void VP8LHistogramAddSinglePixOrCopy(VP8LHistogram* const histo,
+void DEDUP_vP8_LHistogramAddSinglePixOrCopy(DEDUP_vP8_LHistogram* const histo,
                                      const PixOrCopy* const v);
 
-static WEBP_INLINE int VP8LHistogramNumCodes(int palette_code_bits) {
+static WEBP_INLINE int DEDUP_vP8_LHistogramNumCodes(int palette_code_bits) {
   return NUM_LITERAL_CODES + NUM_LENGTH_CODES +
       ((palette_code_bits > 0) ? (1 << palette_code_bits) : 0);
 }
 
 // Builds the histogram image.
-int VP8LGetHistoImageSymbols(int xsize, int ysize,
-                             const VP8LBackwardRefs* const refs,
+int DEDUP_vP8_LGetHistoImageSymbols(int xsize, int ysize,
+                             const DEDUP_vP8_LBackwardRefs* const refs,
                              int quality, int low_effort,
                              int histogram_bits, int cache_bits,
-                             VP8LHistogramSet* const image_in,
-                             VP8LHistogramSet* const tmp_histos,
+                             DEDUP_vP8_LHistogramSet* const image_in,
+                             DEDUP_vP8_LHistogramSet* const tmp_histos,
                              uint16_t* const histogram_symbols);
 
 // Returns the entropy for the symbols in the input array.
 // Also sets trivial_symbol to the code value, if the array has only one code
-// value. Otherwise, set it to VP8L_NON_TRIVIAL_SYM.
-double VP8LBitsEntropy(const uint32_t* const array, int n,
+// value. Otherwise, set it to DEDUP_vP8_L_NON_TRIVIAL_SYM.
+double DEDUP_vP8_LBitsEntropy(const uint32_t* const array, int n,
                        uint32_t* const trivial_symbol);
 
 // Estimate how many bits the combined entropy of literals and distance
 // approximately maps to.
-double VP8LHistogramEstimateBits(const VP8LHistogram* const p);
+double DEDUP_vP8_LHistogramEstimateBits(const DEDUP_vP8_LHistogram* const p);
 
 #ifdef __cplusplus
 }

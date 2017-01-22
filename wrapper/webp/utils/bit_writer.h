@@ -23,8 +23,8 @@ extern "C" {
 //------------------------------------------------------------------------------
 // Bit-writing
 
-typedef struct VP8BitWriter VP8BitWriter;
-struct VP8BitWriter {
+typedef struct DEDUP_vP8_BitWriter DEDUP_vP8_BitWriter;
+struct DEDUP_vP8_BitWriter {
   int32_t  range_;      // range-1
   int32_t  value_;
   int      run_;        // number of outstanding bits
@@ -36,54 +36,54 @@ struct VP8BitWriter {
 };
 
 // Initialize the object. Allocates some initial memory based on expected_size.
-int VP8BitWriterInit(VP8BitWriter* const bw, size_t expected_size);
+int DEDUP_vP8_BitWriterInit(DEDUP_vP8_BitWriter* const bw, size_t expected_size);
 // Finalize the bitstream coding. Returns a pointer to the internal buffer.
-uint8_t* VP8BitWriterFinish(VP8BitWriter* const bw);
+uint8_t* DEDUP_vP8_BitWriterFinish(DEDUP_vP8_BitWriter* const bw);
 // Release any pending memory and zeroes the object. Not a mandatory call.
 // Only useful in case of error, when the internal buffer hasn't been grabbed!
-void VP8BitWriterWipeOut(VP8BitWriter* const bw);
+void DEDUP_vP8_BitWriterWipeOut(DEDUP_vP8_BitWriter* const bw);
 
-int VP8PutBit(VP8BitWriter* const bw, int bit, int prob);
-int VP8PutBitUniform(VP8BitWriter* const bw, int bit);
-void VP8PutBits(VP8BitWriter* const bw, uint32_t value, int nb_bits);
-void VP8PutSignedBits(VP8BitWriter* const bw, int value, int nb_bits);
+int DEDUP_vP8_PutBit(DEDUP_vP8_BitWriter* const bw, int bit, int prob);
+int DEDUP_vP8_PutBitUniform(DEDUP_vP8_BitWriter* const bw, int bit);
+void DEDUP_vP8_PutBits(DEDUP_vP8_BitWriter* const bw, uint32_t value, int nb_bits);
+void DEDUP_vP8_PutSignedBits(DEDUP_vP8_BitWriter* const bw, int value, int nb_bits);
 
 // Appends some bytes to the internal buffer. Data is copied.
-int VP8BitWriterAppend(VP8BitWriter* const bw,
+int DEDUP_vP8_BitWriterAppend(DEDUP_vP8_BitWriter* const bw,
                        const uint8_t* data, size_t size);
 
 // return approximate write position (in bits)
-static WEBP_INLINE uint64_t VP8BitWriterPos(const VP8BitWriter* const bw) {
+static WEBP_INLINE uint64_t DEDUP_vP8_BitWriterPos(const DEDUP_vP8_BitWriter* const bw) {
   const uint64_t nb_bits = 8 + bw->nb_bits_;   // bw->nb_bits_ is <= 0, note
   return (bw->pos_ + bw->run_) * 8 + nb_bits;
 }
 
 // Returns a pointer to the internal buffer.
-static WEBP_INLINE uint8_t* VP8BitWriterBuf(const VP8BitWriter* const bw) {
+static WEBP_INLINE uint8_t* DEDUP_vP8_BitWriterBuf(const DEDUP_vP8_BitWriter* const bw) {
   return bw->buf_;
 }
 // Returns the size of the internal buffer.
-static WEBP_INLINE size_t VP8BitWriterSize(const VP8BitWriter* const bw) {
+static WEBP_INLINE size_t DEDUP_vP8_BitWriterSize(const DEDUP_vP8_BitWriter* const bw) {
   return bw->pos_;
 }
 
 //------------------------------------------------------------------------------
-// VP8LBitWriter
+// DEDUP_vP8_LBitWriter
 
 #if defined(__x86_64__) || defined(_M_X64)   // 64bit
 typedef uint64_t vp8l_atype_t;   // accumulator type
 typedef uint32_t vp8l_wtype_t;   // writing type
 #define WSWAP HToLE32
-#define VP8L_WRITER_BYTES    4   // sizeof(vp8l_wtype_t)
-#define VP8L_WRITER_BITS     32  // 8 * sizeof(vp8l_wtype_t)
-#define VP8L_WRITER_MAX_BITS 64  // 8 * sizeof(vp8l_atype_t)
+#define DEDUP_vP8_L_WRITER_BYTES    4   // sizeof(vp8l_wtype_t)
+#define DEDUP_vP8_L_WRITER_BITS     32  // 8 * sizeof(vp8l_wtype_t)
+#define DEDUP_vP8_L_WRITER_MAX_BITS 64  // 8 * sizeof(vp8l_atype_t)
 #else
 typedef uint32_t vp8l_atype_t;
 typedef uint16_t vp8l_wtype_t;
 #define WSWAP HToLE16
-#define VP8L_WRITER_BYTES    2
-#define VP8L_WRITER_BITS     16
-#define VP8L_WRITER_MAX_BITS 32
+#define DEDUP_vP8_L_WRITER_BYTES    2
+#define DEDUP_vP8_L_WRITER_BITS     16
+#define DEDUP_vP8_L_WRITER_MAX_BITS 32
 #endif
 
 typedef struct {
@@ -93,47 +93,47 @@ typedef struct {
   uint8_t*     cur_;    // current write position
   uint8_t*     end_;    // end of buffer
 
-  // After all bits are written (VP8LBitWriterFinish()), the caller must observe
+  // After all bits are written (DEDUP_vP8_LBitWriterFinish()), the caller must observe
   // the state of error_. A value of 1 indicates that a memory allocation
   // failure has happened during bit writing. A value of 0 indicates successful
   // writing of bits.
   int error_;
-} VP8LBitWriter;
+} DEDUP_vP8_LBitWriter;
 
-static WEBP_INLINE size_t VP8LBitWriterNumBytes(VP8LBitWriter* const bw) {
+static WEBP_INLINE size_t DEDUP_vP8_LBitWriterNumBytes(DEDUP_vP8_LBitWriter* const bw) {
   return (bw->cur_ - bw->buf_) + ((bw->used_ + 7) >> 3);
 }
 
 // Returns false in case of memory allocation error.
-int VP8LBitWriterInit(VP8LBitWriter* const bw, size_t expected_size);
+int DEDUP_vP8_LBitWriterInit(DEDUP_vP8_LBitWriter* const bw, size_t expected_size);
 // Finalize the bitstream coding. Returns a pointer to the internal buffer.
-uint8_t* VP8LBitWriterFinish(VP8LBitWriter* const bw);
+uint8_t* DEDUP_vP8_LBitWriterFinish(DEDUP_vP8_LBitWriter* const bw);
 // Release any pending memory and zeroes the object.
-void VP8LBitWriterWipeOut(VP8LBitWriter* const bw);
+void DEDUP_vP8_LBitWriterWipeOut(DEDUP_vP8_LBitWriter* const bw);
 
-// Internal function for VP8LPutBits flushing 32 bits from the written state.
-void VP8LPutBitsFlushBits(VP8LBitWriter* const bw);
+// Internal function for DEDUP_vP8_LPutBits flushing 32 bits from the written state.
+void DEDUP_vP8_LPutBitsFlushBits(DEDUP_vP8_LBitWriter* const bw);
 
 // PutBits internal function used in the 16 bit vp8l_wtype_t case.
-void VP8LPutBitsInternal(VP8LBitWriter* const bw, uint32_t bits, int n_bits);
+void DEDUP_vP8_LPutBitsInternal(DEDUP_vP8_LBitWriter* const bw, uint32_t bits, int n_bits);
 
 // This function writes bits into bytes in increasing addresses (little endian),
 // and within a byte least-significant-bit first.
-// This function can write up to 32 bits in one go, but VP8LBitReader can only
-// read 24 bits max (VP8L_MAX_NUM_BIT_READ).
-// VP8LBitWriter's error_ flag is set in case of  memory allocation error.
-static WEBP_INLINE void VP8LPutBits(VP8LBitWriter* const bw,
+// This function can write up to 32 bits in one go, but DEDUP_vP8_LBitReader can only
+// read 24 bits max (DEDUP_vP8_L_MAX_NUM_BIT_READ).
+// DEDUP_vP8_LBitWriter's error_ flag is set in case of  memory allocation error.
+static WEBP_INLINE void DEDUP_vP8_LPutBits(DEDUP_vP8_LBitWriter* const bw,
                                     uint32_t bits, int n_bits) {
   if (sizeof(vp8l_wtype_t) == 4) {
     if (n_bits > 0) {
       if (bw->used_ >= 32) {
-        VP8LPutBitsFlushBits(bw);
+        DEDUP_vP8_LPutBitsFlushBits(bw);
       }
       bw->bits_ |= (vp8l_atype_t)bits << bw->used_;
       bw->used_ += n_bits;
     }
   } else {
-    VP8LPutBitsInternal(bw, bits, n_bits);
+    DEDUP_vP8_LPutBitsInternal(bw, bits, n_bits);
   }
 }
 

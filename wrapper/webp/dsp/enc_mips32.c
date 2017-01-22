@@ -188,7 +188,7 @@ static void ITransform(const uint8_t* ref, const int16_t* in,
   "sh           %[level],       " #N "(%[pout])                     \n\t"
 
 static int QuantizeBlock(int16_t in[16], int16_t out[16],
-                         const VP8Matrix* const mtx) {
+                         const DEDUP_vP8_Matrix* const mtx) {
   int temp0, temp1, temp2, temp3, temp4, temp5;
   int sign, coeff, level, i;
   int max_level = MAX_LEVEL;
@@ -239,7 +239,7 @@ static int QuantizeBlock(int16_t in[16], int16_t out[16],
 }
 
 static int Quantize2Blocks(int16_t in[32], int16_t out[32],
-                           const VP8Matrix* const mtx) {
+                           const DEDUP_vP8_Matrix* const mtx) {
   int nz;
   nz  = QuantizeBlock(in + 0 * 16, out + 0 * 16, mtx) << 0;
   nz |= QuantizeBlock(in + 1 * 16, out + 1 * 16, mtx) << 1;
@@ -648,25 +648,25 @@ static int SSE4x4(const uint8_t* a, const uint8_t* b) {
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8EncDspInitMIPS32(void);
+extern void DEDUP_vP8_EncDspInitMIPS32(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8EncDspInitMIPS32(void) {
-  VP8ITransform = ITransform;
-  VP8FTransform = FTransform;
-  VP8EncQuantizeBlock = QuantizeBlock;
-  VP8EncQuantize2Blocks = Quantize2Blocks;
-  VP8TDisto4x4 = Disto4x4;
-  VP8TDisto16x16 = Disto16x16;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_EncDspInitMIPS32(void) {
+  DEDUP_vP8_ITransform = ITransform;
+  DEDUP_vP8_FTransform = FTransform;
+  DEDUP_vP8_EncQuantizeBlock = QuantizeBlock;
+  DEDUP_vP8_EncQuantize2Blocks = Quantize2Blocks;
+  DEDUP_vP8_TDisto4x4 = Disto4x4;
+  DEDUP_vP8_TDisto16x16 = Disto16x16;
 #if !defined(WORK_AROUND_GCC)
-  VP8SSE16x16 = SSE16x16;
-  VP8SSE8x8 = SSE8x8;
-  VP8SSE16x8 = SSE16x8;
-  VP8SSE4x4 = SSE4x4;
+  DEDUP_vP8_SSE16x16 = SSE16x16;
+  DEDUP_vP8_SSE8x8 = SSE8x8;
+  DEDUP_vP8_SSE16x8 = SSE16x8;
+  DEDUP_vP8_SSE4x4 = SSE4x4;
 #endif
 }
 
 #else  // !WEBP_USE_MIPS32
 
-WEBP_DSP_INIT_STUB(VP8EncDspInitMIPS32)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_EncDspInitMIPS32)
 
 #endif  // WEBP_USE_MIPS32

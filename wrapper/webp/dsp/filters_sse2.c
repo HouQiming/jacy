@@ -311,20 +311,20 @@ static void GradientUnfilter(const uint8_t* prev, const uint8_t* in,
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8FiltersInitSSE2(void);
+extern void DEDUP_vP8_FiltersInitSSE2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8FiltersInitSSE2(void) {
-  WebPUnfilters[WEBP_FILTER_HORIZONTAL] = HorizontalUnfilter;
-  WebPUnfilters[WEBP_FILTER_VERTICAL] = VerticalUnfilter;
-  WebPUnfilters[WEBP_FILTER_GRADIENT] = GradientUnfilter;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_FiltersInitSSE2(void) {
+  DEDUP_WEBP_Unfilters[WEBP_FILTER_HORIZONTAL] = HorizontalUnfilter;
+  DEDUP_WEBP_Unfilters[WEBP_FILTER_VERTICAL] = VerticalUnfilter;
+  DEDUP_WEBP_Unfilters[WEBP_FILTER_GRADIENT] = GradientUnfilter;
 
-  WebPFilters[WEBP_FILTER_HORIZONTAL] = HorizontalFilter;
-  WebPFilters[WEBP_FILTER_VERTICAL] = VerticalFilter;
-  WebPFilters[WEBP_FILTER_GRADIENT] = GradientFilter;
+  DEDUP_WEBP_Filters[WEBP_FILTER_HORIZONTAL] = HorizontalFilter;
+  DEDUP_WEBP_Filters[WEBP_FILTER_VERTICAL] = VerticalFilter;
+  DEDUP_WEBP_Filters[WEBP_FILTER_GRADIENT] = GradientFilter;
 }
 
 #else  // !WEBP_USE_SSE2
 
-WEBP_DSP_INIT_STUB(VP8FiltersInitSSE2)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_FiltersInitSSE2)
 
 #endif  // WEBP_USE_SSE2

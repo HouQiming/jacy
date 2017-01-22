@@ -21,39 +21,39 @@ static WEBP_INLINE uint8_t clip(int v, int max_value) {
   return v < 0 ? 0 : v > max_value ? max_value : v;
 }
 
-int16_t VP8kVToR[256], VP8kUToB[256];
-int32_t VP8kVToG[256], VP8kUToG[256];
-uint8_t VP8kClip[YUV_RANGE_MAX - YUV_RANGE_MIN];
-uint8_t VP8kClip4Bits[YUV_RANGE_MAX - YUV_RANGE_MIN];
+int16_t DEDUP_vP8_kVToR[256], DEDUP_vP8_kUToB[256];
+int32_t DEDUP_vP8_kVToG[256], DEDUP_vP8_kUToG[256];
+uint8_t DEDUP_vP8_kClip[YUV_RANGE_MAX - YUV_RANGE_MIN];
+uint8_t DEDUP_vP8_kClip4Bits[YUV_RANGE_MAX - YUV_RANGE_MIN];
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8YUVInit(void) {
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_YUVInit(void) {
   int i;
   if (done) {
     return;
   }
 #ifndef USE_YUVj
   for (i = 0; i < 256; ++i) {
-    VP8kVToR[i] = (89858 * (i - 128) + YUV_HALF) >> YUV_FIX;
-    VP8kUToG[i] = -22014 * (i - 128) + YUV_HALF;
-    VP8kVToG[i] = -45773 * (i - 128);
-    VP8kUToB[i] = (113618 * (i - 128) + YUV_HALF) >> YUV_FIX;
+    DEDUP_vP8_kVToR[i] = (89858 * (i - 128) + YUV_HALF) >> YUV_FIX;
+    DEDUP_vP8_kUToG[i] = -22014 * (i - 128) + YUV_HALF;
+    DEDUP_vP8_kVToG[i] = -45773 * (i - 128);
+    DEDUP_vP8_kUToB[i] = (113618 * (i - 128) + YUV_HALF) >> YUV_FIX;
   }
   for (i = YUV_RANGE_MIN; i < YUV_RANGE_MAX; ++i) {
     const int k = ((i - 16) * 76283 + YUV_HALF) >> YUV_FIX;
-    VP8kClip[i - YUV_RANGE_MIN] = clip(k, 255);
-    VP8kClip4Bits[i - YUV_RANGE_MIN] = clip((k + 8) >> 4, 15);
+    DEDUP_vP8_kClip[i - YUV_RANGE_MIN] = clip(k, 255);
+    DEDUP_vP8_kClip4Bits[i - YUV_RANGE_MIN] = clip((k + 8) >> 4, 15);
   }
 #else
   for (i = 0; i < 256; ++i) {
-    VP8kVToR[i] = (91881 * (i - 128) + YUV_HALF) >> YUV_FIX;
-    VP8kUToG[i] = -22554 * (i - 128) + YUV_HALF;
-    VP8kVToG[i] = -46802 * (i - 128);
-    VP8kUToB[i] = (116130 * (i - 128) + YUV_HALF) >> YUV_FIX;
+    DEDUP_vP8_kVToR[i] = (91881 * (i - 128) + YUV_HALF) >> YUV_FIX;
+    DEDUP_vP8_kUToG[i] = -22554 * (i - 128) + YUV_HALF;
+    DEDUP_vP8_kVToG[i] = -46802 * (i - 128);
+    DEDUP_vP8_kUToB[i] = (116130 * (i - 128) + YUV_HALF) >> YUV_FIX;
   }
   for (i = YUV_RANGE_MIN; i < YUV_RANGE_MAX; ++i) {
     const int k = i;
-    VP8kClip[i - YUV_RANGE_MIN] = clip(k, 255);
-    VP8kClip4Bits[i - YUV_RANGE_MIN] = clip((k + 8) >> 4, 15);
+    DEDUP_vP8_kClip[i - YUV_RANGE_MIN] = clip(k, 255);
+    DEDUP_vP8_kClip4Bits[i - YUV_RANGE_MIN] = clip((k + 8) >> 4, 15);
   }
 #endif
 
@@ -62,7 +62,7 @@ WEBP_TSAN_IGNORE_FUNCTION void VP8YUVInit(void) {
 
 #else
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8YUVInit(void) {}
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_YUVInit(void) {}
 
 #endif  // WEBP_YUV_USE_TABLE
 
@@ -88,21 +88,21 @@ static void FUNC_NAME(const uint8_t* y,                                        \
 }                                                                              \
 
 // All variants implemented.
-ROW_FUNC(YuvToRgbRow,      VP8YuvToRgb,  3)
-ROW_FUNC(YuvToBgrRow,      VP8YuvToBgr,  3)
-ROW_FUNC(YuvToRgbaRow,     VP8YuvToRgba, 4)
-ROW_FUNC(YuvToBgraRow,     VP8YuvToBgra, 4)
-ROW_FUNC(YuvToArgbRow,     VP8YuvToArgb, 4)
-ROW_FUNC(YuvToRgba4444Row, VP8YuvToRgba4444, 2)
-ROW_FUNC(YuvToRgb565Row,   VP8YuvToRgb565, 2)
+ROW_FUNC(YuvToRgbRow,      DEDUP_vP8_YuvToRgb,  3)
+ROW_FUNC(YuvToBgrRow,      DEDUP_vP8_YuvToBgr,  3)
+ROW_FUNC(YuvToRgbaRow,     DEDUP_vP8_YuvToRgba, 4)
+ROW_FUNC(YuvToBgraRow,     DEDUP_vP8_YuvToBgra, 4)
+ROW_FUNC(YuvToArgbRow,     DEDUP_vP8_YuvToArgb, 4)
+ROW_FUNC(YuvToRgba4444Row, DEDUP_vP8_YuvToRgba4444, 2)
+ROW_FUNC(YuvToRgb565Row,   DEDUP_vP8_YuvToRgb565, 2)
 
 #undef ROW_FUNC
 
-// Main call for processing a plane with a WebPSamplerRowFunc function:
-void WebPSamplerProcessPlane(const uint8_t* y, int y_stride,
+// Main call for processing a plane with a DEDUP_WEBP_SamplerRowFunc function:
+void DEDUP_WEBP_SamplerProcessPlane(const uint8_t* y, int y_stride,
                              const uint8_t* u, const uint8_t* v, int uv_stride,
                              uint8_t* dst, int dst_stride,
-                             int width, int height, WebPSamplerRowFunc func) {
+                             int width, int height, DEDUP_WEBP_SamplerRowFunc func) {
   int j;
   for (j = 0; j < height; ++j) {
     func(y, u, v, dst, width);
@@ -118,49 +118,49 @@ void WebPSamplerProcessPlane(const uint8_t* y, int y_stride,
 //-----------------------------------------------------------------------------
 // Main call
 
-WebPSamplerRowFunc WebPSamplers[MODE_LAST];
+DEDUP_WEBP_SamplerRowFunc DEDUP_WEBP_Samplers[MODE_LAST];
 
-extern void WebPInitSamplersSSE2(void);
-extern void WebPInitSamplersMIPS32(void);
-extern void WebPInitSamplersMIPSdspR2(void);
+extern void DEDUP_WEBP_InitSamplersSSE2(void);
+extern void DEDUP_WEBP_InitSamplersMIPS32(void);
+extern void DEDUP_WEBP_InitSamplersMIPSdspR2(void);
 
-static volatile VP8CPUInfo yuv_last_cpuinfo_used =
-    (VP8CPUInfo)&yuv_last_cpuinfo_used;
+static volatile DEDUP_vP8_CPUInfo yuv_last_cpuinfo_used =
+    (DEDUP_vP8_CPUInfo)&yuv_last_cpuinfo_used;
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitSamplers(void) {
-  if (yuv_last_cpuinfo_used == VP8GetCPUInfo) return;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_InitSamplers(void) {
+  if (yuv_last_cpuinfo_used == DEDUP_vP8_GetCPUInfo) return;
 
-  WebPSamplers[MODE_RGB]       = YuvToRgbRow;
-  WebPSamplers[MODE_RGBA]      = YuvToRgbaRow;
-  WebPSamplers[MODE_BGR]       = YuvToBgrRow;
-  WebPSamplers[MODE_BGRA]      = YuvToBgraRow;
-  WebPSamplers[MODE_ARGB]      = YuvToArgbRow;
-  WebPSamplers[MODE_RGBA_4444] = YuvToRgba4444Row;
-  WebPSamplers[MODE_RGB_565]   = YuvToRgb565Row;
-  WebPSamplers[MODE_rgbA]      = YuvToRgbaRow;
-  WebPSamplers[MODE_bgrA]      = YuvToBgraRow;
-  WebPSamplers[MODE_Argb]      = YuvToArgbRow;
-  WebPSamplers[MODE_rgbA_4444] = YuvToRgba4444Row;
+  DEDUP_WEBP_Samplers[MODE_RGB]       = YuvToRgbRow;
+  DEDUP_WEBP_Samplers[MODE_RGBA]      = YuvToRgbaRow;
+  DEDUP_WEBP_Samplers[MODE_BGR]       = YuvToBgrRow;
+  DEDUP_WEBP_Samplers[MODE_BGRA]      = YuvToBgraRow;
+  DEDUP_WEBP_Samplers[MODE_ARGB]      = YuvToArgbRow;
+  DEDUP_WEBP_Samplers[MODE_RGBA_4444] = YuvToRgba4444Row;
+  DEDUP_WEBP_Samplers[MODE_RGB_565]   = YuvToRgb565Row;
+  DEDUP_WEBP_Samplers[MODE_rgbA]      = YuvToRgbaRow;
+  DEDUP_WEBP_Samplers[MODE_bgrA]      = YuvToBgraRow;
+  DEDUP_WEBP_Samplers[MODE_Argb]      = YuvToArgbRow;
+  DEDUP_WEBP_Samplers[MODE_rgbA_4444] = YuvToRgba4444Row;
 
   // If defined, use CPUInfo() to overwrite some pointers with faster versions.
-  if (VP8GetCPUInfo != NULL) {
+  if (DEDUP_vP8_GetCPUInfo != NULL) {
 #if defined(WEBP_USE_SSE2)
-    if (VP8GetCPUInfo(kSSE2)) {
-      WebPInitSamplersSSE2();
+    if (DEDUP_vP8_GetCPUInfo(kSSE2)) {
+      DEDUP_WEBP_InitSamplersSSE2();
     }
 #endif  // WEBP_USE_SSE2
 #if defined(WEBP_USE_MIPS32)
-    if (VP8GetCPUInfo(kMIPS32)) {
-      WebPInitSamplersMIPS32();
+    if (DEDUP_vP8_GetCPUInfo(kMIPS32)) {
+      DEDUP_WEBP_InitSamplersMIPS32();
     }
 #endif  // WEBP_USE_MIPS32
 #if defined(WEBP_USE_MIPS_DSP_R2)
-    if (VP8GetCPUInfo(kMIPSdspR2)) {
-      WebPInitSamplersMIPSdspR2();
+    if (DEDUP_vP8_GetCPUInfo(kMIPSdspR2)) {
+      DEDUP_WEBP_InitSamplersMIPSdspR2();
     }
 #endif  // WEBP_USE_MIPS_DSP_R2
   }
-  yuv_last_cpuinfo_used = VP8GetCPUInfo;
+  yuv_last_cpuinfo_used = DEDUP_vP8_GetCPUInfo;
 }
 
 //-----------------------------------------------------------------------------
@@ -170,12 +170,12 @@ static void ConvertARGBToY(const uint32_t* argb, uint8_t* y, int width) {
   int i;
   for (i = 0; i < width; ++i) {
     const uint32_t p = argb[i];
-    y[i] = VP8RGBToY((p >> 16) & 0xff, (p >> 8) & 0xff, (p >>  0) & 0xff,
+    y[i] = DEDUP_vP8_RGBToY((p >> 16) & 0xff, (p >> 8) & 0xff, (p >>  0) & 0xff,
                      YUV_HALF);
   }
 }
 
-void WebPConvertARGBToUV_C(const uint32_t* argb, uint8_t* u, uint8_t* v,
+void DEDUP_WEBP_ConvertARGBToUV_C(const uint32_t* argb, uint8_t* u, uint8_t* v,
                            int src_width, int do_store) {
   // No rounding. Last pixel is dealt with separately.
   const int uv_width = src_width >> 1;
@@ -183,13 +183,13 @@ void WebPConvertARGBToUV_C(const uint32_t* argb, uint8_t* u, uint8_t* v,
   for (i = 0; i < uv_width; ++i) {
     const uint32_t v0 = argb[2 * i + 0];
     const uint32_t v1 = argb[2 * i + 1];
-    // VP8RGBToU/V expects four accumulated pixels. Hence we need to
+    // DEDUP_vP8_RGBToU/V expects four accumulated pixels. Hence we need to
     // scale r/g/b value by a factor 2. We just shift v0/v1 one bit less.
     const int r = ((v0 >> 15) & 0x1fe) + ((v1 >> 15) & 0x1fe);
     const int g = ((v0 >>  7) & 0x1fe) + ((v1 >>  7) & 0x1fe);
     const int b = ((v0 <<  1) & 0x1fe) + ((v1 <<  1) & 0x1fe);
-    const int tmp_u = VP8RGBToU(r, g, b, YUV_HALF << 2);
-    const int tmp_v = VP8RGBToV(r, g, b, YUV_HALF << 2);
+    const int tmp_u = DEDUP_vP8_RGBToU(r, g, b, YUV_HALF << 2);
+    const int tmp_v = DEDUP_vP8_RGBToV(r, g, b, YUV_HALF << 2);
     if (do_store) {
       u[i] = tmp_u;
       v[i] = tmp_v;
@@ -204,8 +204,8 @@ void WebPConvertARGBToUV_C(const uint32_t* argb, uint8_t* u, uint8_t* v,
     const int r = (v0 >> 14) & 0x3fc;
     const int g = (v0 >>  6) & 0x3fc;
     const int b = (v0 <<  2) & 0x3fc;
-    const int tmp_u = VP8RGBToU(r, g, b, YUV_HALF << 2);
-    const int tmp_v = VP8RGBToV(r, g, b, YUV_HALF << 2);
+    const int tmp_u = DEDUP_vP8_RGBToU(r, g, b, YUV_HALF << 2);
+    const int tmp_v = DEDUP_vP8_RGBToV(r, g, b, YUV_HALF << 2);
     if (do_store) {
       u[i] = tmp_u;
       v[i] = tmp_v;
@@ -221,60 +221,60 @@ void WebPConvertARGBToUV_C(const uint32_t* argb, uint8_t* u, uint8_t* v,
 static void ConvertRGB24ToY(const uint8_t* rgb, uint8_t* y, int width) {
   int i;
   for (i = 0; i < width; ++i, rgb += 3) {
-    y[i] = VP8RGBToY(rgb[0], rgb[1], rgb[2], YUV_HALF);
+    y[i] = DEDUP_vP8_RGBToY(rgb[0], rgb[1], rgb[2], YUV_HALF);
   }
 }
 
 static void ConvertBGR24ToY(const uint8_t* bgr, uint8_t* y, int width) {
   int i;
   for (i = 0; i < width; ++i, bgr += 3) {
-    y[i] = VP8RGBToY(bgr[2], bgr[1], bgr[0], YUV_HALF);
+    y[i] = DEDUP_vP8_RGBToY(bgr[2], bgr[1], bgr[0], YUV_HALF);
   }
 }
 
-void WebPConvertRGBA32ToUV_C(const uint16_t* rgb,
+void DEDUP_WEBP_ConvertRGBA32ToUV_C(const uint16_t* rgb,
                              uint8_t* u, uint8_t* v, int width) {
   int i;
   for (i = 0; i < width; i += 1, rgb += 4) {
     const int r = rgb[0], g = rgb[1], b = rgb[2];
-    u[i] = VP8RGBToU(r, g, b, YUV_HALF << 2);
-    v[i] = VP8RGBToV(r, g, b, YUV_HALF << 2);
+    u[i] = DEDUP_vP8_RGBToU(r, g, b, YUV_HALF << 2);
+    v[i] = DEDUP_vP8_RGBToV(r, g, b, YUV_HALF << 2);
   }
 }
 
 //-----------------------------------------------------------------------------
 
-void (*WebPConvertRGB24ToY)(const uint8_t* rgb, uint8_t* y, int width);
-void (*WebPConvertBGR24ToY)(const uint8_t* bgr, uint8_t* y, int width);
-void (*WebPConvertRGBA32ToUV)(const uint16_t* rgb,
+void (*DEDUP_WEBP_ConvertRGB24ToY)(const uint8_t* rgb, uint8_t* y, int width);
+void (*DEDUP_WEBP_ConvertBGR24ToY)(const uint8_t* bgr, uint8_t* y, int width);
+void (*DEDUP_WEBP_ConvertRGBA32ToUV)(const uint16_t* rgb,
                               uint8_t* u, uint8_t* v, int width);
 
-void (*WebPConvertARGBToY)(const uint32_t* argb, uint8_t* y, int width);
-void (*WebPConvertARGBToUV)(const uint32_t* argb, uint8_t* u, uint8_t* v,
+void (*DEDUP_WEBP_ConvertARGBToY)(const uint32_t* argb, uint8_t* y, int width);
+void (*DEDUP_WEBP_ConvertARGBToUV)(const uint32_t* argb, uint8_t* u, uint8_t* v,
                             int src_width, int do_store);
 
-static volatile VP8CPUInfo rgba_to_yuv_last_cpuinfo_used =
-    (VP8CPUInfo)&rgba_to_yuv_last_cpuinfo_used;
+static volatile DEDUP_vP8_CPUInfo rgba_to_yuv_last_cpuinfo_used =
+    (DEDUP_vP8_CPUInfo)&rgba_to_yuv_last_cpuinfo_used;
 
-extern void WebPInitConvertARGBToYUVSSE2(void);
+extern void DEDUP_WEBP_InitConvertARGBToYUVSSE2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitConvertARGBToYUV(void) {
-  if (rgba_to_yuv_last_cpuinfo_used == VP8GetCPUInfo) return;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_InitConvertARGBToYUV(void) {
+  if (rgba_to_yuv_last_cpuinfo_used == DEDUP_vP8_GetCPUInfo) return;
 
-  WebPConvertARGBToY = ConvertARGBToY;
-  WebPConvertARGBToUV = WebPConvertARGBToUV_C;
+  DEDUP_WEBP_ConvertARGBToY = ConvertARGBToY;
+  DEDUP_WEBP_ConvertARGBToUV = DEDUP_WEBP_ConvertARGBToUV_C;
 
-  WebPConvertRGB24ToY = ConvertRGB24ToY;
-  WebPConvertBGR24ToY = ConvertBGR24ToY;
+  DEDUP_WEBP_ConvertRGB24ToY = ConvertRGB24ToY;
+  DEDUP_WEBP_ConvertBGR24ToY = ConvertBGR24ToY;
 
-  WebPConvertRGBA32ToUV = WebPConvertRGBA32ToUV_C;
+  DEDUP_WEBP_ConvertRGBA32ToUV = DEDUP_WEBP_ConvertRGBA32ToUV_C;
 
-  if (VP8GetCPUInfo != NULL) {
+  if (DEDUP_vP8_GetCPUInfo != NULL) {
 #if defined(WEBP_USE_SSE2)
-    if (VP8GetCPUInfo(kSSE2)) {
-      WebPInitConvertARGBToYUVSSE2();
+    if (DEDUP_vP8_GetCPUInfo(kSSE2)) {
+      DEDUP_WEBP_InitConvertARGBToYUVSSE2();
     }
 #endif  // WEBP_USE_SSE2
   }
-  rgba_to_yuv_last_cpuinfo_used = VP8GetCPUInfo;
+  rgba_to_yuv_last_cpuinfo_used = DEDUP_vP8_GetCPUInfo;
 }

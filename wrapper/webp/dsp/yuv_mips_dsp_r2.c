@@ -118,17 +118,17 @@ ROW_FUNC(YuvToBgraRow,     4, 2, 1, 0, 3)
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void WebPInitSamplersMIPSdspR2(void);
+extern void DEDUP_WEBP_InitSamplersMIPSdspR2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitSamplersMIPSdspR2(void) {
-  WebPSamplers[MODE_RGB]  = YuvToRgbRow;
-  WebPSamplers[MODE_RGBA] = YuvToRgbaRow;
-  WebPSamplers[MODE_BGR]  = YuvToBgrRow;
-  WebPSamplers[MODE_BGRA] = YuvToBgraRow;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_InitSamplersMIPSdspR2(void) {
+  DEDUP_WEBP_Samplers[MODE_RGB]  = YuvToRgbRow;
+  DEDUP_WEBP_Samplers[MODE_RGBA] = YuvToRgbaRow;
+  DEDUP_WEBP_Samplers[MODE_BGR]  = YuvToBgrRow;
+  DEDUP_WEBP_Samplers[MODE_BGRA] = YuvToBgraRow;
 }
 
 #else  // !WEBP_USE_MIPS_DSP_R2
 
-WEBP_DSP_INIT_STUB(WebPInitSamplersMIPSdspR2)
+WEBP_DSP_INIT_STUB(DEDUP_WEBP_InitSamplersMIPSdspR2)
 
 #endif  // WEBP_USE_MIPS_DSP_R2

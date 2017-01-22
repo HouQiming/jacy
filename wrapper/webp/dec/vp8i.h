@@ -7,12 +7,12 @@
 // be found in the AUTHORS file in the root of the source tree.
 // -----------------------------------------------------------------------------
 //
-// VP8 decoder: internal header.
+// DEDUP_vP8_ decoder: internal header.
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#ifndef WEBP_DEC_VP8I_H_
-#define WEBP_DEC_VP8I_H_
+#ifndef WEBP_DEC_DEDUP_vP8_I_H_
+#define WEBP_DEC_DEDUP_vP8_I_H_
 
 #include <string.h>     // for memcpy()
 #include "./common.h"
@@ -73,7 +73,7 @@ typedef struct {
   uint8_t profile_;
   uint8_t show_;
   uint32_t partition_length_;
-} VP8FrameHeader;
+} DEDUP_vP8_FrameHeader;
 
 typedef struct {
   uint16_t width_;
@@ -82,7 +82,7 @@ typedef struct {
   uint8_t yscale_;
   uint8_t colorspace_;   // 0 = YCbCr
   uint8_t clamp_type_;
-} VP8PictureHeader;
+} DEDUP_vP8_PictureHeader;
 
 // segment features
 typedef struct {
@@ -91,22 +91,22 @@ typedef struct {
   int absolute_delta_;    // absolute or delta values for quantizer and filter
   int8_t quantizer_[NUM_MB_SEGMENTS];        // quantization changes
   int8_t filter_strength_[NUM_MB_SEGMENTS];  // filter strength for segments
-} VP8SegmentHeader;
+} DEDUP_vP8_SegmentHeader;
 
 // probas associated to one of the contexts
-typedef uint8_t VP8ProbaArray[NUM_PROBAS];
+typedef uint8_t DEDUP_vP8_ProbaArray[NUM_PROBAS];
 
 typedef struct {   // all the probas associated to one band
-  VP8ProbaArray probas_[NUM_CTX];
-} VP8BandProbas;
+  DEDUP_vP8_ProbaArray probas_[NUM_CTX];
+} DEDUP_vP8_BandProbas;
 
 // Struct collecting all frame-persistent probabilities.
 typedef struct {
   uint8_t segments_[MB_FEATURE_TREE_PROBS];
   // Type: 0:Intra16-AC  1:Intra16-DC   2:Chroma   3:Intra4
-  VP8BandProbas bands_[NUM_TYPES][NUM_BANDS];
-  const VP8BandProbas* bands_ptr_[NUM_TYPES][16 + 1];
-} VP8Proba;
+  DEDUP_vP8_BandProbas bands_[NUM_TYPES][NUM_BANDS];
+  const DEDUP_vP8_BandProbas* bands_ptr_[NUM_TYPES][16 + 1];
+} DEDUP_vP8_Proba;
 
 // Filter parameters
 typedef struct {
@@ -116,7 +116,7 @@ typedef struct {
   int use_lf_delta_;
   int ref_lf_delta_[NUM_REF_LF_DELTAS];
   int mode_lf_delta_[NUM_MODE_LF_DELTAS];
-} VP8FilterHeader;
+} DEDUP_vP8_FilterHeader;
 
 //------------------------------------------------------------------------------
 // Informations about the macroblocks.
@@ -126,12 +126,12 @@ typedef struct {  // filter specs
   uint8_t f_ilevel_;     // inner limit in [1..63]
   uint8_t f_inner_;      // do inner filtering?
   uint8_t hev_thresh_;   // high edge variance threshold in [0..2]
-} VP8FInfo;
+} DEDUP_vP8_FInfo;
 
 typedef struct {  // Top/Left Contexts used for syntax-parsing
   uint8_t nz_;        // non-zero AC/DC coeffs (4bit for luma + 4bit for chroma)
   uint8_t nz_dc_;     // non-zero DC coeff (1bit)
-} VP8MB;
+} DEDUP_vP8_MB;
 
 // Dequantization matrices
 typedef int quant_t[2];      // [DC / AC].  Can be 'uint16_t[2]' too (~slower).
@@ -140,7 +140,7 @@ typedef struct {
 
   int uv_quant_;   // U/V quantizer value
   int dither_;     // dithering amplitude (0 = off, max=255)
-} VP8QuantMatrix;
+} DEDUP_vP8_QuantMatrix;
 
 // Data needed to reconstruct a macroblock
 typedef struct {
@@ -160,47 +160,47 @@ typedef struct {
   uint8_t dither_;      // local dithering strength (deduced from non_zero_*)
   uint8_t skip_;
   uint8_t segment_;
-} VP8MBData;
+} DEDUP_vP8_MBData;
 
 // Persistent information needed by the parallel processing
 typedef struct {
   int id_;              // cache row to process (in [0..2])
   int mb_y_;            // macroblock position of the row
   int filter_row_;      // true if row-filtering is needed
-  VP8FInfo* f_info_;    // filter strengths (swapped with dec->f_info_)
-  VP8MBData* mb_data_;  // reconstruction data (swapped with dec->mb_data_)
-  VP8Io io_;            // copy of the VP8Io to pass to put()
-} VP8ThreadContext;
+  DEDUP_vP8_FInfo* f_info_;    // filter strengths (swapped with dec->f_info_)
+  DEDUP_vP8_MBData* mb_data_;  // reconstruction data (swapped with dec->mb_data_)
+  DEDUP_vP8_Io io_;            // copy of the DEDUP_vP8_Io to pass to put()
+} DEDUP_vP8_ThreadContext;
 
 // Saved top samples, per macroblock. Fits into a cache-line.
 typedef struct {
   uint8_t y[16], u[8], v[8];
-} VP8TopSamples;
+} DEDUP_vP8_TopSamples;
 
 //------------------------------------------------------------------------------
-// VP8Decoder: the main opaque structure handed over to user
+// DEDUP_vP8_Decoder: the main opaque structure handed over to user
 
-struct VP8Decoder {
-  VP8StatusCode status_;
-  int ready_;     // true if ready to decode a picture with VP8Decode()
+struct DEDUP_vP8_Decoder {
+  DEDUP_vP8_StatusCode status_;
+  int ready_;     // true if ready to decode a picture with DEDUP_vP8_Decode()
   const char* error_msg_;  // set when status_ is not OK.
 
   // Main data source
-  VP8BitReader br_;
+  DEDUP_vP8_BitReader br_;
 
   // headers
-  VP8FrameHeader   frm_hdr_;
-  VP8PictureHeader pic_hdr_;
-  VP8FilterHeader  filter_hdr_;
-  VP8SegmentHeader segment_hdr_;
+  DEDUP_vP8_FrameHeader   frm_hdr_;
+  DEDUP_vP8_PictureHeader pic_hdr_;
+  DEDUP_vP8_FilterHeader  filter_hdr_;
+  DEDUP_vP8_SegmentHeader segment_hdr_;
 
   // Worker
-  WebPWorker worker_;
+  DEDUP_WEBP_Worker worker_;
   int mt_method_;      // multi-thread method: 0=off, 1=[parse+recon][filter]
                        // 2=[parse][recon+filter]
   int cache_id_;       // current cache row
   int num_caches_;     // number of cached rows of 16 pixels (1, 2 or 3)
-  VP8ThreadContext thread_ctx_;  // Thread context
+  DEDUP_vP8_ThreadContext thread_ctx_;  // Thread context
 
   // dimension, in macroblock units.
   int mb_w_, mb_h_;
@@ -212,17 +212,17 @@ struct VP8Decoder {
   // number of partitions minus one.
   uint32_t num_parts_minus_one_;
   // per-partition boolean decoders.
-  VP8BitReader parts_[MAX_NUM_PARTITIONS];
+  DEDUP_vP8_BitReader parts_[MAX_NUM_PARTITIONS];
 
   // Dithering strength, deduced from decoding options
   int dither_;                // whether to use dithering or not
-  VP8Random dithering_rg_;    // random generator for dithering
+  DEDUP_vP8_Random dithering_rg_;    // random generator for dithering
 
   // dequantization (one set of DC/AC dequant factor per segment)
-  VP8QuantMatrix dqm_[NUM_MB_SEGMENTS];
+  DEDUP_vP8_QuantMatrix dqm_[NUM_MB_SEGMENTS];
 
   // probabilities
-  VP8Proba proba_;
+  DEDUP_vP8_Proba proba_;
   int use_skip_proba_;
   uint8_t skip_p_;
 
@@ -230,10 +230,10 @@ struct VP8Decoder {
   uint8_t* intra_t_;      // top intra modes values: 4 * mb_w_
   uint8_t  intra_l_[4];   // left intra modes values
 
-  VP8TopSamples* yuv_t_;  // top y/u/v samples
+  DEDUP_vP8_TopSamples* yuv_t_;  // top y/u/v samples
 
-  VP8MB* mb_info_;        // contextual macroblock info (mb_w_ + 1)
-  VP8FInfo* f_info_;      // filter strength info
+  DEDUP_vP8_MB* mb_info_;        // contextual macroblock info (mb_w_ + 1)
+  DEDUP_vP8_FInfo* f_info_;      // filter strength info
   uint8_t* yuv_b_;        // main block for Y/U/V (size = YUV_SIZE)
 
   uint8_t* cache_y_;      // macroblock row for storing unfiltered samples
@@ -248,11 +248,11 @@ struct VP8Decoder {
 
   // Per macroblock non-persistent infos.
   int mb_x_, mb_y_;       // current position, in macroblock units
-  VP8MBData* mb_data_;    // parsed reconstruction data
+  DEDUP_vP8_MBData* mb_data_;    // parsed reconstruction data
 
   // Filtering side-info
   int filter_type_;                          // 0=off, 1=simple, 2=complex
-  VP8FInfo fstrengths_[NUM_MB_SEGMENTS][2];  // precalculated per-segment/type
+  DEDUP_vP8_FInfo fstrengths_[NUM_MB_SEGMENTS][2];  // precalculated per-segment/type
 
   // Alpha
   struct ALPHDecoder* alph_dec_;  // alpha-plane decoder object
@@ -269,46 +269,46 @@ struct VP8Decoder {
 // internal functions. Not public.
 
 // in vp8.c
-int VP8SetError(VP8Decoder* const dec,
-                VP8StatusCode error, const char* const msg);
+int DEDUP_vP8_SetError(DEDUP_vP8_Decoder* const dec,
+                DEDUP_vP8_StatusCode error, const char* const msg);
 
 // in tree.c
-void VP8ResetProba(VP8Proba* const proba);
-void VP8ParseProba(VP8BitReader* const br, VP8Decoder* const dec);
+void DEDUP_vP8_ResetProba(DEDUP_vP8_Proba* const proba);
+void DEDUP_vP8_ParseProba(DEDUP_vP8_BitReader* const br, DEDUP_vP8_Decoder* const dec);
 // parses one row of intra mode data in partition 0, returns !eof
-int VP8ParseIntraModeRow(VP8BitReader* const br, VP8Decoder* const dec);
+int DEDUP_vP8_ParseIntraModeRow(DEDUP_vP8_BitReader* const br, DEDUP_vP8_Decoder* const dec);
 
 // in quant.c
-void VP8ParseQuant(VP8Decoder* const dec);
+void DEDUP_vP8_ParseQuant(DEDUP_vP8_Decoder* const dec);
 
 // in frame.c
-int VP8InitFrame(VP8Decoder* const dec, VP8Io* const io);
+int DEDUP_vP8_InitFrame(DEDUP_vP8_Decoder* const dec, DEDUP_vP8_Io* const io);
 // Call io->setup() and finish setting up scan parameters.
-// After this call returns, one must always call VP8ExitCritical() with the
-// same parameters. Both functions should be used in pair. Returns VP8_STATUS_OK
+// After this call returns, one must always call DEDUP_vP8_ExitCritical() with the
+// same parameters. Both functions should be used in pair. Returns DEDUP_vP8__STATUS_OK
 // if ok, otherwise sets and returns the error status on *dec.
-VP8StatusCode VP8EnterCritical(VP8Decoder* const dec, VP8Io* const io);
-// Must always be called in pair with VP8EnterCritical().
+DEDUP_vP8_StatusCode DEDUP_vP8_EnterCritical(DEDUP_vP8_Decoder* const dec, DEDUP_vP8_Io* const io);
+// Must always be called in pair with DEDUP_vP8_EnterCritical().
 // Returns false in case of error.
-int VP8ExitCritical(VP8Decoder* const dec, VP8Io* const io);
+int DEDUP_vP8_ExitCritical(DEDUP_vP8_Decoder* const dec, DEDUP_vP8_Io* const io);
 // Return the multi-threading method to use (0=off), depending
 // on options and bitstream size. Only for lossy decoding.
-int VP8GetThreadMethod(const WebPDecoderOptions* const options,
-                       const WebPHeaderStructure* const headers,
+int DEDUP_vP8_GetThreadMethod(const DEDUP_WEBP_DecoderOptions* const options,
+                       const DEDUP_WEBP_HeaderStructure* const headers,
                        int width, int height);
 // Initialize dithering post-process if needed.
-void VP8InitDithering(const WebPDecoderOptions* const options,
-                      VP8Decoder* const dec);
+void DEDUP_vP8_InitDithering(const DEDUP_WEBP_DecoderOptions* const options,
+                      DEDUP_vP8_Decoder* const dec);
 // Process the last decoded row (filtering + output).
-int VP8ProcessRow(VP8Decoder* const dec, VP8Io* const io);
+int DEDUP_vP8_ProcessRow(DEDUP_vP8_Decoder* const dec, DEDUP_vP8_Io* const io);
 // To be called at the start of a new scanline, to initialize predictors.
-void VP8InitScanline(VP8Decoder* const dec);
+void DEDUP_vP8_InitScanline(DEDUP_vP8_Decoder* const dec);
 // Decode one macroblock. Returns false if there is not enough data.
-int VP8DecodeMB(VP8Decoder* const dec, VP8BitReader* const token_br);
+int DEDUP_vP8_DecodeMB(DEDUP_vP8_Decoder* const dec, DEDUP_vP8_BitReader* const token_br);
 
 // in alpha.c
-const uint8_t* VP8DecompressAlphaRows(VP8Decoder* const dec,
-                                      const VP8Io* const io,
+const uint8_t* DEDUP_vP8_DecompressAlphaRows(DEDUP_vP8_Decoder* const dec,
+                                      const DEDUP_vP8_Io* const io,
                                       int row, int num_rows);
 
 //------------------------------------------------------------------------------
@@ -317,4 +317,4 @@ const uint8_t* VP8DecompressAlphaRows(VP8Decoder* const dec,
 }    // extern "C"
 #endif
 
-#endif  /* WEBP_DEC_VP8I_H_ */
+#endif  /* WEBP_DEC_DEDUP_vP8_I_H_ */

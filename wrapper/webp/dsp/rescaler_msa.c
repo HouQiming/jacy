@@ -115,7 +115,7 @@
 
 static WEBP_INLINE void ExportRowExpand_0(const uint32_t* frow, uint8_t* dst,
                                           int length,
-                                          WebPRescaler* const wrk) {
+                                          DEDUP_WEBP_Rescaler* const wrk) {
   const v4u32 scale = (v4u32)__msa_fill_w(wrk->fy_scale);
   const v4u32 shift = (v4u32)__msa_fill_w(WEBP_RESCALER_RFIX);
   const v4i32 zero = { 0 };
@@ -173,7 +173,7 @@ static WEBP_INLINE void ExportRowExpand_0(const uint32_t* frow, uint8_t* dst,
 
 static WEBP_INLINE void ExportRowExpand_1(const uint32_t* frow, uint32_t* irow,
                                           uint8_t* dst, int length,
-                                          WebPRescaler* const wrk) {
+                                          DEDUP_WEBP_Rescaler* const wrk) {
   const uint32_t B = WEBP_RESCALER_FRAC(-wrk->y_accum, wrk->y_sub);
   const uint32_t A = (uint32_t)(WEBP_RESCALER_ONE - B);
   const v4i32 B1 = __msa_fill_w(B);
@@ -246,12 +246,12 @@ static WEBP_INLINE void ExportRowExpand_1(const uint32_t* frow, uint32_t* irow,
   }
 }
 
-static void RescalerExportRowExpand(WebPRescaler* const wrk) {
+static void RescalerExportRowExpand(DEDUP_WEBP_Rescaler* const wrk) {
   uint8_t* dst = wrk->dst;
   rescaler_t* irow = wrk->irow;
   const int x_out_max = wrk->dst_width * wrk->num_channels;
   const rescaler_t* frow = wrk->frow;
-  assert(!WebPRescalerOutputDone(wrk));
+  assert(!DEDUP_WEBP_RescalerOutputDone(wrk));
   assert(wrk->y_accum <= 0);
   assert(wrk->y_expand);
   assert(wrk->y_sub != 0);
@@ -265,7 +265,7 @@ static void RescalerExportRowExpand(WebPRescaler* const wrk) {
 static WEBP_INLINE void ExportRowShrink_0(const uint32_t* frow, uint32_t* irow,
                                           uint8_t* dst, int length,
                                           const uint32_t yscale,
-                                          WebPRescaler* const wrk) {
+                                          DEDUP_WEBP_Rescaler* const wrk) {
   const v4u32 y_scale = (v4u32)__msa_fill_w(yscale);
   const v4u32 fxyscale = (v4u32)__msa_fill_w(wrk->fxy_scale);
   const v4u32 shiftval = (v4u32)__msa_fill_w(WEBP_RESCALER_RFIX);
@@ -351,7 +351,7 @@ static WEBP_INLINE void ExportRowShrink_0(const uint32_t* frow, uint32_t* irow,
 
 static WEBP_INLINE void ExportRowShrink_1(uint32_t* irow, uint8_t* dst,
                                           int length,
-                                          WebPRescaler* const wrk) {
+                                          DEDUP_WEBP_Rescaler* const wrk) {
   const v4u32 scale = (v4u32)__msa_fill_w(wrk->fxy_scale);
   const v4u32 shift = (v4u32)__msa_fill_w(WEBP_RESCALER_RFIX);
   const v4i32 zero = { 0 };
@@ -411,13 +411,13 @@ static WEBP_INLINE void ExportRowShrink_1(uint32_t* irow, uint8_t* dst,
   }
 }
 
-static void RescalerExportRowShrink(WebPRescaler* const wrk) {
+static void RescalerExportRowShrink(DEDUP_WEBP_Rescaler* const wrk) {
   uint8_t* dst = wrk->dst;
   rescaler_t* irow = wrk->irow;
   const int x_out_max = wrk->dst_width * wrk->num_channels;
   const rescaler_t* frow = wrk->frow;
   const uint32_t yscale = wrk->fy_scale * (-wrk->y_accum);
-  assert(!WebPRescalerOutputDone(wrk));
+  assert(!DEDUP_WEBP_RescalerOutputDone(wrk));
   assert(wrk->y_accum <= 0);
   assert(!wrk->y_expand);
   if (yscale) {
@@ -430,15 +430,15 @@ static void RescalerExportRowShrink(WebPRescaler* const wrk) {
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void WebPRescalerDspInitMSA(void);
+extern void DEDUP_WEBP_RescalerDspInitMSA(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPRescalerDspInitMSA(void) {
-  WebPRescalerExportRowExpand = RescalerExportRowExpand;
-  WebPRescalerExportRowShrink = RescalerExportRowShrink;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_RescalerDspInitMSA(void) {
+  DEDUP_WEBP_RescalerExportRowExpand = RescalerExportRowExpand;
+  DEDUP_WEBP_RescalerExportRowShrink = RescalerExportRowShrink;
 }
 
 #else     // !WEBP_USE_MSA
 
-WEBP_DSP_INIT_STUB(WebPRescalerDspInitMSA)
+WEBP_DSP_INIT_STUB(DEDUP_WEBP_RescalerDspInitMSA)
 
 #endif    // WEBP_USE_MSA

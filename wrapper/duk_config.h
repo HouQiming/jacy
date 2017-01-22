@@ -2205,7 +2205,7 @@ typedef struct duk_hthread duk_context;
  * these functions also exist in MSVC 2013 and later so include a clause for
  * that too.
  */
-#if defined(DUK_F_C99) || defined(DUK_F_CPP11) || (defined(_MSC_VER) && (_MSC_VER >= 1800))
+#if (defined(DUK_F_C99) || defined(DUK_F_CPP11) || (defined(_MSC_VER) && (_MSC_VER >= 1800))) && !(defined(ANDROID)||defined(__ANDROID__))
 #if !defined(DUK_CBRT)
 #define DUK_CBRT             cbrt
 #endif

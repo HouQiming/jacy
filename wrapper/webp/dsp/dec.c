@@ -101,8 +101,8 @@ static void TransformTwo(const int16_t* in, uint8_t* dst, int do_two) {
 }
 
 static void TransformUV(const int16_t* in, uint8_t* dst) {
-  VP8Transform(in + 0 * 16, dst, 1);
-  VP8Transform(in + 2 * 16, dst + 4 * BPS, 1);
+  DEDUP_vP8_Transform(in + 0 * 16, dst, 1);
+  DEDUP_vP8_Transform(in + 2 * 16, dst + 4 * BPS, 1);
 }
 
 static void TransformDC(const int16_t* in, uint8_t* dst) {
@@ -116,10 +116,10 @@ static void TransformDC(const int16_t* in, uint8_t* dst) {
 }
 
 static void TransformDCUV(const int16_t* in, uint8_t* dst) {
-  if (in[0 * 16]) VP8TransformDC(in + 0 * 16, dst);
-  if (in[1 * 16]) VP8TransformDC(in + 1 * 16, dst + 4);
-  if (in[2 * 16]) VP8TransformDC(in + 2 * 16, dst + 4 * BPS);
-  if (in[3 * 16]) VP8TransformDC(in + 3 * 16, dst + 4 * BPS + 4);
+  if (in[0 * 16]) DEDUP_vP8_TransformDC(in + 0 * 16, dst);
+  if (in[1 * 16]) DEDUP_vP8_TransformDC(in + 1 * 16, dst + 4);
+  if (in[2 * 16]) DEDUP_vP8_TransformDC(in + 2 * 16, dst + 4 * BPS);
+  if (in[3 * 16]) DEDUP_vP8_TransformDC(in + 3 * 16, dst + 4 * BPS + 4);
 }
 
 #undef STORE
@@ -154,7 +154,7 @@ static void TransformWHT(const int16_t* in, int16_t* out) {
   }
 }
 
-void (*VP8TransformWHT)(const int16_t* in, int16_t* out);
+void (*DEDUP_vP8_TransformWHT)(const int16_t* in, int16_t* out);
 
 //------------------------------------------------------------------------------
 // Intra predictions
@@ -163,7 +163,7 @@ void (*VP8TransformWHT)(const int16_t* in, int16_t* out);
 
 static WEBP_INLINE void TrueMotion(uint8_t* dst, int size) {
   const uint8_t* top = dst - BPS;
-  const uint8_t* const clip0 = VP8kclip1 - top[-1];
+  const uint8_t* const clip0 = DEDUP_vP8_kclip1 - top[-1];
   int y;
   for (y = 0; y < size; ++y) {
     const uint8_t* const clip = clip0 + dst[-1];
@@ -234,7 +234,7 @@ static void DC16NoTopLeft(uint8_t* dst) {  // DC with no top and left samples
   Put16(0x80, dst);
 }
 
-VP8PredFunc VP8PredLuma16[NUM_B_DC_MODES];
+DEDUP_vP8_PredFunc DEDUP_vP8_PredLuma16[NUM_B_DC_MODES];
 
 //------------------------------------------------------------------------------
 // 4x4
@@ -262,10 +262,10 @@ static void HE4(uint8_t* dst) {    // horizontal
   const int C = dst[-1 + BPS];
   const int D = dst[-1 + 2 * BPS];
   const int E = dst[-1 + 3 * BPS];
-  WebPUint32ToMem(dst + 0 * BPS, 0x01010101U * AVG3(A, B, C));
-  WebPUint32ToMem(dst + 1 * BPS, 0x01010101U * AVG3(B, C, D));
-  WebPUint32ToMem(dst + 2 * BPS, 0x01010101U * AVG3(C, D, E));
-  WebPUint32ToMem(dst + 3 * BPS, 0x01010101U * AVG3(D, E, E));
+  DEDUP_WEBP_Uint32ToMem(dst + 0 * BPS, 0x01010101U * AVG3(A, B, C));
+  DEDUP_WEBP_Uint32ToMem(dst + 1 * BPS, 0x01010101U * AVG3(B, C, D));
+  DEDUP_WEBP_Uint32ToMem(dst + 2 * BPS, 0x01010101U * AVG3(C, D, E));
+  DEDUP_WEBP_Uint32ToMem(dst + 3 * BPS, 0x01010101U * AVG3(D, E, E));
 }
 
 static void DC4(uint8_t* dst) {   // DC
@@ -399,7 +399,7 @@ static void HD4(uint8_t* dst) {  // Horizontal-Down
 #undef AVG3
 #undef AVG2
 
-VP8PredFunc VP8PredLuma4[NUM_BMODES];
+DEDUP_vP8_PredFunc DEDUP_vP8_PredLuma4[NUM_BMODES];
 
 //------------------------------------------------------------------------------
 // Chroma
@@ -458,7 +458,7 @@ static void DC8uvNoTopLeft(uint8_t* dst) {    // DC with nothing
   Put8x8uv(0x80, dst);
 }
 
-VP8PredFunc VP8PredChroma8[NUM_B_DC_MODES];
+DEDUP_vP8_PredFunc DEDUP_vP8_PredChroma8[NUM_B_DC_MODES];
 
 //------------------------------------------------------------------------------
 // Edge filtering functions
@@ -466,51 +466,51 @@ VP8PredFunc VP8PredChroma8[NUM_B_DC_MODES];
 // 4 pixels in, 2 pixels out
 static WEBP_INLINE void do_filter2(uint8_t* p, int step) {
   const int p1 = p[-2*step], p0 = p[-step], q0 = p[0], q1 = p[step];
-  const int a = 3 * (q0 - p0) + VP8ksclip1[p1 - q1];  // in [-893,892]
-  const int a1 = VP8ksclip2[(a + 4) >> 3];            // in [-16,15]
-  const int a2 = VP8ksclip2[(a + 3) >> 3];
-  p[-step] = VP8kclip1[p0 + a2];
-  p[    0] = VP8kclip1[q0 - a1];
+  const int a = 3 * (q0 - p0) + DEDUP_vP8_ksclip1[p1 - q1];  // in [-893,892]
+  const int a1 = DEDUP_vP8_ksclip2[(a + 4) >> 3];            // in [-16,15]
+  const int a2 = DEDUP_vP8_ksclip2[(a + 3) >> 3];
+  p[-step] = DEDUP_vP8_kclip1[p0 + a2];
+  p[    0] = DEDUP_vP8_kclip1[q0 - a1];
 }
 
 // 4 pixels in, 4 pixels out
 static WEBP_INLINE void do_filter4(uint8_t* p, int step) {
   const int p1 = p[-2*step], p0 = p[-step], q0 = p[0], q1 = p[step];
   const int a = 3 * (q0 - p0);
-  const int a1 = VP8ksclip2[(a + 4) >> 3];
-  const int a2 = VP8ksclip2[(a + 3) >> 3];
+  const int a1 = DEDUP_vP8_ksclip2[(a + 4) >> 3];
+  const int a2 = DEDUP_vP8_ksclip2[(a + 3) >> 3];
   const int a3 = (a1 + 1) >> 1;
-  p[-2*step] = VP8kclip1[p1 + a3];
-  p[-  step] = VP8kclip1[p0 + a2];
-  p[      0] = VP8kclip1[q0 - a1];
-  p[   step] = VP8kclip1[q1 - a3];
+  p[-2*step] = DEDUP_vP8_kclip1[p1 + a3];
+  p[-  step] = DEDUP_vP8_kclip1[p0 + a2];
+  p[      0] = DEDUP_vP8_kclip1[q0 - a1];
+  p[   step] = DEDUP_vP8_kclip1[q1 - a3];
 }
 
 // 6 pixels in, 6 pixels out
 static WEBP_INLINE void do_filter6(uint8_t* p, int step) {
   const int p2 = p[-3*step], p1 = p[-2*step], p0 = p[-step];
   const int q0 = p[0], q1 = p[step], q2 = p[2*step];
-  const int a = VP8ksclip1[3 * (q0 - p0) + VP8ksclip1[p1 - q1]];
+  const int a = DEDUP_vP8_ksclip1[3 * (q0 - p0) + DEDUP_vP8_ksclip1[p1 - q1]];
   // a is in [-128,127], a1 in [-27,27], a2 in [-18,18] and a3 in [-9,9]
   const int a1 = (27 * a + 63) >> 7;  // eq. to ((3 * a + 7) * 9) >> 7
   const int a2 = (18 * a + 63) >> 7;  // eq. to ((2 * a + 7) * 9) >> 7
   const int a3 = (9  * a + 63) >> 7;  // eq. to ((1 * a + 7) * 9) >> 7
-  p[-3*step] = VP8kclip1[p2 + a3];
-  p[-2*step] = VP8kclip1[p1 + a2];
-  p[-  step] = VP8kclip1[p0 + a1];
-  p[      0] = VP8kclip1[q0 - a1];
-  p[   step] = VP8kclip1[q1 - a2];
-  p[ 2*step] = VP8kclip1[q2 - a3];
+  p[-3*step] = DEDUP_vP8_kclip1[p2 + a3];
+  p[-2*step] = DEDUP_vP8_kclip1[p1 + a2];
+  p[-  step] = DEDUP_vP8_kclip1[p0 + a1];
+  p[      0] = DEDUP_vP8_kclip1[q0 - a1];
+  p[   step] = DEDUP_vP8_kclip1[q1 - a2];
+  p[ 2*step] = DEDUP_vP8_kclip1[q2 - a3];
 }
 
 static WEBP_INLINE int hev(const uint8_t* p, int step, int thresh) {
   const int p1 = p[-2*step], p0 = p[-step], q0 = p[0], q1 = p[step];
-  return (VP8kabs0[p1 - p0] > thresh) || (VP8kabs0[q1 - q0] > thresh);
+  return (DEDUP_vP8_kabs0[p1 - p0] > thresh) || (DEDUP_vP8_kabs0[q1 - q0] > thresh);
 }
 
 static WEBP_INLINE int needs_filter(const uint8_t* p, int step, int t) {
   const int p1 = p[-2 * step], p0 = p[-step], q0 = p[0], q1 = p[step];
-  return ((4 * VP8kabs0[p0 - q0] + VP8kabs0[p1 - q1]) <= t);
+  return ((4 * DEDUP_vP8_kabs0[p0 - q0] + DEDUP_vP8_kabs0[p1 - q1]) <= t);
 }
 
 static WEBP_INLINE int needs_filter2(const uint8_t* p,
@@ -518,10 +518,10 @@ static WEBP_INLINE int needs_filter2(const uint8_t* p,
   const int p3 = p[-4 * step], p2 = p[-3 * step], p1 = p[-2 * step];
   const int p0 = p[-step], q0 = p[0];
   const int q1 = p[step], q2 = p[2 * step], q3 = p[3 * step];
-  if ((4 * VP8kabs0[p0 - q0] + VP8kabs0[p1 - q1]) > t) return 0;
-  return VP8kabs0[p3 - p2] <= it && VP8kabs0[p2 - p1] <= it &&
-         VP8kabs0[p1 - p0] <= it && VP8kabs0[q3 - q2] <= it &&
-         VP8kabs0[q2 - q1] <= it && VP8kabs0[q1 - q0] <= it;
+  if ((4 * DEDUP_vP8_kabs0[p0 - q0] + DEDUP_vP8_kabs0[p1 - q1]) > t) return 0;
+  return DEDUP_vP8_kabs0[p3 - p2] <= it && DEDUP_vP8_kabs0[p2 - p1] <= it &&
+         DEDUP_vP8_kabs0[p1 - p0] <= it && DEDUP_vP8_kabs0[q3 - q2] <= it &&
+         DEDUP_vP8_kabs0[q2 - q1] <= it && DEDUP_vP8_kabs0[q1 - q0] <= it;
 }
 
 //------------------------------------------------------------------------------
@@ -660,9 +660,9 @@ static void DitherCombine8x8(const uint8_t* dither, uint8_t* dst,
   int i, j;
   for (j = 0; j < 8; ++j) {
     for (i = 0; i < 8; ++i) {
-      const int delta0 = dither[i] - VP8_DITHER_AMP_CENTER;
+      const int delta0 = dither[i] - DEDUP_vP8__DITHER_AMP_CENTER;
       const int delta1 =
-          (delta0 + VP8_DITHER_DESCALE_ROUNDER) >> VP8_DITHER_DESCALE;
+          (delta0 + DEDUP_vP8__DITHER_DESCALE_ROUNDER) >> DEDUP_vP8__DITHER_DESCALE;
       dst[i] = clip_8b((int)dst[i] + delta1);
     }
     dst += dst_stride;
@@ -672,124 +672,124 @@ static void DitherCombine8x8(const uint8_t* dither, uint8_t* dst,
 
 //------------------------------------------------------------------------------
 
-VP8DecIdct2 VP8Transform;
-VP8DecIdct VP8TransformAC3;
-VP8DecIdct VP8TransformUV;
-VP8DecIdct VP8TransformDC;
-VP8DecIdct VP8TransformDCUV;
+DEDUP_vP8_DecIdct2 DEDUP_vP8_Transform;
+DEDUP_vP8_DecIdct DEDUP_vP8_TransformAC3;
+DEDUP_vP8_DecIdct DEDUP_vP8_TransformUV;
+DEDUP_vP8_DecIdct DEDUP_vP8_TransformDC;
+DEDUP_vP8_DecIdct DEDUP_vP8_TransformDCUV;
 
-VP8LumaFilterFunc VP8VFilter16;
-VP8LumaFilterFunc VP8HFilter16;
-VP8ChromaFilterFunc VP8VFilter8;
-VP8ChromaFilterFunc VP8HFilter8;
-VP8LumaFilterFunc VP8VFilter16i;
-VP8LumaFilterFunc VP8HFilter16i;
-VP8ChromaFilterFunc VP8VFilter8i;
-VP8ChromaFilterFunc VP8HFilter8i;
-VP8SimpleFilterFunc VP8SimpleVFilter16;
-VP8SimpleFilterFunc VP8SimpleHFilter16;
-VP8SimpleFilterFunc VP8SimpleVFilter16i;
-VP8SimpleFilterFunc VP8SimpleHFilter16i;
+DEDUP_vP8_LumaFilterFunc DEDUP_vP8_VFilter16;
+DEDUP_vP8_LumaFilterFunc DEDUP_vP8_HFilter16;
+DEDUP_vP8_ChromaFilterFunc DEDUP_vP8_VFilter8;
+DEDUP_vP8_ChromaFilterFunc DEDUP_vP8_HFilter8;
+DEDUP_vP8_LumaFilterFunc DEDUP_vP8_VFilter16i;
+DEDUP_vP8_LumaFilterFunc DEDUP_vP8_HFilter16i;
+DEDUP_vP8_ChromaFilterFunc DEDUP_vP8_VFilter8i;
+DEDUP_vP8_ChromaFilterFunc DEDUP_vP8_HFilter8i;
+DEDUP_vP8_SimpleFilterFunc DEDUP_vP8_SimpleVFilter16;
+DEDUP_vP8_SimpleFilterFunc DEDUP_vP8_SimpleHFilter16;
+DEDUP_vP8_SimpleFilterFunc DEDUP_vP8_SimpleVFilter16i;
+DEDUP_vP8_SimpleFilterFunc DEDUP_vP8_SimpleHFilter16i;
 
-void (*VP8DitherCombine8x8)(const uint8_t* dither, uint8_t* dst,
+void (*DEDUP_vP8_DitherCombine8x8)(const uint8_t* dither, uint8_t* dst,
                             int dst_stride);
 
-extern void VP8DspInitSSE2(void);
-extern void VP8DspInitSSE41(void);
-extern void VP8DspInitNEON(void);
-extern void VP8DspInitMIPS32(void);
-extern void VP8DspInitMIPSdspR2(void);
-extern void VP8DspInitMSA(void);
+extern void DEDUP_vP8_DspInitSSE2(void);
+extern void DEDUP_vP8_DspInitSSE41(void);
+extern void DEDUP_vP8_DspInitNEON(void);
+extern void DEDUP_vP8_DspInitMIPS32(void);
+extern void DEDUP_vP8_DspInitMIPSdspR2(void);
+extern void DEDUP_vP8_DspInitMSA(void);
 
-static volatile VP8CPUInfo dec_last_cpuinfo_used =
-    (VP8CPUInfo)&dec_last_cpuinfo_used;
+static volatile DEDUP_vP8_CPUInfo dec_last_cpuinfo_used =
+    (DEDUP_vP8_CPUInfo)&dec_last_cpuinfo_used;
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8DspInit(void) {
-  if (dec_last_cpuinfo_used == VP8GetCPUInfo) return;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_DspInit(void) {
+  if (dec_last_cpuinfo_used == DEDUP_vP8_GetCPUInfo) return;
 
-  VP8InitClipTables();
+  DEDUP_vP8_InitClipTables();
 
-  VP8TransformWHT = TransformWHT;
-  VP8Transform = TransformTwo;
-  VP8TransformUV = TransformUV;
-  VP8TransformDC = TransformDC;
-  VP8TransformDCUV = TransformDCUV;
-  VP8TransformAC3 = TransformAC3;
+  DEDUP_vP8_TransformWHT = TransformWHT;
+  DEDUP_vP8_Transform = TransformTwo;
+  DEDUP_vP8_TransformUV = TransformUV;
+  DEDUP_vP8_TransformDC = TransformDC;
+  DEDUP_vP8_TransformDCUV = TransformDCUV;
+  DEDUP_vP8_TransformAC3 = TransformAC3;
 
-  VP8VFilter16 = VFilter16;
-  VP8HFilter16 = HFilter16;
-  VP8VFilter8 = VFilter8;
-  VP8HFilter8 = HFilter8;
-  VP8VFilter16i = VFilter16i;
-  VP8HFilter16i = HFilter16i;
-  VP8VFilter8i = VFilter8i;
-  VP8HFilter8i = HFilter8i;
-  VP8SimpleVFilter16 = SimpleVFilter16;
-  VP8SimpleHFilter16 = SimpleHFilter16;
-  VP8SimpleVFilter16i = SimpleVFilter16i;
-  VP8SimpleHFilter16i = SimpleHFilter16i;
+  DEDUP_vP8_VFilter16 = VFilter16;
+  DEDUP_vP8_HFilter16 = HFilter16;
+  DEDUP_vP8_VFilter8 = VFilter8;
+  DEDUP_vP8_HFilter8 = HFilter8;
+  DEDUP_vP8_VFilter16i = VFilter16i;
+  DEDUP_vP8_HFilter16i = HFilter16i;
+  DEDUP_vP8_VFilter8i = VFilter8i;
+  DEDUP_vP8_HFilter8i = HFilter8i;
+  DEDUP_vP8_SimpleVFilter16 = SimpleVFilter16;
+  DEDUP_vP8_SimpleHFilter16 = SimpleHFilter16;
+  DEDUP_vP8_SimpleVFilter16i = SimpleVFilter16i;
+  DEDUP_vP8_SimpleHFilter16i = SimpleHFilter16i;
 
-  VP8PredLuma4[0] = DC4;
-  VP8PredLuma4[1] = TM4;
-  VP8PredLuma4[2] = VE4;
-  VP8PredLuma4[3] = HE4;
-  VP8PredLuma4[4] = RD4;
-  VP8PredLuma4[5] = VR4;
-  VP8PredLuma4[6] = LD4;
-  VP8PredLuma4[7] = VL4;
-  VP8PredLuma4[8] = HD4;
-  VP8PredLuma4[9] = HU4;
+  DEDUP_vP8_PredLuma4[0] = DC4;
+  DEDUP_vP8_PredLuma4[1] = TM4;
+  DEDUP_vP8_PredLuma4[2] = VE4;
+  DEDUP_vP8_PredLuma4[3] = HE4;
+  DEDUP_vP8_PredLuma4[4] = RD4;
+  DEDUP_vP8_PredLuma4[5] = VR4;
+  DEDUP_vP8_PredLuma4[6] = LD4;
+  DEDUP_vP8_PredLuma4[7] = VL4;
+  DEDUP_vP8_PredLuma4[8] = HD4;
+  DEDUP_vP8_PredLuma4[9] = HU4;
 
-  VP8PredLuma16[0] = DC16;
-  VP8PredLuma16[1] = TM16;
-  VP8PredLuma16[2] = VE16;
-  VP8PredLuma16[3] = HE16;
-  VP8PredLuma16[4] = DC16NoTop;
-  VP8PredLuma16[5] = DC16NoLeft;
-  VP8PredLuma16[6] = DC16NoTopLeft;
+  DEDUP_vP8_PredLuma16[0] = DC16;
+  DEDUP_vP8_PredLuma16[1] = TM16;
+  DEDUP_vP8_PredLuma16[2] = VE16;
+  DEDUP_vP8_PredLuma16[3] = HE16;
+  DEDUP_vP8_PredLuma16[4] = DC16NoTop;
+  DEDUP_vP8_PredLuma16[5] = DC16NoLeft;
+  DEDUP_vP8_PredLuma16[6] = DC16NoTopLeft;
 
-  VP8PredChroma8[0] = DC8uv;
-  VP8PredChroma8[1] = TM8uv;
-  VP8PredChroma8[2] = VE8uv;
-  VP8PredChroma8[3] = HE8uv;
-  VP8PredChroma8[4] = DC8uvNoTop;
-  VP8PredChroma8[5] = DC8uvNoLeft;
-  VP8PredChroma8[6] = DC8uvNoTopLeft;
+  DEDUP_vP8_PredChroma8[0] = DC8uv;
+  DEDUP_vP8_PredChroma8[1] = TM8uv;
+  DEDUP_vP8_PredChroma8[2] = VE8uv;
+  DEDUP_vP8_PredChroma8[3] = HE8uv;
+  DEDUP_vP8_PredChroma8[4] = DC8uvNoTop;
+  DEDUP_vP8_PredChroma8[5] = DC8uvNoLeft;
+  DEDUP_vP8_PredChroma8[6] = DC8uvNoTopLeft;
 
-  VP8DitherCombine8x8 = DitherCombine8x8;
+  DEDUP_vP8_DitherCombine8x8 = DitherCombine8x8;
 
   // If defined, use CPUInfo() to overwrite some pointers with faster versions.
-  if (VP8GetCPUInfo != NULL) {
+  if (DEDUP_vP8_GetCPUInfo != NULL) {
 #if defined(WEBP_USE_SSE2)
-    if (VP8GetCPUInfo(kSSE2)) {
-      VP8DspInitSSE2();
+    if (DEDUP_vP8_GetCPUInfo(kSSE2)) {
+      DEDUP_vP8_DspInitSSE2();
 #if defined(WEBP_USE_SSE41)
-      if (VP8GetCPUInfo(kSSE4_1)) {
-        VP8DspInitSSE41();
+      if (DEDUP_vP8_GetCPUInfo(kSSE4_1)) {
+        DEDUP_vP8_DspInitSSE41();
       }
 #endif
     }
 #endif
 #if defined(WEBP_USE_NEON)
-    if (VP8GetCPUInfo(kNEON)) {
-      VP8DspInitNEON();
+    if (DEDUP_vP8_GetCPUInfo(kNEON)) {
+      DEDUP_vP8_DspInitNEON();
     }
 #endif
 #if defined(WEBP_USE_MIPS32)
-    if (VP8GetCPUInfo(kMIPS32)) {
-      VP8DspInitMIPS32();
+    if (DEDUP_vP8_GetCPUInfo(kMIPS32)) {
+      DEDUP_vP8_DspInitMIPS32();
     }
 #endif
 #if defined(WEBP_USE_MIPS_DSP_R2)
-    if (VP8GetCPUInfo(kMIPSdspR2)) {
-      VP8DspInitMIPSdspR2();
+    if (DEDUP_vP8_GetCPUInfo(kMIPSdspR2)) {
+      DEDUP_vP8_DspInitMIPSdspR2();
     }
 #endif
 #if defined(WEBP_USE_MSA)
-    if (VP8GetCPUInfo(kMSA)) {
-      VP8DspInitMSA();
+    if (DEDUP_vP8_GetCPUInfo(kMSA)) {
+      DEDUP_vP8_DspInitMSA();
     }
 #endif
   }
-  dec_last_cpuinfo_used = VP8GetCPUInfo;
+  dec_last_cpuinfo_used = DEDUP_vP8_GetCPUInfo;
 }

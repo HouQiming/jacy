@@ -7,7 +7,7 @@
 // be found in the AUTHORS file in the root of the source tree.
 // -----------------------------------------------------------------------------
 //
-// Internal header: WebP decoding parameters and custom IO on buffer
+// Internal header: DEDUP_WEBP_ decoding parameters and custom IO on buffer
 //
 // Author: somnath@google.com (Somnath Banerjee)
 
@@ -22,24 +22,24 @@ extern "C" {
 #include "./decode_vp8.h"
 
 //------------------------------------------------------------------------------
-// WebPDecParams: Decoding output parameters. Transient internal object.
+// DEDUP_WEBP_DecParams: Decoding output parameters. Transient internal object.
 
-typedef struct WebPDecParams WebPDecParams;
-typedef int (*OutputFunc)(const VP8Io* const io, WebPDecParams* const p);
-typedef int (*OutputAlphaFunc)(const VP8Io* const io, WebPDecParams* const p,
+typedef struct DEDUP_WEBP_DecParams DEDUP_WEBP_DecParams;
+typedef int (*OutputFunc)(const DEDUP_vP8_Io* const io, DEDUP_WEBP_DecParams* const p);
+typedef int (*OutputAlphaFunc)(const DEDUP_vP8_Io* const io, DEDUP_WEBP_DecParams* const p,
                                int expected_num_out_lines);
-typedef int (*OutputRowFunc)(WebPDecParams* const p, int y_pos,
+typedef int (*OutputRowFunc)(DEDUP_WEBP_DecParams* const p, int y_pos,
                              int max_out_lines);
 
-struct WebPDecParams {
-  WebPDecBuffer* output;             // output buffer.
+struct DEDUP_WEBP_DecParams {
+  DEDUP_WEBP_DecBuffer* output;             // output buffer.
   uint8_t* tmp_y, *tmp_u, *tmp_v;    // cache for the fancy upsampler
                                      // or used for tmp rescaling
 
   int last_y;                 // coordinate of the line that was last output
-  const WebPDecoderOptions* options;  // if not NULL, use alt decoding features
+  const DEDUP_WEBP_DecoderOptions* options;  // if not NULL, use alt decoding features
   // rescalers
-  WebPRescaler scaler_y, scaler_u, scaler_v, scaler_a;
+  DEDUP_WEBP_Rescaler scaler_y, scaler_u, scaler_v, scaler_a;
   void* memory;                  // overall scratch memory for the output work.
 
   OutputFunc emit;               // output RGB or YUV samples
@@ -47,8 +47,8 @@ struct WebPDecParams {
   OutputRowFunc emit_alpha_row;  // output one line of rescaled alpha values
 };
 
-// Should be called first, before any use of the WebPDecParams object.
-void WebPResetDecParams(WebPDecParams* const params);
+// Should be called first, before any use of the DEDUP_WEBP_DecParams object.
+void DEDUP_WEBP_ResetDecParams(DEDUP_WEBP_DecParams* const params);
 
 //------------------------------------------------------------------------------
 // Header parsing helpers
@@ -58,36 +58,36 @@ typedef struct {
   const uint8_t* data;         // input buffer
   size_t data_size;            // input buffer size
   int have_all_data;           // true if all data is known to be available
-  size_t offset;               // offset to main data chunk (VP8 or VP8L)
+  size_t offset;               // offset to main data chunk (DEDUP_vP8_ or DEDUP_vP8_L)
   const uint8_t* alpha_data;   // points to alpha chunk (if present)
   size_t alpha_data_size;      // alpha chunk size
-  size_t compressed_size;      // VP8/VP8L compressed data size
+  size_t compressed_size;      // DEDUP_vP8_/DEDUP_vP8_L compressed data size
   size_t riff_size;            // size of the riff payload (or 0 if absent)
-  int is_lossless;             // true if a VP8L chunk is present
-} WebPHeaderStructure;
+  int is_lossless;             // true if a DEDUP_vP8_L chunk is present
+} DEDUP_WEBP_HeaderStructure;
 
-// Skips over all valid chunks prior to the first VP8/VP8L frame header.
-// Returns: VP8_STATUS_OK, VP8_STATUS_BITSTREAM_ERROR (invalid header/chunk),
-// VP8_STATUS_NOT_ENOUGH_DATA (partial input) or VP8_STATUS_UNSUPPORTED_FEATURE
+// Skips over all valid chunks prior to the first DEDUP_vP8_/DEDUP_vP8_L frame header.
+// Returns: DEDUP_vP8__STATUS_OK, DEDUP_vP8__STATUS_BITSTREAM_ERROR (invalid header/chunk),
+// DEDUP_vP8__STATUS_NOT_ENOUGH_DATA (partial input) or DEDUP_vP8__STATUS_UNSUPPORTED_FEATURE
 // in the case of non-decodable features (animation for instance).
 // In 'headers', compressed_size, offset, alpha_data, alpha_size, and lossless
 // fields are updated appropriately upon success.
-VP8StatusCode WebPParseHeaders(WebPHeaderStructure* const headers);
+DEDUP_vP8_StatusCode DEDUP_WEBP_ParseHeaders(DEDUP_WEBP_HeaderStructure* const headers);
 
 //------------------------------------------------------------------------------
 // Misc utils
 
-// Initializes VP8Io with custom setup, io and teardown functions. The default
+// Initializes DEDUP_vP8_Io with custom setup, io and teardown functions. The default
 // hooks will use the supplied 'params' as io->opaque handle.
-void WebPInitCustomIo(WebPDecParams* const params, VP8Io* const io);
+void DEDUP_WEBP_InitCustomIo(DEDUP_WEBP_DecParams* const params, DEDUP_vP8_Io* const io);
 
 // Setup crop_xxx fields, mb_w and mb_h in io. 'src_colorspace' refers
 // to the *compressed* format, not the output one.
-int WebPIoInitFromOptions(const WebPDecoderOptions* const options,
-                          VP8Io* const io, WEBP_CSP_MODE src_colorspace);
+int DEDUP_WEBP_IoInitFromOptions(const DEDUP_WEBP_DecoderOptions* const options,
+                          DEDUP_vP8_Io* const io, WEBP_CSP_MODE src_colorspace);
 
 //------------------------------------------------------------------------------
-// Internal functions regarding WebPDecBuffer memory (in buffer.c).
+// Internal functions regarding DEDUP_WEBP_DecBuffer memory (in buffer.c).
 // Don't really need to be externally visible for now.
 
 // Prepare 'buffer' with the requested initial dimensions width/height.
@@ -99,30 +99,30 @@ int WebPIoInitFromOptions(const WebPDecoderOptions* const options,
 // output buffer. This takes cropping / scaling / rotation into account.
 // Also incorporates the options->flip flag to flip the buffer parameters if
 // needed.
-VP8StatusCode WebPAllocateDecBuffer(int width, int height,
-                                    const WebPDecoderOptions* const options,
-                                    WebPDecBuffer* const buffer);
+DEDUP_vP8_StatusCode DEDUP_WEBP_AllocateDecBuffer(int width, int height,
+                                    const DEDUP_WEBP_DecoderOptions* const options,
+                                    DEDUP_WEBP_DecBuffer* const buffer);
 
 // Flip buffer vertically by negating the various strides.
-VP8StatusCode WebPFlipBuffer(WebPDecBuffer* const buffer);
+DEDUP_vP8_StatusCode DEDUP_WEBP_FlipBuffer(DEDUP_WEBP_DecBuffer* const buffer);
 
 // Copy 'src' into 'dst' buffer, making sure 'dst' is not marked as owner of the
 // memory (still held by 'src'). No pixels are copied.
-void WebPCopyDecBuffer(const WebPDecBuffer* const src,
-                       WebPDecBuffer* const dst);
+void DEDUP_WEBP_CopyDecBuffer(const DEDUP_WEBP_DecBuffer* const src,
+                       DEDUP_WEBP_DecBuffer* const dst);
 
 // Copy and transfer ownership from src to dst (beware of parameter order!)
-void WebPGrabDecBuffer(WebPDecBuffer* const src, WebPDecBuffer* const dst);
+void DEDUP_WEBP_GrabDecBuffer(DEDUP_WEBP_DecBuffer* const src, DEDUP_WEBP_DecBuffer* const dst);
 
 // Copy pixels from 'src' into a *preallocated* 'dst' buffer. Returns
-// VP8_STATUS_INVALID_PARAM if the 'dst' is not set up correctly for the copy.
-VP8StatusCode WebPCopyDecBufferPixels(const WebPDecBuffer* const src,
-                                      WebPDecBuffer* const dst);
+// DEDUP_vP8__STATUS_INVALID_PARAM if the 'dst' is not set up correctly for the copy.
+DEDUP_vP8_StatusCode DEDUP_WEBP_CopyDecBufferPixels(const DEDUP_WEBP_DecBuffer* const src,
+                                      DEDUP_WEBP_DecBuffer* const dst);
 
 // Returns true if decoding will be slow with the current configuration
 // and bitstream features.
-int WebPAvoidSlowMemory(const WebPDecBuffer* const output,
-                        const WebPBitstreamFeatures* const features);
+int DEDUP_WEBP_AvoidSlowMemory(const DEDUP_WEBP_DecBuffer* const output,
+                        const DEDUP_WEBP_BitstreamFeatures* const features);
 
 //------------------------------------------------------------------------------
 

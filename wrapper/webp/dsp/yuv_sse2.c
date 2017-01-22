@@ -208,7 +208,7 @@ static WEBP_INLINE void PlanarTo24b(__m128i* const in /*in[6]*/, uint8_t* rgb) {
 }
 #undef MK_UINT32
 
-void VP8YuvToRgba32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
+void DEDUP_vP8_YuvToRgba32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
                     uint8_t* dst) {
   const __m128i kAlpha = _mm_set1_epi16(255);
   int n;
@@ -219,7 +219,7 @@ void VP8YuvToRgba32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
   }
 }
 
-void VP8YuvToBgra32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
+void DEDUP_vP8_YuvToBgra32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
                     uint8_t* dst) {
   const __m128i kAlpha = _mm_set1_epi16(255);
   int n;
@@ -230,7 +230,7 @@ void VP8YuvToBgra32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
   }
 }
 
-void VP8YuvToArgb32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
+void DEDUP_vP8_YuvToArgb32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
                     uint8_t* dst) {
   const __m128i kAlpha = _mm_set1_epi16(255);
   int n;
@@ -241,7 +241,7 @@ void VP8YuvToArgb32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
   }
 }
 
-void VP8YuvToRgba444432(const uint8_t* y, const uint8_t* u, const uint8_t* v,
+void DEDUP_vP8_YuvToRgba444432(const uint8_t* y, const uint8_t* u, const uint8_t* v,
                         uint8_t* dst) {
   const __m128i kAlpha = _mm_set1_epi16(255);
   int n;
@@ -252,7 +252,7 @@ void VP8YuvToRgba444432(const uint8_t* y, const uint8_t* u, const uint8_t* v,
   }
 }
 
-void VP8YuvToRgb56532(const uint8_t* y, const uint8_t* u, const uint8_t* v,
+void DEDUP_vP8_YuvToRgb56532(const uint8_t* y, const uint8_t* u, const uint8_t* v,
                       uint8_t* dst) {
   int n;
   for (n = 0; n < 32; n += 8, dst += 16) {
@@ -262,7 +262,7 @@ void VP8YuvToRgb56532(const uint8_t* y, const uint8_t* u, const uint8_t* v,
   }
 }
 
-void VP8YuvToRgb32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
+void DEDUP_vP8_YuvToRgb32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
                    uint8_t* dst) {
   __m128i R0, R1, R2, R3, G0, G1, G2, G3, B0, B1, B2, B3;
   __m128i rgb[6];
@@ -284,7 +284,7 @@ void VP8YuvToRgb32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
   PlanarTo24b(rgb, dst);
 }
 
-void VP8YuvToBgr32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
+void DEDUP_vP8_YuvToBgr32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
                    uint8_t* dst) {
   __m128i R0, R1, R2, R3, G0, G1, G2, G3, B0, B1, B2, B3;
   __m128i bgr[6];
@@ -322,7 +322,7 @@ static void YuvToRgbaRow(const uint8_t* y, const uint8_t* u, const uint8_t* v,
     v += 4;
   }
   for (; n < len; ++n) {   // Finish off
-    VP8YuvToRgba(y[0], u[0], v[0], dst);
+    DEDUP_vP8_YuvToRgba(y[0], u[0], v[0], dst);
     dst += 4;
     y += 1;
     u += (n & 1);
@@ -343,7 +343,7 @@ static void YuvToBgraRow(const uint8_t* y, const uint8_t* u, const uint8_t* v,
     v += 4;
   }
   for (; n < len; ++n) {   // Finish off
-    VP8YuvToBgra(y[0], u[0], v[0], dst);
+    DEDUP_vP8_YuvToBgra(y[0], u[0], v[0], dst);
     dst += 4;
     y += 1;
     u += (n & 1);
@@ -364,7 +364,7 @@ static void YuvToArgbRow(const uint8_t* y, const uint8_t* u, const uint8_t* v,
     v += 4;
   }
   for (; n < len; ++n) {   // Finish off
-    VP8YuvToArgb(y[0], u[0], v[0], dst);
+    DEDUP_vP8_YuvToArgb(y[0], u[0], v[0], dst);
     dst += 4;
     y += 1;
     u += (n & 1);
@@ -400,7 +400,7 @@ static void YuvToRgbRow(const uint8_t* y, const uint8_t* u, const uint8_t* v,
     v += 16;
   }
   for (; n < len; ++n) {   // Finish off
-    VP8YuvToRgb(y[0], u[0], v[0], dst);
+    DEDUP_vP8_YuvToRgb(y[0], u[0], v[0], dst);
     dst += 3;
     y += 1;
     u += (n & 1);
@@ -436,7 +436,7 @@ static void YuvToBgrRow(const uint8_t* y, const uint8_t* u, const uint8_t* v,
     v += 16;
   }
   for (; n < len; ++n) {   // Finish off
-    VP8YuvToBgr(y[0], u[0], v[0], dst);
+    DEDUP_vP8_YuvToBgr(y[0], u[0], v[0], dst);
     dst += 3;
     y += 1;
     u += (n & 1);
@@ -447,14 +447,14 @@ static void YuvToBgrRow(const uint8_t* y, const uint8_t* u, const uint8_t* v,
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void WebPInitSamplersSSE2(void);
+extern void DEDUP_WEBP_InitSamplersSSE2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitSamplersSSE2(void) {
-  WebPSamplers[MODE_RGB]  = YuvToRgbRow;
-  WebPSamplers[MODE_RGBA] = YuvToRgbaRow;
-  WebPSamplers[MODE_BGR]  = YuvToBgrRow;
-  WebPSamplers[MODE_BGRA] = YuvToBgraRow;
-  WebPSamplers[MODE_ARGB] = YuvToArgbRow;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_InitSamplersSSE2(void) {
+  DEDUP_WEBP_Samplers[MODE_RGB]  = YuvToRgbRow;
+  DEDUP_WEBP_Samplers[MODE_RGBA] = YuvToRgbaRow;
+  DEDUP_WEBP_Samplers[MODE_BGR]  = YuvToBgrRow;
+  DEDUP_WEBP_Samplers[MODE_BGRA] = YuvToBgraRow;
+  DEDUP_WEBP_Samplers[MODE_ARGB] = YuvToArgbRow;
 }
 
 //------------------------------------------------------------------------------
@@ -607,7 +607,7 @@ static void ConvertRGB24ToY(const uint8_t* rgb, uint8_t* y, int width) {
     }
   }
   for (; i < width; ++i, rgb += 3) {   // left-over
-    y[i] = VP8RGBToY(rgb[0], rgb[1], rgb[2], YUV_HALF);
+    y[i] = DEDUP_vP8_RGBToY(rgb[0], rgb[1], rgb[2], YUV_HALF);
   }
 }
 
@@ -641,7 +641,7 @@ static void ConvertBGR24ToY(const uint8_t* bgr, uint8_t* y, int width) {
     }
   }
   for (; i < width; ++i, bgr += 3) {  // left-over
-    y[i] = VP8RGBToY(bgr[2], bgr[1], bgr[0], YUV_HALF);
+    y[i] = DEDUP_vP8_RGBToY(bgr[2], bgr[1], bgr[0], YUV_HALF);
   }
 }
 
@@ -658,7 +658,7 @@ static void ConvertARGBToY(const uint32_t* argb, uint8_t* y, int width) {
   }
   for (; i < width; ++i) {   // left-over
     const uint32_t p = argb[i];
-    y[i] = VP8RGBToY((p >> 16) & 0xff, (p >> 8) & 0xff, (p >>  0) & 0xff,
+    y[i] = DEDUP_vP8_RGBToY((p >> 16) & 0xff, (p >> 8) & 0xff, (p >>  0) & 0xff,
                      YUV_HALF);
   }
 }
@@ -705,7 +705,7 @@ static void ConvertARGBToUV(const uint32_t* argb, uint8_t* u, uint8_t* v,
     STORE_16(V0, v);
   }
   if (i < src_width) {  // left-over
-    WebPConvertARGBToUV_C(argb + i, u, v, src_width - i, do_store);
+    DEDUP_WEBP_ConvertARGBToUV_C(argb + i, u, v, src_width - i, do_store);
   }
 }
 
@@ -749,27 +749,27 @@ static void ConvertRGBA32ToUV(const uint16_t* rgb,
     rgb += 2 * 32;
   }
   if (max_width < width) {  // left-over
-    WebPConvertRGBA32ToUV_C(rgb, u, v, width - max_width);
+    DEDUP_WEBP_ConvertRGBA32ToUV_C(rgb, u, v, width - max_width);
   }
 }
 
 //------------------------------------------------------------------------------
 
-extern void WebPInitConvertARGBToYUVSSE2(void);
+extern void DEDUP_WEBP_InitConvertARGBToYUVSSE2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitConvertARGBToYUVSSE2(void) {
-  WebPConvertARGBToY = ConvertARGBToY;
-  WebPConvertARGBToUV = ConvertARGBToUV;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_InitConvertARGBToYUVSSE2(void) {
+  DEDUP_WEBP_ConvertARGBToY = ConvertARGBToY;
+  DEDUP_WEBP_ConvertARGBToUV = ConvertARGBToUV;
 
-  WebPConvertRGB24ToY = ConvertRGB24ToY;
-  WebPConvertBGR24ToY = ConvertBGR24ToY;
+  DEDUP_WEBP_ConvertRGB24ToY = ConvertRGB24ToY;
+  DEDUP_WEBP_ConvertBGR24ToY = ConvertBGR24ToY;
 
-  WebPConvertRGBA32ToUV = ConvertRGBA32ToUV;
+  DEDUP_WEBP_ConvertRGBA32ToUV = ConvertRGBA32ToUV;
 }
 
 #else  // !WEBP_USE_SSE2
 
-WEBP_DSP_INIT_STUB(WebPInitSamplersSSE2)
-WEBP_DSP_INIT_STUB(WebPInitConvertARGBToYUVSSE2)
+WEBP_DSP_INIT_STUB(DEDUP_WEBP_InitSamplersSSE2)
+WEBP_DSP_INIT_STUB(DEDUP_WEBP_InitConvertARGBToYUVSSE2)
 
 #endif  // WEBP_USE_SSE2

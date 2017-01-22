@@ -323,7 +323,7 @@ static HuffmanTreeToken* CodeRepeatedZeros(int repetitions,
   return tokens;
 }
 
-int VP8LCreateCompressedHuffmanTree(const HuffmanTreeCode* const tree,
+int DEDUP_vP8_LCreateCompressedHuffmanTree(const HuffmanTreeCode* const tree,
                                     HuffmanTreeToken* tokens, int max_tokens) {
   HuffmanTreeToken* const starting_token = tokens;
   HuffmanTreeToken* const ending_token = tokens + max_tokens;
@@ -403,7 +403,7 @@ static void ConvertBitDepthsToSymbols(HuffmanTreeCode* const tree) {
 // -----------------------------------------------------------------------------
 // Main entry point
 
-void VP8LCreateHuffmanTree(uint32_t* const histogram, int tree_depth_limit,
+void DEDUP_vP8_LCreateHuffmanTree(uint32_t* const histogram, int tree_depth_limit,
                            uint8_t* const buf_rle,
                            HuffmanTree* const huff_tree,
                            HuffmanTreeCode* const huff_code) {

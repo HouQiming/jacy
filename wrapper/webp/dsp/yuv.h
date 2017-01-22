@@ -74,41 +74,41 @@ static WEBP_INLINE int MultHi(int v, int coeff) {   // _mm_mulhi_epu16 emulation
   return (v * coeff) >> 8;
 }
 
-static WEBP_INLINE int VP8Clip8(int v) {
+static WEBP_INLINE int DEDUP_vP8_Clip8(int v) {
   return ((v & ~YUV_MASK2) == 0) ? (v >> YUV_FIX2) : (v < 0) ? 0 : 255;
 }
 
-static WEBP_INLINE int VP8YUVToR(int y, int v) {
-  return VP8Clip8(MultHi(y, 19077) + MultHi(v, 26149) - 14234);
+static WEBP_INLINE int DEDUP_vP8_YUVToR(int y, int v) {
+  return DEDUP_vP8_Clip8(MultHi(y, 19077) + MultHi(v, 26149) - 14234);
 }
 
-static WEBP_INLINE int VP8YUVToG(int y, int u, int v) {
-  return VP8Clip8(MultHi(y, 19077) - MultHi(u, 6419) - MultHi(v, 13320) + 8708);
+static WEBP_INLINE int DEDUP_vP8_YUVToG(int y, int u, int v) {
+  return DEDUP_vP8_Clip8(MultHi(y, 19077) - MultHi(u, 6419) - MultHi(v, 13320) + 8708);
 }
 
-static WEBP_INLINE int VP8YUVToB(int y, int u) {
-  return VP8Clip8(MultHi(y, 19077) + MultHi(u, 33050) - 17685);
+static WEBP_INLINE int DEDUP_vP8_YUVToB(int y, int u) {
+  return DEDUP_vP8_Clip8(MultHi(y, 19077) + MultHi(u, 33050) - 17685);
 }
 
-static WEBP_INLINE void VP8YuvToRgb(int y, int u, int v,
+static WEBP_INLINE void DEDUP_vP8_YuvToRgb(int y, int u, int v,
                                     uint8_t* const rgb) {
-  rgb[0] = VP8YUVToR(y, v);
-  rgb[1] = VP8YUVToG(y, u, v);
-  rgb[2] = VP8YUVToB(y, u);
+  rgb[0] = DEDUP_vP8_YUVToR(y, v);
+  rgb[1] = DEDUP_vP8_YUVToG(y, u, v);
+  rgb[2] = DEDUP_vP8_YUVToB(y, u);
 }
 
-static WEBP_INLINE void VP8YuvToBgr(int y, int u, int v,
+static WEBP_INLINE void DEDUP_vP8_YuvToBgr(int y, int u, int v,
                                     uint8_t* const bgr) {
-  bgr[0] = VP8YUVToB(y, u);
-  bgr[1] = VP8YUVToG(y, u, v);
-  bgr[2] = VP8YUVToR(y, v);
+  bgr[0] = DEDUP_vP8_YUVToB(y, u);
+  bgr[1] = DEDUP_vP8_YUVToG(y, u, v);
+  bgr[2] = DEDUP_vP8_YUVToR(y, v);
 }
 
-static WEBP_INLINE void VP8YuvToRgb565(int y, int u, int v,
+static WEBP_INLINE void DEDUP_vP8_YuvToRgb565(int y, int u, int v,
                                        uint8_t* const rgb) {
-  const int r = VP8YUVToR(y, v);      // 5 usable bits
-  const int g = VP8YUVToG(y, u, v);   // 6 usable bits
-  const int b = VP8YUVToB(y, u);      // 5 usable bits
+  const int r = DEDUP_vP8_YUVToR(y, v);      // 5 usable bits
+  const int g = DEDUP_vP8_YUVToG(y, u, v);   // 6 usable bits
+  const int b = DEDUP_vP8_YUVToB(y, u);      // 5 usable bits
   const int rg = (r & 0xf8) | (g >> 5);
   const int gb = ((g << 3) & 0xe0) | (b >> 3);
 #ifdef WEBP_SWAP_16BIT_CSP
@@ -120,11 +120,11 @@ static WEBP_INLINE void VP8YuvToRgb565(int y, int u, int v,
 #endif
 }
 
-static WEBP_INLINE void VP8YuvToRgba4444(int y, int u, int v,
+static WEBP_INLINE void DEDUP_vP8_YuvToRgba4444(int y, int u, int v,
                                          uint8_t* const argb) {
-  const int r = VP8YUVToR(y, v);        // 4 usable bits
-  const int g = VP8YUVToG(y, u, v);     // 4 usable bits
-  const int b = VP8YUVToB(y, u);        // 4 usable bits
+  const int r = DEDUP_vP8_YUVToR(y, v);        // 4 usable bits
+  const int g = DEDUP_vP8_YUVToG(y, u, v);     // 4 usable bits
+  const int b = DEDUP_vP8_YUVToB(y, u);        // 4 usable bits
   const int rg = (r & 0xf0) | (g >> 4);
   const int ba = (b & 0xf0) | 0x0f;     // overwrite the lower 4 bits
 #ifdef WEBP_SWAP_16BIT_CSP
@@ -139,26 +139,26 @@ static WEBP_INLINE void VP8YuvToRgba4444(int y, int u, int v,
 //-----------------------------------------------------------------------------
 // Alpha handling variants
 
-static WEBP_INLINE void VP8YuvToArgb(uint8_t y, uint8_t u, uint8_t v,
+static WEBP_INLINE void DEDUP_vP8_YuvToArgb(uint8_t y, uint8_t u, uint8_t v,
                                      uint8_t* const argb) {
   argb[0] = 0xff;
-  VP8YuvToRgb(y, u, v, argb + 1);
+  DEDUP_vP8_YuvToRgb(y, u, v, argb + 1);
 }
 
-static WEBP_INLINE void VP8YuvToBgra(uint8_t y, uint8_t u, uint8_t v,
+static WEBP_INLINE void DEDUP_vP8_YuvToBgra(uint8_t y, uint8_t u, uint8_t v,
                                      uint8_t* const bgra) {
-  VP8YuvToBgr(y, u, v, bgra);
+  DEDUP_vP8_YuvToBgr(y, u, v, bgra);
   bgra[3] = 0xff;
 }
 
-static WEBP_INLINE void VP8YuvToRgba(uint8_t y, uint8_t u, uint8_t v,
+static WEBP_INLINE void DEDUP_vP8_YuvToRgba(uint8_t y, uint8_t u, uint8_t v,
                                      uint8_t* const rgba) {
-  VP8YuvToRgb(y, u, v, rgba);
+  DEDUP_vP8_YuvToRgb(y, u, v, rgba);
   rgba[3] = 0xff;
 }
 
 // Must be called before everything, to initialize the tables.
-void VP8YUVInit(void);
+void DEDUP_vP8_YUVInit(void);
 
 //-----------------------------------------------------------------------------
 // SSE2 extra functions (mostly for upsampling_sse2.c)
@@ -166,19 +166,19 @@ void VP8YUVInit(void);
 #if defined(WEBP_USE_SSE2)
 
 // Process 32 pixels and store the result (16b, 24b or 32b per pixel) in *dst.
-void VP8YuvToRgba32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
+void DEDUP_vP8_YuvToRgba32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
                     uint8_t* dst);
-void VP8YuvToRgb32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
+void DEDUP_vP8_YuvToRgb32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
                    uint8_t* dst);
-void VP8YuvToBgra32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
+void DEDUP_vP8_YuvToBgra32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
                     uint8_t* dst);
-void VP8YuvToBgr32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
+void DEDUP_vP8_YuvToBgr32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
                    uint8_t* dst);
-void VP8YuvToArgb32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
+void DEDUP_vP8_YuvToArgb32(const uint8_t* y, const uint8_t* u, const uint8_t* v,
                     uint8_t* dst);
-void VP8YuvToRgba444432(const uint8_t* y, const uint8_t* u, const uint8_t* v,
+void DEDUP_vP8_YuvToRgba444432(const uint8_t* y, const uint8_t* u, const uint8_t* v,
                         uint8_t* dst);
-void VP8YuvToRgb56532(const uint8_t* y, const uint8_t* u, const uint8_t* v,
+void DEDUP_vP8_YuvToRgb56532(const uint8_t* y, const uint8_t* u, const uint8_t* v,
                       uint8_t* dst);
 
 #endif    // WEBP_USE_SSE2
@@ -187,26 +187,26 @@ void VP8YuvToRgb56532(const uint8_t* y, const uint8_t* u, const uint8_t* v,
 // RGB -> YUV conversion
 
 // Stub functions that can be called with various rounding values:
-static WEBP_INLINE int VP8ClipUV(int uv, int rounding) {
+static WEBP_INLINE int DEDUP_vP8_ClipUV(int uv, int rounding) {
   uv = (uv + rounding + (128 << (YUV_FIX + 2))) >> (YUV_FIX + 2);
   return ((uv & ~0xff) == 0) ? uv : (uv < 0) ? 0 : 255;
 }
 
 #ifndef USE_YUVj
 
-static WEBP_INLINE int VP8RGBToY(int r, int g, int b, int rounding) {
+static WEBP_INLINE int DEDUP_vP8_RGBToY(int r, int g, int b, int rounding) {
   const int luma = 16839 * r + 33059 * g + 6420 * b;
   return (luma + rounding + (16 << YUV_FIX)) >> YUV_FIX;  // no need to clip
 }
 
-static WEBP_INLINE int VP8RGBToU(int r, int g, int b, int rounding) {
+static WEBP_INLINE int DEDUP_vP8_RGBToU(int r, int g, int b, int rounding) {
   const int u = -9719 * r - 19081 * g + 28800 * b;
-  return VP8ClipUV(u, rounding);
+  return DEDUP_vP8_ClipUV(u, rounding);
 }
 
-static WEBP_INLINE int VP8RGBToV(int r, int g, int b, int rounding) {
+static WEBP_INLINE int DEDUP_vP8_RGBToV(int r, int g, int b, int rounding) {
   const int v = +28800 * r - 24116 * g - 4684 * b;
-  return VP8ClipUV(v, rounding);
+  return DEDUP_vP8_ClipUV(v, rounding);
 }
 
 #else
@@ -214,19 +214,19 @@ static WEBP_INLINE int VP8RGBToV(int r, int g, int b, int rounding) {
 // This JPEG-YUV colorspace, only for comparison!
 // These are also 16bit precision coefficients from Rec.601, but with full
 // [0..255] output range.
-static WEBP_INLINE int VP8RGBToY(int r, int g, int b, int rounding) {
+static WEBP_INLINE int DEDUP_vP8_RGBToY(int r, int g, int b, int rounding) {
   const int luma = 19595 * r + 38470 * g + 7471 * b;
   return (luma + rounding) >> YUV_FIX;  // no need to clip
 }
 
-static WEBP_INLINE int VP8RGBToU(int r, int g, int b, int rounding) {
+static WEBP_INLINE int DEDUP_vP8_RGBToU(int r, int g, int b, int rounding) {
   const int u = -11058 * r - 21710 * g + 32768 * b;
-  return VP8ClipUV(u, rounding);
+  return DEDUP_vP8_ClipUV(u, rounding);
 }
 
-static WEBP_INLINE int VP8RGBToV(int r, int g, int b, int rounding) {
+static WEBP_INLINE int DEDUP_vP8_RGBToV(int r, int g, int b, int rounding) {
   const int v = 32768 * r - 27439 * g - 5329 * b;
-  return VP8ClipUV(v, rounding);
+  return DEDUP_vP8_ClipUV(v, rounding);
 }
 
 #endif    // USE_YUVj

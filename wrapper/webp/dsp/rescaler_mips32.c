@@ -21,7 +21,7 @@
 //------------------------------------------------------------------------------
 // Row import
 
-static void ImportRowShrink(WebPRescaler* const wrk, const uint8_t* src) {
+static void ImportRowShrink(DEDUP_WEBP_Rescaler* const wrk, const uint8_t* src) {
   const int x_stride = wrk->num_channels;
   const int x_out_max = wrk->dst_width * wrk->num_channels;
   const int fx_scale = wrk->fx_scale;
@@ -30,7 +30,7 @@ static void ImportRowShrink(WebPRescaler* const wrk, const uint8_t* src) {
   const int x_stride1 = x_stride << 2;
   int channel;
   assert(!wrk->x_expand);
-  assert(!WebPRescalerInputDone(wrk));
+  assert(!DEDUP_WEBP_RescalerInputDone(wrk));
 
   for (channel = 0; channel < x_stride; ++channel) {
     const uint8_t* src1 = src + channel;
@@ -80,7 +80,7 @@ static void ImportRowShrink(WebPRescaler* const wrk, const uint8_t* src) {
   }
 }
 
-static void ImportRowExpand(WebPRescaler* const wrk, const uint8_t* src) {
+static void ImportRowExpand(DEDUP_WEBP_Rescaler* const wrk, const uint8_t* src) {
   const int x_stride = wrk->num_channels;
   const int x_out_max = wrk->dst_width * wrk->num_channels;
   const int x_add = wrk->x_add;
@@ -89,7 +89,7 @@ static void ImportRowExpand(WebPRescaler* const wrk, const uint8_t* src) {
   const int x_stride1 = x_stride << 2;
   int channel;
   assert(wrk->x_expand);
-  assert(!WebPRescalerInputDone(wrk));
+  assert(!DEDUP_WEBP_RescalerInputDone(wrk));
 
   for (channel = 0; channel < x_stride; ++channel) {
     const uint8_t* src1 = src + channel;
@@ -144,7 +144,7 @@ static void ImportRowExpand(WebPRescaler* const wrk, const uint8_t* src) {
 //------------------------------------------------------------------------------
 // Row export
 
-static void ExportRowExpand(WebPRescaler* const wrk) {
+static void ExportRowExpand(DEDUP_WEBP_Rescaler* const wrk) {
   uint8_t* dst = wrk->dst;
   rescaler_t* irow = wrk->irow;
   const int x_out_max = wrk->dst_width * wrk->num_channels;
@@ -152,7 +152,7 @@ static void ExportRowExpand(WebPRescaler* const wrk) {
   int temp0, temp1, temp3, temp4, temp5, loop_end;
   const int temp2 = (int)wrk->fy_scale;
   const int temp6 = x_out_max << 2;
-  assert(!WebPRescalerOutputDone(wrk));
+  assert(!DEDUP_WEBP_RescalerOutputDone(wrk));
   assert(wrk->y_accum <= 0);
   assert(wrk->y_expand);
   assert(wrk->y_sub != 0);
@@ -207,7 +207,7 @@ static void ExportRowExpand(WebPRescaler* const wrk) {
   }
 }
 
-static void ExportRowShrink(WebPRescaler* const wrk) {
+static void ExportRowShrink(DEDUP_WEBP_Rescaler* const wrk) {
   const int x_out_max = wrk->dst_width * wrk->num_channels;
   uint8_t* dst = wrk->dst;
   rescaler_t* irow = wrk->irow;
@@ -217,7 +217,7 @@ static void ExportRowShrink(WebPRescaler* const wrk) {
   const int temp2 = (int)wrk->fxy_scale;
   const int temp6 = x_out_max << 2;
 
-  assert(!WebPRescalerOutputDone(wrk));
+  assert(!DEDUP_WEBP_RescalerOutputDone(wrk));
   assert(wrk->y_accum <= 0);
   assert(!wrk->y_expand);
   assert(wrk->fxy_scale != 0);
@@ -275,17 +275,17 @@ static void ExportRowShrink(WebPRescaler* const wrk) {
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void WebPRescalerDspInitMIPS32(void);
+extern void DEDUP_WEBP_RescalerDspInitMIPS32(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPRescalerDspInitMIPS32(void) {
-  WebPRescalerImportRowExpand = ImportRowExpand;
-  WebPRescalerImportRowShrink = ImportRowShrink;
-  WebPRescalerExportRowExpand = ExportRowExpand;
-  WebPRescalerExportRowShrink = ExportRowShrink;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_RescalerDspInitMIPS32(void) {
+  DEDUP_WEBP_RescalerImportRowExpand = ImportRowExpand;
+  DEDUP_WEBP_RescalerImportRowShrink = ImportRowShrink;
+  DEDUP_WEBP_RescalerExportRowExpand = ExportRowExpand;
+  DEDUP_WEBP_RescalerExportRowShrink = ExportRowShrink;
 }
 
 #else  // !WEBP_USE_MIPS32
 
-WEBP_DSP_INIT_STUB(WebPRescalerDspInitMIPS32)
+WEBP_DSP_INIT_STUB(DEDUP_WEBP_RescalerDspInitMIPS32)
 
 #endif  // WEBP_USE_MIPS32

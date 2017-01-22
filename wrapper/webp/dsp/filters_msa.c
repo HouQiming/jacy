@@ -187,16 +187,16 @@ static void VerticalFilter(const uint8_t* data, int width, int height,
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8FiltersInitMSA(void);
+extern void DEDUP_vP8_FiltersInitMSA(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8FiltersInitMSA(void) {
-  WebPFilters[WEBP_FILTER_HORIZONTAL] = HorizontalFilter;
-  WebPFilters[WEBP_FILTER_VERTICAL] = VerticalFilter;
-  WebPFilters[WEBP_FILTER_GRADIENT] = GradientFilter;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_FiltersInitMSA(void) {
+  DEDUP_WEBP_Filters[WEBP_FILTER_HORIZONTAL] = HorizontalFilter;
+  DEDUP_WEBP_Filters[WEBP_FILTER_VERTICAL] = VerticalFilter;
+  DEDUP_WEBP_Filters[WEBP_FILTER_GRADIENT] = GradientFilter;
 }
 
 #else  // !WEBP_USE_MSA
 
-WEBP_DSP_INIT_STUB(VP8FiltersInitMSA)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_FiltersInitMSA)
 
 #endif  // WEBP_USE_MSA

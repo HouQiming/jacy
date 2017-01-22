@@ -214,20 +214,20 @@ UPSAMPLE_FUNC(UpsampleRgb565LinePair,   YuvToRgb565,   2)
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void WebPInitUpsamplersMIPSdspR2(void);
+extern void DEDUP_WEBP_InitUpsamplersMIPSdspR2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitUpsamplersMIPSdspR2(void) {
-  WebPUpsamplers[MODE_RGB]       = UpsampleRgbLinePair;
-  WebPUpsamplers[MODE_RGBA]      = UpsampleRgbaLinePair;
-  WebPUpsamplers[MODE_BGR]       = UpsampleBgrLinePair;
-  WebPUpsamplers[MODE_BGRA]      = UpsampleBgraLinePair;
-  WebPUpsamplers[MODE_ARGB]      = UpsampleArgbLinePair;
-  WebPUpsamplers[MODE_RGBA_4444] = UpsampleRgba4444LinePair;
-  WebPUpsamplers[MODE_RGB_565]   = UpsampleRgb565LinePair;
-  WebPUpsamplers[MODE_rgbA]      = UpsampleRgbaLinePair;
-  WebPUpsamplers[MODE_bgrA]      = UpsampleBgraLinePair;
-  WebPUpsamplers[MODE_Argb]      = UpsampleArgbLinePair;
-  WebPUpsamplers[MODE_rgbA_4444] = UpsampleRgba4444LinePair;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_InitUpsamplersMIPSdspR2(void) {
+  DEDUP_WEBP_Upsamplers[MODE_RGB]       = UpsampleRgbLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_RGBA]      = UpsampleRgbaLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_BGR]       = UpsampleBgrLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_BGRA]      = UpsampleBgraLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_ARGB]      = UpsampleArgbLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_RGBA_4444] = UpsampleRgba4444LinePair;
+  DEDUP_WEBP_Upsamplers[MODE_RGB_565]   = UpsampleRgb565LinePair;
+  DEDUP_WEBP_Upsamplers[MODE_rgbA]      = UpsampleRgbaLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_bgrA]      = UpsampleBgraLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_Argb]      = UpsampleArgbLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_rgbA_4444] = UpsampleRgba4444LinePair;
 }
 
 #endif  // FANCY_UPSAMPLING
@@ -255,28 +255,28 @@ YUV444_FUNC(Yuv444ToRgb565,   YuvToRgb565,   2)
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void WebPInitYUV444ConvertersMIPSdspR2(void);
+extern void DEDUP_WEBP_InitYUV444ConvertersMIPSdspR2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitYUV444ConvertersMIPSdspR2(void) {
-  WebPYUV444Converters[MODE_RGB]       = Yuv444ToRgb;
-  WebPYUV444Converters[MODE_RGBA]      = Yuv444ToRgba;
-  WebPYUV444Converters[MODE_BGR]       = Yuv444ToBgr;
-  WebPYUV444Converters[MODE_BGRA]      = Yuv444ToBgra;
-  WebPYUV444Converters[MODE_ARGB]      = Yuv444ToArgb;
-  WebPYUV444Converters[MODE_RGBA_4444] = Yuv444ToRgba4444;
-  WebPYUV444Converters[MODE_RGB_565]   = Yuv444ToRgb565;
-  WebPYUV444Converters[MODE_rgbA]      = Yuv444ToRgba;
-  WebPYUV444Converters[MODE_bgrA]      = Yuv444ToBgra;
-  WebPYUV444Converters[MODE_Argb]      = Yuv444ToArgb;
-  WebPYUV444Converters[MODE_rgbA_4444] = Yuv444ToRgba4444;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_InitYUV444ConvertersMIPSdspR2(void) {
+  DEDUP_WEBP_YUV444Converters[MODE_RGB]       = Yuv444ToRgb;
+  DEDUP_WEBP_YUV444Converters[MODE_RGBA]      = Yuv444ToRgba;
+  DEDUP_WEBP_YUV444Converters[MODE_BGR]       = Yuv444ToBgr;
+  DEDUP_WEBP_YUV444Converters[MODE_BGRA]      = Yuv444ToBgra;
+  DEDUP_WEBP_YUV444Converters[MODE_ARGB]      = Yuv444ToArgb;
+  DEDUP_WEBP_YUV444Converters[MODE_RGBA_4444] = Yuv444ToRgba4444;
+  DEDUP_WEBP_YUV444Converters[MODE_RGB_565]   = Yuv444ToRgb565;
+  DEDUP_WEBP_YUV444Converters[MODE_rgbA]      = Yuv444ToRgba;
+  DEDUP_WEBP_YUV444Converters[MODE_bgrA]      = Yuv444ToBgra;
+  DEDUP_WEBP_YUV444Converters[MODE_Argb]      = Yuv444ToArgb;
+  DEDUP_WEBP_YUV444Converters[MODE_rgbA_4444] = Yuv444ToRgba4444;
 }
 
 #else  // !WEBP_USE_MIPS_DSP_R2
 
-WEBP_DSP_INIT_STUB(WebPInitYUV444ConvertersMIPSdspR2)
+WEBP_DSP_INIT_STUB(DEDUP_WEBP_InitYUV444ConvertersMIPSdspR2)
 
 #endif  // WEBP_USE_MIPS_DSP_R2
 
 #if !(defined(FANCY_UPSAMPLING) && defined(WEBP_USE_MIPS_DSP_R2))
-WEBP_DSP_INIT_STUB(WebPInitUpsamplersMIPSdspR2)
+WEBP_DSP_INIT_STUB(DEDUP_WEBP_InitUpsamplersMIPSdspR2)
 #endif

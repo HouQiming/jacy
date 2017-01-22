@@ -24,7 +24,7 @@
 //------------------------------------------------------------------------------
 // Row export
 
-static void ExportRowShrink(WebPRescaler* const wrk) {
+static void ExportRowShrink(DEDUP_WEBP_Rescaler* const wrk) {
   int i;
   const int x_out_max = wrk->dst_width * wrk->num_channels;
   uint8_t* dst = wrk->dst;
@@ -34,7 +34,7 @@ static void ExportRowShrink(WebPRescaler* const wrk) {
   int temp0, temp1, temp2, temp3, temp4, temp5, loop_end;
   const int temp7 = (int)wrk->fxy_scale;
   const int temp6 = (x_out_max & ~0x3) << 2;
-  assert(!WebPRescalerOutputDone(wrk));
+  assert(!DEDUP_WEBP_RescalerOutputDone(wrk));
   assert(wrk->y_accum <= 0);
   assert(!wrk->y_expand);
   assert(wrk->fxy_scale != 0);
@@ -162,7 +162,7 @@ static void ExportRowShrink(WebPRescaler* const wrk) {
   }
 }
 
-static void ExportRowExpand(WebPRescaler* const wrk) {
+static void ExportRowExpand(DEDUP_WEBP_Rescaler* const wrk) {
   int i;
   uint8_t* dst = wrk->dst;
   rescaler_t* irow = wrk->irow;
@@ -171,7 +171,7 @@ static void ExportRowExpand(WebPRescaler* const wrk) {
   int temp0, temp1, temp2, temp3, temp4, temp5, loop_end;
   const int temp6 = (x_out_max & ~0x3) << 2;
   const int temp7 = (int)wrk->fy_scale;
-  assert(!WebPRescalerOutputDone(wrk));
+  assert(!DEDUP_WEBP_RescalerOutputDone(wrk));
   assert(wrk->y_accum <= 0);
   assert(wrk->y_expand);
   assert(wrk->y_sub != 0);
@@ -300,15 +300,15 @@ static void ExportRowExpand(WebPRescaler* const wrk) {
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void WebPRescalerDspInitMIPSdspR2(void);
+extern void DEDUP_WEBP_RescalerDspInitMIPSdspR2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPRescalerDspInitMIPSdspR2(void) {
-  WebPRescalerExportRowExpand = ExportRowExpand;
-  WebPRescalerExportRowShrink = ExportRowShrink;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_RescalerDspInitMIPSdspR2(void) {
+  DEDUP_WEBP_RescalerExportRowExpand = ExportRowExpand;
+  DEDUP_WEBP_RescalerExportRowShrink = ExportRowShrink;
 }
 
 #else  // !WEBP_USE_MIPS_DSP_R2
 
-WEBP_DSP_INIT_STUB(WebPRescalerDspInitMIPSdspR2)
+WEBP_DSP_INIT_STUB(DEDUP_WEBP_RescalerDspInitMIPSdspR2)
 
 #endif  // WEBP_USE_MIPS_DSP_R2

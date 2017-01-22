@@ -222,7 +222,7 @@ const float kSLog2Table[LOG_LOOKUP_IDX_MAX] = {
   2010.27454072f, 2019.69737440f, 2029.12591044f, 2038.56012640f
 };
 
-const VP8LPrefixCode kPrefixEncodeCode[PREFIX_LOOKUP_IDX_MAX] = {
+const DEDUP_vP8_LPrefixCode kPrefixEncodeCode[PREFIX_LOOKUP_IDX_MAX] = {
   { 0, 0}, { 0, 0}, { 1, 0}, { 2, 0}, { 3, 0}, { 4, 1}, { 4, 1}, { 5, 1},
   { 5, 1}, { 6, 2}, { 6, 2}, { 6, 2}, { 6, 2}, { 7, 2}, { 7, 2}, { 7, 2},
   { 7, 2}, { 8, 3}, { 8, 3}, { 8, 3}, { 8, 3}, { 8, 3}, { 8, 3}, { 8, 3},
@@ -389,49 +389,49 @@ static float CombinedShannonEntropy(const int X[256], const int Y[256]) {
     if (x != 0) {
       const int xy = x + Y[i];
       sumX += x;
-      retval -= VP8LFastSLog2(x);
+      retval -= DEDUP_vP8_LFastSLog2(x);
       sumXY += xy;
-      retval -= VP8LFastSLog2(xy);
+      retval -= DEDUP_vP8_LFastSLog2(xy);
     } else if (Y[i] != 0) {
       sumXY += Y[i];
-      retval -= VP8LFastSLog2(Y[i]);
+      retval -= DEDUP_vP8_LFastSLog2(Y[i]);
     }
   }
-  retval += VP8LFastSLog2(sumX) + VP8LFastSLog2(sumXY);
+  retval += DEDUP_vP8_LFastSLog2(sumX) + DEDUP_vP8_LFastSLog2(sumXY);
   return (float)retval;
 }
 
-void VP8LBitEntropyInit(VP8LBitEntropy* const entropy) {
+void DEDUP_vP8_LBitEntropyInit(DEDUP_vP8_LBitEntropy* const entropy) {
   entropy->entropy = 0.;
   entropy->sum = 0;
   entropy->nonzeros = 0;
   entropy->max_val = 0;
-  entropy->nonzero_code = VP8L_NON_TRIVIAL_SYM;
+  entropy->nonzero_code = DEDUP_vP8_L_NON_TRIVIAL_SYM;
 }
 
-void VP8LBitsEntropyUnrefined(const uint32_t* const array, int n,
-                              VP8LBitEntropy* const entropy) {
+void DEDUP_vP8_LBitsEntropyUnrefined(const uint32_t* const array, int n,
+                              DEDUP_vP8_LBitEntropy* const entropy) {
   int i;
 
-  VP8LBitEntropyInit(entropy);
+  DEDUP_vP8_LBitEntropyInit(entropy);
 
   for (i = 0; i < n; ++i) {
     if (array[i] != 0) {
       entropy->sum += array[i];
       entropy->nonzero_code = i;
       ++entropy->nonzeros;
-      entropy->entropy -= VP8LFastSLog2(array[i]);
+      entropy->entropy -= DEDUP_vP8_LFastSLog2(array[i]);
       if (entropy->max_val < array[i]) {
         entropy->max_val = array[i];
       }
     }
   }
-  entropy->entropy += VP8LFastSLog2(entropy->sum);
+  entropy->entropy += DEDUP_vP8_LFastSLog2(entropy->sum);
 }
 
 static WEBP_INLINE void GetEntropyUnrefinedHelper(
     uint32_t val, int i, uint32_t* const val_prev, int* const i_prev,
-    VP8LBitEntropy* const bit_entropy, VP8LStreaks* const stats) {
+    DEDUP_vP8_LBitEntropy* const bit_entropy, DEDUP_vP8_LStreaks* const stats) {
   const int streak = i - *i_prev;
 
   // Gather info for the bit entropy.
@@ -439,7 +439,7 @@ static WEBP_INLINE void GetEntropyUnrefinedHelper(
     bit_entropy->sum += (*val_prev) * streak;
     bit_entropy->nonzeros += streak;
     bit_entropy->nonzero_code = *i_prev;
-    bit_entropy->entropy -= VP8LFastSLog2(*val_prev) * streak;
+    bit_entropy->entropy -= DEDUP_vP8_LFastSLog2(*val_prev) * streak;
     if (bit_entropy->max_val < *val_prev) {
       bit_entropy->max_val = *val_prev;
     }
@@ -454,14 +454,14 @@ static WEBP_INLINE void GetEntropyUnrefinedHelper(
 }
 
 static void GetEntropyUnrefined(const uint32_t X[], int length,
-                                VP8LBitEntropy* const bit_entropy,
-                                VP8LStreaks* const stats) {
+                                DEDUP_vP8_LBitEntropy* const bit_entropy,
+                                DEDUP_vP8_LStreaks* const stats) {
   int i;
   int i_prev = 0;
   uint32_t x_prev = X[0];
 
   memset(stats, 0, sizeof(*stats));
-  VP8LBitEntropyInit(bit_entropy);
+  DEDUP_vP8_LBitEntropyInit(bit_entropy);
 
   for (i = 1; i < length; ++i) {
     const uint32_t x = X[i];
@@ -471,19 +471,19 @@ static void GetEntropyUnrefined(const uint32_t X[], int length,
   }
   GetEntropyUnrefinedHelper(0, i, &x_prev, &i_prev, bit_entropy, stats);
 
-  bit_entropy->entropy += VP8LFastSLog2(bit_entropy->sum);
+  bit_entropy->entropy += DEDUP_vP8_LFastSLog2(bit_entropy->sum);
 }
 
 static void GetCombinedEntropyUnrefined(const uint32_t X[], const uint32_t Y[],
                                         int length,
-                                        VP8LBitEntropy* const bit_entropy,
-                                        VP8LStreaks* const stats) {
+                                        DEDUP_vP8_LBitEntropy* const bit_entropy,
+                                        DEDUP_vP8_LStreaks* const stats) {
   int i = 1;
   int i_prev = 0;
   uint32_t xy_prev = X[0] + Y[0];
 
   memset(stats, 0, sizeof(*stats));
-  VP8LBitEntropyInit(bit_entropy);
+  DEDUP_vP8_LBitEntropyInit(bit_entropy);
 
   for (i = 1; i < length; ++i) {
     const uint32_t xy = X[i] + Y[i];
@@ -493,12 +493,12 @@ static void GetCombinedEntropyUnrefined(const uint32_t X[], const uint32_t Y[],
   }
   GetEntropyUnrefinedHelper(0, i, &xy_prev, &i_prev, bit_entropy, stats);
 
-  bit_entropy->entropy += VP8LFastSLog2(bit_entropy->sum);
+  bit_entropy->entropy += DEDUP_vP8_LFastSLog2(bit_entropy->sum);
 }
 
 //------------------------------------------------------------------------------
 
-void VP8LSubtractGreenFromBlueAndRed_C(uint32_t* argb_data, int num_pixels) {
+void DEDUP_vP8_LSubtractGreenFromBlueAndRed_C(uint32_t* argb_data, int num_pixels) {
   int i;
   for (i = 0; i < num_pixels; ++i) {
     const int argb = argb_data[i];
@@ -513,7 +513,7 @@ static WEBP_INLINE int ColorTransformDelta(int8_t color_pred, int8_t color) {
   return ((int)color_pred * color) >> 5;
 }
 
-void VP8LTransformColor_C(const VP8LMultipliers* const m, uint32_t* data,
+void DEDUP_vP8_LTransformColor_C(const DEDUP_vP8_LMultipliers* const m, uint32_t* data,
                           int num_pixels) {
   int i;
   for (i = 0; i < num_pixels; ++i) {
@@ -550,7 +550,7 @@ static WEBP_INLINE uint8_t TransformColorBlue(uint8_t green_to_blue,
   return (new_blue & 0xff);
 }
 
-void VP8LCollectColorRedTransforms_C(const uint32_t* argb, int stride,
+void DEDUP_vP8_LCollectColorRedTransforms_C(const uint32_t* argb, int stride,
                                      int tile_width, int tile_height,
                                      int green_to_red, int histo[]) {
   while (tile_height-- > 0) {
@@ -562,7 +562,7 @@ void VP8LCollectColorRedTransforms_C(const uint32_t* argb, int stride,
   }
 }
 
-void VP8LCollectColorBlueTransforms_C(const uint32_t* argb, int stride,
+void DEDUP_vP8_LCollectColorBlueTransforms_C(const uint32_t* argb, int stride,
                                       int tile_width, int tile_height,
                                       int green_to_blue, int red_to_blue,
                                       int histo[]) {
@@ -588,7 +588,7 @@ static int VectorMismatch(const uint32_t* const array1,
 }
 
 // Bundles multiple (1, 2, 4 or 8) pixels into a single pixel.
-void VP8LBundleColorMap(const uint8_t* const row, int width,
+void DEDUP_vP8_LBundleColorMap(const uint8_t* const row, int width,
                         int xbits, uint32_t* const dst) {
   int x;
   if (xbits > 0) {
@@ -630,11 +630,11 @@ static double ExtraCostCombined(const uint32_t* X, const uint32_t* Y,
 
 //------------------------------------------------------------------------------
 
-static void HistogramAdd(const VP8LHistogram* const a,
-                         const VP8LHistogram* const b,
-                         VP8LHistogram* const out) {
+static void HistogramAdd(const DEDUP_vP8_LHistogram* const a,
+                         const DEDUP_vP8_LHistogram* const b,
+                         DEDUP_vP8_LHistogram* const out) {
   int i;
-  const int literal_size = VP8LHistogramNumCodes(a->palette_code_bits_);
+  const int literal_size = DEDUP_vP8_LHistogramNumCodes(a->palette_code_bits_);
   assert(a->palette_code_bits_ == b->palette_code_bits_);
   if (b != out) {
     for (i = 0; i < literal_size; ++i) {
@@ -665,97 +665,97 @@ static void HistogramAdd(const VP8LHistogram* const a,
 
 //------------------------------------------------------------------------------
 
-VP8LProcessBlueAndRedFunc VP8LSubtractGreenFromBlueAndRed;
+DEDUP_vP8_LProcessBlueAndRedFunc DEDUP_vP8_LSubtractGreenFromBlueAndRed;
 
-VP8LTransformColorFunc VP8LTransformColor;
+DEDUP_vP8_LTransformColorFunc DEDUP_vP8_LTransformColor;
 
-VP8LCollectColorBlueTransformsFunc VP8LCollectColorBlueTransforms;
-VP8LCollectColorRedTransformsFunc VP8LCollectColorRedTransforms;
+DEDUP_vP8_LCollectColorBlueTransformsFunc DEDUP_vP8_LCollectColorBlueTransforms;
+DEDUP_vP8_LCollectColorRedTransformsFunc DEDUP_vP8_LCollectColorRedTransforms;
 
-VP8LFastLog2SlowFunc VP8LFastLog2Slow;
-VP8LFastLog2SlowFunc VP8LFastSLog2Slow;
+DEDUP_vP8_LFastLog2SlowFunc DEDUP_vP8_LFastLog2Slow;
+DEDUP_vP8_LFastLog2SlowFunc DEDUP_vP8_LFastSLog2Slow;
 
-VP8LCostFunc VP8LExtraCost;
-VP8LCostCombinedFunc VP8LExtraCostCombined;
-VP8LCombinedShannonEntropyFunc VP8LCombinedShannonEntropy;
+DEDUP_vP8_LCostFunc DEDUP_vP8_LExtraCost;
+DEDUP_vP8_LCostCombinedFunc DEDUP_vP8_LExtraCostCombined;
+DEDUP_vP8_LCombinedShannonEntropyFunc DEDUP_vP8_LCombinedShannonEntropy;
 
-VP8LGetEntropyUnrefinedFunc VP8LGetEntropyUnrefined;
-VP8LGetCombinedEntropyUnrefinedFunc VP8LGetCombinedEntropyUnrefined;
+DEDUP_vP8_LGetEntropyUnrefinedFunc DEDUP_vP8_LGetEntropyUnrefined;
+DEDUP_vP8_LGetCombinedEntropyUnrefinedFunc DEDUP_vP8_LGetCombinedEntropyUnrefined;
 
-VP8LHistogramAddFunc VP8LHistogramAdd;
+DEDUP_vP8_LHistogramAddFunc DEDUP_vP8_LHistogramAdd;
 
-VP8LVectorMismatchFunc VP8LVectorMismatch;
+DEDUP_vP8_LVectorMismatchFunc DEDUP_vP8_LVectorMismatch;
 
-extern void VP8LEncDspInitSSE2(void);
-extern void VP8LEncDspInitSSE41(void);
-extern void VP8LEncDspInitNEON(void);
-extern void VP8LEncDspInitMIPS32(void);
-extern void VP8LEncDspInitMIPSdspR2(void);
-extern void VP8LEncDspInitMSA(void);
+extern void DEDUP_vP8_LEncDspInitSSE2(void);
+extern void DEDUP_vP8_LEncDspInitSSE41(void);
+extern void DEDUP_vP8_LEncDspInitNEON(void);
+extern void DEDUP_vP8_LEncDspInitMIPS32(void);
+extern void DEDUP_vP8_LEncDspInitMIPSdspR2(void);
+extern void DEDUP_vP8_LEncDspInitMSA(void);
 
-static volatile VP8CPUInfo lossless_enc_last_cpuinfo_used =
-    (VP8CPUInfo)&lossless_enc_last_cpuinfo_used;
+static volatile DEDUP_vP8_CPUInfo lossless_enc_last_cpuinfo_used =
+    (DEDUP_vP8_CPUInfo)&lossless_enc_last_cpuinfo_used;
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8LEncDspInit(void) {
-  if (lossless_enc_last_cpuinfo_used == VP8GetCPUInfo) return;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_LEncDspInit(void) {
+  if (lossless_enc_last_cpuinfo_used == DEDUP_vP8_GetCPUInfo) return;
 
-  VP8LDspInit();
+  DEDUP_vP8_LDspInit();
 
-  VP8LSubtractGreenFromBlueAndRed = VP8LSubtractGreenFromBlueAndRed_C;
+  DEDUP_vP8_LSubtractGreenFromBlueAndRed = DEDUP_vP8_LSubtractGreenFromBlueAndRed_C;
 
-  VP8LTransformColor = VP8LTransformColor_C;
+  DEDUP_vP8_LTransformColor = DEDUP_vP8_LTransformColor_C;
 
-  VP8LCollectColorBlueTransforms = VP8LCollectColorBlueTransforms_C;
-  VP8LCollectColorRedTransforms = VP8LCollectColorRedTransforms_C;
+  DEDUP_vP8_LCollectColorBlueTransforms = DEDUP_vP8_LCollectColorBlueTransforms_C;
+  DEDUP_vP8_LCollectColorRedTransforms = DEDUP_vP8_LCollectColorRedTransforms_C;
 
-  VP8LFastLog2Slow = FastLog2Slow;
-  VP8LFastSLog2Slow = FastSLog2Slow;
+  DEDUP_vP8_LFastLog2Slow = FastLog2Slow;
+  DEDUP_vP8_LFastSLog2Slow = FastSLog2Slow;
 
-  VP8LExtraCost = ExtraCost;
-  VP8LExtraCostCombined = ExtraCostCombined;
-  VP8LCombinedShannonEntropy = CombinedShannonEntropy;
+  DEDUP_vP8_LExtraCost = ExtraCost;
+  DEDUP_vP8_LExtraCostCombined = ExtraCostCombined;
+  DEDUP_vP8_LCombinedShannonEntropy = CombinedShannonEntropy;
 
-  VP8LGetEntropyUnrefined = GetEntropyUnrefined;
-  VP8LGetCombinedEntropyUnrefined = GetCombinedEntropyUnrefined;
+  DEDUP_vP8_LGetEntropyUnrefined = GetEntropyUnrefined;
+  DEDUP_vP8_LGetCombinedEntropyUnrefined = GetCombinedEntropyUnrefined;
 
-  VP8LHistogramAdd = HistogramAdd;
+  DEDUP_vP8_LHistogramAdd = HistogramAdd;
 
-  VP8LVectorMismatch = VectorMismatch;
+  DEDUP_vP8_LVectorMismatch = VectorMismatch;
 
   // If defined, use CPUInfo() to overwrite some pointers with faster versions.
-  if (VP8GetCPUInfo != NULL) {
+  if (DEDUP_vP8_GetCPUInfo != NULL) {
 #if defined(WEBP_USE_SSE2)
-    if (VP8GetCPUInfo(kSSE2)) {
-      VP8LEncDspInitSSE2();
+    if (DEDUP_vP8_GetCPUInfo(kSSE2)) {
+      DEDUP_vP8_LEncDspInitSSE2();
 #if defined(WEBP_USE_SSE41)
-      if (VP8GetCPUInfo(kSSE4_1)) {
-        VP8LEncDspInitSSE41();
+      if (DEDUP_vP8_GetCPUInfo(kSSE4_1)) {
+        DEDUP_vP8_LEncDspInitSSE41();
       }
 #endif
     }
 #endif
 #if defined(WEBP_USE_NEON)
-    if (VP8GetCPUInfo(kNEON)) {
-      VP8LEncDspInitNEON();
+    if (DEDUP_vP8_GetCPUInfo(kNEON)) {
+      DEDUP_vP8_LEncDspInitNEON();
     }
 #endif
 #if defined(WEBP_USE_MIPS32)
-    if (VP8GetCPUInfo(kMIPS32)) {
-      VP8LEncDspInitMIPS32();
+    if (DEDUP_vP8_GetCPUInfo(kMIPS32)) {
+      DEDUP_vP8_LEncDspInitMIPS32();
     }
 #endif
 #if defined(WEBP_USE_MIPS_DSP_R2)
-    if (VP8GetCPUInfo(kMIPSdspR2)) {
-      VP8LEncDspInitMIPSdspR2();
+    if (DEDUP_vP8_GetCPUInfo(kMIPSdspR2)) {
+      DEDUP_vP8_LEncDspInitMIPSdspR2();
     }
 #endif
 #if defined(WEBP_USE_MSA)
-    if (VP8GetCPUInfo(kMSA)) {
-      VP8LEncDspInitMSA();
+    if (DEDUP_vP8_GetCPUInfo(kMSA)) {
+      DEDUP_vP8_LEncDspInitMSA();
     }
 #endif
   }
-  lossless_enc_last_cpuinfo_used = VP8GetCPUInfo;
+  lossless_enc_last_cpuinfo_used = DEDUP_vP8_GetCPUInfo;
 }
 
 //------------------------------------------------------------------------------

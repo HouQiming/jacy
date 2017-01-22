@@ -7,12 +7,12 @@
 // be found in the AUTHORS file in the root of the source tree.
 // -----------------------------------------------------------------------------
 //
-//   WebP encoder: internal header.
+//   DEDUP_WEBP_ encoder: internal header.
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#ifndef WEBP_ENC_VP8ENCI_H_
-#define WEBP_ENC_VP8ENCI_H_
+#ifndef WEBP_ENC_DEDUP_vP8_ENCI_H_
+#define WEBP_ENC_DEDUP_vP8_ENCI_H_
 
 #include <string.h>     // for memcpy()
 #include "../dec/common.h"
@@ -44,14 +44,14 @@ typedef enum {   // Rate-distortion optimization levels
   RD_OPT_BASIC       = 1,  // basic scoring (no trellis)
   RD_OPT_TRELLIS     = 2,  // perform trellis-quant on the final decision only
   RD_OPT_TRELLIS_ALL = 3   // trellis-quant for every scoring (much slower)
-} VP8RDLevel;
+} DEDUP_vP8_RDLevel;
 
 // YUV-cache parameters. Cache is 32-bytes wide (= one cacheline).
-// The original or reconstructed samples can be accessed using VP8Scan[].
+// The original or reconstructed samples can be accessed using DEDUP_vP8_Scan[].
 // The predicted blocks can be accessed using offsets to yuv_p_ and
-// the arrays VP8*ModeOffsets[].
+// the arrays DEDUP_vP8_*ModeOffsets[].
 // * YUV Samples area (yuv_in_/yuv_out_/yuv_out2_)
-//   (see VP8Scan[] for accessing the blocks, along with
+//   (see DEDUP_vP8_Scan[] for accessing the blocks, along with
 //   Y_OFF_ENC/U_OFF_ENC/V_OFF_ENC):
 //             +----+----+
 //  Y_OFF_ENC  |YYYY|UUVV|
@@ -75,10 +75,10 @@ typedef enum {   // Rate-distortion optimization levels
 #define U_OFF_ENC    (16)
 #define V_OFF_ENC    (16 + 8)
 
-extern const int VP8Scan[16];           // in quant.c
-extern const int VP8UVModeOffsets[4];   // in analyze.c
-extern const int VP8I16ModeOffsets[4];
-extern const int VP8I4ModeOffsets[NUM_BMODES];
+extern const int DEDUP_vP8_Scan[16];           // in quant.c
+extern const int DEDUP_vP8_UVModeOffsets[4];   // in analyze.c
+extern const int DEDUP_vP8_I16ModeOffsets[4];
+extern const int DEDUP_vP8_I4ModeOffsets[NUM_BMODES];
 
 // Layout of prediction blocks
 // intra 16x16
@@ -131,7 +131,7 @@ typedef const uint16_t* (*CostArrayPtr)[NUM_CTX];   // for easy casting
 typedef const uint16_t* CostArrayMap[16][NUM_CTX];
 typedef double LFStats[NUM_MB_SEGMENTS][MAX_LF_LEVELS];  // filter stats
 
-typedef struct VP8Encoder VP8Encoder;
+typedef struct DEDUP_vP8_Encoder DEDUP_vP8_Encoder;
 
 // segment features
 typedef struct {
@@ -139,7 +139,7 @@ typedef struct {
   int update_map_;        // whether to update the segment map or not.
                           // must be 0 if there's only 1 segment.
   int size_;              // bit-cost for transmitting the segment map
-} VP8EncSegmentHeader;
+} DEDUP_vP8_EncSegmentHeader;
 
 // Struct collecting all frame-persistent probabilities.
 typedef struct {
@@ -149,10 +149,10 @@ typedef struct {
   StatsArray stats_[NUM_TYPES][NUM_BANDS];       // 4224 bytes
   CostArray level_cost_[NUM_TYPES][NUM_BANDS];   // 13056 bytes
   CostArrayMap remapped_costs_[NUM_TYPES];       // 1536 bytes
-  int dirty_;               // if true, need to call VP8CalculateLevelCosts()
+  int dirty_;               // if true, need to call DEDUP_vP8_CalculateLevelCosts()
   int use_skip_proba_;      // Note: we always use skip_proba for now.
   int nb_skip_;             // number of skipped blocks
-} VP8EncProba;
+} DEDUP_vP8_EncProba;
 
 // Filter parameters. Not actually used in the code (we don't perform
 // the in-loop filtering), but filled from user's config
@@ -161,7 +161,7 @@ typedef struct {
   int level_;              // base filter level [0..63]
   int sharpness_;          // [0..7]
   int i4x4_lf_delta_;      // delta filter level for i4x4 relative to i16x16
-} VP8EncFilterHeader;
+} DEDUP_vP8_EncFilterHeader;
 
 //------------------------------------------------------------------------------
 // Informations about the macroblocks.
@@ -173,18 +173,18 @@ typedef struct {
   unsigned int skip_:1;
   unsigned int segment_:2;
   uint8_t alpha_;      // quantization-susceptibility
-} VP8MBInfo;
+} DEDUP_vP8_MBInfo;
 
-typedef struct VP8Matrix {
+typedef struct DEDUP_vP8_Matrix {
   uint16_t q_[16];        // quantizer steps
   uint16_t iq_[16];       // reciprocals, fixed point.
   uint32_t bias_[16];     // rounding bias
   uint32_t zthresh_[16];  // value below which a coefficient is zeroed
   uint16_t sharpen_[16];  // frequency boosters for slight sharpening
-} VP8Matrix;
+} DEDUP_vP8_Matrix;
 
 typedef struct {
-  VP8Matrix y1_, y2_, uv_;  // quantization matrices
+  DEDUP_vP8_Matrix y1_, y2_, uv_;  // quantization matrices
   int alpha_;      // quant-susceptibility, range [-127,127]. Zero is neutral.
                    // Lower values indicate a lower risk of blurriness.
   int beta_;       // filter-susceptibility, range [0,255].
@@ -199,7 +199,7 @@ typedef struct {
 
   // lambda values for distortion-based evaluation
   score_t i4_penalty_;   // penalty for using Intra4
-} VP8SegmentInfo;
+} DEDUP_vP8_SegmentInfo;
 
 // Handy transient struct to accumulate score and info during RD-optimization
 // and mode evaluation.
@@ -213,7 +213,7 @@ typedef struct {
   uint8_t modes_i4[16];       // mode numbers for intra4 predictions
   int mode_uv;                // mode number of chroma prediction
   uint32_t nz;                // non-zero blocks
-} VP8ModeScore;
+} DEDUP_vP8_ModeScore;
 
 // Iterator structure to iterate through macroblocks, pointing to the
 // right neighbouring data (samples, predictions, contexts, ...)
@@ -224,9 +224,9 @@ typedef struct {
   uint8_t*      yuv_out_;          // output samples
   uint8_t*      yuv_out2_;         // secondary buffer swapped with yuv_out_.
   uint8_t*      yuv_p_;            // scratch buffer for prediction
-  VP8Encoder*   enc_;              // back-pointer
-  VP8MBInfo*    mb_;               // current macroblock
-  VP8BitWriter* bw_;               // current bit-writer
+  DEDUP_vP8_Encoder*   enc_;              // back-pointer
+  DEDUP_vP8_MBInfo*    mb_;               // current macroblock
+  DEDUP_vP8_BitWriter* bw_;               // current bit-writer
   uint8_t*      preds_;            // intra mode predictors (4x4 blocks)
   uint32_t*     nz_;               // non-zero pattern
   uint8_t       i4_boundary_[37];  // 32+5 boundary samples needed by intra4x4
@@ -254,100 +254,100 @@ typedef struct {
   uint8_t yuv_left_mem_[17 + 16 + 16 + 8 + WEBP_ALIGN_CST];
   // memory for yuv_*
   uint8_t yuv_mem_[3 * YUV_SIZE_ENC + PRED_SIZE_ENC + WEBP_ALIGN_CST];
-} VP8EncIterator;
+} DEDUP_vP8_EncIterator;
 
   // in iterator.c
 // must be called first
-void VP8IteratorInit(VP8Encoder* const enc, VP8EncIterator* const it);
+void DEDUP_vP8_IteratorInit(DEDUP_vP8_Encoder* const enc, DEDUP_vP8_EncIterator* const it);
 // restart a scan
-void VP8IteratorReset(VP8EncIterator* const it);
+void DEDUP_vP8_IteratorReset(DEDUP_vP8_EncIterator* const it);
 // reset iterator position to row 'y'
-void VP8IteratorSetRow(VP8EncIterator* const it, int y);
+void DEDUP_vP8_IteratorSetRow(DEDUP_vP8_EncIterator* const it, int y);
 // set count down (=number of iterations to go)
-void VP8IteratorSetCountDown(VP8EncIterator* const it, int count_down);
+void DEDUP_vP8_IteratorSetCountDown(DEDUP_vP8_EncIterator* const it, int count_down);
 // return true if iteration is finished
-int VP8IteratorIsDone(const VP8EncIterator* const it);
+int DEDUP_vP8_IteratorIsDone(const DEDUP_vP8_EncIterator* const it);
 // Import uncompressed samples from source.
 // If tmp_32 is not NULL, import boundary samples too.
 // tmp_32 is a 32-bytes scratch buffer that must be aligned in memory.
-void VP8IteratorImport(VP8EncIterator* const it, uint8_t* tmp_32);
+void DEDUP_vP8_IteratorImport(DEDUP_vP8_EncIterator* const it, uint8_t* tmp_32);
 // export decimated samples
-void VP8IteratorExport(const VP8EncIterator* const it);
+void DEDUP_vP8_IteratorExport(const DEDUP_vP8_EncIterator* const it);
 // go to next macroblock. Returns false if not finished.
-int VP8IteratorNext(VP8EncIterator* const it);
+int DEDUP_vP8_IteratorNext(DEDUP_vP8_EncIterator* const it);
 // save the yuv_out_ boundary values to top_/left_ arrays for next iterations.
-void VP8IteratorSaveBoundary(VP8EncIterator* const it);
+void DEDUP_vP8_IteratorSaveBoundary(DEDUP_vP8_EncIterator* const it);
 // Report progression based on macroblock rows. Return 0 for user-abort request.
-int VP8IteratorProgress(const VP8EncIterator* const it,
+int DEDUP_vP8_IteratorProgress(const DEDUP_vP8_EncIterator* const it,
                         int final_delta_percent);
 // Intra4x4 iterations
-void VP8IteratorStartI4(VP8EncIterator* const it);
+void DEDUP_vP8_IteratorStartI4(DEDUP_vP8_EncIterator* const it);
 // returns true if not done.
-int VP8IteratorRotateI4(VP8EncIterator* const it,
+int DEDUP_vP8_IteratorRotateI4(DEDUP_vP8_EncIterator* const it,
                         const uint8_t* const yuv_out);
 
 // Non-zero context setup/teardown
-void VP8IteratorNzToBytes(VP8EncIterator* const it);
-void VP8IteratorBytesToNz(VP8EncIterator* const it);
+void DEDUP_vP8_IteratorNzToBytes(DEDUP_vP8_EncIterator* const it);
+void DEDUP_vP8_IteratorBytesToNz(DEDUP_vP8_EncIterator* const it);
 
 // Helper functions to set mode properties
-void VP8SetIntra16Mode(const VP8EncIterator* const it, int mode);
-void VP8SetIntra4Mode(const VP8EncIterator* const it, const uint8_t* modes);
-void VP8SetIntraUVMode(const VP8EncIterator* const it, int mode);
-void VP8SetSkip(const VP8EncIterator* const it, int skip);
-void VP8SetSegment(const VP8EncIterator* const it, int segment);
+void DEDUP_vP8_SetIntra16Mode(const DEDUP_vP8_EncIterator* const it, int mode);
+void DEDUP_vP8_SetIntra4Mode(const DEDUP_vP8_EncIterator* const it, const uint8_t* modes);
+void DEDUP_vP8_SetIntraUVMode(const DEDUP_vP8_EncIterator* const it, int mode);
+void DEDUP_vP8_SetSkip(const DEDUP_vP8_EncIterator* const it, int skip);
+void DEDUP_vP8_SetSegment(const DEDUP_vP8_EncIterator* const it, int segment);
 
 //------------------------------------------------------------------------------
 // Paginated token buffer
 
-typedef struct VP8Tokens VP8Tokens;  // struct details in token.c
+typedef struct DEDUP_vP8_Tokens DEDUP_vP8_Tokens;  // struct details in token.c
 
 typedef struct {
 #if !defined(DISABLE_TOKEN_BUFFER)
-  VP8Tokens* pages_;        // first page
-  VP8Tokens** last_page_;   // last page
+  DEDUP_vP8_Tokens* pages_;        // first page
+  DEDUP_vP8_Tokens** last_page_;   // last page
   uint16_t* tokens_;        // set to (*last_page_)->tokens_
   int left_;                // how many free tokens left before the page is full
   int page_size_;           // number of tokens per page
 #endif
   int error_;         // true in case of malloc error
-} VP8TBuffer;
+} DEDUP_vP8_TBuffer;
 
 // initialize an empty buffer
-void VP8TBufferInit(VP8TBuffer* const b, int page_size);
-void VP8TBufferClear(VP8TBuffer* const b);   // de-allocate pages memory
+void DEDUP_vP8_TBufferInit(DEDUP_vP8_TBuffer* const b, int page_size);
+void DEDUP_vP8_TBufferClear(DEDUP_vP8_TBuffer* const b);   // de-allocate pages memory
 
 #if !defined(DISABLE_TOKEN_BUFFER)
 
 // Finalizes bitstream when probabilities are known.
 // Deletes the allocated token memory if final_pass is true.
-int VP8EmitTokens(VP8TBuffer* const b, VP8BitWriter* const bw,
+int DEDUP_vP8_EmitTokens(DEDUP_vP8_TBuffer* const b, DEDUP_vP8_BitWriter* const bw,
                   const uint8_t* const probas, int final_pass);
 
 // record the coding of coefficients without knowing the probabilities yet
-int VP8RecordCoeffTokens(int ctx, const struct VP8Residual* const res,
-                         VP8TBuffer* const tokens);
+int DEDUP_vP8_RecordCoeffTokens(int ctx, const struct DEDUP_vP8_Residual* const res,
+                         DEDUP_vP8_TBuffer* const tokens);
 
 // Estimate the final coded size given a set of 'probas'.
-size_t VP8EstimateTokenSize(VP8TBuffer* const b, const uint8_t* const probas);
+size_t DEDUP_vP8_EstimateTokenSize(DEDUP_vP8_TBuffer* const b, const uint8_t* const probas);
 
 // unused for now
-void VP8TokenToStats(const VP8TBuffer* const b, proba_t* const stats);
+void DEDUP_vP8_TokenToStats(const DEDUP_vP8_TBuffer* const b, proba_t* const stats);
 
 #endif  // !DISABLE_TOKEN_BUFFER
 
 //------------------------------------------------------------------------------
-// VP8Encoder
+// DEDUP_vP8_Encoder
 
-struct VP8Encoder {
-  const WebPConfig* config_;    // user configuration and parameters
-  WebPPicture* pic_;            // input / output picture
+struct DEDUP_vP8_Encoder {
+  const DEDUP_WEBP_Config* config_;    // user configuration and parameters
+  DEDUP_WEBP_Picture* pic_;            // input / output picture
 
   // headers
-  VP8EncFilterHeader   filter_hdr_;     // filtering information
-  VP8EncSegmentHeader  segment_hdr_;    // segment information
+  DEDUP_vP8_EncFilterHeader   filter_hdr_;     // filtering information
+  DEDUP_vP8_EncSegmentHeader  segment_hdr_;    // segment information
 
-  int profile_;                      // VP8's profile, deduced from Config.
+  int profile_;                      // DEDUP_vP8_'s profile, deduced from Config.
 
   // dimension, in macroblock units.
   int mb_w_, mb_h_;
@@ -357,9 +357,9 @@ struct VP8Encoder {
   int num_parts_;
 
   // per-partition boolean decoders.
-  VP8BitWriter bw_;                         // part0
-  VP8BitWriter parts_[MAX_NUM_PARTITIONS];  // token partitions
-  VP8TBuffer tokens_;                       // token buffer
+  DEDUP_vP8_BitWriter bw_;                         // part0
+  DEDUP_vP8_BitWriter parts_[MAX_NUM_PARTITIONS];  // token partitions
+  DEDUP_vP8_TBuffer tokens_;                       // token buffer
 
   int percent_;                             // for progress
 
@@ -367,10 +367,10 @@ struct VP8Encoder {
   int has_alpha_;
   uint8_t* alpha_data_;       // non-NULL if transparency is present
   uint32_t alpha_data_size_;
-  WebPWorker alpha_worker_;
+  DEDUP_WEBP_Worker alpha_worker_;
 
   // quantization info (one set of DC/AC dequant factor per segment)
-  VP8SegmentInfo dqm_[NUM_MB_SEGMENTS];
+  DEDUP_vP8_SegmentInfo dqm_[NUM_MB_SEGMENTS];
   int base_quant_;                 // nominal quantizer value. Only used
                                    // for relative coding of segments' quant.
   int alpha_;                      // global susceptibility (<=> complexity)
@@ -381,7 +381,7 @@ struct VP8Encoder {
   int dq_uv_dc_, dq_uv_ac_;
 
   // probabilities and statistics
-  VP8EncProba proba_;
+  DEDUP_vP8_EncProba proba_;
   uint64_t    sse_[4];      // sum of Y/U/V/A squared errors for all macroblocks
   uint64_t    sse_count_;   // pixel count for the sse_[] stats
   int         coded_size_;
@@ -390,7 +390,7 @@ struct VP8Encoder {
 
   // quality/speed settings
   int method_;               // 0=fastest, 6=best/slowest.
-  VP8RDLevel rd_opt_level_;  // Deduced from method_.
+  DEDUP_vP8_RDLevel rd_opt_level_;  // Deduced from method_.
   int max_i4_header_bits_;   // partition #0 safeness factor
   int mb_header_limit_;      // rough limit for header bits per MB
   int thread_level_;         // derived from config->thread_level
@@ -398,7 +398,7 @@ struct VP8Encoder {
   int use_tokens_;           // if true, use token buffer
 
   // Memory
-  VP8MBInfo* mb_info_;   // contextual macroblock infos (mb_w_ + 1)
+  DEDUP_vP8_MBInfo* mb_info_;   // contextual macroblock infos (mb_w_ + 1)
   uint8_t*   preds_;     // predictions modes: (4*mb_w+1) * (4*mb_h+1)
   uint32_t*  nz_;        // non-zero bit context: mb_w+1
   uint8_t*   y_top_;     // top luma samples.
@@ -411,103 +411,103 @@ struct VP8Encoder {
 // internal functions. Not public.
 
   // in tree.c
-extern const uint8_t VP8CoeffsProba0[NUM_TYPES][NUM_BANDS][NUM_CTX][NUM_PROBAS];
+extern const uint8_t DEDUP_vP8_CoeffsProba0[NUM_TYPES][NUM_BANDS][NUM_CTX][NUM_PROBAS];
 extern const uint8_t
-    VP8CoeffsUpdateProba[NUM_TYPES][NUM_BANDS][NUM_CTX][NUM_PROBAS];
+    DEDUP_vP8_CoeffsUpdateProba[NUM_TYPES][NUM_BANDS][NUM_CTX][NUM_PROBAS];
 // Reset the token probabilities to their initial (default) values
-void VP8DefaultProbas(VP8Encoder* const enc);
+void DEDUP_vP8_DefaultProbas(DEDUP_vP8_Encoder* const enc);
 // Write the token probabilities
-void VP8WriteProbas(VP8BitWriter* const bw, const VP8EncProba* const probas);
+void DEDUP_vP8_WriteProbas(DEDUP_vP8_BitWriter* const bw, const DEDUP_vP8_EncProba* const probas);
 // Writes the partition #0 modes (that is: all intra modes)
-void VP8CodeIntraModes(VP8Encoder* const enc);
+void DEDUP_vP8_CodeIntraModes(DEDUP_vP8_Encoder* const enc);
 
   // in syntax.c
 // Generates the final bitstream by coding the partition0 and headers,
 // and appending an assembly of all the pre-coded token partitions.
 // Return true if everything is ok.
-int VP8EncWrite(VP8Encoder* const enc);
-// Release memory allocated for bit-writing in VP8EncLoop & seq.
-void VP8EncFreeBitWriters(VP8Encoder* const enc);
+int DEDUP_vP8_EncWrite(DEDUP_vP8_Encoder* const enc);
+// Release memory allocated for bit-writing in DEDUP_vP8_EncLoop & seq.
+void DEDUP_vP8_EncFreeBitWriters(DEDUP_vP8_Encoder* const enc);
 
   // in frame.c
-extern const uint8_t VP8Cat3[];
-extern const uint8_t VP8Cat4[];
-extern const uint8_t VP8Cat5[];
-extern const uint8_t VP8Cat6[];
+extern const uint8_t DEDUP_vP8_Cat3[];
+extern const uint8_t DEDUP_vP8_Cat4[];
+extern const uint8_t DEDUP_vP8_Cat5[];
+extern const uint8_t DEDUP_vP8_Cat6[];
 
 // Form all the four Intra16x16 predictions in the yuv_p_ cache
-void VP8MakeLuma16Preds(const VP8EncIterator* const it);
+void DEDUP_vP8_MakeLuma16Preds(const DEDUP_vP8_EncIterator* const it);
 // Form all the four Chroma8x8 predictions in the yuv_p_ cache
-void VP8MakeChroma8Preds(const VP8EncIterator* const it);
+void DEDUP_vP8_MakeChroma8Preds(const DEDUP_vP8_EncIterator* const it);
 // Form all the ten Intra4x4 predictions in the yuv_p_ cache
 // for the 4x4 block it->i4_
-void VP8MakeIntra4Preds(const VP8EncIterator* const it);
+void DEDUP_vP8_MakeIntra4Preds(const DEDUP_vP8_EncIterator* const it);
 // Rate calculation
-int VP8GetCostLuma16(VP8EncIterator* const it, const VP8ModeScore* const rd);
-int VP8GetCostLuma4(VP8EncIterator* const it, const int16_t levels[16]);
-int VP8GetCostUV(VP8EncIterator* const it, const VP8ModeScore* const rd);
+int DEDUP_vP8_GetCostLuma16(DEDUP_vP8_EncIterator* const it, const DEDUP_vP8_ModeScore* const rd);
+int DEDUP_vP8_GetCostLuma4(DEDUP_vP8_EncIterator* const it, const int16_t levels[16]);
+int DEDUP_vP8_GetCostUV(DEDUP_vP8_EncIterator* const it, const DEDUP_vP8_ModeScore* const rd);
 // Main coding calls
-int VP8EncLoop(VP8Encoder* const enc);
-int VP8EncTokenLoop(VP8Encoder* const enc);
+int DEDUP_vP8_EncLoop(DEDUP_vP8_Encoder* const enc);
+int DEDUP_vP8_EncTokenLoop(DEDUP_vP8_Encoder* const enc);
 
   // in webpenc.c
 // Assign an error code to a picture. Return false for convenience.
-int WebPEncodingSetError(const WebPPicture* const pic, WebPEncodingError error);
-int WebPReportProgress(const WebPPicture* const pic,
+int DEDUP_WEBP_EncodingSetError(const DEDUP_WEBP_Picture* const pic, DEDUP_WEBP_EncodingError error);
+int DEDUP_WEBP_ReportProgress(const DEDUP_WEBP_Picture* const pic,
                        int percent, int* const percent_store);
 
   // in analysis.c
 // Main analysis loop. Decides the segmentations and complexity.
 // Assigns a first guess for Intra16 and uvmode_ prediction modes.
-int VP8EncAnalyze(VP8Encoder* const enc);
+int DEDUP_vP8_EncAnalyze(DEDUP_vP8_Encoder* const enc);
 
   // in quant.c
 // Sets up segment's quantization values, base_quant_ and filter strengths.
-void VP8SetSegmentParams(VP8Encoder* const enc, float quality);
+void DEDUP_vP8_SetSegmentParams(DEDUP_vP8_Encoder* const enc, float quality);
 // Pick best modes and fills the levels. Returns true if skipped.
-int VP8Decimate(VP8EncIterator* const it, VP8ModeScore* const rd,
-                VP8RDLevel rd_opt);
+int DEDUP_vP8_Decimate(DEDUP_vP8_EncIterator* const it, DEDUP_vP8_ModeScore* const rd,
+                DEDUP_vP8_RDLevel rd_opt);
 
   // in alpha.c
-void VP8EncInitAlpha(VP8Encoder* const enc);    // initialize alpha compression
-int VP8EncStartAlpha(VP8Encoder* const enc);    // start alpha coding process
-int VP8EncFinishAlpha(VP8Encoder* const enc);   // finalize compressed data
-int VP8EncDeleteAlpha(VP8Encoder* const enc);   // delete compressed data
+void DEDUP_vP8_EncInitAlpha(DEDUP_vP8_Encoder* const enc);    // initialize alpha compression
+int DEDUP_vP8_EncStartAlpha(DEDUP_vP8_Encoder* const enc);    // start alpha coding process
+int DEDUP_vP8_EncFinishAlpha(DEDUP_vP8_Encoder* const enc);   // finalize compressed data
+int DEDUP_vP8_EncDeleteAlpha(DEDUP_vP8_Encoder* const enc);   // delete compressed data
 
 // autofilter
-void VP8InitFilter(VP8EncIterator* const it);
-void VP8StoreFilterStats(VP8EncIterator* const it);
-void VP8AdjustFilterStrength(VP8EncIterator* const it);
+void DEDUP_vP8_InitFilter(DEDUP_vP8_EncIterator* const it);
+void DEDUP_vP8_StoreFilterStats(DEDUP_vP8_EncIterator* const it);
+void DEDUP_vP8_AdjustFilterStrength(DEDUP_vP8_EncIterator* const it);
 
 // returns the approximate filtering strength needed to smooth a edge
 // step of 'delta', given a sharpness parameter 'sharpness'.
-int VP8FilterStrengthFromDelta(int sharpness, int delta);
+int DEDUP_vP8_FilterStrengthFromDelta(int sharpness, int delta);
 
   // misc utils for picture_*.c:
 
 // Remove reference to the ARGB/YUVA buffer (doesn't free anything).
-void WebPPictureResetBuffers(WebPPicture* const picture);
+void DEDUP_WEBP_PictureResetBuffers(DEDUP_WEBP_Picture* const picture);
 
 // Allocates ARGB buffer of given dimension (previous one is always free'd).
 // Preserves the YUV(A) buffer. Returns false in case of error (invalid param,
 // out-of-memory).
-int WebPPictureAllocARGB(WebPPicture* const picture, int width, int height);
+int DEDUP_WEBP_PictureAllocARGB(DEDUP_WEBP_Picture* const picture, int width, int height);
 
 // Allocates YUVA buffer of given dimension (previous one is always free'd).
 // Uses picture->csp to determine whether an alpha buffer is needed.
 // Preserves the ARGB buffer.
 // Returns false in case of error (invalid param, out-of-memory).
-int WebPPictureAllocYUVA(WebPPicture* const picture, int width, int height);
+int DEDUP_WEBP_PictureAllocYUVA(DEDUP_WEBP_Picture* const picture, int width, int height);
 
 // Clean-up the RGB samples under fully transparent area, to help lossless
 // compressibility (no guarantee, though). Assumes that pic->use_argb is true.
-void WebPCleanupTransparentAreaLossless(WebPPicture* const pic);
+void DEDUP_WEBP_CleanupTransparentAreaLossless(DEDUP_WEBP_Picture* const pic);
 
   // in near_lossless.c
 // Near lossless preprocessing in RGB color-space.
-int VP8ApplyNearLossless(int xsize, int ysize, uint32_t* argb, int quality);
+int DEDUP_vP8_ApplyNearLossless(int xsize, int ysize, uint32_t* argb, int quality);
 // Near lossless adjustment for predictors.
-void VP8ApplyNearLosslessPredict(int xsize, int ysize, int pred_bits,
+void DEDUP_vP8_ApplyNearLosslessPredict(int xsize, int ysize, int pred_bits,
                                  const uint32_t* argb_orig,
                                  uint32_t* argb, uint32_t* argb_scratch,
                                  const uint32_t* const transform_data,
@@ -518,4 +518,4 @@ void VP8ApplyNearLosslessPredict(int xsize, int ysize, int pred_bits,
 }    // extern "C"
 #endif
 
-#endif  /* WEBP_ENC_VP8ENCI_H_ */
+#endif  /* WEBP_ENC_DEDUP_vP8_ENCI_H_ */

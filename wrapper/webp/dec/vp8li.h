@@ -12,8 +12,8 @@
 // Author: Skal (pascal.massimino@gmail.com)
 //         Vikas Arora(vikaas.arora@gmail.com)
 
-#ifndef WEBP_DEC_VP8LI_H_
-#define WEBP_DEC_VP8LI_H_
+#ifndef WEBP_DEC_DEDUP_vP8_LI_H_
+#define WEBP_DEC_DEDUP_vP8_LI_H_
 
 #include <string.h>     // for memcpy()
 #include "./webpi.h"
@@ -29,11 +29,11 @@ typedef enum {
   READ_DATA = 0,
   READ_HDR = 1,
   READ_DIM = 2
-} VP8LDecodeState;
+} DEDUP_vP8_LDecodeState;
 
-typedef struct VP8LTransform VP8LTransform;
-struct VP8LTransform {
-  VP8LImageTransformType type_;   // transform type.
+typedef struct DEDUP_vP8_LTransform DEDUP_vP8_LTransform;
+struct DEDUP_vP8_LTransform {
+  DEDUP_vP8_LImageTransformType type_;   // transform type.
   int                    bits_;   // subsampling bits defining transform window.
   int                    xsize_;  // transform window X index.
   int                    ysize_;  // transform window Y index.
@@ -42,8 +42,8 @@ struct VP8LTransform {
 
 typedef struct {
   int             color_cache_size_;
-  VP8LColorCache  color_cache_;
-  VP8LColorCache  saved_color_cache_;  // for incremental
+  DEDUP_vP8_LColorCache  color_cache_;
+  DEDUP_vP8_LColorCache  saved_color_cache_;  // for incremental
 
   int             huffman_mask_;
   int             huffman_subsample_bits_;
@@ -52,23 +52,23 @@ typedef struct {
   int             num_htree_groups_;
   HTreeGroup     *htree_groups_;
   HuffmanCode    *huffman_tables_;
-} VP8LMetadata;
+} DEDUP_vP8_LMetadata;
 
-typedef struct VP8LDecoder VP8LDecoder;
-struct VP8LDecoder {
-  VP8StatusCode    status_;
-  VP8LDecodeState  state_;
-  VP8Io           *io_;
+typedef struct DEDUP_vP8_LDecoder DEDUP_vP8_LDecoder;
+struct DEDUP_vP8_LDecoder {
+  DEDUP_vP8_StatusCode    status_;
+  DEDUP_vP8_LDecodeState  state_;
+  DEDUP_vP8_Io           *io_;
 
-  const WebPDecBuffer *output_;    // shortcut to io->opaque->output
+  const DEDUP_WEBP_DecBuffer *output_;    // shortcut to io->opaque->output
 
   uint32_t        *pixels_;        // Internal data: either uint8_t* for alpha
                                    // or uint32_t* for BGRA.
   uint32_t        *argb_cache_;    // Scratch buffer for temporary BGRA storage.
 
-  VP8LBitReader    br_;
+  DEDUP_vP8_LBitReader    br_;
   int              incremental_;   // if true, incremental decoding is expected
-  VP8LBitReader    saved_br_;      // note: could be local variables too
+  DEDUP_vP8_LBitReader    saved_br_;      // note: could be local variables too
   int              saved_last_pixel_;
 
   int              width_;
@@ -79,15 +79,15 @@ struct VP8LDecoder {
                                    // color-converted yet.
   int              last_out_row_;  // last row output so far.
 
-  VP8LMetadata     hdr_;
+  DEDUP_vP8_LMetadata     hdr_;
 
   int              next_transform_;
-  VP8LTransform    transforms_[NUM_TRANSFORMS];
+  DEDUP_vP8_LTransform    transforms_[NUM_TRANSFORMS];
   // or'd bitset storing the transforms types.
   uint32_t         transforms_seen_;
 
   uint8_t         *rescaler_memory;  // Working memory for rescaling work.
-  WebPRescaler    *rescaler;         // Common rescaler for all channels.
+  DEDUP_WEBP_Rescaler    *rescaler;         // Common rescaler for all channels.
 };
 
 //------------------------------------------------------------------------------
@@ -99,32 +99,32 @@ struct ALPHDecoder;  // Defined in dec/alphai.h.
 
 // Decodes image header for alpha data stored using lossless compression.
 // Returns false in case of error.
-int VP8LDecodeAlphaHeader(struct ALPHDecoder* const alph_dec,
+int DEDUP_vP8_LDecodeAlphaHeader(struct ALPHDecoder* const alph_dec,
                           const uint8_t* const data, size_t data_size);
 
 // Decodes *at least* 'last_row' rows of alpha. If some of the initial rows are
 // already decoded in previous call(s), it will resume decoding from where it
 // was paused.
 // Returns false in case of bitstream error.
-int VP8LDecodeAlphaImageStream(struct ALPHDecoder* const alph_dec,
+int DEDUP_vP8_LDecodeAlphaImageStream(struct ALPHDecoder* const alph_dec,
                                int last_row);
 
 // Allocates and initialize a new lossless decoder instance.
-VP8LDecoder* VP8LNew(void);
+DEDUP_vP8_LDecoder* DEDUP_vP8_LNew(void);
 
 // Decodes the image header. Returns false in case of error.
-int VP8LDecodeHeader(VP8LDecoder* const dec, VP8Io* const io);
+int DEDUP_vP8_LDecodeHeader(DEDUP_vP8_LDecoder* const dec, DEDUP_vP8_Io* const io);
 
 // Decodes an image. It's required to decode the lossless header before calling
 // this function. Returns false in case of error, with updated dec->status_.
-int VP8LDecodeImage(VP8LDecoder* const dec);
+int DEDUP_vP8_LDecodeImage(DEDUP_vP8_LDecoder* const dec);
 
 // Resets the decoder in its initial state, reclaiming memory.
 // Preserves the dec->status_ value.
-void VP8LClear(VP8LDecoder* const dec);
+void DEDUP_vP8_LClear(DEDUP_vP8_LDecoder* const dec);
 
 // Clears and deallocate a lossless decoder instance.
-void VP8LDelete(VP8LDecoder* const dec);
+void DEDUP_vP8_LDelete(DEDUP_vP8_LDecoder* const dec);
 
 //------------------------------------------------------------------------------
 
@@ -132,4 +132,4 @@ void VP8LDelete(VP8LDecoder* const dec);
 }    // extern "C"
 #endif
 
-#endif  /* WEBP_DEC_VP8LI_H_ */
+#endif  /* WEBP_DEC_DEDUP_vP8_LI_H_ */

@@ -50,7 +50,7 @@ typedef struct {
 
 #endif  // _WIN32
 
-struct WebPWorkerImpl {
+struct DEDUP_WEBP_WorkerImpl {
   pthread_mutex_t mutex_;
   pthread_cond_t  condition_;
   pthread_t       thread_;
@@ -201,10 +201,10 @@ static int pthread_cond_wait(pthread_cond_t* const condition,
 
 //------------------------------------------------------------------------------
 
-static void Execute(WebPWorker* const worker);  // Forward declaration.
+static void Execute(DEDUP_WEBP_Worker* const worker);  // Forward declaration.
 
 static THREADFN ThreadLoop(void* ptr) {
-  WebPWorker* const worker = (WebPWorker*)ptr;
+  DEDUP_WEBP_Worker* const worker = (DEDUP_WEBP_Worker*)ptr;
   int done = 0;
   while (!done) {
     pthread_mutex_lock(&worker->impl_->mutex_);
@@ -225,7 +225,7 @@ static THREADFN ThreadLoop(void* ptr) {
 }
 
 // main thread state control
-static void ChangeState(WebPWorker* const worker, WebPWorkerStatus new_status) {
+static void ChangeState(DEDUP_WEBP_Worker* const worker, DEDUP_WEBP_WorkerStatus new_status) {
   // No-op when attempting to change state on a thread that didn't come up.
   // Checking status_ without acquiring the lock first would result in a data
   // race.
@@ -250,12 +250,12 @@ static void ChangeState(WebPWorker* const worker, WebPWorkerStatus new_status) {
 
 //------------------------------------------------------------------------------
 
-static void Init(WebPWorker* const worker) {
+static void Init(DEDUP_WEBP_Worker* const worker) {
   memset(worker, 0, sizeof(*worker));
   worker->status_ = NOT_OK;
 }
 
-static int Sync(WebPWorker* const worker) {
+static int Sync(DEDUP_WEBP_Worker* const worker) {
 #ifdef WEBP_USE_THREAD
   ChangeState(worker, OK);
 #endif
@@ -263,12 +263,12 @@ static int Sync(WebPWorker* const worker) {
   return !worker->had_error;
 }
 
-static int Reset(WebPWorker* const worker) {
+static int Reset(DEDUP_WEBP_Worker* const worker) {
   int ok = 1;
   worker->had_error = 0;
   if (worker->status_ < OK) {
 #ifdef WEBP_USE_THREAD
-    worker->impl_ = (WebPWorkerImpl*)WebPSafeCalloc(1, sizeof(*worker->impl_));
+    worker->impl_ = (DEDUP_WEBP_WorkerImpl*)DEDUP_WEBP_SafeCalloc(1, sizeof(*worker->impl_));
     if (worker->impl_ == NULL) {
       return 0;
     }
@@ -287,7 +287,7 @@ static int Reset(WebPWorker* const worker) {
       pthread_mutex_destroy(&worker->impl_->mutex_);
       pthread_cond_destroy(&worker->impl_->condition_);
  Error:
-      WebPSafeFree(worker->impl_);
+      DEDUP_WEBP_SafeFree(worker->impl_);
       worker->impl_ = NULL;
       return 0;
     }
@@ -301,13 +301,13 @@ static int Reset(WebPWorker* const worker) {
   return ok;
 }
 
-static void Execute(WebPWorker* const worker) {
+static void Execute(DEDUP_WEBP_Worker* const worker) {
   if (worker->hook != NULL) {
     worker->had_error |= !worker->hook(worker->data1, worker->data2);
   }
 }
 
-static void Launch(WebPWorker* const worker) {
+static void Launch(DEDUP_WEBP_Worker* const worker) {
 #ifdef WEBP_USE_THREAD
   ChangeState(worker, WORK);
 #else
@@ -315,14 +315,14 @@ static void Launch(WebPWorker* const worker) {
 #endif
 }
 
-static void End(WebPWorker* const worker) {
+static void End(DEDUP_WEBP_Worker* const worker) {
 #ifdef WEBP_USE_THREAD
   if (worker->impl_ != NULL) {
     ChangeState(worker, NOT_OK);
     pthread_join(worker->impl_->thread_, NULL);
     pthread_mutex_destroy(&worker->impl_->mutex_);
     pthread_cond_destroy(&worker->impl_->condition_);
-    WebPSafeFree(worker->impl_);
+    DEDUP_WEBP_SafeFree(worker->impl_);
     worker->impl_ = NULL;
   }
 #else
@@ -334,11 +334,11 @@ static void End(WebPWorker* const worker) {
 
 //------------------------------------------------------------------------------
 
-static WebPWorkerInterface g_worker_interface = {
+static DEDUP_WEBP_WorkerInterface g_worker_interface = {
   Init, Reset, Sync, Launch, Execute, End
 };
 
-int WebPSetWorkerInterface(const WebPWorkerInterface* const winterface) {
+int DEDUP_WEBP_SetWorkerInterface(const DEDUP_WEBP_WorkerInterface* const winterface) {
   if (winterface == NULL ||
       winterface->Init == NULL || winterface->Reset == NULL ||
       winterface->Sync == NULL || winterface->Launch == NULL ||
@@ -349,7 +349,7 @@ int WebPSetWorkerInterface(const WebPWorkerInterface* const winterface) {
   return 1;
 }
 
-const WebPWorkerInterface* WebPGetWorkerInterface(void) {
+const DEDUP_WEBP_WorkerInterface* DEDUP_WEBP_GetWorkerInterface(void) {
   return &g_worker_interface;
 }
 

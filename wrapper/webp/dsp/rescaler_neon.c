@@ -56,7 +56,7 @@ static uint32x4_t Interpolate(const rescaler_t* const frow,
   return E;
 }
 
-static void RescalerExportRowExpand(WebPRescaler* const wrk) {
+static void RescalerExportRowExpand(DEDUP_WEBP_Rescaler* const wrk) {
   int x_out;
   uint8_t* const dst = wrk->dst;
   rescaler_t* const irow = wrk->irow;
@@ -65,7 +65,7 @@ static void RescalerExportRowExpand(WebPRescaler* const wrk) {
   const rescaler_t* const frow = wrk->frow;
   const uint32_t fy_scale = wrk->fy_scale;
   const int32x4_t fy_scale_half = MAKE_HALF_CST(fy_scale);
-  assert(!WebPRescalerOutputDone(wrk));
+  assert(!DEDUP_WEBP_RescalerOutputDone(wrk));
   assert(wrk->y_accum <= 0);
   assert(wrk->y_expand);
   assert(wrk->y_sub != 0);
@@ -112,7 +112,7 @@ static void RescalerExportRowExpand(WebPRescaler* const wrk) {
   }
 }
 
-static void RescalerExportRowShrink(WebPRescaler* const wrk) {
+static void RescalerExportRowShrink(DEDUP_WEBP_Rescaler* const wrk) {
   int x_out;
   uint8_t* const dst = wrk->dst;
   rescaler_t* const irow = wrk->irow;
@@ -124,7 +124,7 @@ static void RescalerExportRowShrink(WebPRescaler* const wrk) {
   const uint32x4_t zero = vdupq_n_u32(0);
   const int32x4_t yscale_half = MAKE_HALF_CST(yscale);
   const int32x4_t fxy_scale_half = MAKE_HALF_CST(fxy_scale);
-  assert(!WebPRescalerOutputDone(wrk));
+  assert(!DEDUP_WEBP_RescalerOutputDone(wrk));
   assert(wrk->y_accum <= 0);
   assert(!wrk->y_expand);
   if (yscale) {
@@ -172,15 +172,15 @@ static void RescalerExportRowShrink(WebPRescaler* const wrk) {
 
 //------------------------------------------------------------------------------
 
-extern void WebPRescalerDspInitNEON(void);
+extern void DEDUP_WEBP_RescalerDspInitNEON(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPRescalerDspInitNEON(void) {
-  WebPRescalerExportRowExpand = RescalerExportRowExpand;
-  WebPRescalerExportRowShrink = RescalerExportRowShrink;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_RescalerDspInitNEON(void) {
+  DEDUP_WEBP_RescalerExportRowExpand = RescalerExportRowExpand;
+  DEDUP_WEBP_RescalerExportRowShrink = RescalerExportRowShrink;
 }
 
 #else     // !WEBP_USE_NEON
 
-WEBP_DSP_INIT_STUB(WebPRescalerDspInitNEON)
+WEBP_DSP_INIT_STUB(DEDUP_WEBP_RescalerDspInitNEON)
 
 #endif    // WEBP_USE_NEON

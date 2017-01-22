@@ -29,7 +29,7 @@
 
 // In-place sum of each component with mod 256.
 static WEBP_INLINE void AddPixelsEq(uint32_t* a, uint32_t b) {
-  *a = VP8LAddPixels(*a, b);
+  *a = DEDUP_vP8_LAddPixels(*a, b);
 }
 
 static WEBP_INLINE uint32_t Average2(uint32_t a0, uint32_t a1) {
@@ -175,7 +175,7 @@ static uint32_t Predictor13(uint32_t left, const uint32_t* const top) {
 //------------------------------------------------------------------------------
 
 // Inverse prediction.
-static void PredictorInverseTransform(const VP8LTransform* const transform,
+static void PredictorInverseTransform(const DEDUP_vP8_LTransform* const transform,
                                       int y_start, int y_end, uint32_t* data) {
   const int width = transform->xsize_;
   if (y_start == 0) {  // First Row follows the L (mode=1) mode.
@@ -195,21 +195,21 @@ static void PredictorInverseTransform(const VP8LTransform* const transform,
     const int tile_width = 1 << transform->bits_;
     const int mask = tile_width - 1;
     const int safe_width = width & ~mask;
-    const int tiles_per_row = VP8LSubSampleSize(width, transform->bits_);
+    const int tiles_per_row = DEDUP_vP8_LSubSampleSize(width, transform->bits_);
     const uint32_t* pred_mode_base =
         transform->data_ + (y >> transform->bits_) * tiles_per_row;
 
     while (y < y_end) {
       const uint32_t pred2 = Predictor2(data[-1], data - width);
       const uint32_t* pred_mode_src = pred_mode_base;
-      VP8LPredictorFunc pred_func;
+      DEDUP_vP8_LPredictorFunc pred_func;
       int x = 1;
       int t = 1;
       // First pixel follows the T (mode=2) mode.
       AddPixelsEq(data, pred2);
       // .. the rest:
       while (x < safe_width) {
-        pred_func = VP8LPredictors[((*pred_mode_src++) >> 8) & 0xf];
+        pred_func = DEDUP_vP8_LPredictors[((*pred_mode_src++) >> 8) & 0xf];
         for (; t < tile_width; ++t, ++x) {
           const uint32_t pred = pred_func(data[x - 1], data + x - width);
           AddPixelsEq(data + x, pred);
@@ -217,7 +217,7 @@ static void PredictorInverseTransform(const VP8LTransform* const transform,
         t = 0;
       }
       if (x < width) {
-        pred_func = VP8LPredictors[((*pred_mode_src++) >> 8) & 0xf];
+        pred_func = DEDUP_vP8_LPredictors[((*pred_mode_src++) >> 8) & 0xf];
         for (; x < width; ++x) {
           const uint32_t pred = pred_func(data[x - 1], data + x - width);
           AddPixelsEq(data + x, pred);
@@ -234,7 +234,7 @@ static void PredictorInverseTransform(const VP8LTransform* const transform,
 
 // Add green to blue and red channels (i.e. perform the inverse transform of
 // 'subtract green').
-void VP8LAddGreenToBlueAndRed_C(uint32_t* data, int num_pixels) {
+void DEDUP_vP8_LAddGreenToBlueAndRed_C(uint32_t* data, int num_pixels) {
   int i;
   for (i = 0; i < num_pixels; ++i) {
     const uint32_t argb = data[i];
@@ -252,13 +252,13 @@ static WEBP_INLINE int ColorTransformDelta(int8_t color_pred,
 }
 
 static WEBP_INLINE void ColorCodeToMultipliers(uint32_t color_code,
-                                               VP8LMultipliers* const m) {
+                                               DEDUP_vP8_LMultipliers* const m) {
   m->green_to_red_  = (color_code >>  0) & 0xff;
   m->green_to_blue_ = (color_code >>  8) & 0xff;
   m->red_to_blue_   = (color_code >> 16) & 0xff;
 }
 
-void VP8LTransformColorInverse_C(const VP8LMultipliers* const m, uint32_t* data,
+void DEDUP_vP8_LTransformColorInverse_C(const DEDUP_vP8_LMultipliers* const m, uint32_t* data,
                                  int num_pixels) {
   int i;
   for (i = 0; i < num_pixels; ++i) {
@@ -277,31 +277,31 @@ void VP8LTransformColorInverse_C(const VP8LMultipliers* const m, uint32_t* data,
 }
 
 // Color space inverse transform.
-static void ColorSpaceInverseTransform(const VP8LTransform* const transform,
+static void ColorSpaceInverseTransform(const DEDUP_vP8_LTransform* const transform,
                                        int y_start, int y_end, uint32_t* data) {
   const int width = transform->xsize_;
   const int tile_width = 1 << transform->bits_;
   const int mask = tile_width - 1;
   const int safe_width = width & ~mask;
   const int remaining_width = width - safe_width;
-  const int tiles_per_row = VP8LSubSampleSize(width, transform->bits_);
+  const int tiles_per_row = DEDUP_vP8_LSubSampleSize(width, transform->bits_);
   int y = y_start;
   const uint32_t* pred_row =
       transform->data_ + (y >> transform->bits_) * tiles_per_row;
 
   while (y < y_end) {
     const uint32_t* pred = pred_row;
-    VP8LMultipliers m = { 0, 0, 0 };
+    DEDUP_vP8_LMultipliers m = { 0, 0, 0 };
     const uint32_t* const data_safe_end = data + safe_width;
     const uint32_t* const data_end = data + width;
     while (data < data_safe_end) {
       ColorCodeToMultipliers(*pred++, &m);
-      VP8LTransformColorInverse(&m, data, tile_width);
+      DEDUP_vP8_LTransformColorInverse(&m, data, tile_width);
       data += tile_width;
     }
     if (data < data_end) {  // Left-overs using C-version.
       ColorCodeToMultipliers(*pred++, &m);
-      VP8LTransformColorInverse(&m, data, remaining_width);
+      DEDUP_vP8_LTransformColorInverse(&m, data, remaining_width);
       data += remaining_width;
     }
     ++y;
@@ -323,7 +323,7 @@ static void F_NAME(const TYPE* src, const uint32_t* const color_map,           \
     }                                                                          \
   }                                                                            \
 }                                                                              \
-STATIC_DECL void FUNC_NAME(const VP8LTransform* const transform,               \
+STATIC_DECL void FUNC_NAME(const DEDUP_vP8_LTransform* const transform,               \
                            int y_start, int y_end, const TYPE* src,            \
                            TYPE* dst) {                                        \
   int y;                                                                       \
@@ -348,18 +348,18 @@ STATIC_DECL void FUNC_NAME(const VP8LTransform* const transform,               \
       }                                                                        \
     }                                                                          \
   } else {                                                                     \
-    VP8LMapColor##BIT_SUFFIX(src, color_map, dst, y_start, y_end, width);      \
+    DEDUP_vP8_LMapColor##BIT_SUFFIX(src, color_map, dst, y_start, y_end, width);      \
   }                                                                            \
 }
 
 COLOR_INDEX_INVERSE(ColorIndexInverseTransform, MapARGB, static, uint32_t, 32b,
-                    VP8GetARGBIndex, VP8GetARGBValue)
-COLOR_INDEX_INVERSE(VP8LColorIndexInverseTransformAlpha, MapAlpha, , uint8_t,
-                    8b, VP8GetAlphaIndex, VP8GetAlphaValue)
+                    DEDUP_vP8_GetARGBIndex, DEDUP_vP8_GetARGBValue)
+COLOR_INDEX_INVERSE(DEDUP_vP8_LColorIndexInverseTransformAlpha, MapAlpha, , uint8_t,
+                    8b, DEDUP_vP8_GetAlphaIndex, DEDUP_vP8_GetAlphaValue)
 
 #undef COLOR_INDEX_INVERSE
 
-void VP8LInverseTransform(const VP8LTransform* const transform,
+void DEDUP_vP8_LInverseTransform(const DEDUP_vP8_LTransform* const transform,
                           int row_start, int row_end,
                           const uint32_t* const in, uint32_t* const out) {
   const int width = transform->xsize_;
@@ -367,7 +367,7 @@ void VP8LInverseTransform(const VP8LTransform* const transform,
   assert(row_end <= transform->ysize_);
   switch (transform->type_) {
     case SUBTRACT_GREEN:
-      VP8LAddGreenToBlueAndRed(out, (row_end - row_start) * width);
+      DEDUP_vP8_LAddGreenToBlueAndRed(out, (row_end - row_start) * width);
       break;
     case PREDICTOR_TRANSFORM:
       PredictorInverseTransform(transform, row_start, row_end, out);
@@ -386,11 +386,11 @@ void VP8LInverseTransform(const VP8LTransform* const transform,
         // Move packed pixels to the end of unpacked region, so that unpacking
         // can occur seamlessly.
         // Also, note that this is the only transform that applies on
-        // the effective width of VP8LSubSampleSize(xsize_, bits_). All other
+        // the effective width of DEDUP_vP8_LSubSampleSize(xsize_, bits_). All other
         // transforms work on effective width of xsize_.
         const int out_stride = (row_end - row_start) * width;
         const int in_stride = (row_end - row_start) *
-            VP8LSubSampleSize(transform->xsize_, transform->bits_);
+            DEDUP_vP8_LSubSampleSize(transform->xsize_, transform->bits_);
         uint32_t* const src = out + out_stride - in_stride;
         memmove(src, out, in_stride * sizeof(*src));
         ColorIndexInverseTransform(transform, row_start, row_end, src, out);
@@ -412,7 +412,7 @@ static int is_big_endian(void) {
   return (tmp.b[0] != 1);
 }
 
-void VP8LConvertBGRAToRGB_C(const uint32_t* src,
+void DEDUP_vP8_LConvertBGRAToRGB_C(const uint32_t* src,
                             int num_pixels, uint8_t* dst) {
   const uint32_t* const src_end = src + num_pixels;
   while (src < src_end) {
@@ -423,7 +423,7 @@ void VP8LConvertBGRAToRGB_C(const uint32_t* src,
   }
 }
 
-void VP8LConvertBGRAToRGBA_C(const uint32_t* src,
+void DEDUP_vP8_LConvertBGRAToRGBA_C(const uint32_t* src,
                              int num_pixels, uint8_t* dst) {
   const uint32_t* const src_end = src + num_pixels;
   while (src < src_end) {
@@ -435,7 +435,7 @@ void VP8LConvertBGRAToRGBA_C(const uint32_t* src,
   }
 }
 
-void VP8LConvertBGRAToRGBA4444_C(const uint32_t* src,
+void DEDUP_vP8_LConvertBGRAToRGBA4444_C(const uint32_t* src,
                                  int num_pixels, uint8_t* dst) {
   const uint32_t* const src_end = src + num_pixels;
   while (src < src_end) {
@@ -452,7 +452,7 @@ void VP8LConvertBGRAToRGBA4444_C(const uint32_t* src,
   }
 }
 
-void VP8LConvertBGRAToRGB565_C(const uint32_t* src,
+void DEDUP_vP8_LConvertBGRAToRGB565_C(const uint32_t* src,
                                int num_pixels, uint8_t* dst) {
   const uint32_t* const src_end = src + num_pixels;
   while (src < src_end) {
@@ -469,7 +469,7 @@ void VP8LConvertBGRAToRGB565_C(const uint32_t* src,
   }
 }
 
-void VP8LConvertBGRAToBGR_C(const uint32_t* src,
+void DEDUP_vP8_LConvertBGRAToBGR_C(const uint32_t* src,
                             int num_pixels, uint8_t* dst) {
   const uint32_t* const src_end = src + num_pixels;
   while (src < src_end) {
@@ -489,7 +489,7 @@ static void CopyOrSwap(const uint32_t* src, int num_pixels, uint8_t* dst,
 
 #if !defined(WORDS_BIGENDIAN)
 #if !defined(WEBP_REFERENCE_IMPLEMENTATION)
-      WebPUint32ToMem(dst, BSwap32(argb));
+      DEDUP_WEBP_Uint32ToMem(dst, BSwap32(argb));
 #else  // WEBP_REFERENCE_IMPLEMENTATION
       dst[0] = (argb >> 24) & 0xff;
       dst[1] = (argb >> 16) & 0xff;
@@ -509,45 +509,45 @@ static void CopyOrSwap(const uint32_t* src, int num_pixels, uint8_t* dst,
   }
 }
 
-void VP8LConvertFromBGRA(const uint32_t* const in_data, int num_pixels,
+void DEDUP_vP8_LConvertFromBGRA(const uint32_t* const in_data, int num_pixels,
                          WEBP_CSP_MODE out_colorspace, uint8_t* const rgba) {
   switch (out_colorspace) {
     case MODE_RGB:
-      VP8LConvertBGRAToRGB(in_data, num_pixels, rgba);
+      DEDUP_vP8_LConvertBGRAToRGB(in_data, num_pixels, rgba);
       break;
     case MODE_RGBA:
-      VP8LConvertBGRAToRGBA(in_data, num_pixels, rgba);
+      DEDUP_vP8_LConvertBGRAToRGBA(in_data, num_pixels, rgba);
       break;
     case MODE_rgbA:
-      VP8LConvertBGRAToRGBA(in_data, num_pixels, rgba);
-      WebPApplyAlphaMultiply(rgba, 0, num_pixels, 1, 0);
+      DEDUP_vP8_LConvertBGRAToRGBA(in_data, num_pixels, rgba);
+      DEDUP_WEBP_ApplyAlphaMultiply(rgba, 0, num_pixels, 1, 0);
       break;
     case MODE_BGR:
-      VP8LConvertBGRAToBGR(in_data, num_pixels, rgba);
+      DEDUP_vP8_LConvertBGRAToBGR(in_data, num_pixels, rgba);
       break;
     case MODE_BGRA:
       CopyOrSwap(in_data, num_pixels, rgba, 1);
       break;
     case MODE_bgrA:
       CopyOrSwap(in_data, num_pixels, rgba, 1);
-      WebPApplyAlphaMultiply(rgba, 0, num_pixels, 1, 0);
+      DEDUP_WEBP_ApplyAlphaMultiply(rgba, 0, num_pixels, 1, 0);
       break;
     case MODE_ARGB:
       CopyOrSwap(in_data, num_pixels, rgba, 0);
       break;
     case MODE_Argb:
       CopyOrSwap(in_data, num_pixels, rgba, 0);
-      WebPApplyAlphaMultiply(rgba, 1, num_pixels, 1, 0);
+      DEDUP_WEBP_ApplyAlphaMultiply(rgba, 1, num_pixels, 1, 0);
       break;
     case MODE_RGBA_4444:
-      VP8LConvertBGRAToRGBA4444(in_data, num_pixels, rgba);
+      DEDUP_vP8_LConvertBGRAToRGBA4444(in_data, num_pixels, rgba);
       break;
     case MODE_rgbA_4444:
-      VP8LConvertBGRAToRGBA4444(in_data, num_pixels, rgba);
-      WebPApplyAlphaMultiply4444(rgba, num_pixels, 1, 0);
+      DEDUP_vP8_LConvertBGRAToRGBA4444(in_data, num_pixels, rgba);
+      DEDUP_WEBP_ApplyAlphaMultiply4444(rgba, num_pixels, 1, 0);
       break;
     case MODE_RGB_565:
-      VP8LConvertBGRAToRGB565(in_data, num_pixels, rgba);
+      DEDUP_vP8_LConvertBGRAToRGB565(in_data, num_pixels, rgba);
       break;
     default:
       assert(0);          // Code flow should not reach here.
@@ -556,85 +556,85 @@ void VP8LConvertFromBGRA(const uint32_t* const in_data, int num_pixels,
 
 //------------------------------------------------------------------------------
 
-VP8LProcessBlueAndRedFunc VP8LAddGreenToBlueAndRed;
-VP8LPredictorFunc VP8LPredictors[16];
+DEDUP_vP8_LProcessBlueAndRedFunc DEDUP_vP8_LAddGreenToBlueAndRed;
+DEDUP_vP8_LPredictorFunc DEDUP_vP8_LPredictors[16];
 
-VP8LTransformColorFunc VP8LTransformColorInverse;
+DEDUP_vP8_LTransformColorFunc DEDUP_vP8_LTransformColorInverse;
 
-VP8LConvertFunc VP8LConvertBGRAToRGB;
-VP8LConvertFunc VP8LConvertBGRAToRGBA;
-VP8LConvertFunc VP8LConvertBGRAToRGBA4444;
-VP8LConvertFunc VP8LConvertBGRAToRGB565;
-VP8LConvertFunc VP8LConvertBGRAToBGR;
+DEDUP_vP8_LConvertFunc DEDUP_vP8_LConvertBGRAToRGB;
+DEDUP_vP8_LConvertFunc DEDUP_vP8_LConvertBGRAToRGBA;
+DEDUP_vP8_LConvertFunc DEDUP_vP8_LConvertBGRAToRGBA4444;
+DEDUP_vP8_LConvertFunc DEDUP_vP8_LConvertBGRAToRGB565;
+DEDUP_vP8_LConvertFunc DEDUP_vP8_LConvertBGRAToBGR;
 
-VP8LMapARGBFunc VP8LMapColor32b;
-VP8LMapAlphaFunc VP8LMapColor8b;
+DEDUP_vP8_LMapARGBFunc DEDUP_vP8_LMapColor32b;
+DEDUP_vP8_LMapAlphaFunc DEDUP_vP8_LMapColor8b;
 
-extern void VP8LDspInitSSE2(void);
-extern void VP8LDspInitNEON(void);
-extern void VP8LDspInitMIPSdspR2(void);
-extern void VP8LDspInitMSA(void);
+extern void DEDUP_vP8_LDspInitSSE2(void);
+extern void DEDUP_vP8_LDspInitNEON(void);
+extern void DEDUP_vP8_LDspInitMIPSdspR2(void);
+extern void DEDUP_vP8_LDspInitMSA(void);
 
-static volatile VP8CPUInfo lossless_last_cpuinfo_used =
-    (VP8CPUInfo)&lossless_last_cpuinfo_used;
+static volatile DEDUP_vP8_CPUInfo lossless_last_cpuinfo_used =
+    (DEDUP_vP8_CPUInfo)&lossless_last_cpuinfo_used;
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8LDspInit(void) {
-  if (lossless_last_cpuinfo_used == VP8GetCPUInfo) return;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_LDspInit(void) {
+  if (lossless_last_cpuinfo_used == DEDUP_vP8_GetCPUInfo) return;
 
-  VP8LPredictors[0] = Predictor0;
-  VP8LPredictors[1] = Predictor1;
-  VP8LPredictors[2] = Predictor2;
-  VP8LPredictors[3] = Predictor3;
-  VP8LPredictors[4] = Predictor4;
-  VP8LPredictors[5] = Predictor5;
-  VP8LPredictors[6] = Predictor6;
-  VP8LPredictors[7] = Predictor7;
-  VP8LPredictors[8] = Predictor8;
-  VP8LPredictors[9] = Predictor9;
-  VP8LPredictors[10] = Predictor10;
-  VP8LPredictors[11] = Predictor11;
-  VP8LPredictors[12] = Predictor12;
-  VP8LPredictors[13] = Predictor13;
-  VP8LPredictors[14] = Predictor0;     // <- padding security sentinels
-  VP8LPredictors[15] = Predictor0;
+  DEDUP_vP8_LPredictors[0] = Predictor0;
+  DEDUP_vP8_LPredictors[1] = Predictor1;
+  DEDUP_vP8_LPredictors[2] = Predictor2;
+  DEDUP_vP8_LPredictors[3] = Predictor3;
+  DEDUP_vP8_LPredictors[4] = Predictor4;
+  DEDUP_vP8_LPredictors[5] = Predictor5;
+  DEDUP_vP8_LPredictors[6] = Predictor6;
+  DEDUP_vP8_LPredictors[7] = Predictor7;
+  DEDUP_vP8_LPredictors[8] = Predictor8;
+  DEDUP_vP8_LPredictors[9] = Predictor9;
+  DEDUP_vP8_LPredictors[10] = Predictor10;
+  DEDUP_vP8_LPredictors[11] = Predictor11;
+  DEDUP_vP8_LPredictors[12] = Predictor12;
+  DEDUP_vP8_LPredictors[13] = Predictor13;
+  DEDUP_vP8_LPredictors[14] = Predictor0;     // <- padding security sentinels
+  DEDUP_vP8_LPredictors[15] = Predictor0;
 
-  VP8LAddGreenToBlueAndRed = VP8LAddGreenToBlueAndRed_C;
+  DEDUP_vP8_LAddGreenToBlueAndRed = DEDUP_vP8_LAddGreenToBlueAndRed_C;
 
-  VP8LTransformColorInverse = VP8LTransformColorInverse_C;
+  DEDUP_vP8_LTransformColorInverse = DEDUP_vP8_LTransformColorInverse_C;
 
-  VP8LConvertBGRAToRGB = VP8LConvertBGRAToRGB_C;
-  VP8LConvertBGRAToRGBA = VP8LConvertBGRAToRGBA_C;
-  VP8LConvertBGRAToRGBA4444 = VP8LConvertBGRAToRGBA4444_C;
-  VP8LConvertBGRAToRGB565 = VP8LConvertBGRAToRGB565_C;
-  VP8LConvertBGRAToBGR = VP8LConvertBGRAToBGR_C;
+  DEDUP_vP8_LConvertBGRAToRGB = DEDUP_vP8_LConvertBGRAToRGB_C;
+  DEDUP_vP8_LConvertBGRAToRGBA = DEDUP_vP8_LConvertBGRAToRGBA_C;
+  DEDUP_vP8_LConvertBGRAToRGBA4444 = DEDUP_vP8_LConvertBGRAToRGBA4444_C;
+  DEDUP_vP8_LConvertBGRAToRGB565 = DEDUP_vP8_LConvertBGRAToRGB565_C;
+  DEDUP_vP8_LConvertBGRAToBGR = DEDUP_vP8_LConvertBGRAToBGR_C;
 
-  VP8LMapColor32b = MapARGB;
-  VP8LMapColor8b = MapAlpha;
+  DEDUP_vP8_LMapColor32b = MapARGB;
+  DEDUP_vP8_LMapColor8b = MapAlpha;
 
   // If defined, use CPUInfo() to overwrite some pointers with faster versions.
-  if (VP8GetCPUInfo != NULL) {
+  if (DEDUP_vP8_GetCPUInfo != NULL) {
 #if defined(WEBP_USE_SSE2)
-    if (VP8GetCPUInfo(kSSE2)) {
-      VP8LDspInitSSE2();
+    if (DEDUP_vP8_GetCPUInfo(kSSE2)) {
+      DEDUP_vP8_LDspInitSSE2();
     }
 #endif
 #if defined(WEBP_USE_NEON)
-    if (VP8GetCPUInfo(kNEON)) {
-      VP8LDspInitNEON();
+    if (DEDUP_vP8_GetCPUInfo(kNEON)) {
+      DEDUP_vP8_LDspInitNEON();
     }
 #endif
 #if defined(WEBP_USE_MIPS_DSP_R2)
-    if (VP8GetCPUInfo(kMIPSdspR2)) {
-      VP8LDspInitMIPSdspR2();
+    if (DEDUP_vP8_GetCPUInfo(kMIPSdspR2)) {
+      DEDUP_vP8_LDspInitMIPSdspR2();
     }
 #endif
 #if defined(WEBP_USE_MSA)
-    if (VP8GetCPUInfo(kMSA)) {
-      VP8LDspInitMSA();
+    if (DEDUP_vP8_GetCPUInfo(kMSA)) {
+      DEDUP_vP8_LDspInitMSA();
     }
 #endif
   }
-  lossless_last_cpuinfo_used = VP8GetCPUInfo;
+  lossless_last_cpuinfo_used = DEDUP_vP8_GetCPUInfo;
 }
 
 //------------------------------------------------------------------------------

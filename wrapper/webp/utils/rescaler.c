@@ -19,7 +19,7 @@
 
 //------------------------------------------------------------------------------
 
-void WebPRescalerInit(WebPRescaler* const wrk, int src_width, int src_height,
+void DEDUP_WEBP_RescalerInit(DEDUP_WEBP_Rescaler* const wrk, int src_width, int src_height,
                       uint8_t* const dst,
                       int dst_width, int dst_height, int dst_stride,
                       int num_channels, rescaler_t* const work) {
@@ -57,7 +57,7 @@ void WebPRescalerInit(WebPRescaler* const wrk, int src_width, int src_height,
       // When ratio == WEBP_RESCALER_ONE, we can't represent the ratio with the
       // current fixed-point precision. This happens when src_height ==
       // wrk->y_add (which == src_height), and wrk->x_add == 1.
-      // => We special-case fxy_scale = 0, in WebPRescalerExportRow().
+      // => We special-case fxy_scale = 0, in DEDUP_WEBP_RescalerExportRow().
       wrk->fxy_scale = 0;
     } else {
       wrk->fxy_scale = (uint32_t)ratio;
@@ -71,10 +71,10 @@ void WebPRescalerInit(WebPRescaler* const wrk, int src_width, int src_height,
   wrk->frow = work + num_channels * dst_width;
   memset(work, 0, 2 * dst_width * num_channels * sizeof(*work));
 
-  WebPRescalerDspInit();
+  DEDUP_WEBP_RescalerDspInit();
 }
 
-int WebPRescalerGetScaledDimensions(int src_width, int src_height,
+int DEDUP_WEBP_RescalerGetScaledDimensions(int src_width, int src_height,
                                     int* const scaled_width,
                                     int* const scaled_height) {
   assert(scaled_width != NULL);
@@ -105,21 +105,21 @@ int WebPRescalerGetScaledDimensions(int src_width, int src_height,
 //------------------------------------------------------------------------------
 // all-in-one calls
 
-int WebPRescaleNeededLines(const WebPRescaler* const wrk, int max_num_lines) {
+int DEDUP_WEBP_RescaleNeededLines(const DEDUP_WEBP_Rescaler* const wrk, int max_num_lines) {
   const int num_lines = (wrk->y_accum + wrk->y_sub - 1) / wrk->y_sub;
   return (num_lines > max_num_lines) ? max_num_lines : num_lines;
 }
 
-int WebPRescalerImport(WebPRescaler* const wrk, int num_lines,
+int DEDUP_WEBP_RescalerImport(DEDUP_WEBP_Rescaler* const wrk, int num_lines,
                        const uint8_t* src, int src_stride) {
   int total_imported = 0;
-  while (total_imported < num_lines && !WebPRescalerHasPendingOutput(wrk)) {
+  while (total_imported < num_lines && !DEDUP_WEBP_RescalerHasPendingOutput(wrk)) {
     if (wrk->y_expand) {
       rescaler_t* const tmp = wrk->irow;
       wrk->irow = wrk->frow;
       wrk->frow = tmp;
     }
-    WebPRescalerImportRow(wrk, src);
+    DEDUP_WEBP_RescalerImportRow(wrk, src);
     if (!wrk->y_expand) {     // Accumulate the contribution of the new row.
       int x;
       for (x = 0; x < wrk->num_channels * wrk->dst_width; ++x) {
@@ -134,10 +134,10 @@ int WebPRescalerImport(WebPRescaler* const wrk, int num_lines,
   return total_imported;
 }
 
-int WebPRescalerExport(WebPRescaler* const rescaler) {
+int DEDUP_WEBP_RescalerExport(DEDUP_WEBP_Rescaler* const rescaler) {
   int total_exported = 0;
-  while (WebPRescalerHasPendingOutput(rescaler)) {
-    WebPRescalerExportRow(rescaler);
+  while (DEDUP_WEBP_RescalerHasPendingOutput(rescaler)) {
+    DEDUP_WEBP_RescalerExportRow(rescaler);
     ++total_exported;
   }
   return total_exported;

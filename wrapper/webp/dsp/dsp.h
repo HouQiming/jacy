@@ -141,8 +141,8 @@ typedef enum {
   kMSA
 } CPUFeature;
 // returns true if the CPU supports the feature.
-typedef int (*VP8CPUInfo)(CPUFeature feature);
-WEBP_EXTERN(VP8CPUInfo) VP8GetCPUInfo;
+typedef int (*DEDUP_vP8_CPUInfo)(CPUFeature feature);
+WEBP_EXTERN(DEDUP_vP8_CPUInfo) DEDUP_vP8_GetCPUInfo;
 
 //------------------------------------------------------------------------------
 // Init stub generator
@@ -157,58 +157,58 @@ WEBP_EXTERN(VP8CPUInfo) VP8GetCPUInfo;
 // Encoding
 
 // Transforms
-// VP8Idct: Does one of two inverse transforms. If do_two is set, the transforms
+// DEDUP_vP8_Idct: Does one of two inverse transforms. If do_two is set, the transforms
 //          will be done for (ref, in, dst) and (ref + 4, in + 16, dst + 4).
-typedef void (*VP8Idct)(const uint8_t* ref, const int16_t* in, uint8_t* dst,
+typedef void (*DEDUP_vP8_Idct)(const uint8_t* ref, const int16_t* in, uint8_t* dst,
                         int do_two);
-typedef void (*VP8Fdct)(const uint8_t* src, const uint8_t* ref, int16_t* out);
-typedef void (*VP8WHT)(const int16_t* in, int16_t* out);
-extern VP8Idct VP8ITransform;
-extern VP8Fdct VP8FTransform;
-extern VP8Fdct VP8FTransform2;   // performs two transforms at a time
-extern VP8WHT VP8FTransformWHT;
+typedef void (*DEDUP_vP8_Fdct)(const uint8_t* src, const uint8_t* ref, int16_t* out);
+typedef void (*DEDUP_vP8_WHT)(const int16_t* in, int16_t* out);
+extern DEDUP_vP8_Idct DEDUP_vP8_ITransform;
+extern DEDUP_vP8_Fdct DEDUP_vP8_FTransform;
+extern DEDUP_vP8_Fdct DEDUP_vP8_FTransform2;   // performs two transforms at a time
+extern DEDUP_vP8_WHT DEDUP_vP8_FTransformWHT;
 // Predictions
 // *dst is the destination block. *top and *left can be NULL.
-typedef void (*VP8IntraPreds)(uint8_t *dst, const uint8_t* left,
+typedef void (*DEDUP_vP8_IntraPreds)(uint8_t *dst, const uint8_t* left,
                               const uint8_t* top);
-typedef void (*VP8Intra4Preds)(uint8_t *dst, const uint8_t* top);
-extern VP8Intra4Preds VP8EncPredLuma4;
-extern VP8IntraPreds VP8EncPredLuma16;
-extern VP8IntraPreds VP8EncPredChroma8;
+typedef void (*DEDUP_vP8_Intra4Preds)(uint8_t *dst, const uint8_t* top);
+extern DEDUP_vP8_Intra4Preds DEDUP_vP8_EncPredLuma4;
+extern DEDUP_vP8_IntraPreds DEDUP_vP8_EncPredLuma16;
+extern DEDUP_vP8_IntraPreds DEDUP_vP8_EncPredChroma8;
 
-typedef int (*VP8Metric)(const uint8_t* pix, const uint8_t* ref);
-extern VP8Metric VP8SSE16x16, VP8SSE16x8, VP8SSE8x8, VP8SSE4x4;
-typedef int (*VP8WMetric)(const uint8_t* pix, const uint8_t* ref,
+typedef int (*DEDUP_vP8_Metric)(const uint8_t* pix, const uint8_t* ref);
+extern DEDUP_vP8_Metric DEDUP_vP8_SSE16x16, DEDUP_vP8_SSE16x8, DEDUP_vP8_SSE8x8, VP8SSE4x4;
+typedef int (*DEDUP_vP8_WMetric)(const uint8_t* pix, const uint8_t* ref,
                           const uint16_t* const weights);
-// The weights for VP8TDisto4x4 and VP8TDisto16x16 contain a row-major
+// The weights for DEDUP_vP8_TDisto4x4 and DEDUP_vP8_TDisto16x16 contain a row-major
 // 4 by 4 symmetric matrix.
-extern VP8WMetric VP8TDisto4x4, VP8TDisto16x16;
+extern DEDUP_vP8_WMetric DEDUP_vP8_TDisto4x4, DEDUP_vP8_TDisto16x16;
 
 // Compute the average (DC) of four 4x4 blocks.
 // Each sub-4x4 block #i sum is stored in dc[i].
-typedef void (*VP8MeanMetric)(const uint8_t* ref, uint32_t dc[4]);
-extern VP8MeanMetric VP8Mean16x4;
+typedef void (*DEDUP_vP8_MeanMetric)(const uint8_t* ref, uint32_t dc[4]);
+extern DEDUP_vP8_MeanMetric DEDUP_vP8_Mean16x4;
 
-typedef void (*VP8BlockCopy)(const uint8_t* src, uint8_t* dst);
-extern VP8BlockCopy VP8Copy4x4;
-extern VP8BlockCopy VP8Copy16x8;
+typedef void (*DEDUP_vP8_BlockCopy)(const uint8_t* src, uint8_t* dst);
+extern DEDUP_vP8_BlockCopy DEDUP_vP8_Copy4x4;
+extern DEDUP_vP8_BlockCopy DEDUP_vP8_Copy16x8;
 // Quantization
-struct VP8Matrix;   // forward declaration
-typedef int (*VP8QuantizeBlock)(int16_t in[16], int16_t out[16],
-                                const struct VP8Matrix* const mtx);
-// Same as VP8QuantizeBlock, but quantizes two consecutive blocks.
-typedef int (*VP8Quantize2Blocks)(int16_t in[32], int16_t out[32],
-                                  const struct VP8Matrix* const mtx);
+struct DEDUP_vP8_Matrix;   // forward declaration
+typedef int (*DEDUP_vP8_QuantizeBlock)(int16_t in[16], int16_t out[16],
+                                const struct DEDUP_vP8_Matrix* const mtx);
+// Same as DEDUP_vP8_QuantizeBlock, but quantizes two consecutive blocks.
+typedef int (*DEDUP_vP8_Quantize2Blocks)(int16_t in[32], int16_t out[32],
+                                  const struct DEDUP_vP8_Matrix* const mtx);
 
-extern VP8QuantizeBlock VP8EncQuantizeBlock;
-extern VP8Quantize2Blocks VP8EncQuantize2Blocks;
+extern DEDUP_vP8_QuantizeBlock DEDUP_vP8_EncQuantizeBlock;
+extern DEDUP_vP8_Quantize2Blocks DEDUP_vP8_EncQuantize2Blocks;
 
 // specific to 2nd transform:
-typedef int (*VP8QuantizeBlockWHT)(int16_t in[16], int16_t out[16],
-                                   const struct VP8Matrix* const mtx);
-extern VP8QuantizeBlockWHT VP8EncQuantizeBlockWHT;
+typedef int (*DEDUP_vP8_QuantizeBlockWHT)(int16_t in[16], int16_t out[16],
+                                   const struct DEDUP_vP8_Matrix* const mtx);
+extern DEDUP_vP8_QuantizeBlockWHT DEDUP_vP8_EncQuantizeBlockWHT;
 
-extern const int VP8DspScan[16 + 4 + 4];
+extern const int DEDUP_vP8_DspScan[16 + 4 + 4];
 
 // Collect histogram for susceptibility calculation.
 #define MAX_COEFF_THRESH   31   // size of histogram used by CollectHistogram.
@@ -216,38 +216,38 @@ typedef struct {
   // We only need to store max_value and last_non_zero, not the distribution.
   int max_value;
   int last_non_zero;
-} VP8Histogram;
-typedef void (*VP8CHisto)(const uint8_t* ref, const uint8_t* pred,
+} DEDUP_vP8_Histogram;
+typedef void (*DEDUP_vP8_CHisto)(const uint8_t* ref, const uint8_t* pred,
                           int start_block, int end_block,
-                          VP8Histogram* const histo);
-extern VP8CHisto VP8CollectHistogram;
-// General-purpose util function to help VP8CollectHistogram().
-void VP8SetHistogramData(const int distribution[MAX_COEFF_THRESH + 1],
-                         VP8Histogram* const histo);
+                          DEDUP_vP8_Histogram* const histo);
+extern DEDUP_vP8_CHisto DEDUP_vP8_CollectHistogram;
+// General-purpose util function to help DEDUP_vP8_CollectHistogram().
+void DEDUP_vP8_SetHistogramData(const int distribution[MAX_COEFF_THRESH + 1],
+                         DEDUP_vP8_Histogram* const histo);
 
 // must be called before using any of the above
-void VP8EncDspInit(void);
+void DEDUP_vP8_EncDspInit(void);
 
 //------------------------------------------------------------------------------
 // cost functions (encoding)
 
-extern const uint16_t VP8EntropyCost[256];        // 8bit fixed-point log(p)
+extern const uint16_t DEDUP_vP8_EntropyCost[256];        // 8bit fixed-point log(p)
 // approximate cost per level:
-extern const uint16_t VP8LevelFixedCosts[2047 /*MAX_LEVEL*/ + 1];
-extern const uint8_t VP8EncBands[16 + 1];
+extern const uint16_t DEDUP_vP8_LevelFixedCosts[2047 /*MAX_LEVEL*/ + 1];
+extern const uint8_t DEDUP_vP8_EncBands[16 + 1];
 
-struct VP8Residual;
-typedef void (*VP8SetResidualCoeffsFunc)(const int16_t* const coeffs,
-                                         struct VP8Residual* const res);
-extern VP8SetResidualCoeffsFunc VP8SetResidualCoeffs;
+struct DEDUP_vP8_Residual;
+typedef void (*DEDUP_vP8_SetResidualCoeffsFunc)(const int16_t* const coeffs,
+                                         struct DEDUP_vP8_Residual* const res);
+extern DEDUP_vP8_SetResidualCoeffsFunc DEDUP_vP8_SetResidualCoeffs;
 
 // Cost calculation function.
-typedef int (*VP8GetResidualCostFunc)(int ctx0,
-                                      const struct VP8Residual* const res);
-extern VP8GetResidualCostFunc VP8GetResidualCost;
+typedef int (*DEDUP_vP8_GetResidualCostFunc)(int ctx0,
+                                      const struct DEDUP_vP8_Residual* const res);
+extern DEDUP_vP8_GetResidualCostFunc DEDUP_vP8_GetResidualCost;
 
 // must be called before anything using the above
-void VP8EncDspCostInit(void);
+void DEDUP_vP8_EncDspCostInit(void);
 
 //------------------------------------------------------------------------------
 // SSIM / PSNR utils
@@ -257,106 +257,106 @@ typedef struct {
   uint32_t w;              // sum(w_i) : sum of weights
   uint32_t xm, ym;         // sum(w_i * x_i), sum(w_i * y_i)
   uint32_t xxm, xym, yym;  // sum(w_i * x_i * x_i), etc.
-} VP8DistoStats;
+} DEDUP_vP8_DistoStats;
 
 // Compute the final SSIM value
-// The non-clipped version assumes stats->w = (2 * VP8_SSIM_KERNEL + 1)^2.
-double VP8SSIMFromStats(const VP8DistoStats* const stats);
-double VP8SSIMFromStatsClipped(const VP8DistoStats* const stats);
+// The non-clipped version assumes stats->w = (2 * DEDUP_vP8__SSIM_KERNEL + 1)^2.
+double DEDUP_vP8_SSIMFromStats(const DEDUP_vP8_DistoStats* const stats);
+double DEDUP_vP8_SSIMFromStatsClipped(const DEDUP_vP8_DistoStats* const stats);
 
-#define VP8_SSIM_KERNEL 3   // total size of the kernel: 2 * VP8_SSIM_KERNEL + 1
-typedef double (*VP8SSIMGetClippedFunc)(const uint8_t* src1, int stride1,
+#define DEDUP_vP8__SSIM_KERNEL 3   // total size of the kernel: 2 * DEDUP_vP8__SSIM_KERNEL + 1
+typedef double (*DEDUP_vP8_SSIMGetClippedFunc)(const uint8_t* src1, int stride1,
                                         const uint8_t* src2, int stride2,
                                         int xo, int yo,  // center position
                                         int W, int H);   // plane dimension
 
 // This version is called with the guarantee that you can load 8 bytes and
 // 8 rows at offset src1 and src2
-typedef double (*VP8SSIMGetFunc)(const uint8_t* src1, int stride1,
+typedef double (*DEDUP_vP8_SSIMGetFunc)(const uint8_t* src1, int stride1,
                                  const uint8_t* src2, int stride2);
 
-extern VP8SSIMGetFunc VP8SSIMGet;         // unclipped / unchecked
-extern VP8SSIMGetClippedFunc VP8SSIMGetClipped;   // with clipping
+extern DEDUP_vP8_SSIMGetFunc DEDUP_vP8_SSIMGet;         // unclipped / unchecked
+extern DEDUP_vP8_SSIMGetClippedFunc DEDUP_vP8_SSIMGetClipped;   // with clipping
 
-typedef uint32_t (*VP8AccumulateSSEFunc)(const uint8_t* src1,
+typedef uint32_t (*DEDUP_vP8_AccumulateSSEFunc)(const uint8_t* src1,
                                          const uint8_t* src2, int len);
-extern VP8AccumulateSSEFunc VP8AccumulateSSE;
+extern DEDUP_vP8_AccumulateSSEFunc DEDUP_vP8_AccumulateSSE;
 
 // must be called before using any of the above directly
-void VP8SSIMDspInit(void);
+void DEDUP_vP8_SSIMDspInit(void);
 
 //------------------------------------------------------------------------------
 // Decoding
 
-typedef void (*VP8DecIdct)(const int16_t* coeffs, uint8_t* dst);
+typedef void (*DEDUP_vP8_DecIdct)(const int16_t* coeffs, uint8_t* dst);
 // when doing two transforms, coeffs is actually int16_t[2][16].
-typedef void (*VP8DecIdct2)(const int16_t* coeffs, uint8_t* dst, int do_two);
-extern VP8DecIdct2 VP8Transform;
-extern VP8DecIdct VP8TransformAC3;
-extern VP8DecIdct VP8TransformUV;
-extern VP8DecIdct VP8TransformDC;
-extern VP8DecIdct VP8TransformDCUV;
-extern VP8WHT VP8TransformWHT;
+typedef void (*DEDUP_vP8_DecIdct2)(const int16_t* coeffs, uint8_t* dst, int do_two);
+extern DEDUP_vP8_DecIdct2 DEDUP_vP8_Transform;
+extern DEDUP_vP8_DecIdct DEDUP_vP8_TransformAC3;
+extern DEDUP_vP8_DecIdct DEDUP_vP8_TransformUV;
+extern DEDUP_vP8_DecIdct DEDUP_vP8_TransformDC;
+extern DEDUP_vP8_DecIdct DEDUP_vP8_TransformDCUV;
+extern DEDUP_vP8_WHT DEDUP_vP8_TransformWHT;
 
 // *dst is the destination block, with stride BPS. Boundary samples are
 // assumed accessible when needed.
-typedef void (*VP8PredFunc)(uint8_t* dst);
-extern VP8PredFunc VP8PredLuma16[/* NUM_B_DC_MODES */];
-extern VP8PredFunc VP8PredChroma8[/* NUM_B_DC_MODES */];
-extern VP8PredFunc VP8PredLuma4[/* NUM_BMODES */];
+typedef void (*DEDUP_vP8_PredFunc)(uint8_t* dst);
+extern DEDUP_vP8_PredFunc DEDUP_vP8_PredLuma16[/* NUM_B_DC_MODES */];
+extern DEDUP_vP8_PredFunc DEDUP_vP8_PredChroma8[/* NUM_B_DC_MODES */];
+extern DEDUP_vP8_PredFunc DEDUP_vP8_PredLuma4[/* NUM_BMODES */];
 
 // clipping tables (for filtering)
-extern const int8_t* const VP8ksclip1;  // clips [-1020, 1020] to [-128, 127]
-extern const int8_t* const VP8ksclip2;  // clips [-112, 112] to [-16, 15]
-extern const uint8_t* const VP8kclip1;  // clips [-255,511] to [0,255]
-extern const uint8_t* const VP8kabs0;   // abs(x) for x in [-255,255]
+extern const int8_t* const DEDUP_vP8_ksclip1;  // clips [-1020, 1020] to [-128, 127]
+extern const int8_t* const DEDUP_vP8_ksclip2;  // clips [-112, 112] to [-16, 15]
+extern const uint8_t* const DEDUP_vP8_kclip1;  // clips [-255,511] to [0,255]
+extern const uint8_t* const DEDUP_vP8_kabs0;   // abs(x) for x in [-255,255]
 // must be called first
-void VP8InitClipTables(void);
+void DEDUP_vP8_InitClipTables(void);
 
 // simple filter (only for luma)
-typedef void (*VP8SimpleFilterFunc)(uint8_t* p, int stride, int thresh);
-extern VP8SimpleFilterFunc VP8SimpleVFilter16;
-extern VP8SimpleFilterFunc VP8SimpleHFilter16;
-extern VP8SimpleFilterFunc VP8SimpleVFilter16i;  // filter 3 inner edges
-extern VP8SimpleFilterFunc VP8SimpleHFilter16i;
+typedef void (*DEDUP_vP8_SimpleFilterFunc)(uint8_t* p, int stride, int thresh);
+extern DEDUP_vP8_SimpleFilterFunc DEDUP_vP8_SimpleVFilter16;
+extern DEDUP_vP8_SimpleFilterFunc DEDUP_vP8_SimpleHFilter16;
+extern DEDUP_vP8_SimpleFilterFunc DEDUP_vP8_SimpleVFilter16i;  // filter 3 inner edges
+extern DEDUP_vP8_SimpleFilterFunc DEDUP_vP8_SimpleHFilter16i;
 
 // regular filter (on both macroblock edges and inner edges)
-typedef void (*VP8LumaFilterFunc)(uint8_t* luma, int stride,
+typedef void (*DEDUP_vP8_LumaFilterFunc)(uint8_t* luma, int stride,
                                   int thresh, int ithresh, int hev_t);
-typedef void (*VP8ChromaFilterFunc)(uint8_t* u, uint8_t* v, int stride,
+typedef void (*DEDUP_vP8_ChromaFilterFunc)(uint8_t* u, uint8_t* v, int stride,
                                     int thresh, int ithresh, int hev_t);
 // on outer edge
-extern VP8LumaFilterFunc VP8VFilter16;
-extern VP8LumaFilterFunc VP8HFilter16;
-extern VP8ChromaFilterFunc VP8VFilter8;
-extern VP8ChromaFilterFunc VP8HFilter8;
+extern DEDUP_vP8_LumaFilterFunc DEDUP_vP8_VFilter16;
+extern DEDUP_vP8_LumaFilterFunc DEDUP_vP8_HFilter16;
+extern DEDUP_vP8_ChromaFilterFunc DEDUP_vP8_VFilter8;
+extern DEDUP_vP8_ChromaFilterFunc DEDUP_vP8_HFilter8;
 
 // on inner edge
-extern VP8LumaFilterFunc VP8VFilter16i;   // filtering 3 inner edges altogether
-extern VP8LumaFilterFunc VP8HFilter16i;
-extern VP8ChromaFilterFunc VP8VFilter8i;  // filtering u and v altogether
-extern VP8ChromaFilterFunc VP8HFilter8i;
+extern DEDUP_vP8_LumaFilterFunc DEDUP_vP8_VFilter16i;   // filtering 3 inner edges altogether
+extern DEDUP_vP8_LumaFilterFunc DEDUP_vP8_HFilter16i;
+extern DEDUP_vP8_ChromaFilterFunc DEDUP_vP8_VFilter8i;  // filtering u and v altogether
+extern DEDUP_vP8_ChromaFilterFunc DEDUP_vP8_HFilter8i;
 
 // Dithering. Combines dithering values (centered around 128) with dst[],
 // according to: dst[] = clip(dst[] + (((dither[]-128) + 8) >> 4)
-#define VP8_DITHER_DESCALE 4
-#define VP8_DITHER_DESCALE_ROUNDER (1 << (VP8_DITHER_DESCALE - 1))
-#define VP8_DITHER_AMP_BITS 7
-#define VP8_DITHER_AMP_CENTER (1 << VP8_DITHER_AMP_BITS)
-extern void (*VP8DitherCombine8x8)(const uint8_t* dither, uint8_t* dst,
+#define DEDUP_vP8__DITHER_DESCALE 4
+#define DEDUP_vP8__DITHER_DESCALE_ROUNDER (1 << (DEDUP_vP8__DITHER_DESCALE - 1))
+#define DEDUP_vP8__DITHER_AMP_BITS 7
+#define DEDUP_vP8__DITHER_AMP_CENTER (1 << DEDUP_vP8__DITHER_AMP_BITS)
+extern void (*DEDUP_vP8_DitherCombine8x8)(const uint8_t* dither, uint8_t* dst,
                                    int dst_stride);
 
 // must be called before anything using the above
-void VP8DspInit(void);
+void DEDUP_vP8_DspInit(void);
 
 //------------------------------------------------------------------------------
-// WebP I/O
+// DEDUP_WEBP_ I/O
 
 #define FANCY_UPSAMPLING   // undefined to remove fancy upsampling support
 
 // Convert a pair of y/u/v lines together to the output rgb/a colorspace.
 // bottom_y can be NULL if only one line of output is needed (at top/bottom).
-typedef void (*WebPUpsampleLinePairFunc)(
+typedef void (*DEDUP_WEBP_UpsampleLinePairFunc)(
     const uint8_t* top_y, const uint8_t* bottom_y,
     const uint8_t* top_u, const uint8_t* top_v,
     const uint8_t* cur_u, const uint8_t* cur_v,
@@ -365,137 +365,137 @@ typedef void (*WebPUpsampleLinePairFunc)(
 #ifdef FANCY_UPSAMPLING
 
 // Fancy upsampling functions to convert YUV to RGB(A) modes
-extern WebPUpsampleLinePairFunc WebPUpsamplers[/* MODE_LAST */];
+extern DEDUP_WEBP_UpsampleLinePairFunc DEDUP_WEBP_Upsamplers[/* MODE_LAST */];
 
 #endif    // FANCY_UPSAMPLING
 
 // Per-row point-sampling methods.
-typedef void (*WebPSamplerRowFunc)(const uint8_t* y,
+typedef void (*DEDUP_WEBP_SamplerRowFunc)(const uint8_t* y,
                                    const uint8_t* u, const uint8_t* v,
                                    uint8_t* dst, int len);
-// Generic function to apply 'WebPSamplerRowFunc' to the whole plane:
-void WebPSamplerProcessPlane(const uint8_t* y, int y_stride,
+// Generic function to apply 'DEDUP_WEBP_SamplerRowFunc' to the whole plane:
+void DEDUP_WEBP_SamplerProcessPlane(const uint8_t* y, int y_stride,
                              const uint8_t* u, const uint8_t* v, int uv_stride,
                              uint8_t* dst, int dst_stride,
-                             int width, int height, WebPSamplerRowFunc func);
+                             int width, int height, DEDUP_WEBP_SamplerRowFunc func);
 
 // Sampling functions to convert rows of YUV to RGB(A)
-extern WebPSamplerRowFunc WebPSamplers[/* MODE_LAST */];
+extern DEDUP_WEBP_SamplerRowFunc DEDUP_WEBP_Samplers[/* MODE_LAST */];
 
 // General function for converting two lines of ARGB or RGBA.
 // 'alpha_is_last' should be true if 0xff000000 is stored in memory as
 // as 0x00, 0x00, 0x00, 0xff (little endian).
-WebPUpsampleLinePairFunc WebPGetLinePairConverter(int alpha_is_last);
+DEDUP_WEBP_UpsampleLinePairFunc DEDUP_WEBP_GetLinePairConverter(int alpha_is_last);
 
 // YUV444->RGB converters
-typedef void (*WebPYUV444Converter)(const uint8_t* y,
+typedef void (*DEDUP_WEBP_YUV444Converter)(const uint8_t* y,
                                     const uint8_t* u, const uint8_t* v,
                                     uint8_t* dst, int len);
 
-extern WebPYUV444Converter WebPYUV444Converters[/* MODE_LAST */];
+extern DEDUP_WEBP_YUV444Converter DEDUP_WEBP_YUV444Converters[/* MODE_LAST */];
 
-// Must be called before using the WebPUpsamplers[] (and for premultiplied
+// Must be called before using the DEDUP_WEBP_Upsamplers[] (and for premultiplied
 // colorspaces like rgbA, rgbA4444, etc)
-void WebPInitUpsamplers(void);
-// Must be called before using WebPSamplers[]
-void WebPInitSamplers(void);
-// Must be called before using WebPYUV444Converters[]
-void WebPInitYUV444Converters(void);
+void DEDUP_WEBP_InitUpsamplers(void);
+// Must be called before using DEDUP_WEBP_Samplers[]
+void DEDUP_WEBP_InitSamplers(void);
+// Must be called before using DEDUP_WEBP_YUV444Converters[]
+void DEDUP_WEBP_InitYUV444Converters(void);
 
 //------------------------------------------------------------------------------
 // ARGB -> YUV converters
 
 // Convert ARGB samples to luma Y.
-extern void (*WebPConvertARGBToY)(const uint32_t* argb, uint8_t* y, int width);
+extern void (*DEDUP_WEBP_ConvertARGBToY)(const uint32_t* argb, uint8_t* y, int width);
 // Convert ARGB samples to U/V with downsampling. do_store should be '1' for
 // even lines and '0' for odd ones. 'src_width' is the original width, not
 // the U/V one.
-extern void (*WebPConvertARGBToUV)(const uint32_t* argb, uint8_t* u, uint8_t* v,
+extern void (*DEDUP_WEBP_ConvertARGBToUV)(const uint32_t* argb, uint8_t* u, uint8_t* v,
                                    int src_width, int do_store);
 
 // Convert a row of accumulated (four-values) of rgba32 toward U/V
-extern void (*WebPConvertRGBA32ToUV)(const uint16_t* rgb,
+extern void (*DEDUP_WEBP_ConvertRGBA32ToUV)(const uint16_t* rgb,
                                      uint8_t* u, uint8_t* v, int width);
 
 // Convert RGB or BGR to Y
-extern void (*WebPConvertRGB24ToY)(const uint8_t* rgb, uint8_t* y, int width);
-extern void (*WebPConvertBGR24ToY)(const uint8_t* bgr, uint8_t* y, int width);
+extern void (*DEDUP_WEBP_ConvertRGB24ToY)(const uint8_t* rgb, uint8_t* y, int width);
+extern void (*DEDUP_WEBP_ConvertBGR24ToY)(const uint8_t* bgr, uint8_t* y, int width);
 
 // used for plain-C fallback.
-extern void WebPConvertARGBToUV_C(const uint32_t* argb, uint8_t* u, uint8_t* v,
+extern void DEDUP_WEBP_ConvertARGBToUV_C(const uint32_t* argb, uint8_t* u, uint8_t* v,
                                   int src_width, int do_store);
-extern void WebPConvertRGBA32ToUV_C(const uint16_t* rgb,
+extern void DEDUP_WEBP_ConvertRGBA32ToUV_C(const uint16_t* rgb,
                                     uint8_t* u, uint8_t* v, int width);
 
 // Must be called before using the above.
-void WebPInitConvertARGBToYUV(void);
+void DEDUP_WEBP_InitConvertARGBToYUV(void);
 
 //------------------------------------------------------------------------------
 // Rescaler
 
-struct WebPRescaler;
+struct DEDUP_WEBP_Rescaler;
 
 // Import a row of data and save its contribution in the rescaler.
 // 'channel' denotes the channel number to be imported. 'Expand' corresponds to
 // the wrk->x_expand case. Otherwise, 'Shrink' is to be used.
-typedef void (*WebPRescalerImportRowFunc)(struct WebPRescaler* const wrk,
+typedef void (*DEDUP_WEBP_RescalerImportRowFunc)(struct DEDUP_WEBP_Rescaler* const wrk,
                                           const uint8_t* src);
 
-extern WebPRescalerImportRowFunc WebPRescalerImportRowExpand;
-extern WebPRescalerImportRowFunc WebPRescalerImportRowShrink;
+extern DEDUP_WEBP_RescalerImportRowFunc DEDUP_WEBP_RescalerImportRowExpand;
+extern DEDUP_WEBP_RescalerImportRowFunc DEDUP_WEBP_RescalerImportRowShrink;
 
 // Export one row (starting at x_out position) from rescaler.
 // 'Expand' corresponds to the wrk->y_expand case.
 // Otherwise 'Shrink' is to be used
-typedef void (*WebPRescalerExportRowFunc)(struct WebPRescaler* const wrk);
-extern WebPRescalerExportRowFunc WebPRescalerExportRowExpand;
-extern WebPRescalerExportRowFunc WebPRescalerExportRowShrink;
+typedef void (*DEDUP_WEBP_RescalerExportRowFunc)(struct DEDUP_WEBP_Rescaler* const wrk);
+extern DEDUP_WEBP_RescalerExportRowFunc DEDUP_WEBP_RescalerExportRowExpand;
+extern DEDUP_WEBP_RescalerExportRowFunc DEDUP_WEBP_RescalerExportRowShrink;
 
 // Plain-C implementation, as fall-back.
-extern void WebPRescalerImportRowExpandC(struct WebPRescaler* const wrk,
+extern void DEDUP_WEBP_RescalerImportRowExpandC(struct DEDUP_WEBP_Rescaler* const wrk,
                                          const uint8_t* src);
-extern void WebPRescalerImportRowShrinkC(struct WebPRescaler* const wrk,
+extern void DEDUP_WEBP_RescalerImportRowShrinkC(struct DEDUP_WEBP_Rescaler* const wrk,
                                          const uint8_t* src);
-extern void WebPRescalerExportRowExpandC(struct WebPRescaler* const wrk);
-extern void WebPRescalerExportRowShrinkC(struct WebPRescaler* const wrk);
+extern void DEDUP_WEBP_RescalerExportRowExpandC(struct DEDUP_WEBP_Rescaler* const wrk);
+extern void DEDUP_WEBP_RescalerExportRowShrinkC(struct DEDUP_WEBP_Rescaler* const wrk);
 
 // Main entry calls:
-extern void WebPRescalerImportRow(struct WebPRescaler* const wrk,
+extern void DEDUP_WEBP_RescalerImportRow(struct DEDUP_WEBP_Rescaler* const wrk,
                                   const uint8_t* src);
 // Export one row (starting at x_out position) from rescaler.
-extern void WebPRescalerExportRow(struct WebPRescaler* const wrk);
+extern void DEDUP_WEBP_RescalerExportRow(struct DEDUP_WEBP_Rescaler* const wrk);
 
 // Must be called first before using the above.
-void WebPRescalerDspInit(void);
+void DEDUP_WEBP_RescalerDspInit(void);
 
 //------------------------------------------------------------------------------
 // Utilities for processing transparent channel.
 
 // Apply alpha pre-multiply on an rgba, bgra or argb plane of size w * h.
 // alpha_first should be 0 for argb, 1 for rgba or bgra (where alpha is last).
-extern void (*WebPApplyAlphaMultiply)(
+extern void (*DEDUP_WEBP_ApplyAlphaMultiply)(
     uint8_t* rgba, int alpha_first, int w, int h, int stride);
 
 // Same, buf specifically for RGBA4444 format
-extern void (*WebPApplyAlphaMultiply4444)(
+extern void (*DEDUP_WEBP_ApplyAlphaMultiply4444)(
     uint8_t* rgba4444, int w, int h, int stride);
 
 // Dispatch the values from alpha[] plane to the ARGB destination 'dst'.
 // Returns true if alpha[] plane has non-trivial values different from 0xff.
-extern int (*WebPDispatchAlpha)(const uint8_t* alpha, int alpha_stride,
+extern int (*DEDUP_WEBP_DispatchAlpha)(const uint8_t* alpha, int alpha_stride,
                                 int width, int height,
                                 uint8_t* dst, int dst_stride);
 
 // Transfer packed 8b alpha[] values to green channel in dst[], zero'ing the
 // A/R/B values. 'dst_stride' is the stride for dst[] in uint32_t units.
-extern void (*WebPDispatchAlphaToGreen)(const uint8_t* alpha, int alpha_stride,
+extern void (*DEDUP_WEBP_DispatchAlphaToGreen)(const uint8_t* alpha, int alpha_stride,
                                         int width, int height,
                                         uint32_t* dst, int dst_stride);
 
 // Extract the alpha values from 32b values in argb[] and pack them into alpha[]
-// (this is the opposite of WebPDispatchAlpha).
+// (this is the opposite of DEDUP_WEBP_DispatchAlpha).
 // Returns true if there's only trivial 0xff alpha values.
-extern int (*WebPExtractAlpha)(const uint8_t* argb, int argb_stride,
+extern int (*DEDUP_WEBP_ExtractAlpha)(const uint8_t* argb, int argb_stride,
                                int width, int height,
                                uint8_t* alpha, int alpha_stride);
 
@@ -503,40 +503,40 @@ extern int (*WebPExtractAlpha)(const uint8_t* argb, int argb_stride,
 // Un-Multiply operation transforms x into x * 255 / A.
 
 // Pre-Multiply or Un-Multiply (if 'inverse' is true) argb values in a row.
-extern void (*WebPMultARGBRow)(uint32_t* const ptr, int width, int inverse);
+extern void (*DEDUP_WEBP_MultARGBRow)(uint32_t* const ptr, int width, int inverse);
 
-// Same a WebPMultARGBRow(), but for several rows.
-void WebPMultARGBRows(uint8_t* ptr, int stride, int width, int num_rows,
+// Same a DEDUP_WEBP_MultARGBRow(), but for several rows.
+void DEDUP_WEBP_MultARGBRows(uint8_t* ptr, int stride, int width, int num_rows,
                       int inverse);
 
 // Same for a row of single values, with side alpha values.
-extern void (*WebPMultRow)(uint8_t* const ptr, const uint8_t* const alpha,
+extern void (*DEDUP_WEBP_MultRow)(uint8_t* const ptr, const uint8_t* const alpha,
                            int width, int inverse);
 
-// Same a WebPMultRow(), but for several 'num_rows' rows.
-void WebPMultRows(uint8_t* ptr, int stride,
+// Same a DEDUP_WEBP_MultRow(), but for several 'num_rows' rows.
+void DEDUP_WEBP_MultRows(uint8_t* ptr, int stride,
                   const uint8_t* alpha, int alpha_stride,
                   int width, int num_rows, int inverse);
 
 // Plain-C versions, used as fallback by some implementations.
-void WebPMultRowC(uint8_t* const ptr, const uint8_t* const alpha,
+void DEDUP_WEBP_MultRowC(uint8_t* const ptr, const uint8_t* const alpha,
                   int width, int inverse);
-void WebPMultARGBRowC(uint32_t* const ptr, int width, int inverse);
+void DEDUP_WEBP_MultARGBRowC(uint32_t* const ptr, int width, int inverse);
 
 // To be called first before using the above.
-void WebPInitAlphaProcessing(void);
+void DEDUP_WEBP_InitAlphaProcessing(void);
 
 // ARGB packing function: a/r/g/b input is rgba or bgra order.
-extern void (*VP8PackARGB)(const uint8_t* a, const uint8_t* r,
+extern void (*DEDUP_vP8_PackARGB)(const uint8_t* a, const uint8_t* r,
                            const uint8_t* g, const uint8_t* b, int len,
                            uint32_t* out);
 
 // RGB packing function. 'step' can be 3 or 4. r/g/b input is rgb or bgr order.
-extern void (*VP8PackRGB)(const uint8_t* r, const uint8_t* g, const uint8_t* b,
+extern void (*DEDUP_vP8_PackRGB)(const uint8_t* r, const uint8_t* g, const uint8_t* b,
                           int len, int step, uint32_t* out);
 
 // To be called first before using the above.
-void VP8EncDspARGBInit(void);
+void DEDUP_vP8_EncDspARGBInit(void);
 
 //------------------------------------------------------------------------------
 // Filter functions
@@ -551,11 +551,11 @@ typedef enum {     // Filter types.
   WEBP_FILTER_FAST
 } WEBP_FILTER_TYPE;
 
-typedef void (*WebPFilterFunc)(const uint8_t* in, int width, int height,
+typedef void (*DEDUP_WEBP_FilterFunc)(const uint8_t* in, int width, int height,
                                int stride, uint8_t* out);
 // In-place un-filtering.
 // Warning! 'prev_line' pointer can be equal to 'cur_line' or 'preds'.
-typedef void (*WebPUnfilterFunc)(const uint8_t* prev_line, const uint8_t* preds,
+typedef void (*DEDUP_WEBP_UnfilterFunc)(const uint8_t* prev_line, const uint8_t* preds,
                                  uint8_t* cur_line, int width);
 
 // Filter the given data using the given predictor.
@@ -563,15 +563,15 @@ typedef void (*WebPUnfilterFunc)(const uint8_t* prev_line, const uint8_t* preds,
 // in raster order.
 // 'stride' is number of bytes per scan line (with possible padding).
 // 'out' should be pre-allocated.
-extern WebPFilterFunc WebPFilters[WEBP_FILTER_LAST];
+extern DEDUP_WEBP_FilterFunc DEDUP_WEBP_Filters[WEBP_FILTER_LAST];
 
 // In-place reconstruct the original data from the given filtered data.
 // The reconstruction will be done for 'num_rows' rows starting from 'row'
 // (assuming rows upto 'row - 1' are already reconstructed).
-extern WebPUnfilterFunc WebPUnfilters[WEBP_FILTER_LAST];
+extern DEDUP_WEBP_UnfilterFunc DEDUP_WEBP_Unfilters[WEBP_FILTER_LAST];
 
 // To be called first before using the above.
-void VP8FiltersInit(void);
+void DEDUP_vP8_FiltersInit(void);
 
 #ifdef __cplusplus
 }    // extern "C"

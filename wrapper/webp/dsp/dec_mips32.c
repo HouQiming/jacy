@@ -29,41 +29,41 @@ static WEBP_INLINE int abs_mips32(int x) {
 // 4 pixels in, 2 pixels out
 static WEBP_INLINE void do_filter2(uint8_t* p, int step) {
   const int p1 = p[-2 * step], p0 = p[-step], q0 = p[0], q1 = p[step];
-  const int a = 3 * (q0 - p0) + VP8ksclip1[p1 - q1];
-  const int a1 = VP8ksclip2[(a + 4) >> 3];
-  const int a2 = VP8ksclip2[(a + 3) >> 3];
-  p[-step] = VP8kclip1[p0 + a2];
-  p[    0] = VP8kclip1[q0 - a1];
+  const int a = 3 * (q0 - p0) + DEDUP_vP8_ksclip1[p1 - q1];
+  const int a1 = DEDUP_vP8_ksclip2[(a + 4) >> 3];
+  const int a2 = DEDUP_vP8_ksclip2[(a + 3) >> 3];
+  p[-step] = DEDUP_vP8_kclip1[p0 + a2];
+  p[    0] = DEDUP_vP8_kclip1[q0 - a1];
 }
 
 // 4 pixels in, 4 pixels out
 static WEBP_INLINE void do_filter4(uint8_t* p, int step) {
   const int p1 = p[-2 * step], p0 = p[-step], q0 = p[0], q1 = p[step];
   const int a = 3 * (q0 - p0);
-  const int a1 = VP8ksclip2[(a + 4) >> 3];
-  const int a2 = VP8ksclip2[(a + 3) >> 3];
+  const int a1 = DEDUP_vP8_ksclip2[(a + 4) >> 3];
+  const int a2 = DEDUP_vP8_ksclip2[(a + 3) >> 3];
   const int a3 = (a1 + 1) >> 1;
-  p[-2 * step] = VP8kclip1[p1 + a3];
-  p[-    step] = VP8kclip1[p0 + a2];
-  p[        0] = VP8kclip1[q0 - a1];
-  p[     step] = VP8kclip1[q1 - a3];
+  p[-2 * step] = DEDUP_vP8_kclip1[p1 + a3];
+  p[-    step] = DEDUP_vP8_kclip1[p0 + a2];
+  p[        0] = DEDUP_vP8_kclip1[q0 - a1];
+  p[     step] = DEDUP_vP8_kclip1[q1 - a3];
 }
 
 // 6 pixels in, 6 pixels out
 static WEBP_INLINE void do_filter6(uint8_t* p, int step) {
   const int p2 = p[-3 * step], p1 = p[-2 * step], p0 = p[-step];
   const int q0 = p[0], q1 = p[step], q2 = p[2 * step];
-  const int a = VP8ksclip1[3 * (q0 - p0) + VP8ksclip1[p1 - q1]];
+  const int a = DEDUP_vP8_ksclip1[3 * (q0 - p0) + DEDUP_vP8_ksclip1[p1 - q1]];
   // a is in [-128,127], a1 in [-27,27], a2 in [-18,18] and a3 in [-9,9]
   const int a1 = (27 * a + 63) >> 7;  // eq. to ((3 * a + 7) * 9) >> 7
   const int a2 = (18 * a + 63) >> 7;  // eq. to ((2 * a + 7) * 9) >> 7
   const int a3 = (9  * a + 63) >> 7;  // eq. to ((1 * a + 7) * 9) >> 7
-  p[-3 * step] = VP8kclip1[p2 + a3];
-  p[-2 * step] = VP8kclip1[p1 + a2];
-  p[-    step] = VP8kclip1[p0 + a1];
-  p[        0] = VP8kclip1[q0 - a1];
-  p[     step] = VP8kclip1[q1 - a2];
-  p[ 2 * step] = VP8kclip1[q2 - a3];
+  p[-3 * step] = DEDUP_vP8_kclip1[p2 + a3];
+  p[-2 * step] = DEDUP_vP8_kclip1[p1 + a2];
+  p[-    step] = DEDUP_vP8_kclip1[p0 + a1];
+  p[        0] = DEDUP_vP8_kclip1[q0 - a1];
+  p[     step] = DEDUP_vP8_kclip1[q1 - a2];
+  p[ 2 * step] = DEDUP_vP8_kclip1[q2 - a3];
 }
 
 static WEBP_INLINE int hev(const uint8_t* p, int step, int thresh) {
@@ -558,30 +558,30 @@ static void TransformTwo(const int16_t* in, uint8_t* dst, int do_two) {
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8DspInitMIPS32(void);
+extern void DEDUP_vP8_DspInitMIPS32(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8DspInitMIPS32(void) {
-  VP8InitClipTables();
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_DspInitMIPS32(void) {
+  DEDUP_vP8_InitClipTables();
 
-  VP8Transform = TransformTwo;
+  DEDUP_vP8_Transform = TransformTwo;
 
-  VP8VFilter16 = VFilter16;
-  VP8HFilter16 = HFilter16;
-  VP8VFilter8 = VFilter8;
-  VP8HFilter8 = HFilter8;
-  VP8VFilter16i = VFilter16i;
-  VP8HFilter16i = HFilter16i;
-  VP8VFilter8i = VFilter8i;
-  VP8HFilter8i = HFilter8i;
+  DEDUP_vP8_VFilter16 = VFilter16;
+  DEDUP_vP8_HFilter16 = HFilter16;
+  DEDUP_vP8_VFilter8 = VFilter8;
+  DEDUP_vP8_HFilter8 = HFilter8;
+  DEDUP_vP8_VFilter16i = VFilter16i;
+  DEDUP_vP8_HFilter16i = HFilter16i;
+  DEDUP_vP8_VFilter8i = VFilter8i;
+  DEDUP_vP8_HFilter8i = HFilter8i;
 
-  VP8SimpleVFilter16 = SimpleVFilter16;
-  VP8SimpleHFilter16 = SimpleHFilter16;
-  VP8SimpleVFilter16i = SimpleVFilter16i;
-  VP8SimpleHFilter16i = SimpleHFilter16i;
+  DEDUP_vP8_SimpleVFilter16 = SimpleVFilter16;
+  DEDUP_vP8_SimpleHFilter16 = SimpleHFilter16;
+  DEDUP_vP8_SimpleVFilter16i = SimpleVFilter16i;
+  DEDUP_vP8_SimpleHFilter16i = SimpleHFilter16i;
 }
 
 #else  // !WEBP_USE_MIPS32
 
-WEBP_DSP_INIT_STUB(VP8DspInitMIPS32)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_DspInitMIPS32)
 
 #endif  // WEBP_USE_MIPS32

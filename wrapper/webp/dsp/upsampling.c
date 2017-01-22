@@ -22,7 +22,7 @@
 #ifdef FANCY_UPSAMPLING
 
 // Fancy upsampling functions to convert YUV to RGB
-WebPUpsampleLinePairFunc WebPUpsamplers[MODE_LAST];
+DEDUP_WEBP_UpsampleLinePairFunc DEDUP_WEBP_Upsamplers[MODE_LAST];
 
 // Given samples laid out in a square as:
 //  [a b]
@@ -93,13 +93,13 @@ static void FUNC_NAME(const uint8_t* top_y, const uint8_t* bottom_y,           \
 }
 
 // All variants implemented.
-UPSAMPLE_FUNC(UpsampleRgbLinePair,  VP8YuvToRgb,  3)
-UPSAMPLE_FUNC(UpsampleBgrLinePair,  VP8YuvToBgr,  3)
-UPSAMPLE_FUNC(UpsampleRgbaLinePair, VP8YuvToRgba, 4)
-UPSAMPLE_FUNC(UpsampleBgraLinePair, VP8YuvToBgra, 4)
-UPSAMPLE_FUNC(UpsampleArgbLinePair, VP8YuvToArgb, 4)
-UPSAMPLE_FUNC(UpsampleRgba4444LinePair, VP8YuvToRgba4444, 2)
-UPSAMPLE_FUNC(UpsampleRgb565LinePair,  VP8YuvToRgb565,  2)
+UPSAMPLE_FUNC(UpsampleRgbLinePair,  DEDUP_vP8_YuvToRgb,  3)
+UPSAMPLE_FUNC(UpsampleBgrLinePair,  DEDUP_vP8_YuvToBgr,  3)
+UPSAMPLE_FUNC(UpsampleRgbaLinePair, DEDUP_vP8_YuvToRgba, 4)
+UPSAMPLE_FUNC(UpsampleBgraLinePair, DEDUP_vP8_YuvToBgra, 4)
+UPSAMPLE_FUNC(UpsampleArgbLinePair, DEDUP_vP8_YuvToArgb, 4)
+UPSAMPLE_FUNC(UpsampleRgba4444LinePair, DEDUP_vP8_YuvToRgba4444, 2)
+UPSAMPLE_FUNC(UpsampleRgb565LinePair,  DEDUP_vP8_YuvToRgb565,  2)
 
 #undef LOAD_UV
 #undef UPSAMPLE_FUNC
@@ -133,17 +133,17 @@ static void FUNC_NAME(const uint8_t* top_y, const uint8_t* bot_y,              \
   }                                                                            \
 }
 
-DUAL_SAMPLE_FUNC(DualLineSamplerBGRA, VP8YuvToBgra)
-DUAL_SAMPLE_FUNC(DualLineSamplerARGB, VP8YuvToArgb)
+DUAL_SAMPLE_FUNC(DualLineSamplerBGRA, DEDUP_vP8_YuvToBgra)
+DUAL_SAMPLE_FUNC(DualLineSamplerARGB, DEDUP_vP8_YuvToArgb)
 #undef DUAL_SAMPLE_FUNC
 
 #endif  // !FANCY_UPSAMPLING
 
-WebPUpsampleLinePairFunc WebPGetLinePairConverter(int alpha_is_last) {
-  WebPInitUpsamplers();
-  VP8YUVInit();
+DEDUP_WEBP_UpsampleLinePairFunc DEDUP_WEBP_GetLinePairConverter(int alpha_is_last) {
+  DEDUP_WEBP_InitUpsamplers();
+  DEDUP_vP8_YUVInit();
 #ifdef FANCY_UPSAMPLING
-  return WebPUpsamplers[alpha_is_last ? MODE_BGRA : MODE_ARGB];
+  return DEDUP_WEBP_Upsamplers[alpha_is_last ? MODE_BGRA : MODE_ARGB];
 #else
   return (alpha_is_last ? DualLineSamplerBGRA : DualLineSamplerARGB);
 #endif
@@ -161,106 +161,106 @@ void FUNC_NAME(const uint8_t* y, const uint8_t* u, const uint8_t* v,           \
   for (i = 0; i < len; ++i) FUNC(y[i], u[i], v[i], &dst[i * XSTEP]);           \
 }
 
-YUV444_FUNC(WebPYuv444ToRgbC,      VP8YuvToRgb,  3)
-YUV444_FUNC(WebPYuv444ToBgrC,      VP8YuvToBgr,  3)
-YUV444_FUNC(WebPYuv444ToRgbaC,     VP8YuvToRgba, 4)
-YUV444_FUNC(WebPYuv444ToBgraC,     VP8YuvToBgra, 4)
-YUV444_FUNC(WebPYuv444ToArgbC,     VP8YuvToArgb, 4)
-YUV444_FUNC(WebPYuv444ToRgba4444C, VP8YuvToRgba4444, 2)
-YUV444_FUNC(WebPYuv444ToRgb565C,   VP8YuvToRgb565, 2)
+YUV444_FUNC(DEDUP_WEBP_Yuv444ToRgbC,      DEDUP_vP8_YuvToRgb,  3)
+YUV444_FUNC(DEDUP_WEBP_Yuv444ToBgrC,      DEDUP_vP8_YuvToBgr,  3)
+YUV444_FUNC(DEDUP_WEBP_Yuv444ToRgbaC,     DEDUP_vP8_YuvToRgba, 4)
+YUV444_FUNC(DEDUP_WEBP_Yuv444ToBgraC,     DEDUP_vP8_YuvToBgra, 4)
+YUV444_FUNC(DEDUP_WEBP_Yuv444ToArgbC,     DEDUP_vP8_YuvToArgb, 4)
+YUV444_FUNC(DEDUP_WEBP_Yuv444ToRgba4444C, DEDUP_vP8_YuvToRgba4444, 2)
+YUV444_FUNC(DEDUP_WEBP_Yuv444ToRgb565C,   DEDUP_vP8_YuvToRgb565, 2)
 
 #undef YUV444_FUNC
 
-WebPYUV444Converter WebPYUV444Converters[MODE_LAST];
+DEDUP_WEBP_YUV444Converter DEDUP_WEBP_YUV444Converters[MODE_LAST];
 
-extern void WebPInitYUV444ConvertersMIPSdspR2(void);
-extern void WebPInitYUV444ConvertersSSE2(void);
+extern void DEDUP_WEBP_InitYUV444ConvertersMIPSdspR2(void);
+extern void DEDUP_WEBP_InitYUV444ConvertersSSE2(void);
 
-static volatile VP8CPUInfo upsampling_last_cpuinfo_used1 =
-    (VP8CPUInfo)&upsampling_last_cpuinfo_used1;
+static volatile DEDUP_vP8_CPUInfo upsampling_last_cpuinfo_used1 =
+    (DEDUP_vP8_CPUInfo)&upsampling_last_cpuinfo_used1;
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitYUV444Converters(void) {
-  if (upsampling_last_cpuinfo_used1 == VP8GetCPUInfo) return;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_InitYUV444Converters(void) {
+  if (upsampling_last_cpuinfo_used1 == DEDUP_vP8_GetCPUInfo) return;
 
-  WebPYUV444Converters[MODE_RGB]       = WebPYuv444ToRgbC;
-  WebPYUV444Converters[MODE_RGBA]      = WebPYuv444ToRgbaC;
-  WebPYUV444Converters[MODE_BGR]       = WebPYuv444ToBgrC;
-  WebPYUV444Converters[MODE_BGRA]      = WebPYuv444ToBgraC;
-  WebPYUV444Converters[MODE_ARGB]      = WebPYuv444ToArgbC;
-  WebPYUV444Converters[MODE_RGBA_4444] = WebPYuv444ToRgba4444C;
-  WebPYUV444Converters[MODE_RGB_565]   = WebPYuv444ToRgb565C;
-  WebPYUV444Converters[MODE_rgbA]      = WebPYuv444ToRgbaC;
-  WebPYUV444Converters[MODE_bgrA]      = WebPYuv444ToBgraC;
-  WebPYUV444Converters[MODE_Argb]      = WebPYuv444ToArgbC;
-  WebPYUV444Converters[MODE_rgbA_4444] = WebPYuv444ToRgba4444C;
+  DEDUP_WEBP_YUV444Converters[MODE_RGB]       = DEDUP_WEBP_Yuv444ToRgbC;
+  DEDUP_WEBP_YUV444Converters[MODE_RGBA]      = DEDUP_WEBP_Yuv444ToRgbaC;
+  DEDUP_WEBP_YUV444Converters[MODE_BGR]       = DEDUP_WEBP_Yuv444ToBgrC;
+  DEDUP_WEBP_YUV444Converters[MODE_BGRA]      = DEDUP_WEBP_Yuv444ToBgraC;
+  DEDUP_WEBP_YUV444Converters[MODE_ARGB]      = DEDUP_WEBP_Yuv444ToArgbC;
+  DEDUP_WEBP_YUV444Converters[MODE_RGBA_4444] = DEDUP_WEBP_Yuv444ToRgba4444C;
+  DEDUP_WEBP_YUV444Converters[MODE_RGB_565]   = DEDUP_WEBP_Yuv444ToRgb565C;
+  DEDUP_WEBP_YUV444Converters[MODE_rgbA]      = DEDUP_WEBP_Yuv444ToRgbaC;
+  DEDUP_WEBP_YUV444Converters[MODE_bgrA]      = DEDUP_WEBP_Yuv444ToBgraC;
+  DEDUP_WEBP_YUV444Converters[MODE_Argb]      = DEDUP_WEBP_Yuv444ToArgbC;
+  DEDUP_WEBP_YUV444Converters[MODE_rgbA_4444] = DEDUP_WEBP_Yuv444ToRgba4444C;
 
-  if (VP8GetCPUInfo != NULL) {
+  if (DEDUP_vP8_GetCPUInfo != NULL) {
 #if defined(WEBP_USE_SSE2)
-    if (VP8GetCPUInfo(kSSE2)) {
-      WebPInitYUV444ConvertersSSE2();
+    if (DEDUP_vP8_GetCPUInfo(kSSE2)) {
+      DEDUP_WEBP_InitYUV444ConvertersSSE2();
     }
 #endif
 #if defined(WEBP_USE_MIPS_DSP_R2)
-    if (VP8GetCPUInfo(kMIPSdspR2)) {
-      WebPInitYUV444ConvertersMIPSdspR2();
+    if (DEDUP_vP8_GetCPUInfo(kMIPSdspR2)) {
+      DEDUP_WEBP_InitYUV444ConvertersMIPSdspR2();
     }
 #endif
   }
-  upsampling_last_cpuinfo_used1 = VP8GetCPUInfo;
+  upsampling_last_cpuinfo_used1 = DEDUP_vP8_GetCPUInfo;
 }
 
 //------------------------------------------------------------------------------
 // Main calls
 
-extern void WebPInitUpsamplersSSE2(void);
-extern void WebPInitUpsamplersNEON(void);
-extern void WebPInitUpsamplersMIPSdspR2(void);
-extern void WebPInitUpsamplersMSA(void);
+extern void DEDUP_WEBP_InitUpsamplersSSE2(void);
+extern void DEDUP_WEBP_InitUpsamplersNEON(void);
+extern void DEDUP_WEBP_InitUpsamplersMIPSdspR2(void);
+extern void DEDUP_WEBP_InitUpsamplersMSA(void);
 
-static volatile VP8CPUInfo upsampling_last_cpuinfo_used2 =
-    (VP8CPUInfo)&upsampling_last_cpuinfo_used2;
+static volatile DEDUP_vP8_CPUInfo upsampling_last_cpuinfo_used2 =
+    (DEDUP_vP8_CPUInfo)&upsampling_last_cpuinfo_used2;
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitUpsamplers(void) {
-  if (upsampling_last_cpuinfo_used2 == VP8GetCPUInfo) return;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_InitUpsamplers(void) {
+  if (upsampling_last_cpuinfo_used2 == DEDUP_vP8_GetCPUInfo) return;
 
 #ifdef FANCY_UPSAMPLING
-  WebPUpsamplers[MODE_RGB]       = UpsampleRgbLinePair;
-  WebPUpsamplers[MODE_RGBA]      = UpsampleRgbaLinePair;
-  WebPUpsamplers[MODE_BGR]       = UpsampleBgrLinePair;
-  WebPUpsamplers[MODE_BGRA]      = UpsampleBgraLinePair;
-  WebPUpsamplers[MODE_ARGB]      = UpsampleArgbLinePair;
-  WebPUpsamplers[MODE_RGBA_4444] = UpsampleRgba4444LinePair;
-  WebPUpsamplers[MODE_RGB_565]   = UpsampleRgb565LinePair;
-  WebPUpsamplers[MODE_rgbA]      = UpsampleRgbaLinePair;
-  WebPUpsamplers[MODE_bgrA]      = UpsampleBgraLinePair;
-  WebPUpsamplers[MODE_Argb]      = UpsampleArgbLinePair;
-  WebPUpsamplers[MODE_rgbA_4444] = UpsampleRgba4444LinePair;
+  DEDUP_WEBP_Upsamplers[MODE_RGB]       = UpsampleRgbLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_RGBA]      = UpsampleRgbaLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_BGR]       = UpsampleBgrLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_BGRA]      = UpsampleBgraLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_ARGB]      = UpsampleArgbLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_RGBA_4444] = UpsampleRgba4444LinePair;
+  DEDUP_WEBP_Upsamplers[MODE_RGB_565]   = UpsampleRgb565LinePair;
+  DEDUP_WEBP_Upsamplers[MODE_rgbA]      = UpsampleRgbaLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_bgrA]      = UpsampleBgraLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_Argb]      = UpsampleArgbLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_rgbA_4444] = UpsampleRgba4444LinePair;
 
   // If defined, use CPUInfo() to overwrite some pointers with faster versions.
-  if (VP8GetCPUInfo != NULL) {
+  if (DEDUP_vP8_GetCPUInfo != NULL) {
 #if defined(WEBP_USE_SSE2)
-    if (VP8GetCPUInfo(kSSE2)) {
-      WebPInitUpsamplersSSE2();
+    if (DEDUP_vP8_GetCPUInfo(kSSE2)) {
+      DEDUP_WEBP_InitUpsamplersSSE2();
     }
 #endif
 #if defined(WEBP_USE_NEON)
-    if (VP8GetCPUInfo(kNEON)) {
-      WebPInitUpsamplersNEON();
+    if (DEDUP_vP8_GetCPUInfo(kNEON)) {
+      DEDUP_WEBP_InitUpsamplersNEON();
     }
 #endif
 #if defined(WEBP_USE_MIPS_DSP_R2)
-    if (VP8GetCPUInfo(kMIPSdspR2)) {
-      WebPInitUpsamplersMIPSdspR2();
+    if (DEDUP_vP8_GetCPUInfo(kMIPSdspR2)) {
+      DEDUP_WEBP_InitUpsamplersMIPSdspR2();
     }
 #endif
 #if defined(WEBP_USE_MSA)
-    if (VP8GetCPUInfo(kMSA)) {
-      WebPInitUpsamplersMSA();
+    if (DEDUP_vP8_GetCPUInfo(kMSA)) {
+      DEDUP_WEBP_InitUpsamplersMSA();
     }
 #endif
   }
 #endif  // FANCY_UPSAMPLING
-  upsampling_last_cpuinfo_used2 = VP8GetCPUInfo;
+  upsampling_last_cpuinfo_used2 = DEDUP_vP8_GetCPUInfo;
 }
 
 //------------------------------------------------------------------------------

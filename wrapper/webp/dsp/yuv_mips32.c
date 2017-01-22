@@ -37,17 +37,17 @@ static void FUNC_NAME(const uint8_t* y,                                        \
     temp3 -= 8708;                                                             \
     temp2 += temp3;                                                            \
     temp4 -= 17685;                                                            \
-    r = VP8Clip8(temp0 + temp1);                                               \
-    g = VP8Clip8(temp0 - temp2);                                               \
-    b = VP8Clip8(temp0 + temp4);                                               \
+    r = DEDUP_vP8_Clip8(temp0 + temp1);                                               \
+    g = DEDUP_vP8_Clip8(temp0 - temp2);                                               \
+    b = DEDUP_vP8_Clip8(temp0 + temp4);                                               \
     temp0 = MultHi(y[1], 19077);                                               \
     dst[R] = r;                                                                \
     dst[G] = g;                                                                \
     dst[B] = b;                                                                \
     if (A) dst[A] = 0xff;                                                      \
-    r = VP8Clip8(temp0 + temp1);                                               \
-    g = VP8Clip8(temp0 - temp2);                                               \
-    b = VP8Clip8(temp0 + temp4);                                               \
+    r = DEDUP_vP8_Clip8(temp0 + temp1);                                               \
+    g = DEDUP_vP8_Clip8(temp0 - temp2);                                               \
+    b = DEDUP_vP8_Clip8(temp0 + temp4);                                               \
     dst[R + XSTEP] = r;                                                        \
     dst[G + XSTEP] = g;                                                        \
     dst[B + XSTEP] = b;                                                        \
@@ -67,9 +67,9 @@ static void FUNC_NAME(const uint8_t* y,                                        \
     temp3 -= 8708;                                                             \
     temp2 += temp3;                                                            \
     temp4 -= 17685;                                                            \
-    r = VP8Clip8(temp0 + temp1);                                               \
-    g = VP8Clip8(temp0 - temp2);                                               \
-    b = VP8Clip8(temp0 + temp4);                                               \
+    r = DEDUP_vP8_Clip8(temp0 + temp1);                                               \
+    g = DEDUP_vP8_Clip8(temp0 - temp2);                                               \
+    b = DEDUP_vP8_Clip8(temp0 + temp4);                                               \
     dst[R] = r;                                                                \
     dst[G] = g;                                                                \
     dst[B] = b;                                                                \
@@ -87,17 +87,17 @@ ROW_FUNC(YuvToBgraRow,     4, 2, 1, 0, 3)
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void WebPInitSamplersMIPS32(void);
+extern void DEDUP_WEBP_InitSamplersMIPS32(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitSamplersMIPS32(void) {
-  WebPSamplers[MODE_RGB]  = YuvToRgbRow;
-  WebPSamplers[MODE_RGBA] = YuvToRgbaRow;
-  WebPSamplers[MODE_BGR]  = YuvToBgrRow;
-  WebPSamplers[MODE_BGRA] = YuvToBgraRow;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_InitSamplersMIPS32(void) {
+  DEDUP_WEBP_Samplers[MODE_RGB]  = YuvToRgbRow;
+  DEDUP_WEBP_Samplers[MODE_RGBA] = YuvToRgbaRow;
+  DEDUP_WEBP_Samplers[MODE_BGR]  = YuvToBgrRow;
+  DEDUP_WEBP_Samplers[MODE_BGRA] = YuvToBgraRow;
 }
 
 #else  // !WEBP_USE_MIPS32
 
-WEBP_DSP_INIT_STUB(WebPInitSamplersMIPS32)
+WEBP_DSP_INIT_STUB(DEDUP_WEBP_InitSamplersMIPS32)
 
 #endif  // WEBP_USE_MIPS32

@@ -23,7 +23,7 @@ static void HE16(uint8_t* dst) {     // horizontal
   int j;
   const __m128i kShuffle3 = _mm_set1_epi8(3);
   for (j = 16; j > 0; --j) {
-    const __m128i in = _mm_cvtsi32_si128(WebPMemToUint32(dst - 4));
+    const __m128i in = _mm_cvtsi32_si128(DEDUP_WEBP_MemToUint32(dst - 4));
     const __m128i values = _mm_shuffle_epi8(in, kShuffle3);
     _mm_storeu_si128((__m128i*)dst, values);
     dst += BPS;
@@ -33,14 +33,14 @@ static void HE16(uint8_t* dst) {     // horizontal
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8DspInitSSE41(void);
+extern void DEDUP_vP8_DspInitSSE41(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8DspInitSSE41(void) {
-  VP8PredLuma16[3] = HE16;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_DspInitSSE41(void) {
+  DEDUP_vP8_PredLuma16[3] = HE16;
 }
 
 #else  // !WEBP_USE_SSE41
 
-WEBP_DSP_INIT_STUB(VP8DspInitSSE41)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_DspInitSSE41)
 
 #endif  // WEBP_USE_SSE41

@@ -7,12 +7,12 @@
 // be found in the AUTHORS file in the root of the source tree.
 // -----------------------------------------------------------------------------
 //
-//  Low-level API for VP8 decoder
+//  Low-level API for DEDUP_vP8_ decoder
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#ifndef WEBP_WEBP_DECODE_VP8_H_
-#define WEBP_WEBP_DECODE_VP8_H_
+#ifndef WEBP_WEBP_DECODE_DEDUP_vP8__H_
+#define WEBP_WEBP_DECODE_DEDUP_vP8__H_
 
 #include "../webp/decode.h"
 
@@ -26,26 +26,26 @@ extern "C" {
 // These functions provide fine-grained control of the decoding process.
 // The call flow should resemble:
 //
-//   VP8Io io;
-//   VP8InitIo(&io);
+//   DEDUP_vP8_Io io;
+//   DEDUP_vP8_InitIo(&io);
 //   io.data = data;
 //   io.data_size = size;
 //   /* customize io's functions (setup()/put()/teardown()) if needed. */
 //
-//   VP8Decoder* dec = VP8New();
-//   bool ok = VP8Decode(dec);
-//   if (!ok) printf("Error: %s\n", VP8StatusMessage(dec));
-//   VP8Delete(dec);
+//   DEDUP_vP8_Decoder* dec = DEDUP_vP8_New();
+//   bool ok = DEDUP_vP8_Decode(dec);
+//   if (!ok) printf("Error: %s\n", DEDUP_vP8_StatusMessage(dec));
+//   DEDUP_vP8_Delete(dec);
 //   return ok;
 
 // Input / Output
-typedef struct VP8Io VP8Io;
-typedef int (*VP8IoPutHook)(const VP8Io* io);
-typedef int (*VP8IoSetupHook)(VP8Io* io);
-typedef void (*VP8IoTeardownHook)(const VP8Io* io);
+typedef struct DEDUP_vP8_Io DEDUP_vP8_Io;
+typedef int (*DEDUP_vP8_IoPutHook)(const DEDUP_vP8_Io* io);
+typedef int (*DEDUP_vP8_IoSetupHook)(DEDUP_vP8_Io* io);
+typedef void (*DEDUP_vP8_IoTeardownHook)(const DEDUP_vP8_Io* io);
 
-struct VP8Io {
-  // set by VP8GetHeaders()
+struct DEDUP_vP8_Io {
+  // set by DEDUP_vP8_GetHeaders()
   int width, height;         // picture dimensions, in pixels (invariable).
                              // These are the original, uncropped dimensions.
                              // The actual area passed to put() is stored
@@ -66,17 +66,17 @@ struct VP8Io {
   // in-loop filtering level, e.g.). Should return false in case of error
   // or abort request. The actual size of the area to update is mb_w x mb_h
   // in size, taking cropping into account.
-  VP8IoPutHook put;
+  DEDUP_vP8_IoPutHook put;
 
   // called just before starting to decode the blocks.
   // Must return false in case of setup error, true otherwise. If false is
   // returned, teardown() will NOT be called. But if the setup succeeded
   // and true is returned, then teardown() will always be called afterward.
-  VP8IoSetupHook setup;
+  DEDUP_vP8_IoSetupHook setup;
 
   // Called just after block decoding is finished (or when an error occurred
   // during put()). Is NOT called if setup() failed.
-  VP8IoTeardownHook teardown;
+  DEDUP_vP8_IoTeardownHook teardown;
 
   // this is a recommendation for the user-side yuv->rgb converter. This flag
   // is set when calling setup() hook and can be overwritten by it. It then
@@ -90,7 +90,7 @@ struct VP8Io {
   // If true, in-loop filtering will not be performed even if present in the
   // bitstream. Switching off filtering may speed up decoding at the expense
   // of more visible blocking. Note that output will also be non-compliant
-  // with the VP8 specifications.
+  // with the DEDUP_vP8_ specifications.
   int bypass_filtering;
 
   // Cropping parameters.
@@ -108,73 +108,73 @@ struct VP8Io {
 };
 
 // Internal, version-checked, entry point
-int VP8InitIoInternal(VP8Io* const, int);
+int DEDUP_vP8_InitIoInternal(DEDUP_vP8_Io* const, int);
 
 // Set the custom IO function pointers and user-data. The setter for IO hooks
 // should be called before initiating incremental decoding. Returns true if
-// WebPIDecoder object is successfully modified, false otherwise.
-int WebPISetIOHooks(WebPIDecoder* const idec,
-                    VP8IoPutHook put,
-                    VP8IoSetupHook setup,
-                    VP8IoTeardownHook teardown,
+// DEDUP_WEBP_IDecoder object is successfully modified, false otherwise.
+int DEDUP_WEBP_ISetIOHooks(DEDUP_WEBP_IDecoder* const idec,
+                    DEDUP_vP8_IoPutHook put,
+                    DEDUP_vP8_IoSetupHook setup,
+                    DEDUP_vP8_IoTeardownHook teardown,
                     void* user_data);
 
 // Main decoding object. This is an opaque structure.
-typedef struct VP8Decoder VP8Decoder;
+typedef struct DEDUP_vP8_Decoder DEDUP_vP8_Decoder;
 
 // Create a new decoder object.
-VP8Decoder* VP8New(void);
+DEDUP_vP8_Decoder* DEDUP_vP8_New(void);
 
 // Must be called to make sure 'io' is initialized properly.
 // Returns false in case of version mismatch. Upon such failure, no other
-// decoding function should be called (VP8Decode, VP8GetHeaders, ...)
-static WEBP_INLINE int VP8InitIo(VP8Io* const io) {
-  return VP8InitIoInternal(io, WEBP_DECODER_ABI_VERSION);
+// decoding function should be called (DEDUP_vP8_Decode, DEDUP_vP8_GetHeaders, ...)
+static WEBP_INLINE int DEDUP_vP8_InitIo(DEDUP_vP8_Io* const io) {
+  return DEDUP_vP8_InitIoInternal(io, WEBP_DECODER_ABI_VERSION);
 }
 
-// Decode the VP8 frame header. Returns true if ok.
-// Note: 'io->data' must be pointing to the start of the VP8 frame header.
-int VP8GetHeaders(VP8Decoder* const dec, VP8Io* const io);
+// Decode the DEDUP_vP8_ frame header. Returns true if ok.
+// Note: 'io->data' must be pointing to the start of the DEDUP_vP8_ frame header.
+int DEDUP_vP8_GetHeaders(DEDUP_vP8_Decoder* const dec, DEDUP_vP8_Io* const io);
 
-// Decode a picture. Will call VP8GetHeaders() if it wasn't done already.
+// Decode a picture. Will call DEDUP_vP8_GetHeaders() if it wasn't done already.
 // Returns false in case of error.
-int VP8Decode(VP8Decoder* const dec, VP8Io* const io);
+int DEDUP_vP8_Decode(DEDUP_vP8_Decoder* const dec, DEDUP_vP8_Io* const io);
 
 // Return current status of the decoder:
-VP8StatusCode VP8Status(VP8Decoder* const dec);
+DEDUP_vP8_StatusCode DEDUP_vP8_Status(DEDUP_vP8_Decoder* const dec);
 
 // return readable string corresponding to the last status.
-const char* VP8StatusMessage(VP8Decoder* const dec);
+const char* DEDUP_vP8_StatusMessage(DEDUP_vP8_Decoder* const dec);
 
 // Resets the decoder in its initial state, reclaiming memory.
-// Not a mandatory call between calls to VP8Decode().
-void VP8Clear(VP8Decoder* const dec);
+// Not a mandatory call between calls to DEDUP_vP8_Decode().
+void DEDUP_vP8_Clear(DEDUP_vP8_Decoder* const dec);
 
 // Destroy the decoder object.
-void VP8Delete(VP8Decoder* const dec);
+void DEDUP_vP8_Delete(DEDUP_vP8_Decoder* const dec);
 
 //------------------------------------------------------------------------------
-// Miscellaneous VP8/VP8L bitstream probing functions.
+// Miscellaneous DEDUP_vP8_/DEDUP_vP8_L bitstream probing functions.
 
-// Returns true if the next 3 bytes in data contain the VP8 signature.
-WEBP_EXTERN(int) VP8CheckSignature(const uint8_t* const data, size_t data_size);
+// Returns true if the next 3 bytes in data contain the DEDUP_vP8_ signature.
+WEBP_EXTERN(int) DEDUP_vP8_CheckSignature(const uint8_t* const data, size_t data_size);
 
-// Validates the VP8 data-header and retrieves basic header information viz
+// Validates the DEDUP_vP8_ data-header and retrieves basic header information viz
 // width and height. Returns 0 in case of formatting error. *width/*height
 // can be passed NULL.
-WEBP_EXTERN(int) VP8GetInfo(
+WEBP_EXTERN(int) DEDUP_vP8_GetInfo(
     const uint8_t* data,
     size_t data_size,    // data available so far
     size_t chunk_size,   // total data size expected in the chunk
     int* const width, int* const height);
 
-// Returns true if the next byte(s) in data is a VP8L signature.
-WEBP_EXTERN(int) VP8LCheckSignature(const uint8_t* const data, size_t size);
+// Returns true if the next byte(s) in data is a DEDUP_vP8_L signature.
+WEBP_EXTERN(int) DEDUP_vP8_LCheckSignature(const uint8_t* const data, size_t size);
 
-// Validates the VP8L data-header and retrieves basic header information viz
+// Validates the DEDUP_vP8_L data-header and retrieves basic header information viz
 // width, height and alpha. Returns 0 in case of formatting error.
 // width/height/has_alpha can be passed NULL.
-WEBP_EXTERN(int) VP8LGetInfo(
+WEBP_EXTERN(int) DEDUP_vP8_LGetInfo(
     const uint8_t* data, size_t data_size,  // data available so far
     int* const width, int* const height, int* const has_alpha);
 
@@ -182,4 +182,4 @@ WEBP_EXTERN(int) VP8LGetInfo(
 }    // extern "C"
 #endif
 
-#endif  /* WEBP_WEBP_DECODE_VP8_H_ */
+#endif  /* WEBP_WEBP_DECODE_DEDUP_vP8__H_ */

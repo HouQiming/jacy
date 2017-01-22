@@ -236,12 +236,12 @@ static void FUNC_NAME(const uint8_t *top_y, const uint8_t *bottom_y,    \
   {                                                                     \
     const int u0 = (top_u[0] + u_diag) >> 1;                            \
     const int v0 = (top_v[0] + v_diag) >> 1;                            \
-    VP8YuvTo ## FMT(top_y[0], u0, v0, top_dst);                         \
+    DEDUP_vP8_YuvTo ## FMT(top_y[0], u0, v0, top_dst);                         \
   }                                                                     \
   if (bottom_y != NULL) {                                               \
     const int u0 = (cur_u[0] + u_diag) >> 1;                            \
     const int v0 = (cur_v[0] + v_diag) >> 1;                            \
-    VP8YuvTo ## FMT(bottom_y[0], u0, v0, bottom_dst);                   \
+    DEDUP_vP8_YuvTo ## FMT(bottom_y[0], u0, v0, bottom_dst);                   \
   }                                                                     \
                                                                         \
   for (block = 0; block < num_blocks; ++block) {                        \
@@ -257,7 +257,7 @@ static void FUNC_NAME(const uint8_t *top_y, const uint8_t *bottom_y,    \
                                                                         \
   UPSAMPLE_LAST_BLOCK(top_u, cur_u, leftover, r_uv);                    \
   UPSAMPLE_LAST_BLOCK(top_v, cur_v, leftover, r_uv + 16);               \
-  CONVERT2RGB_1(VP8YuvTo ## FMT, XSTEP, top_y, bottom_y, r_uv,          \
+  CONVERT2RGB_1(DEDUP_vP8_YuvTo ## FMT, XSTEP, top_y, bottom_y, r_uv,          \
                 top_dst, bottom_dst, last_pos, len - last_pos);         \
 }
 
@@ -273,22 +273,22 @@ NEON_UPSAMPLE_FUNC(UpsampleRgb565LinePair, Rgb565, 2)
 //------------------------------------------------------------------------------
 // Entry point
 
-extern WebPUpsampleLinePairFunc WebPUpsamplers[/* MODE_LAST */];
+extern DEDUP_WEBP_UpsampleLinePairFunc DEDUP_WEBP_Upsamplers[/* MODE_LAST */];
 
-extern void WebPInitUpsamplersNEON(void);
+extern void DEDUP_WEBP_InitUpsamplersNEON(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitUpsamplersNEON(void) {
-  WebPUpsamplers[MODE_RGB]  = UpsampleRgbLinePair;
-  WebPUpsamplers[MODE_RGBA] = UpsampleRgbaLinePair;
-  WebPUpsamplers[MODE_BGR]  = UpsampleBgrLinePair;
-  WebPUpsamplers[MODE_BGRA] = UpsampleBgraLinePair;
-  WebPUpsamplers[MODE_ARGB] = UpsampleArgbLinePair;
-  WebPUpsamplers[MODE_rgbA] = UpsampleRgbaLinePair;
-  WebPUpsamplers[MODE_bgrA] = UpsampleBgraLinePair;
-  WebPUpsamplers[MODE_Argb] = UpsampleArgbLinePair;
-  WebPUpsamplers[MODE_RGB_565] = UpsampleRgb565LinePair;
-  WebPUpsamplers[MODE_RGBA_4444] = UpsampleRgba4444LinePair;
-  WebPUpsamplers[MODE_rgbA_4444] = UpsampleRgba4444LinePair;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_InitUpsamplersNEON(void) {
+  DEDUP_WEBP_Upsamplers[MODE_RGB]  = UpsampleRgbLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_RGBA] = UpsampleRgbaLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_BGR]  = UpsampleBgrLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_BGRA] = UpsampleBgraLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_ARGB] = UpsampleArgbLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_rgbA] = UpsampleRgbaLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_bgrA] = UpsampleBgraLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_Argb] = UpsampleArgbLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_RGB_565] = UpsampleRgb565LinePair;
+  DEDUP_WEBP_Upsamplers[MODE_RGBA_4444] = UpsampleRgba4444LinePair;
+  DEDUP_WEBP_Upsamplers[MODE_rgbA_4444] = UpsampleRgba4444LinePair;
 }
 
 #endif  // FANCY_UPSAMPLING
@@ -296,5 +296,5 @@ WEBP_TSAN_IGNORE_FUNCTION void WebPInitUpsamplersNEON(void) {
 #endif  // WEBP_USE_NEON
 
 #if !(defined(FANCY_UPSAMPLING) && defined(WEBP_USE_NEON))
-WEBP_DSP_INIT_STUB(WebPInitUpsamplersNEON)
+WEBP_DSP_INIT_STUB(DEDUP_WEBP_InitUpsamplersNEON)
 #endif

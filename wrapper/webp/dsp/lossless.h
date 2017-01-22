@@ -32,11 +32,11 @@ extern "C" {
 //------------------------------------------------------------------------------
 // Decoding
 
-typedef uint32_t (*VP8LPredictorFunc)(uint32_t left, const uint32_t* const top);
-extern VP8LPredictorFunc VP8LPredictors[16];
+typedef uint32_t (*DEDUP_vP8_LPredictorFunc)(uint32_t left, const uint32_t* const top);
+extern DEDUP_vP8_LPredictorFunc DEDUP_vP8_LPredictors[16];
 
-typedef void (*VP8LProcessBlueAndRedFunc)(uint32_t* argb_data, int num_pixels);
-extern VP8LProcessBlueAndRedFunc VP8LAddGreenToBlueAndRed;
+typedef void (*DEDUP_vP8_LProcessBlueAndRedFunc)(uint32_t* argb_data, int num_pixels);
+extern DEDUP_vP8_LProcessBlueAndRedFunc DEDUP_vP8_LAddGreenToBlueAndRed;
 
 typedef struct {
   // Note: the members are uint8_t, so that any negative values are
@@ -44,94 +44,94 @@ typedef struct {
   uint8_t green_to_red_;
   uint8_t green_to_blue_;
   uint8_t red_to_blue_;
-} VP8LMultipliers;
-typedef void (*VP8LTransformColorFunc)(const VP8LMultipliers* const m,
+} DEDUP_vP8_LMultipliers;
+typedef void (*DEDUP_vP8_LTransformColorFunc)(const DEDUP_vP8_LMultipliers* const m,
                                        uint32_t* argb_data, int num_pixels);
-extern VP8LTransformColorFunc VP8LTransformColorInverse;
+extern DEDUP_vP8_LTransformColorFunc DEDUP_vP8_LTransformColorInverse;
 
-struct VP8LTransform;  // Defined in dec/vp8li.h.
+struct DEDUP_vP8_LTransform;  // Defined in dec/vp8li.h.
 
 // Performs inverse transform of data given transform information, start and end
 // rows. Transform will be applied to rows [row_start, row_end[.
 // The *in and *out pointers refer to source and destination data respectively
 // corresponding to the intermediate row (row_start).
-void VP8LInverseTransform(const struct VP8LTransform* const transform,
+void DEDUP_vP8_LInverseTransform(const struct DEDUP_vP8_LTransform* const transform,
                           int row_start, int row_end,
                           const uint32_t* const in, uint32_t* const out);
 
 // Color space conversion.
-typedef void (*VP8LConvertFunc)(const uint32_t* src, int num_pixels,
+typedef void (*DEDUP_vP8_LConvertFunc)(const uint32_t* src, int num_pixels,
                                 uint8_t* dst);
-extern VP8LConvertFunc VP8LConvertBGRAToRGB;
-extern VP8LConvertFunc VP8LConvertBGRAToRGBA;
-extern VP8LConvertFunc VP8LConvertBGRAToRGBA4444;
-extern VP8LConvertFunc VP8LConvertBGRAToRGB565;
-extern VP8LConvertFunc VP8LConvertBGRAToBGR;
+extern DEDUP_vP8_LConvertFunc DEDUP_vP8_LConvertBGRAToRGB;
+extern DEDUP_vP8_LConvertFunc DEDUP_vP8_LConvertBGRAToRGBA;
+extern DEDUP_vP8_LConvertFunc DEDUP_vP8_LConvertBGRAToRGBA4444;
+extern DEDUP_vP8_LConvertFunc DEDUP_vP8_LConvertBGRAToRGB565;
+extern DEDUP_vP8_LConvertFunc DEDUP_vP8_LConvertBGRAToBGR;
 
 // Converts from BGRA to other color spaces.
-void VP8LConvertFromBGRA(const uint32_t* const in_data, int num_pixels,
+void DEDUP_vP8_LConvertFromBGRA(const uint32_t* const in_data, int num_pixels,
                          WEBP_CSP_MODE out_colorspace, uint8_t* const rgba);
 
-typedef void (*VP8LMapARGBFunc)(const uint32_t* src,
+typedef void (*DEDUP_vP8_LMapARGBFunc)(const uint32_t* src,
                                 const uint32_t* const color_map,
                                 uint32_t* dst, int y_start,
                                 int y_end, int width);
-typedef void (*VP8LMapAlphaFunc)(const uint8_t* src,
+typedef void (*DEDUP_vP8_LMapAlphaFunc)(const uint8_t* src,
                                  const uint32_t* const color_map,
                                  uint8_t* dst, int y_start,
                                  int y_end, int width);
 
-extern VP8LMapARGBFunc VP8LMapColor32b;
-extern VP8LMapAlphaFunc VP8LMapColor8b;
+extern DEDUP_vP8_LMapARGBFunc DEDUP_vP8_LMapColor32b;
+extern DEDUP_vP8_LMapAlphaFunc DEDUP_vP8_LMapColor8b;
 
 // Similar to the static method ColorIndexInverseTransform() that is part of
 // lossless.c, but used only for alpha decoding. It takes uint8_t (rather than
 // uint32_t) arguments for 'src' and 'dst'.
-void VP8LColorIndexInverseTransformAlpha(
-    const struct VP8LTransform* const transform, int y_start, int y_end,
+void DEDUP_vP8_LColorIndexInverseTransformAlpha(
+    const struct DEDUP_vP8_LTransform* const transform, int y_start, int y_end,
     const uint8_t* src, uint8_t* dst);
 
 // Expose some C-only fallback functions
-void VP8LTransformColorInverse_C(const VP8LMultipliers* const m,
+void DEDUP_vP8_LTransformColorInverse_C(const DEDUP_vP8_LMultipliers* const m,
                                  uint32_t* data, int num_pixels);
 
-void VP8LConvertBGRAToRGB_C(const uint32_t* src, int num_pixels, uint8_t* dst);
-void VP8LConvertBGRAToRGBA_C(const uint32_t* src, int num_pixels, uint8_t* dst);
-void VP8LConvertBGRAToRGBA4444_C(const uint32_t* src,
+void DEDUP_vP8_LConvertBGRAToRGB_C(const uint32_t* src, int num_pixels, uint8_t* dst);
+void DEDUP_vP8_LConvertBGRAToRGBA_C(const uint32_t* src, int num_pixels, uint8_t* dst);
+void DEDUP_vP8_LConvertBGRAToRGBA4444_C(const uint32_t* src,
                                  int num_pixels, uint8_t* dst);
-void VP8LConvertBGRAToRGB565_C(const uint32_t* src,
+void DEDUP_vP8_LConvertBGRAToRGB565_C(const uint32_t* src,
                                int num_pixels, uint8_t* dst);
-void VP8LConvertBGRAToBGR_C(const uint32_t* src, int num_pixels, uint8_t* dst);
-void VP8LAddGreenToBlueAndRed_C(uint32_t* data, int num_pixels);
+void DEDUP_vP8_LConvertBGRAToBGR_C(const uint32_t* src, int num_pixels, uint8_t* dst);
+void DEDUP_vP8_LAddGreenToBlueAndRed_C(uint32_t* data, int num_pixels);
 
 // Must be called before calling any of the above methods.
-void VP8LDspInit(void);
+void DEDUP_vP8_LDspInit(void);
 
 //------------------------------------------------------------------------------
 // Encoding
 
-extern VP8LProcessBlueAndRedFunc VP8LSubtractGreenFromBlueAndRed;
-extern VP8LTransformColorFunc VP8LTransformColor;
-typedef void (*VP8LCollectColorBlueTransformsFunc)(
+extern DEDUP_vP8_LProcessBlueAndRedFunc DEDUP_vP8_LSubtractGreenFromBlueAndRed;
+extern DEDUP_vP8_LTransformColorFunc DEDUP_vP8_LTransformColor;
+typedef void (*DEDUP_vP8_LCollectColorBlueTransformsFunc)(
     const uint32_t* argb, int stride,
     int tile_width, int tile_height,
     int green_to_blue, int red_to_blue, int histo[]);
-extern VP8LCollectColorBlueTransformsFunc VP8LCollectColorBlueTransforms;
+extern DEDUP_vP8_LCollectColorBlueTransformsFunc DEDUP_vP8_LCollectColorBlueTransforms;
 
-typedef void (*VP8LCollectColorRedTransformsFunc)(
+typedef void (*DEDUP_vP8_LCollectColorRedTransformsFunc)(
     const uint32_t* argb, int stride,
     int tile_width, int tile_height,
     int green_to_red, int histo[]);
-extern VP8LCollectColorRedTransformsFunc VP8LCollectColorRedTransforms;
+extern DEDUP_vP8_LCollectColorRedTransformsFunc DEDUP_vP8_LCollectColorRedTransforms;
 
 // Expose some C-only fallback functions
-void VP8LTransformColor_C(const VP8LMultipliers* const m,
+void DEDUP_vP8_LTransformColor_C(const DEDUP_vP8_LMultipliers* const m,
                           uint32_t* data, int num_pixels);
-void VP8LSubtractGreenFromBlueAndRed_C(uint32_t* argb_data, int num_pixels);
-void VP8LCollectColorRedTransforms_C(const uint32_t* argb, int stride,
+void DEDUP_vP8_LSubtractGreenFromBlueAndRed_C(uint32_t* argb_data, int num_pixels);
+void DEDUP_vP8_LCollectColorRedTransforms_C(const uint32_t* argb, int stride,
                                      int tile_width, int tile_height,
                                      int green_to_red, int histo[]);
-void VP8LCollectColorBlueTransforms_C(const uint32_t* argb, int stride,
+void DEDUP_vP8_LCollectColorBlueTransforms_C(const uint32_t* argb, int stride,
                                       int tile_width, int tile_height,
                                       int green_to_blue, int red_to_blue,
                                       int histo[]);
@@ -139,20 +139,20 @@ void VP8LCollectColorBlueTransforms_C(const uint32_t* argb, int stride,
 // -----------------------------------------------------------------------------
 // Huffman-cost related functions.
 
-typedef double (*VP8LCostFunc)(const uint32_t* population, int length);
-typedef double (*VP8LCostCombinedFunc)(const uint32_t* X, const uint32_t* Y,
+typedef double (*DEDUP_vP8_LCostFunc)(const uint32_t* population, int length);
+typedef double (*DEDUP_vP8_LCostCombinedFunc)(const uint32_t* X, const uint32_t* Y,
                                        int length);
-typedef float (*VP8LCombinedShannonEntropyFunc)(const int X[256],
+typedef float (*DEDUP_vP8_LCombinedShannonEntropyFunc)(const int X[256],
                                                 const int Y[256]);
 
-extern VP8LCostFunc VP8LExtraCost;
-extern VP8LCostCombinedFunc VP8LExtraCostCombined;
-extern VP8LCombinedShannonEntropyFunc VP8LCombinedShannonEntropy;
+extern DEDUP_vP8_LCostFunc DEDUP_vP8_LExtraCost;
+extern DEDUP_vP8_LCostCombinedFunc DEDUP_vP8_LExtraCostCombined;
+extern DEDUP_vP8_LCombinedShannonEntropyFunc DEDUP_vP8_LCombinedShannonEntropy;
 
 typedef struct {        // small struct to hold counters
   int counts[2];        // index: 0=zero steak, 1=non-zero streak
   int streaks[2][2];    // [zero/non-zero][streak<3 / streak>=3]
-} VP8LStreaks;
+} DEDUP_vP8_LStreaks;
 
 typedef struct {            // small struct to hold bit entropy results
   double entropy;           // entropy
@@ -160,45 +160,45 @@ typedef struct {            // small struct to hold bit entropy results
   int nonzeros;             // number of non-zero elements in the population
   uint32_t max_val;         // maximum value in the population
   uint32_t nonzero_code;    // index of the last non-zero in the population
-} VP8LBitEntropy;
+} DEDUP_vP8_LBitEntropy;
 
-void VP8LBitEntropyInit(VP8LBitEntropy* const entropy);
+void DEDUP_vP8_LBitEntropyInit(DEDUP_vP8_LBitEntropy* const entropy);
 
 // Get the combined symbol bit entropy and Huffman cost stats for the
 // distributions 'X' and 'Y'. Those results can then be refined according to
 // codec specific heuristics.
-typedef void (*VP8LGetCombinedEntropyUnrefinedFunc)(
+typedef void (*DEDUP_vP8_LGetCombinedEntropyUnrefinedFunc)(
     const uint32_t X[], const uint32_t Y[], int length,
-    VP8LBitEntropy* const bit_entropy, VP8LStreaks* const stats);
-extern VP8LGetCombinedEntropyUnrefinedFunc VP8LGetCombinedEntropyUnrefined;
+    DEDUP_vP8_LBitEntropy* const bit_entropy, DEDUP_vP8_LStreaks* const stats);
+extern DEDUP_vP8_LGetCombinedEntropyUnrefinedFunc DEDUP_vP8_LGetCombinedEntropyUnrefined;
 
 // Get the entropy for the distribution 'X'.
-typedef void (*VP8LGetEntropyUnrefinedFunc)(const uint32_t X[], int length,
-                                            VP8LBitEntropy* const bit_entropy,
-                                            VP8LStreaks* const stats);
-extern VP8LGetEntropyUnrefinedFunc VP8LGetEntropyUnrefined;
+typedef void (*DEDUP_vP8_LGetEntropyUnrefinedFunc)(const uint32_t X[], int length,
+                                            DEDUP_vP8_LBitEntropy* const bit_entropy,
+                                            DEDUP_vP8_LStreaks* const stats);
+extern DEDUP_vP8_LGetEntropyUnrefinedFunc DEDUP_vP8_LGetEntropyUnrefined;
 
-void VP8LBitsEntropyUnrefined(const uint32_t* const array, int n,
-                              VP8LBitEntropy* const entropy);
+void DEDUP_vP8_LBitsEntropyUnrefined(const uint32_t* const array, int n,
+                              DEDUP_vP8_LBitEntropy* const entropy);
 
-typedef void (*VP8LHistogramAddFunc)(const VP8LHistogram* const a,
-                                     const VP8LHistogram* const b,
-                                     VP8LHistogram* const out);
-extern VP8LHistogramAddFunc VP8LHistogramAdd;
+typedef void (*DEDUP_vP8_LHistogramAddFunc)(const DEDUP_vP8_LHistogram* const a,
+                                     const DEDUP_vP8_LHistogram* const b,
+                                     DEDUP_vP8_LHistogram* const out);
+extern DEDUP_vP8_LHistogramAddFunc DEDUP_vP8_LHistogramAdd;
 
 // -----------------------------------------------------------------------------
 // PrefixEncode()
 
-typedef int (*VP8LVectorMismatchFunc)(const uint32_t* const array1,
+typedef int (*DEDUP_vP8_LVectorMismatchFunc)(const uint32_t* const array1,
                                       const uint32_t* const array2, int length);
 // Returns the first index where array1 and array2 are different.
-extern VP8LVectorMismatchFunc VP8LVectorMismatch;
+extern DEDUP_vP8_LVectorMismatchFunc DEDUP_vP8_LVectorMismatch;
 
-void VP8LBundleColorMap(const uint8_t* const row, int width,
+void DEDUP_vP8_LBundleColorMap(const uint8_t* const row, int width,
                         int xbits, uint32_t* const dst);
 
 // Must be called before calling any of the above methods.
-void VP8LEncDspInit(void);
+void DEDUP_vP8_LEncDspInit(void);
 
 //------------------------------------------------------------------------------
 

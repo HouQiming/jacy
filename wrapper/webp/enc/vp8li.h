@@ -11,8 +11,8 @@
 //
 // Author: Vikas Arora (vikaas.arora@gmail.com)
 
-#ifndef WEBP_ENC_VP8LI_H_
-#define WEBP_ENC_VP8LI_H_
+#ifndef WEBP_ENC_DEDUP_vP8_LI_H_
+#define WEBP_ENC_DEDUP_vP8_LI_H_
 
 #include "./backward_references.h"
 #include "./histogram.h"
@@ -25,8 +25,8 @@ extern "C" {
 #endif
 
 typedef struct {
-  const WebPConfig* config_;      // user configuration and parameters
-  const WebPPicture* pic_;        // input picture.
+  const DEDUP_WEBP_Config* config_;      // user configuration and parameters
+  const DEDUP_WEBP_Picture* pic_;        // input picture.
 
   uint32_t* argb_;                // Transformed argb image data.
   uint32_t* argb_scratch_;        // Scratch memory for argb rows
@@ -51,11 +51,11 @@ typedef struct {
   uint32_t palette_[MAX_PALETTE_SIZE];
 
   // Some 'scratch' (potentially large) objects.
-  struct VP8LBackwardRefs refs_[2];  // Backward Refs array corresponding to
+  struct DEDUP_vP8_LBackwardRefs refs_[2];  // Backward Refs array corresponding to
                                      // LZ77 & RLE coding.
-  VP8LHashChain hash_chain_;         // HashChain data for constructing
+  DEDUP_vP8_LHashChain hash_chain_;         // HashChain data for constructing
                                      // backward references.
-} VP8LEncoder;
+} DEDUP_vP8_LEncoder;
 
 //------------------------------------------------------------------------------
 // internal functions. Not public.
@@ -63,24 +63,24 @@ typedef struct {
 // Encodes the picture.
 // Returns 0 if config or picture is NULL or picture doesn't have valid argb
 // input.
-int VP8LEncodeImage(const WebPConfig* const config,
-                    const WebPPicture* const picture);
+int DEDUP_vP8_LEncodeImage(const DEDUP_WEBP_Config* const config,
+                    const DEDUP_WEBP_Picture* const picture);
 
 // Encodes the main image stream using the supplied bit writer.
 // If 'use_cache' is false, disables the use of color cache.
-WebPEncodingError VP8LEncodeStream(const WebPConfig* const config,
-                                   const WebPPicture* const picture,
-                                   VP8LBitWriter* const bw, int use_cache);
+DEDUP_WEBP_EncodingError DEDUP_vP8_LEncodeStream(const DEDUP_WEBP_Config* const config,
+                                   const DEDUP_WEBP_Picture* const picture,
+                                   DEDUP_vP8_LBitWriter* const bw, int use_cache);
 
 //------------------------------------------------------------------------------
 // Image transforms in predictor.c.
 
-void VP8LResidualImage(int width, int height, int bits, int low_effort,
+void DEDUP_vP8_LResidualImage(int width, int height, int bits, int low_effort,
                        uint32_t* const argb, uint32_t* const argb_scratch,
                        uint32_t* const image, int near_lossless, int exact,
                        int used_subtract_green);
 
-void VP8LColorSpaceTransform(int width, int height, int bits, int quality,
+void DEDUP_vP8_LColorSpaceTransform(int width, int height, int bits, int quality,
                              uint32_t* const argb, uint32_t* image);
 
 //------------------------------------------------------------------------------
@@ -89,4 +89,4 @@ void VP8LColorSpaceTransform(int width, int height, int bits, int quality,
 }    // extern "C"
 #endif
 
-#endif  /* WEBP_ENC_VP8LI_H_ */
+#endif  /* WEBP_ENC_DEDUP_vP8_LI_H_ */

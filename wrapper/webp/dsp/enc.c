@@ -29,7 +29,7 @@ static WEBP_INLINE int clip_max(int v, int max) {
 // Compute susceptibility based on DCT-coeff histograms:
 // the higher, the "easier" the macroblock is to compress.
 
-const int VP8DspScan[16 + 4 + 4] = {
+const int DEDUP_vP8_DspScan[16 + 4 + 4] = {
   // Luma
   0 +  0 * BPS,  4 +  0 * BPS, 8 +  0 * BPS, 12 +  0 * BPS,
   0 +  4 * BPS,  4 +  4 * BPS, 8 +  4 * BPS, 12 +  4 * BPS,
@@ -41,8 +41,8 @@ const int VP8DspScan[16 + 4 + 4] = {
 };
 
 // general-purpose util function
-void VP8SetHistogramData(const int distribution[MAX_COEFF_THRESH + 1],
-                         VP8Histogram* const histo) {
+void DEDUP_vP8_SetHistogramData(const int distribution[MAX_COEFF_THRESH + 1],
+                         DEDUP_vP8_Histogram* const histo) {
   int max_value = 0, last_non_zero = 1;
   int k;
   for (k = 0; k <= MAX_COEFF_THRESH; ++k) {
@@ -58,14 +58,14 @@ void VP8SetHistogramData(const int distribution[MAX_COEFF_THRESH + 1],
 
 static void CollectHistogram(const uint8_t* ref, const uint8_t* pred,
                              int start_block, int end_block,
-                             VP8Histogram* const histo) {
+                             DEDUP_vP8_Histogram* const histo) {
   int j;
   int distribution[MAX_COEFF_THRESH + 1] = { 0 };
   for (j = start_block; j < end_block; ++j) {
     int k;
     int16_t out[16];
 
-    VP8FTransform(ref + VP8DspScan[j], pred + VP8DspScan[j], out);
+    DEDUP_vP8_FTransform(ref + DEDUP_vP8_DspScan[j], pred + DEDUP_vP8_DspScan[j], out);
 
     // Convert coefficients to bin.
     for (k = 0; k < 16; ++k) {
@@ -74,7 +74,7 @@ static void CollectHistogram(const uint8_t* ref, const uint8_t* pred,
       ++distribution[clipped_value];
     }
   }
-  VP8SetHistogramData(distribution, histo);
+  DEDUP_vP8_SetHistogramData(distribution, histo);
 }
 
 //------------------------------------------------------------------------------
@@ -178,8 +178,8 @@ static void FTransform(const uint8_t* src, const uint8_t* ref, int16_t* out) {
 }
 
 static void FTransform2(const uint8_t* src, const uint8_t* ref, int16_t* out) {
-  VP8FTransform(src, ref, out);
-  VP8FTransform(src + 4, ref + 4, out + 16);
+  DEDUP_vP8_FTransform(src, ref, out);
+  DEDUP_vP8_FTransform(src + 4, ref + 4, out + 16);
 }
 
 static void FTransformWHT(const int16_t* in, int16_t* out) {
@@ -357,10 +357,10 @@ static void HE4(uint8_t* dst, const uint8_t* top) {    // horizontal
   const int J = top[-3];
   const int K = top[-4];
   const int L = top[-5];
-  WebPUint32ToMem(dst + 0 * BPS, 0x01010101U * AVG3(X, I, J));
-  WebPUint32ToMem(dst + 1 * BPS, 0x01010101U * AVG3(I, J, K));
-  WebPUint32ToMem(dst + 2 * BPS, 0x01010101U * AVG3(J, K, L));
-  WebPUint32ToMem(dst + 3 * BPS, 0x01010101U * AVG3(K, L, L));
+  DEDUP_WEBP_Uint32ToMem(dst + 0 * BPS, 0x01010101U * AVG3(X, I, J));
+  DEDUP_WEBP_Uint32ToMem(dst + 1 * BPS, 0x01010101U * AVG3(I, J, K));
+  DEDUP_WEBP_Uint32ToMem(dst + 2 * BPS, 0x01010101U * AVG3(J, K, L));
+  DEDUP_WEBP_Uint32ToMem(dst + 3 * BPS, 0x01010101U * AVG3(K, L, L));
 }
 
 static void DC4(uint8_t* dst, const uint8_t* top) {
@@ -637,7 +637,7 @@ static const uint8_t kZigzag[16] = {
 
 // Simple quantization
 static int QuantizeBlock(int16_t in[16], int16_t out[16],
-                         const VP8Matrix* const mtx) {
+                         const DEDUP_vP8_Matrix* const mtx) {
   int last = -1;
   int n;
   for (n = 0; n < 16; ++n) {
@@ -663,10 +663,10 @@ static int QuantizeBlock(int16_t in[16], int16_t out[16],
 }
 
 static int Quantize2Blocks(int16_t in[32], int16_t out[32],
-                           const VP8Matrix* const mtx) {
+                           const DEDUP_vP8_Matrix* const mtx) {
   int nz;
-  nz  = VP8EncQuantizeBlock(in + 0 * 16, out + 0 * 16, mtx) << 0;
-  nz |= VP8EncQuantizeBlock(in + 1 * 16, out + 1 * 16, mtx) << 1;
+  nz  = DEDUP_vP8_EncQuantizeBlock(in + 0 * 16, out + 0 * 16, mtx) << 0;
+  nz |= DEDUP_vP8_EncQuantizeBlock(in + 1 * 16, out + 1 * 16, mtx) << 1;
   return nz;
 }
 
@@ -696,7 +696,7 @@ static void Copy16x8(const uint8_t* src, uint8_t* dst) {
 static const double kMinValue = 1.e-10;  // minimal threshold
 
 static WEBP_INLINE double SSIMCalculation(
-    const VP8DistoStats* const stats, uint32_t N  /*num samples*/) {
+    const DEDUP_vP8_DistoStats* const stats, uint32_t N  /*num samples*/) {
   const double w2 = N * N;
   const double C1 = 6.5025 * w2;
   const double C2 = 58.5225 * w2;
@@ -715,25 +715,25 @@ static WEBP_INLINE double SSIMCalculation(
   return (fden != 0.) ? fnum / fden : kMinValue;
 }
 
-double VP8SSIMFromStats(const VP8DistoStats* const stats) {
-  const uint32_t w = (2 * VP8_SSIM_KERNEL + 1) * (2 * VP8_SSIM_KERNEL + 1);
+double DEDUP_vP8_SSIMFromStats(const DEDUP_vP8_DistoStats* const stats) {
+  const uint32_t w = (2 * DEDUP_vP8__SSIM_KERNEL + 1) * (2 * DEDUP_vP8__SSIM_KERNEL + 1);
   return SSIMCalculation(stats, w);
 }
 
-double VP8SSIMFromStatsClipped(const VP8DistoStats* const stats) {
+double DEDUP_vP8_SSIMFromStatsClipped(const DEDUP_vP8_DistoStats* const stats) {
   return SSIMCalculation(stats, stats->w);
 }
 
 static double SSIMGetClipped_C(const uint8_t* src1, int stride1,
                                const uint8_t* src2, int stride2,
                                int xo, int yo, int W, int H) {
-  VP8DistoStats stats = { 0, 0, 0, 0, 0, 0 };
-  const int ymin = (yo - VP8_SSIM_KERNEL < 0) ? 0 : yo - VP8_SSIM_KERNEL;
-  const int ymax = (yo + VP8_SSIM_KERNEL > H - 1) ? H - 1
-                                                  : yo + VP8_SSIM_KERNEL;
-  const int xmin = (xo - VP8_SSIM_KERNEL < 0) ? 0 : xo - VP8_SSIM_KERNEL;
-  const int xmax = (xo + VP8_SSIM_KERNEL > W - 1) ? W - 1
-                                                  : xo + VP8_SSIM_KERNEL;
+  DEDUP_vP8_DistoStats stats = { 0, 0, 0, 0, 0, 0 };
+  const int ymin = (yo - DEDUP_vP8__SSIM_KERNEL < 0) ? 0 : yo - DEDUP_vP8__SSIM_KERNEL;
+  const int ymax = (yo + DEDUP_vP8__SSIM_KERNEL > H - 1) ? H - 1
+                                                  : yo + DEDUP_vP8__SSIM_KERNEL;
+  const int xmin = (xo - DEDUP_vP8__SSIM_KERNEL < 0) ? 0 : xo - DEDUP_vP8__SSIM_KERNEL;
+  const int xmax = (xo + DEDUP_vP8__SSIM_KERNEL > W - 1) ? W - 1
+                                                  : xo + DEDUP_vP8__SSIM_KERNEL;
   int x, y;
   src1 += ymin * stride1;
   src2 += ymin * stride2;
@@ -749,15 +749,15 @@ static double SSIMGetClipped_C(const uint8_t* src1, int stride1,
     }
   }
   stats.w = (ymax - ymin + 1) * (xmax - xmin + 1);
-  return VP8SSIMFromStatsClipped(&stats);
+  return DEDUP_vP8_SSIMFromStatsClipped(&stats);
 }
 
 static double SSIMGet_C(const uint8_t* src1, int stride1,
                         const uint8_t* src2, int stride2) {
-  VP8DistoStats stats = { 0, 0, 0, 0, 0, 0 };
+  DEDUP_vP8_DistoStats stats = { 0, 0, 0, 0, 0, 0 };
   int x, y;
-  for (y = 0; y <= 2 * VP8_SSIM_KERNEL; ++y, src1 += stride1, src2 += stride2) {
-    for (x = 0; x <= 2 * VP8_SSIM_KERNEL; ++x) {
+  for (y = 0; y <= 2 * DEDUP_vP8__SSIM_KERNEL; ++y, src1 += stride1, src2 += stride2) {
+    for (x = 0; x <= 2 * DEDUP_vP8__SSIM_KERNEL; ++x) {
       const int s1 = src1[x];
       const int s2 = src2[x];
       stats.xm  += s1;
@@ -767,7 +767,7 @@ static double SSIMGet_C(const uint8_t* src1, int stride1,
       stats.yym += s2 * s2;
     }
   }
-  return VP8SSIMFromStats(&stats);
+  return DEDUP_vP8_SSIMFromStats(&stats);
 }
 
 //------------------------------------------------------------------------------
@@ -786,135 +786,135 @@ static uint32_t AccumulateSSE(const uint8_t* src1,
 
 //------------------------------------------------------------------------------
 
-VP8SSIMGetFunc VP8SSIMGet;
-VP8SSIMGetClippedFunc VP8SSIMGetClipped;
-VP8AccumulateSSEFunc VP8AccumulateSSE;
+DEDUP_vP8_SSIMGetFunc DEDUP_vP8_SSIMGet;
+DEDUP_vP8_SSIMGetClippedFunc DEDUP_vP8_SSIMGetClipped;
+DEDUP_vP8_AccumulateSSEFunc DEDUP_vP8_AccumulateSSE;
 
-extern void VP8SSIMDspInitSSE2(void);
+extern void DEDUP_vP8_SSIMDspInitSSE2(void);
 
-static volatile VP8CPUInfo ssim_last_cpuinfo_used =
-    (VP8CPUInfo)&ssim_last_cpuinfo_used;
+static volatile DEDUP_vP8_CPUInfo ssim_last_cpuinfo_used =
+    (DEDUP_vP8_CPUInfo)&ssim_last_cpuinfo_used;
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8SSIMDspInit(void) {
-  if (ssim_last_cpuinfo_used == VP8GetCPUInfo) return;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_SSIMDspInit(void) {
+  if (ssim_last_cpuinfo_used == DEDUP_vP8_GetCPUInfo) return;
 
-  VP8SSIMGetClipped = SSIMGetClipped_C;
-  VP8SSIMGet = SSIMGet_C;
+  DEDUP_vP8_SSIMGetClipped = SSIMGetClipped_C;
+  DEDUP_vP8_SSIMGet = SSIMGet_C;
 
-  VP8AccumulateSSE = AccumulateSSE;
-  if (VP8GetCPUInfo != NULL) {
+  DEDUP_vP8_AccumulateSSE = AccumulateSSE;
+  if (DEDUP_vP8_GetCPUInfo != NULL) {
 #if defined(WEBP_USE_SSE2)
-    if (VP8GetCPUInfo(kSSE2)) {
-      VP8SSIMDspInitSSE2();
+    if (DEDUP_vP8_GetCPUInfo(kSSE2)) {
+      DEDUP_vP8_SSIMDspInitSSE2();
     }
 #endif
   }
 
-  ssim_last_cpuinfo_used = VP8GetCPUInfo;
+  ssim_last_cpuinfo_used = DEDUP_vP8_GetCPUInfo;
 }
 
 //------------------------------------------------------------------------------
 // Initialization
 
 // Speed-critical function pointers. We have to initialize them to the default
-// implementations within VP8EncDspInit().
-VP8CHisto VP8CollectHistogram;
-VP8Idct VP8ITransform;
-VP8Fdct VP8FTransform;
-VP8Fdct VP8FTransform2;
-VP8WHT VP8FTransformWHT;
-VP8Intra4Preds VP8EncPredLuma4;
-VP8IntraPreds VP8EncPredLuma16;
-VP8IntraPreds VP8EncPredChroma8;
-VP8Metric VP8SSE16x16;
-VP8Metric VP8SSE8x8;
-VP8Metric VP8SSE16x8;
-VP8Metric VP8SSE4x4;
-VP8WMetric VP8TDisto4x4;
-VP8WMetric VP8TDisto16x16;
-VP8MeanMetric VP8Mean16x4;
-VP8QuantizeBlock VP8EncQuantizeBlock;
-VP8Quantize2Blocks VP8EncQuantize2Blocks;
-VP8QuantizeBlockWHT VP8EncQuantizeBlockWHT;
-VP8BlockCopy VP8Copy4x4;
-VP8BlockCopy VP8Copy16x8;
+// implementations within DEDUP_vP8_EncDspInit().
+DEDUP_vP8_CHisto DEDUP_vP8_CollectHistogram;
+DEDUP_vP8_Idct DEDUP_vP8_ITransform;
+DEDUP_vP8_Fdct DEDUP_vP8_FTransform;
+DEDUP_vP8_Fdct DEDUP_vP8_FTransform2;
+DEDUP_vP8_WHT DEDUP_vP8_FTransformWHT;
+DEDUP_vP8_Intra4Preds DEDUP_vP8_EncPredLuma4;
+DEDUP_vP8_IntraPreds DEDUP_vP8_EncPredLuma16;
+DEDUP_vP8_IntraPreds DEDUP_vP8_EncPredChroma8;
+DEDUP_vP8_Metric DEDUP_vP8_SSE16x16;
+DEDUP_vP8_Metric DEDUP_vP8_SSE8x8;
+DEDUP_vP8_Metric DEDUP_vP8_SSE16x8;
+DEDUP_vP8_Metric DEDUP_vP8_SSE4x4;
+DEDUP_vP8_WMetric DEDUP_vP8_TDisto4x4;
+DEDUP_vP8_WMetric DEDUP_vP8_TDisto16x16;
+DEDUP_vP8_MeanMetric DEDUP_vP8_Mean16x4;
+DEDUP_vP8_QuantizeBlock DEDUP_vP8_EncQuantizeBlock;
+DEDUP_vP8_Quantize2Blocks DEDUP_vP8_EncQuantize2Blocks;
+DEDUP_vP8_QuantizeBlockWHT DEDUP_vP8_EncQuantizeBlockWHT;
+DEDUP_vP8_BlockCopy DEDUP_vP8_Copy4x4;
+DEDUP_vP8_BlockCopy DEDUP_vP8_Copy16x8;
 
-extern void VP8EncDspInitSSE2(void);
-extern void VP8EncDspInitSSE41(void);
-extern void VP8EncDspInitAVX2(void);
-extern void VP8EncDspInitNEON(void);
-extern void VP8EncDspInitMIPS32(void);
-extern void VP8EncDspInitMIPSdspR2(void);
-extern void VP8EncDspInitMSA(void);
+extern void DEDUP_vP8_EncDspInitSSE2(void);
+extern void DEDUP_vP8_EncDspInitSSE41(void);
+extern void DEDUP_vP8_EncDspInitAVX2(void);
+extern void DEDUP_vP8_EncDspInitNEON(void);
+extern void DEDUP_vP8_EncDspInitMIPS32(void);
+extern void DEDUP_vP8_EncDspInitMIPSdspR2(void);
+extern void DEDUP_vP8_EncDspInitMSA(void);
 
-static volatile VP8CPUInfo enc_last_cpuinfo_used =
-    (VP8CPUInfo)&enc_last_cpuinfo_used;
+static volatile DEDUP_vP8_CPUInfo enc_last_cpuinfo_used =
+    (DEDUP_vP8_CPUInfo)&enc_last_cpuinfo_used;
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8EncDspInit(void) {
-  if (enc_last_cpuinfo_used == VP8GetCPUInfo) return;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_EncDspInit(void) {
+  if (enc_last_cpuinfo_used == DEDUP_vP8_GetCPUInfo) return;
 
-  VP8DspInit();  // common inverse transforms
+  DEDUP_vP8_DspInit();  // common inverse transforms
   InitTables();
 
   // default C implementations
-  VP8CollectHistogram = CollectHistogram;
-  VP8ITransform = ITransform;
-  VP8FTransform = FTransform;
-  VP8FTransform2 = FTransform2;
-  VP8FTransformWHT = FTransformWHT;
-  VP8EncPredLuma4 = Intra4Preds;
-  VP8EncPredLuma16 = Intra16Preds;
-  VP8EncPredChroma8 = IntraChromaPreds;
-  VP8SSE16x16 = SSE16x16;
-  VP8SSE8x8 = SSE8x8;
-  VP8SSE16x8 = SSE16x8;
-  VP8SSE4x4 = SSE4x4;
-  VP8TDisto4x4 = Disto4x4;
-  VP8TDisto16x16 = Disto16x16;
-  VP8Mean16x4 = Mean16x4;
-  VP8EncQuantizeBlock = QuantizeBlock;
-  VP8EncQuantize2Blocks = Quantize2Blocks;
-  VP8EncQuantizeBlockWHT = QuantizeBlock;
-  VP8Copy4x4 = Copy4x4;
-  VP8Copy16x8 = Copy16x8;
+  DEDUP_vP8_CollectHistogram = CollectHistogram;
+  DEDUP_vP8_ITransform = ITransform;
+  DEDUP_vP8_FTransform = FTransform;
+  DEDUP_vP8_FTransform2 = FTransform2;
+  DEDUP_vP8_FTransformWHT = FTransformWHT;
+  DEDUP_vP8_EncPredLuma4 = Intra4Preds;
+  DEDUP_vP8_EncPredLuma16 = Intra16Preds;
+  DEDUP_vP8_EncPredChroma8 = IntraChromaPreds;
+  DEDUP_vP8_SSE16x16 = SSE16x16;
+  DEDUP_vP8_SSE8x8 = SSE8x8;
+  DEDUP_vP8_SSE16x8 = SSE16x8;
+  DEDUP_vP8_SSE4x4 = SSE4x4;
+  DEDUP_vP8_TDisto4x4 = Disto4x4;
+  DEDUP_vP8_TDisto16x16 = Disto16x16;
+  DEDUP_vP8_Mean16x4 = Mean16x4;
+  DEDUP_vP8_EncQuantizeBlock = QuantizeBlock;
+  DEDUP_vP8_EncQuantize2Blocks = Quantize2Blocks;
+  DEDUP_vP8_EncQuantizeBlockWHT = QuantizeBlock;
+  DEDUP_vP8_Copy4x4 = Copy4x4;
+  DEDUP_vP8_Copy16x8 = Copy16x8;
 
   // If defined, use CPUInfo() to overwrite some pointers with faster versions.
-  if (VP8GetCPUInfo != NULL) {
+  if (DEDUP_vP8_GetCPUInfo != NULL) {
 #if defined(WEBP_USE_SSE2)
-    if (VP8GetCPUInfo(kSSE2)) {
-      VP8EncDspInitSSE2();
+    if (DEDUP_vP8_GetCPUInfo(kSSE2)) {
+      DEDUP_vP8_EncDspInitSSE2();
 #if defined(WEBP_USE_SSE41)
-      if (VP8GetCPUInfo(kSSE4_1)) {
-        VP8EncDspInitSSE41();
+      if (DEDUP_vP8_GetCPUInfo(kSSE4_1)) {
+        DEDUP_vP8_EncDspInitSSE41();
       }
 #endif
     }
 #endif
 #if defined(WEBP_USE_AVX2)
-    if (VP8GetCPUInfo(kAVX2)) {
-      VP8EncDspInitAVX2();
+    if (DEDUP_vP8_GetCPUInfo(kAVX2)) {
+      DEDUP_vP8_EncDspInitAVX2();
     }
 #endif
 #if defined(WEBP_USE_NEON)
-    if (VP8GetCPUInfo(kNEON)) {
-      VP8EncDspInitNEON();
+    if (DEDUP_vP8_GetCPUInfo(kNEON)) {
+      DEDUP_vP8_EncDspInitNEON();
     }
 #endif
 #if defined(WEBP_USE_MIPS32)
-    if (VP8GetCPUInfo(kMIPS32)) {
-      VP8EncDspInitMIPS32();
+    if (DEDUP_vP8_GetCPUInfo(kMIPS32)) {
+      DEDUP_vP8_EncDspInitMIPS32();
     }
 #endif
 #if defined(WEBP_USE_MIPS_DSP_R2)
-    if (VP8GetCPUInfo(kMIPSdspR2)) {
-      VP8EncDspInitMIPSdspR2();
+    if (DEDUP_vP8_GetCPUInfo(kMIPSdspR2)) {
+      DEDUP_vP8_EncDspInitMIPSdspR2();
     }
 #endif
 #if defined(WEBP_USE_MSA)
-    if (VP8GetCPUInfo(kMSA)) {
-      VP8EncDspInitMSA();
+    if (DEDUP_vP8_GetCPUInfo(kMSA)) {
+      DEDUP_vP8_EncDspInitMSA();
     }
 #endif
   }
-  enc_last_cpuinfo_used = VP8GetCPUInfo;
+  enc_last_cpuinfo_used = DEDUP_vP8_GetCPUInfo;
 }

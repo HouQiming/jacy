@@ -216,7 +216,7 @@ static double ExtraCostCombined(const uint32_t* const X,
 // Returns the various RLE counts
 static WEBP_INLINE void GetEntropyUnrefinedHelper(
     uint32_t val, int i, uint32_t* const val_prev, int* const i_prev,
-    VP8LBitEntropy* const bit_entropy, VP8LStreaks* const stats) {
+    DEDUP_vP8_LBitEntropy* const bit_entropy, DEDUP_vP8_LStreaks* const stats) {
   int* const pstreaks = &stats->streaks[0][0];
   int* const pcnts = &stats->counts[0];
   int temp0, temp1, temp2, temp3;
@@ -227,7 +227,7 @@ static WEBP_INLINE void GetEntropyUnrefinedHelper(
     bit_entropy->sum += (*val_prev) * streak;
     bit_entropy->nonzeros += streak;
     bit_entropy->nonzero_code = *i_prev;
-    bit_entropy->entropy -= VP8LFastSLog2(*val_prev) * streak;
+    bit_entropy->entropy -= DEDUP_vP8_LFastSLog2(*val_prev) * streak;
     if (bit_entropy->max_val < *val_prev) {
       bit_entropy->max_val = *val_prev;
     }
@@ -242,14 +242,14 @@ static WEBP_INLINE void GetEntropyUnrefinedHelper(
 }
 
 static void GetEntropyUnrefined(const uint32_t X[], int length,
-                                VP8LBitEntropy* const bit_entropy,
-                                VP8LStreaks* const stats) {
+                                DEDUP_vP8_LBitEntropy* const bit_entropy,
+                                DEDUP_vP8_LStreaks* const stats) {
   int i;
   int i_prev = 0;
   uint32_t x_prev = X[0];
 
   memset(stats, 0, sizeof(*stats));
-  VP8LBitEntropyInit(bit_entropy);
+  DEDUP_vP8_LBitEntropyInit(bit_entropy);
 
   for (i = 1; i < length; ++i) {
     const uint32_t x = X[i];
@@ -259,19 +259,19 @@ static void GetEntropyUnrefined(const uint32_t X[], int length,
   }
   GetEntropyUnrefinedHelper(0, i, &x_prev, &i_prev, bit_entropy, stats);
 
-  bit_entropy->entropy += VP8LFastSLog2(bit_entropy->sum);
+  bit_entropy->entropy += DEDUP_vP8_LFastSLog2(bit_entropy->sum);
 }
 
 static void GetCombinedEntropyUnrefined(const uint32_t X[], const uint32_t Y[],
                                         int length,
-                                        VP8LBitEntropy* const bit_entropy,
-                                        VP8LStreaks* const stats) {
+                                        DEDUP_vP8_LBitEntropy* const bit_entropy,
+                                        DEDUP_vP8_LStreaks* const stats) {
   int i = 1;
   int i_prev = 0;
   uint32_t xy_prev = X[0] + Y[0];
 
   memset(stats, 0, sizeof(*stats));
-  VP8LBitEntropyInit(bit_entropy);
+  DEDUP_vP8_LBitEntropyInit(bit_entropy);
 
   for (i = 1; i < length; ++i) {
     const uint32_t xy = X[i] + Y[i];
@@ -281,7 +281,7 @@ static void GetCombinedEntropyUnrefined(const uint32_t X[], const uint32_t Y[],
   }
   GetEntropyUnrefinedHelper(0, i, &xy_prev, &i_prev, bit_entropy, stats);
 
-  bit_entropy->entropy += VP8LFastSLog2(bit_entropy->sum);
+  bit_entropy->entropy += DEDUP_vP8_LFastSLog2(bit_entropy->sum);
 }
 
 #define ASM_START                                       \
@@ -374,11 +374,11 @@ static void GetCombinedEntropyUnrefined(const uint32_t X[], const uint32_t Y[],
   }                                                     \
 } while (0)
 
-static void HistogramAdd(const VP8LHistogram* const a,
-                         const VP8LHistogram* const b,
-                         VP8LHistogram* const out) {
+static void HistogramAdd(const DEDUP_vP8_LHistogram* const a,
+                         const DEDUP_vP8_LHistogram* const b,
+                         DEDUP_vP8_LHistogram* const out) {
   uint32_t temp0, temp1, temp2, temp3, temp4, temp5, temp6, temp7;
-  const int extra_cache_size = VP8LHistogramNumCodes(a->palette_code_bits_)
+  const int extra_cache_size = DEDUP_vP8_LHistogramNumCodes(a->palette_code_bits_)
                              - (NUM_LITERAL_CODES + NUM_LENGTH_CODES);
   assert(a->palette_code_bits_ == b->palette_code_bits_);
 
@@ -412,20 +412,20 @@ static void HistogramAdd(const VP8LHistogram* const a,
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8LEncDspInitMIPS32(void);
+extern void DEDUP_vP8_LEncDspInitMIPS32(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8LEncDspInitMIPS32(void) {
-  VP8LFastSLog2Slow = FastSLog2Slow;
-  VP8LFastLog2Slow = FastLog2Slow;
-  VP8LExtraCost = ExtraCost;
-  VP8LExtraCostCombined = ExtraCostCombined;
-  VP8LGetEntropyUnrefined = GetEntropyUnrefined;
-  VP8LGetCombinedEntropyUnrefined = GetCombinedEntropyUnrefined;
-  VP8LHistogramAdd = HistogramAdd;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_LEncDspInitMIPS32(void) {
+  DEDUP_vP8_LFastSLog2Slow = FastSLog2Slow;
+  DEDUP_vP8_LFastLog2Slow = FastLog2Slow;
+  DEDUP_vP8_LExtraCost = ExtraCost;
+  DEDUP_vP8_LExtraCostCombined = ExtraCostCombined;
+  DEDUP_vP8_LGetEntropyUnrefined = GetEntropyUnrefined;
+  DEDUP_vP8_LGetCombinedEntropyUnrefined = GetCombinedEntropyUnrefined;
+  DEDUP_vP8_LHistogramAdd = HistogramAdd;
 }
 
 #else  // !WEBP_USE_MIPS32
 
-WEBP_DSP_INIT_STUB(VP8LEncDspInitMIPS32)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_LEncDspInitMIPS32)
 
 #endif  // WEBP_USE_MIPS32

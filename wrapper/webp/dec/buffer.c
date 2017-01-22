@@ -7,7 +7,7 @@
 // be found in the AUTHORS file in the root of the source tree.
 // -----------------------------------------------------------------------------
 //
-// Everything about WebPDecBuffer
+// Everything about DEDUP_WEBP_DecBuffer
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
@@ -18,7 +18,7 @@
 #include "../utils/utils.h"
 
 //------------------------------------------------------------------------------
-// WebPDecBuffer
+// DEDUP_WEBP_DecBuffer
 
 // Number of bytes per pixel for the different color-spaces.
 static const int kModeBpp[MODE_LAST] = {
@@ -38,15 +38,15 @@ static int IsValidColorspace(int webp_csp_mode) {
 #define MIN_BUFFER_SIZE(WIDTH, HEIGHT, STRIDE)       \
     (uint64_t)(STRIDE) * ((HEIGHT) - 1) + (WIDTH)
 
-static VP8StatusCode CheckDecBuffer(const WebPDecBuffer* const buffer) {
+static DEDUP_vP8_StatusCode CheckDecBuffer(const DEDUP_WEBP_DecBuffer* const buffer) {
   int ok = 1;
   const WEBP_CSP_MODE mode = buffer->colorspace;
   const int width = buffer->width;
   const int height = buffer->height;
   if (!IsValidColorspace(mode)) {
     ok = 0;
-  } else if (!WebPIsRGBMode(mode)) {   // YUV checks
-    const WebPYUVABuffer* const buf = &buffer->u.YUVA;
+  } else if (!DEDUP_WEBP_IsRGBMode(mode)) {   // YUV checks
+    const DEDUP_WEBP_YUVABuffer* const buf = &buffer->u.YUVA;
     const int uv_width  = (width  + 1) / 2;
     const int uv_height = (height + 1) / 2;
     const int y_stride = abs(buf->y_stride);
@@ -72,24 +72,24 @@ static VP8StatusCode CheckDecBuffer(const WebPDecBuffer* const buffer) {
       ok &= (buf->a != NULL);
     }
   } else {    // RGB checks
-    const WebPRGBABuffer* const buf = &buffer->u.RGBA;
+    const DEDUP_WEBP_RGBABuffer* const buf = &buffer->u.RGBA;
     const int stride = abs(buf->stride);
     const uint64_t size = MIN_BUFFER_SIZE(width, height, stride);
     ok &= (size <= buf->size);
     ok &= (stride >= width * kModeBpp[mode]);
     ok &= (buf->rgba != NULL);
   }
-  return ok ? VP8_STATUS_OK : VP8_STATUS_INVALID_PARAM;
+  return ok ? DEDUP_vP8__STATUS_OK : DEDUP_vP8__STATUS_INVALID_PARAM;
 }
 #undef MIN_BUFFER_SIZE
 
-static VP8StatusCode AllocateBuffer(WebPDecBuffer* const buffer) {
+static DEDUP_vP8_StatusCode AllocateBuffer(DEDUP_WEBP_DecBuffer* const buffer) {
   const int w = buffer->width;
   const int h = buffer->height;
   const WEBP_CSP_MODE mode = buffer->colorspace;
 
   if (w <= 0 || h <= 0 || !IsValidColorspace(mode)) {
-    return VP8_STATUS_INVALID_PARAM;
+    return DEDUP_vP8__STATUS_INVALID_PARAM;
   }
 
   if (buffer->is_external_memory <= 0 && buffer->private_memory == NULL) {
@@ -101,7 +101,7 @@ static VP8StatusCode AllocateBuffer(WebPDecBuffer* const buffer) {
     const int stride = w * kModeBpp[mode];
     const uint64_t size = (uint64_t)stride * h;
 
-    if (!WebPIsRGBMode(mode)) {
+    if (!DEDUP_WEBP_IsRGBMode(mode)) {
       uv_stride = (w + 1) / 2;
       uv_size = (uint64_t)uv_stride * ((h + 1) / 2);
       if (mode == MODE_YUVA) {
@@ -112,14 +112,14 @@ static VP8StatusCode AllocateBuffer(WebPDecBuffer* const buffer) {
     total_size = size + 2 * uv_size + a_size;
 
     // Security/sanity checks
-    output = (uint8_t*)WebPSafeMalloc(total_size, sizeof(*output));
+    output = (uint8_t*)DEDUP_WEBP_SafeMalloc(total_size, sizeof(*output));
     if (output == NULL) {
-      return VP8_STATUS_OUT_OF_MEMORY;
+      return DEDUP_vP8__STATUS_OUT_OF_MEMORY;
     }
     buffer->private_memory = output;
 
-    if (!WebPIsRGBMode(mode)) {   // YUVA initialization
-      WebPYUVABuffer* const buf = &buffer->u.YUVA;
+    if (!DEDUP_WEBP_IsRGBMode(mode)) {   // YUVA initialization
+      DEDUP_WEBP_YUVABuffer* const buf = &buffer->u.YUVA;
       buf->y = output;
       buf->y_stride = stride;
       buf->y_size = (size_t)size;
@@ -135,7 +135,7 @@ static VP8StatusCode AllocateBuffer(WebPDecBuffer* const buffer) {
       buf->a_size = (size_t)a_size;
       buf->a_stride = a_stride;
     } else {  // RGBA initialization
-      WebPRGBABuffer* const buf = &buffer->u.RGBA;
+      DEDUP_WEBP_RGBABuffer* const buf = &buffer->u.RGBA;
       buf->rgba = output;
       buf->stride = stride;
       buf->size = (size_t)size;
@@ -144,16 +144,16 @@ static VP8StatusCode AllocateBuffer(WebPDecBuffer* const buffer) {
   return CheckDecBuffer(buffer);
 }
 
-VP8StatusCode WebPFlipBuffer(WebPDecBuffer* const buffer) {
+DEDUP_vP8_StatusCode DEDUP_WEBP_FlipBuffer(DEDUP_WEBP_DecBuffer* const buffer) {
   if (buffer == NULL) {
-    return VP8_STATUS_INVALID_PARAM;
+    return DEDUP_vP8__STATUS_INVALID_PARAM;
   }
-  if (WebPIsRGBMode(buffer->colorspace)) {
-    WebPRGBABuffer* const buf = &buffer->u.RGBA;
+  if (DEDUP_WEBP_IsRGBMode(buffer->colorspace)) {
+    DEDUP_WEBP_RGBABuffer* const buf = &buffer->u.RGBA;
     buf->rgba += (buffer->height - 1) * buf->stride;
     buf->stride = -buf->stride;
   } else {
-    WebPYUVABuffer* const buf = &buffer->u.YUVA;
+    DEDUP_WEBP_YUVABuffer* const buf = &buffer->u.YUVA;
     const int H = buffer->height;
     buf->y += (H - 1) * buf->y_stride;
     buf->y_stride = -buf->y_stride;
@@ -166,15 +166,15 @@ VP8StatusCode WebPFlipBuffer(WebPDecBuffer* const buffer) {
       buf->a_stride = -buf->a_stride;
     }
   }
-  return VP8_STATUS_OK;
+  return DEDUP_vP8__STATUS_OK;
 }
 
-VP8StatusCode WebPAllocateDecBuffer(int w, int h,
-                                    const WebPDecoderOptions* const options,
-                                    WebPDecBuffer* const out) {
-  VP8StatusCode status;
+DEDUP_vP8_StatusCode DEDUP_WEBP_AllocateDecBuffer(int w, int h,
+                                    const DEDUP_WEBP_DecoderOptions* const options,
+                                    DEDUP_WEBP_DecBuffer* const out) {
+  DEDUP_vP8_StatusCode status;
   if (out == NULL || w <= 0 || h <= 0) {
-    return VP8_STATUS_INVALID_PARAM;
+    return DEDUP_vP8__STATUS_INVALID_PARAM;
   }
   if (options != NULL) {    // First, apply options if there is any.
     if (options->use_cropping) {
@@ -183,7 +183,7 @@ VP8StatusCode WebPAllocateDecBuffer(int w, int h,
       const int x = options->crop_left & ~1;
       const int y = options->crop_top & ~1;
       if (x < 0 || y < 0 || cw <= 0 || ch <= 0 || x + cw > w || y + ch > h) {
-        return VP8_STATUS_INVALID_PARAM;   // out of frame boundary.
+        return DEDUP_vP8__STATUS_INVALID_PARAM;   // out of frame boundary.
       }
       w = cw;
       h = ch;
@@ -191,9 +191,9 @@ VP8StatusCode WebPAllocateDecBuffer(int w, int h,
     if (options->use_scaling) {
       int scaled_width = options->scaled_width;
       int scaled_height = options->scaled_height;
-      if (!WebPRescalerGetScaledDimensions(
+      if (!DEDUP_WEBP_RescalerGetScaledDimensions(
               w, h, &scaled_width, &scaled_height)) {
-        return VP8_STATUS_INVALID_PARAM;
+        return DEDUP_vP8__STATUS_INVALID_PARAM;
       }
       w = scaled_width;
       h = scaled_height;
@@ -204,11 +204,11 @@ VP8StatusCode WebPAllocateDecBuffer(int w, int h,
 
   // Then, allocate buffer for real.
   status = AllocateBuffer(out);
-  if (status != VP8_STATUS_OK) return status;
+  if (status != DEDUP_vP8__STATUS_OK) return status;
 
   // Use the stride trick if vertical flip is needed.
   if (options != NULL && options->flip) {
-    status = WebPFlipBuffer(out);
+    status = DEDUP_WEBP_FlipBuffer(out);
   }
   return status;
 }
@@ -216,7 +216,7 @@ VP8StatusCode WebPAllocateDecBuffer(int w, int h,
 //------------------------------------------------------------------------------
 // constructors / destructors
 
-int WebPInitDecBufferInternal(WebPDecBuffer* buffer, int version) {
+int DEDUP_WEBP_InitDecBufferInternal(DEDUP_WEBP_DecBuffer* buffer, int version) {
   if (WEBP_ABI_IS_INCOMPATIBLE(version, WEBP_DECODER_ABI_VERSION)) {
     return 0;  // version mismatch
   }
@@ -225,17 +225,17 @@ int WebPInitDecBufferInternal(WebPDecBuffer* buffer, int version) {
   return 1;
 }
 
-void WebPFreeDecBuffer(WebPDecBuffer* buffer) {
+void DEDUP_WEBP_FreeDecBuffer(DEDUP_WEBP_DecBuffer* buffer) {
   if (buffer != NULL) {
     if (buffer->is_external_memory <= 0) {
-      WebPSafeFree(buffer->private_memory);
+      DEDUP_WEBP_SafeFree(buffer->private_memory);
     }
     buffer->private_memory = NULL;
   }
 }
 
-void WebPCopyDecBuffer(const WebPDecBuffer* const src,
-                       WebPDecBuffer* const dst) {
+void DEDUP_WEBP_CopyDecBuffer(const DEDUP_WEBP_DecBuffer* const src,
+                       DEDUP_WEBP_DecBuffer* const dst) {
   if (src != NULL && dst != NULL) {
     *dst = *src;
     if (src->private_memory != NULL) {
@@ -246,7 +246,7 @@ void WebPCopyDecBuffer(const WebPDecBuffer* const src,
 }
 
 // Copy and transfer ownership from src to dst (beware of parameter order!)
-void WebPGrabDecBuffer(WebPDecBuffer* const src, WebPDecBuffer* const dst) {
+void DEDUP_WEBP_GrabDecBuffer(DEDUP_WEBP_DecBuffer* const src, DEDUP_WEBP_DecBuffer* const dst) {
   if (src != NULL && dst != NULL) {
     *dst = *src;
     if (src->private_memory != NULL) {
@@ -256,44 +256,44 @@ void WebPGrabDecBuffer(WebPDecBuffer* const src, WebPDecBuffer* const dst) {
   }
 }
 
-VP8StatusCode WebPCopyDecBufferPixels(const WebPDecBuffer* const src_buf,
-                                      WebPDecBuffer* const dst_buf) {
+DEDUP_vP8_StatusCode DEDUP_WEBP_CopyDecBufferPixels(const DEDUP_WEBP_DecBuffer* const src_buf,
+                                      DEDUP_WEBP_DecBuffer* const dst_buf) {
   assert(src_buf != NULL && dst_buf != NULL);
   assert(src_buf->colorspace == dst_buf->colorspace);
 
   dst_buf->width = src_buf->width;
   dst_buf->height = src_buf->height;
-  if (CheckDecBuffer(dst_buf) != VP8_STATUS_OK) {
-    return VP8_STATUS_INVALID_PARAM;
+  if (CheckDecBuffer(dst_buf) != DEDUP_vP8__STATUS_OK) {
+    return DEDUP_vP8__STATUS_INVALID_PARAM;
   }
-  if (WebPIsRGBMode(src_buf->colorspace)) {
-    const WebPRGBABuffer* const src = &src_buf->u.RGBA;
-    const WebPRGBABuffer* const dst = &dst_buf->u.RGBA;
-    WebPCopyPlane(src->rgba, src->stride, dst->rgba, dst->stride,
+  if (DEDUP_WEBP_IsRGBMode(src_buf->colorspace)) {
+    const DEDUP_WEBP_RGBABuffer* const src = &src_buf->u.RGBA;
+    const DEDUP_WEBP_RGBABuffer* const dst = &dst_buf->u.RGBA;
+    DEDUP_WEBP_CopyPlane(src->rgba, src->stride, dst->rgba, dst->stride,
                   src_buf->width * kModeBpp[src_buf->colorspace],
                   src_buf->height);
   } else {
-    const WebPYUVABuffer* const src = &src_buf->u.YUVA;
-    const WebPYUVABuffer* const dst = &dst_buf->u.YUVA;
-    WebPCopyPlane(src->y, src->y_stride, dst->y, dst->y_stride,
+    const DEDUP_WEBP_YUVABuffer* const src = &src_buf->u.YUVA;
+    const DEDUP_WEBP_YUVABuffer* const dst = &dst_buf->u.YUVA;
+    DEDUP_WEBP_CopyPlane(src->y, src->y_stride, dst->y, dst->y_stride,
                   src_buf->width, src_buf->height);
-    WebPCopyPlane(src->u, src->u_stride, dst->u, dst->u_stride,
+    DEDUP_WEBP_CopyPlane(src->u, src->u_stride, dst->u, dst->u_stride,
                   (src_buf->width + 1) / 2, (src_buf->height + 1) / 2);
-    WebPCopyPlane(src->v, src->v_stride, dst->v, dst->v_stride,
+    DEDUP_WEBP_CopyPlane(src->v, src->v_stride, dst->v, dst->v_stride,
                   (src_buf->width + 1) / 2, (src_buf->height + 1) / 2);
-    if (WebPIsAlphaMode(src_buf->colorspace)) {
-      WebPCopyPlane(src->a, src->a_stride, dst->a, dst->a_stride,
+    if (DEDUP_WEBP_IsAlphaMode(src_buf->colorspace)) {
+      DEDUP_WEBP_CopyPlane(src->a, src->a_stride, dst->a, dst->a_stride,
                     src_buf->width, src_buf->height);
     }
   }
-  return VP8_STATUS_OK;
+  return DEDUP_vP8__STATUS_OK;
 }
 
-int WebPAvoidSlowMemory(const WebPDecBuffer* const output,
-                        const WebPBitstreamFeatures* const features) {
+int DEDUP_WEBP_AvoidSlowMemory(const DEDUP_WEBP_DecBuffer* const output,
+                        const DEDUP_WEBP_BitstreamFeatures* const features) {
   assert(output != NULL);
   return (output->is_external_memory >= 2) &&
-         WebPIsPremultipliedMode(output->colorspace) &&
+         DEDUP_WEBP_IsPremultipliedMode(output->colorspace) &&
          (features != NULL && features->has_alpha);
 }
 

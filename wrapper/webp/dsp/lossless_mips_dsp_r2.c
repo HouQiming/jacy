@@ -86,8 +86,8 @@ static void FUNC_NAME(const TYPE* src,                                         \
   }                                                                            \
 }
 
-MAP_COLOR_FUNCS(MapARGB, uint32_t, VP8GetARGBIndex, VP8GetARGBValue)
-MAP_COLOR_FUNCS(MapAlpha, uint8_t, VP8GetAlphaIndex, VP8GetAlphaValue)
+MAP_COLOR_FUNCS(MapARGB, uint32_t, DEDUP_vP8_GetARGBIndex, DEDUP_vP8_GetARGBValue)
+MAP_COLOR_FUNCS(MapAlpha, uint8_t, DEDUP_vP8_GetAlphaIndex, DEDUP_vP8_GetAlphaValue)
 
 #undef MAP_COLOR_FUNCS
 
@@ -281,7 +281,7 @@ static void AddGreenToBlueAndRed(uint32_t* data, int num_pixels) {
   );
 }
 
-static void TransformColorInverse(const VP8LMultipliers* const m,
+static void TransformColorInverse(const DEDUP_vP8_LMultipliers* const m,
                                   uint32_t* data, int num_pixels) {
   int temp0, temp1, temp2, temp3, temp4, temp5;
   uint32_t argb, argb1, new_red;
@@ -345,7 +345,7 @@ static void TransformColorInverse(const VP8LMultipliers* const m,
   );
 
   // Fall-back to C-version for left-overs.
-  if (num_pixels & 1) VP8LTransformColorInverse_C(m, data, 1);
+  if (num_pixels & 1) DEDUP_vP8_LTransformColorInverse_C(m, data, 1);
 }
 
 static void ConvertBGRAToRGB(const uint32_t* src,
@@ -651,31 +651,31 @@ static void ConvertBGRAToBGR(const uint32_t* src,
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8LDspInitMIPSdspR2(void);
+extern void DEDUP_vP8_LDspInitMIPSdspR2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8LDspInitMIPSdspR2(void) {
-  VP8LMapColor32b = MapARGB;
-  VP8LMapColor8b = MapAlpha;
-  VP8LPredictors[5] = Predictor5;
-  VP8LPredictors[6] = Predictor6;
-  VP8LPredictors[7] = Predictor7;
-  VP8LPredictors[8] = Predictor8;
-  VP8LPredictors[9] = Predictor9;
-  VP8LPredictors[10] = Predictor10;
-  VP8LPredictors[11] = Predictor11;
-  VP8LPredictors[12] = Predictor12;
-  VP8LPredictors[13] = Predictor13;
-  VP8LAddGreenToBlueAndRed = AddGreenToBlueAndRed;
-  VP8LTransformColorInverse = TransformColorInverse;
-  VP8LConvertBGRAToRGB = ConvertBGRAToRGB;
-  VP8LConvertBGRAToRGBA = ConvertBGRAToRGBA;
-  VP8LConvertBGRAToRGBA4444 = ConvertBGRAToRGBA4444;
-  VP8LConvertBGRAToRGB565 = ConvertBGRAToRGB565;
-  VP8LConvertBGRAToBGR = ConvertBGRAToBGR;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_LDspInitMIPSdspR2(void) {
+  DEDUP_vP8_LMapColor32b = MapARGB;
+  DEDUP_vP8_LMapColor8b = MapAlpha;
+  DEDUP_vP8_LPredictors[5] = Predictor5;
+  DEDUP_vP8_LPredictors[6] = Predictor6;
+  DEDUP_vP8_LPredictors[7] = Predictor7;
+  DEDUP_vP8_LPredictors[8] = Predictor8;
+  DEDUP_vP8_LPredictors[9] = Predictor9;
+  DEDUP_vP8_LPredictors[10] = Predictor10;
+  DEDUP_vP8_LPredictors[11] = Predictor11;
+  DEDUP_vP8_LPredictors[12] = Predictor12;
+  DEDUP_vP8_LPredictors[13] = Predictor13;
+  DEDUP_vP8_LAddGreenToBlueAndRed = AddGreenToBlueAndRed;
+  DEDUP_vP8_LTransformColorInverse = TransformColorInverse;
+  DEDUP_vP8_LConvertBGRAToRGB = ConvertBGRAToRGB;
+  DEDUP_vP8_LConvertBGRAToRGBA = ConvertBGRAToRGBA;
+  DEDUP_vP8_LConvertBGRAToRGBA4444 = ConvertBGRAToRGBA4444;
+  DEDUP_vP8_LConvertBGRAToRGB565 = ConvertBGRAToRGB565;
+  DEDUP_vP8_LConvertBGRAToBGR = ConvertBGRAToBGR;
 }
 
 #else  // !WEBP_USE_MIPS_DSP_R2
 
-WEBP_DSP_INIT_STUB(VP8LDspInitMIPSdspR2)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_LDspInitMIPSdspR2)
 
 #endif  // WEBP_USE_MIPS_DSP_R2

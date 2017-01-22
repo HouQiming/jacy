@@ -26,7 +26,7 @@ static WEBP_INLINE int GradientPredictor(uint8_t a, uint8_t b, uint8_t c) {
   return ((g & ~0xff) == 0) ? g : (g < 0) ? 0 : 255;  // clip to 8bit
 }
 
-WEBP_FILTER_TYPE WebPEstimateBestFilter(const uint8_t* data,
+WEBP_FILTER_TYPE DEDUP_WEBP_EstimateBestFilter(const uint8_t* data,
                                         int width, int height, int stride) {
   int i, j;
   int bins[WEBP_FILTER_LAST][SMAX];

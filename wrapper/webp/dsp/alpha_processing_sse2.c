@@ -247,7 +247,7 @@ static void MultARGBRow(uint32_t* const ptr, int width, int inverse) {
     }
   }
   width -= x;
-  if (width > 0) WebPMultARGBRowC(ptr + x, width, inverse);
+  if (width > 0) DEDUP_WEBP_MultARGBRowC(ptr + x, width, inverse);
 }
 
 static void MultRow(uint8_t* const ptr, const uint8_t* const alpha,
@@ -274,25 +274,25 @@ static void MultRow(uint8_t* const ptr, const uint8_t* const alpha,
     }
   }
   width -= x;
-  if (width > 0) WebPMultRowC(ptr + x, alpha + x, width, inverse);
+  if (width > 0) DEDUP_WEBP_MultRowC(ptr + x, alpha + x, width, inverse);
 }
 
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void WebPInitAlphaProcessingSSE2(void);
+extern void DEDUP_WEBP_InitAlphaProcessingSSE2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitAlphaProcessingSSE2(void) {
-  WebPMultARGBRow = MultARGBRow;
-  WebPMultRow = MultRow;
-  WebPApplyAlphaMultiply = ApplyAlphaMultiply;
-  WebPDispatchAlpha = DispatchAlpha;
-  WebPDispatchAlphaToGreen = DispatchAlphaToGreen;
-  WebPExtractAlpha = ExtractAlpha;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_InitAlphaProcessingSSE2(void) {
+  DEDUP_WEBP_MultARGBRow = MultARGBRow;
+  DEDUP_WEBP_MultRow = MultRow;
+  DEDUP_WEBP_ApplyAlphaMultiply = ApplyAlphaMultiply;
+  DEDUP_WEBP_DispatchAlpha = DispatchAlpha;
+  DEDUP_WEBP_DispatchAlphaToGreen = DispatchAlphaToGreen;
+  DEDUP_WEBP_ExtractAlpha = ExtractAlpha;
 }
 
 #else  // !WEBP_USE_SSE2
 
-WEBP_DSP_INIT_STUB(WebPInitAlphaProcessingSSE2)
+WEBP_DSP_INIT_STUB(DEDUP_WEBP_InitAlphaProcessingSSE2)
 
 #endif  // WEBP_USE_SSE2

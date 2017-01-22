@@ -339,12 +339,12 @@ static volatile int tables_ok = 0;
 
 #endif
 
-const int8_t* const VP8ksclip1 = &sclip1[1020];
-const int8_t* const VP8ksclip2 = &sclip2[112];
-const uint8_t* const VP8kclip1 = &clip1[255];
-const uint8_t* const VP8kabs0 = &abs0[255];
+const int8_t* const DEDUP_vP8_ksclip1 = &sclip1[1020];
+const int8_t* const DEDUP_vP8_ksclip2 = &sclip2[112];
+const uint8_t* const DEDUP_vP8_kclip1 = &clip1[255];
+const uint8_t* const DEDUP_vP8_kabs0 = &abs0[255];
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8InitClipTables(void) {
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_InitClipTables(void) {
 #if !defined(USE_STATIC_TABLES)
   int i;
   if (!tables_ok) {

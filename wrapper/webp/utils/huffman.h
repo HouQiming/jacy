@@ -68,17 +68,17 @@ struct HTreeGroup {
 };
 
 // Creates the instance of HTreeGroup with specified number of tree-groups.
-HTreeGroup* VP8LHtreeGroupsNew(int num_htree_groups);
+HTreeGroup* DEDUP_vP8_LHtreeGroupsNew(int num_htree_groups);
 
 // Releases the memory allocated for HTreeGroup.
-void VP8LHtreeGroupsFree(HTreeGroup* const htree_groups);
+void DEDUP_vP8_LHtreeGroupsFree(HTreeGroup* const htree_groups);
 
 // Builds Huffman lookup table assuming code lengths are in symbol order.
 // The 'code_lengths' is pre-allocated temporary memory buffer used for creating
 // the huffman table.
 // Returns built table size or 0 in case of error (invalid tree or
 // memory error).
-int VP8LBuildHuffmanTable(HuffmanCode* const root_table, int root_bits,
+int DEDUP_vP8_LBuildHuffmanTable(HuffmanCode* const root_table, int root_bits,
                           const int code_lengths[], int code_lengths_size);
 
 #ifdef __cplusplus

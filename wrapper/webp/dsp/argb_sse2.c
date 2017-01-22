@@ -54,14 +54,14 @@ static void PackARGB(const uint8_t* a, const uint8_t* r, const uint8_t* g,
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8EncDspARGBInitSSE2(void);
+extern void DEDUP_vP8_EncDspARGBInitSSE2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8EncDspARGBInitSSE2(void) {
-  VP8PackARGB = PackARGB;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_EncDspARGBInitSSE2(void) {
+  DEDUP_vP8_PackARGB = PackARGB;
 }
 
 #else  // !WEBP_USE_SSE2
 
-WEBP_DSP_INIT_STUB(VP8EncDspARGBInitSSE2)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_EncDspARGBInitSSE2)
 
 #endif  // WEBP_USE_SSE2

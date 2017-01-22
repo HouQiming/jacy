@@ -18,4 +18,4 @@
 //------------------------------------------------------------------------------
 // Entry point
 
-WEBP_DSP_INIT_STUB(VP8EncDspInitAVX2)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_EncDspInitAVX2)

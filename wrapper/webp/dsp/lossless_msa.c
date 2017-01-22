@@ -280,7 +280,7 @@ static void AddGreenToBlueAndRed(uint32_t* data, int num_pixels) {
   }
 }
 
-static void TransformColorInverse(const VP8LMultipliers* const m,
+static void TransformColorInverse(const DEDUP_vP8_LMultipliers* const m,
                                   uint32_t* data, int num_pixels) {
   v16u8 src0, dst0;
   const v16i8 g2br = (v16i8)__msa_fill_w(m->green_to_blue_ |
@@ -329,18 +329,18 @@ static void TransformColorInverse(const VP8LMultipliers* const m,
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8LDspInitMSA(void);
+extern void DEDUP_vP8_LDspInitMSA(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8LDspInitMSA(void) {
-  VP8LConvertBGRAToRGBA = ConvertBGRAToRGBA;
-  VP8LConvertBGRAToBGR = ConvertBGRAToBGR;
-  VP8LConvertBGRAToRGB = ConvertBGRAToRGB;
-  VP8LAddGreenToBlueAndRed = AddGreenToBlueAndRed;
-  VP8LTransformColorInverse = TransformColorInverse;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_LDspInitMSA(void) {
+  DEDUP_vP8_LConvertBGRAToRGBA = ConvertBGRAToRGBA;
+  DEDUP_vP8_LConvertBGRAToBGR = ConvertBGRAToBGR;
+  DEDUP_vP8_LConvertBGRAToRGB = ConvertBGRAToRGB;
+  DEDUP_vP8_LAddGreenToBlueAndRed = AddGreenToBlueAndRed;
+  DEDUP_vP8_LTransformColorInverse = TransformColorInverse;
 }
 
 #else  // !WEBP_USE_MSA
 
-WEBP_DSP_INIT_STUB(VP8LDspInitMSA)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_LDspInitMSA)
 
 #endif  // WEBP_USE_MSA

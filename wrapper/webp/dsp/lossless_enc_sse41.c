@@ -32,20 +32,20 @@ static void SubtractGreenFromBlueAndRed(uint32_t* argb_data, int num_pixels) {
     _mm_storeu_si128((__m128i*)&argb_data[i], out);
   }
   // fallthrough and finish off with plain-C
-  VP8LSubtractGreenFromBlueAndRed_C(argb_data + i, num_pixels - i);
+  DEDUP_vP8_LSubtractGreenFromBlueAndRed_C(argb_data + i, num_pixels - i);
 }
 
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8LEncDspInitSSE41(void);
+extern void DEDUP_vP8_LEncDspInitSSE41(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8LEncDspInitSSE41(void) {
-  VP8LSubtractGreenFromBlueAndRed = SubtractGreenFromBlueAndRed;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_LEncDspInitSSE41(void) {
+  DEDUP_vP8_LSubtractGreenFromBlueAndRed = SubtractGreenFromBlueAndRed;
 }
 
 #else  // !WEBP_USE_SSE41
 
-WEBP_DSP_INIT_STUB(VP8LEncDspInitSSE41)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_LEncDspInitSSE41)
 
 #endif  // WEBP_USE_SSE41

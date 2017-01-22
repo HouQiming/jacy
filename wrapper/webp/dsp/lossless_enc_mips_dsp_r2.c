@@ -78,7 +78,7 @@ static WEBP_INLINE uint32_t ColorTransformDelta(int8_t color_pred,
   return (uint32_t)((int)(color_pred) * color) >> 5;
 }
 
-static void TransformColor(const VP8LMultipliers* const m, uint32_t* data,
+static void TransformColor(const DEDUP_vP8_LMultipliers* const m, uint32_t* data,
                            int num_pixels) {
   int temp0, temp1, temp2, temp3, temp4, temp5;
   uint32_t argb, argb1, new_red, new_red1;
@@ -259,17 +259,17 @@ static void CollectColorRedTransforms(const uint32_t* argb, int stride,
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8LEncDspInitMIPSdspR2(void);
+extern void DEDUP_vP8_LEncDspInitMIPSdspR2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8LEncDspInitMIPSdspR2(void) {
-  VP8LSubtractGreenFromBlueAndRed = SubtractGreenFromBlueAndRed;
-  VP8LTransformColor = TransformColor;
-  VP8LCollectColorBlueTransforms = CollectColorBlueTransforms;
-  VP8LCollectColorRedTransforms = CollectColorRedTransforms;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_LEncDspInitMIPSdspR2(void) {
+  DEDUP_vP8_LSubtractGreenFromBlueAndRed = SubtractGreenFromBlueAndRed;
+  DEDUP_vP8_LTransformColor = TransformColor;
+  DEDUP_vP8_LCollectColorBlueTransforms = CollectColorBlueTransforms;
+  DEDUP_vP8_LCollectColorRedTransforms = CollectColorRedTransforms;
 }
 
 #else  // !WEBP_USE_MIPS_DSP_R2
 
-WEBP_DSP_INIT_STUB(VP8LEncDspInitMIPSdspR2)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_LEncDspInitMIPSdspR2)
 
 #endif  // WEBP_USE_MIPS_DSP_R2

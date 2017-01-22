@@ -21,9 +21,9 @@
 #include "./utils.h"
 
 //------------------------------------------------------------------------------
-// VP8BitWriter
+// DEDUP_vP8_BitWriter
 
-static int BitWriterResize(VP8BitWriter* const bw, size_t extra_size) {
+static int BitWriterResize(DEDUP_vP8_BitWriter* const bw, size_t extra_size) {
   uint8_t* new_buf;
   size_t new_size;
   const uint64_t needed_size_64b = (uint64_t)bw->pos_ + extra_size;
@@ -37,7 +37,7 @@ static int BitWriterResize(VP8BitWriter* const bw, size_t extra_size) {
   new_size = 2 * bw->max_pos_;
   if (new_size < needed_size) new_size = needed_size;
   if (new_size < 1024) new_size = 1024;
-  new_buf = (uint8_t*)WebPSafeMalloc(1ULL, new_size);
+  new_buf = (uint8_t*)DEDUP_WEBP_SafeMalloc(1ULL, new_size);
   if (new_buf == NULL) {
     bw->error_ = 1;
     return 0;
@@ -46,13 +46,13 @@ static int BitWriterResize(VP8BitWriter* const bw, size_t extra_size) {
     assert(bw->buf_ != NULL);
     memcpy(new_buf, bw->buf_, bw->pos_);
   }
-  WebPSafeFree(bw->buf_);
+  DEDUP_WEBP_SafeFree(bw->buf_);
   bw->buf_ = new_buf;
   bw->max_pos_ = new_size;
   return 1;
 }
 
-static void Flush(VP8BitWriter* const bw) {
+static void Flush(DEDUP_vP8_BitWriter* const bw) {
   const int s = 8 + bw->nb_bits_;
   const int32_t bits = bw->value_ >> s;
   assert(bw->nb_bits_ >= 0);
@@ -92,7 +92,7 @@ static const uint8_t kNorm[128] = {  // renorm_sizes[i] = 8 - log2(i)
   0
 };
 
-// range = ((range + 1) << kVP8Log2Range[range]) - 1
+// range = ((range + 1) << kDEDUP_vP8_Log2Range[range]) - 1
 static const uint8_t kNewRange[128] = {
   127, 127, 191, 127, 159, 191, 223, 127, 143, 159, 175, 191, 207, 223, 239,
   127, 135, 143, 151, 159, 167, 175, 183, 191, 199, 207, 215, 223, 231, 239,
@@ -105,7 +105,7 @@ static const uint8_t kNewRange[128] = {
   241, 243, 245, 247, 249, 251, 253, 127
 };
 
-int VP8PutBit(VP8BitWriter* const bw, int bit, int prob) {
+int DEDUP_vP8_PutBit(DEDUP_vP8_BitWriter* const bw, int bit, int prob) {
   const int split = (bw->range_ * prob) >> 8;
   if (bit) {
     bw->value_ += split + 1;
@@ -123,7 +123,7 @@ int VP8PutBit(VP8BitWriter* const bw, int bit, int prob) {
   return bit;
 }
 
-int VP8PutBitUniform(VP8BitWriter* const bw, int bit) {
+int DEDUP_vP8_PutBitUniform(DEDUP_vP8_BitWriter* const bw, int bit) {
   const int split = bw->range_ >> 1;
   if (bit) {
     bw->value_ += split + 1;
@@ -140,26 +140,26 @@ int VP8PutBitUniform(VP8BitWriter* const bw, int bit) {
   return bit;
 }
 
-void VP8PutBits(VP8BitWriter* const bw, uint32_t value, int nb_bits) {
+void DEDUP_vP8_PutBits(DEDUP_vP8_BitWriter* const bw, uint32_t value, int nb_bits) {
   uint32_t mask;
   assert(nb_bits > 0 && nb_bits < 32);
   for (mask = 1u << (nb_bits - 1); mask; mask >>= 1) {
-    VP8PutBitUniform(bw, value & mask);
+    DEDUP_vP8_PutBitUniform(bw, value & mask);
   }
 }
 
-void VP8PutSignedBits(VP8BitWriter* const bw, int value, int nb_bits) {
-  if (!VP8PutBitUniform(bw, value != 0)) return;
+void DEDUP_vP8_PutSignedBits(DEDUP_vP8_BitWriter* const bw, int value, int nb_bits) {
+  if (!DEDUP_vP8_PutBitUniform(bw, value != 0)) return;
   if (value < 0) {
-    VP8PutBits(bw, ((-value) << 1) | 1, nb_bits + 1);
+    DEDUP_vP8_PutBits(bw, ((-value) << 1) | 1, nb_bits + 1);
   } else {
-    VP8PutBits(bw, value << 1, nb_bits + 1);
+    DEDUP_vP8_PutBits(bw, value << 1, nb_bits + 1);
   }
 }
 
 //------------------------------------------------------------------------------
 
-int VP8BitWriterInit(VP8BitWriter* const bw, size_t expected_size) {
+int DEDUP_vP8_BitWriterInit(DEDUP_vP8_BitWriter* const bw, size_t expected_size) {
   bw->range_   = 255 - 1;
   bw->value_   = 0;
   bw->run_     = 0;
@@ -171,14 +171,14 @@ int VP8BitWriterInit(VP8BitWriter* const bw, size_t expected_size) {
   return (expected_size > 0) ? BitWriterResize(bw, expected_size) : 1;
 }
 
-uint8_t* VP8BitWriterFinish(VP8BitWriter* const bw) {
-  VP8PutBits(bw, 0, 9 - bw->nb_bits_);
+uint8_t* DEDUP_vP8_BitWriterFinish(DEDUP_vP8_BitWriter* const bw) {
+  DEDUP_vP8_PutBits(bw, 0, 9 - bw->nb_bits_);
   bw->nb_bits_ = 0;   // pad with zeroes
   Flush(bw);
   return bw->buf_;
 }
 
-int VP8BitWriterAppend(VP8BitWriter* const bw,
+int DEDUP_vP8_BitWriterAppend(DEDUP_vP8_BitWriter* const bw,
                        const uint8_t* data, size_t size) {
   assert(data != NULL);
   if (bw->nb_bits_ != -8) return 0;   // Flush() must have been called
@@ -188,22 +188,22 @@ int VP8BitWriterAppend(VP8BitWriter* const bw,
   return 1;
 }
 
-void VP8BitWriterWipeOut(VP8BitWriter* const bw) {
+void DEDUP_vP8_BitWriterWipeOut(DEDUP_vP8_BitWriter* const bw) {
   if (bw != NULL) {
-    WebPSafeFree(bw->buf_);
+    DEDUP_WEBP_SafeFree(bw->buf_);
     memset(bw, 0, sizeof(*bw));
   }
 }
 
 //------------------------------------------------------------------------------
-// VP8LBitWriter
+// DEDUP_vP8_LBitWriter
 
 // This is the minimum amount of size the memory buffer is guaranteed to grow
 // when extra space is needed.
 #define MIN_EXTRA_SIZE  (32768ULL)
 
 // Returns 1 on success.
-static int VP8LBitWriterResize(VP8LBitWriter* const bw, size_t extra_size) {
+static int DEDUP_vP8_LBitWriterResize(DEDUP_vP8_LBitWriter* const bw, size_t extra_size) {
   uint8_t* allocated_buf;
   size_t allocated_size;
   const size_t max_bytes = bw->end_ - bw->buf_;
@@ -219,7 +219,7 @@ static int VP8LBitWriterResize(VP8LBitWriter* const bw, size_t extra_size) {
   if (allocated_size < size_required) allocated_size = size_required;
   // make allocated size multiple of 1k
   allocated_size = (((allocated_size >> 10) + 1) << 10);
-  allocated_buf = (uint8_t*)WebPSafeMalloc(1ULL, allocated_size);
+  allocated_buf = (uint8_t*)DEDUP_WEBP_SafeMalloc(1ULL, allocated_size);
   if (allocated_buf == NULL) {
     bw->error_ = 1;
     return 0;
@@ -227,43 +227,43 @@ static int VP8LBitWriterResize(VP8LBitWriter* const bw, size_t extra_size) {
   if (current_size > 0) {
     memcpy(allocated_buf, bw->buf_, current_size);
   }
-  WebPSafeFree(bw->buf_);
+  DEDUP_WEBP_SafeFree(bw->buf_);
   bw->buf_ = allocated_buf;
   bw->cur_ = bw->buf_ + current_size;
   bw->end_ = bw->buf_ + allocated_size;
   return 1;
 }
 
-int VP8LBitWriterInit(VP8LBitWriter* const bw, size_t expected_size) {
+int DEDUP_vP8_LBitWriterInit(DEDUP_vP8_LBitWriter* const bw, size_t expected_size) {
   memset(bw, 0, sizeof(*bw));
-  return VP8LBitWriterResize(bw, expected_size);
+  return DEDUP_vP8_LBitWriterResize(bw, expected_size);
 }
 
-void VP8LBitWriterWipeOut(VP8LBitWriter* const bw) {
+void DEDUP_vP8_LBitWriterWipeOut(DEDUP_vP8_LBitWriter* const bw) {
   if (bw != NULL) {
-    WebPSafeFree(bw->buf_);
+    DEDUP_WEBP_SafeFree(bw->buf_);
     memset(bw, 0, sizeof(*bw));
   }
 }
 
-void VP8LPutBitsFlushBits(VP8LBitWriter* const bw) {
+void DEDUP_vP8_LPutBitsFlushBits(DEDUP_vP8_LBitWriter* const bw) {
   // If needed, make some room by flushing some bits out.
-  if (bw->cur_ + VP8L_WRITER_BYTES > bw->end_) {
+  if (bw->cur_ + DEDUP_vP8_L_WRITER_BYTES > bw->end_) {
     const uint64_t extra_size = (bw->end_ - bw->buf_) + MIN_EXTRA_SIZE;
     if (extra_size != (size_t)extra_size ||
-        !VP8LBitWriterResize(bw, (size_t)extra_size)) {
+        !DEDUP_vP8_LBitWriterResize(bw, (size_t)extra_size)) {
       bw->cur_ = bw->buf_;
       bw->error_ = 1;
       return;
     }
   }
   *(vp8l_wtype_t*)bw->cur_ = (vp8l_wtype_t)WSWAP((vp8l_wtype_t)bw->bits_);
-  bw->cur_ += VP8L_WRITER_BYTES;
-  bw->bits_ >>= VP8L_WRITER_BITS;
-  bw->used_ -= VP8L_WRITER_BITS;
+  bw->cur_ += DEDUP_vP8_L_WRITER_BYTES;
+  bw->bits_ >>= DEDUP_vP8_L_WRITER_BITS;
+  bw->used_ -= DEDUP_vP8_L_WRITER_BITS;
 }
 
-void VP8LPutBitsInternal(VP8LBitWriter* const bw, uint32_t bits, int n_bits) {
+void DEDUP_vP8_LPutBitsInternal(DEDUP_vP8_LBitWriter* const bw, uint32_t bits, int n_bits) {
   assert(n_bits <= 32);
   // That's the max we can handle:
   assert(sizeof(vp8l_wtype_t) == 2);
@@ -271,41 +271,41 @@ void VP8LPutBitsInternal(VP8LBitWriter* const bw, uint32_t bits, int n_bits) {
     vp8l_atype_t lbits = bw->bits_;
     int used = bw->used_;
     // Special case of overflow handling for 32bit accumulator (2-steps flush).
-#if VP8L_WRITER_BITS == 16
-    if (used + n_bits >= VP8L_WRITER_MAX_BITS) {
-      // Fill up all the VP8L_WRITER_MAX_BITS so it can be flushed out below.
-      const int shift = VP8L_WRITER_MAX_BITS - used;
+#if DEDUP_vP8_L_WRITER_BITS == 16
+    if (used + n_bits >= DEDUP_vP8_L_WRITER_MAX_BITS) {
+      // Fill up all the DEDUP_vP8_L_WRITER_MAX_BITS so it can be flushed out below.
+      const int shift = DEDUP_vP8_L_WRITER_MAX_BITS - used;
       lbits |= (vp8l_atype_t)bits << used;
-      used = VP8L_WRITER_MAX_BITS;
+      used = DEDUP_vP8_L_WRITER_MAX_BITS;
       n_bits -= shift;
       bits >>= shift;
-      assert(n_bits <= VP8L_WRITER_MAX_BITS);
+      assert(n_bits <= DEDUP_vP8_L_WRITER_MAX_BITS);
     }
 #endif
     // If needed, make some room by flushing some bits out.
-    while (used >= VP8L_WRITER_BITS) {
-      if (bw->cur_ + VP8L_WRITER_BYTES > bw->end_) {
+    while (used >= DEDUP_vP8_L_WRITER_BITS) {
+      if (bw->cur_ + DEDUP_vP8_L_WRITER_BYTES > bw->end_) {
         const uint64_t extra_size = (bw->end_ - bw->buf_) + MIN_EXTRA_SIZE;
         if (extra_size != (size_t)extra_size ||
-            !VP8LBitWriterResize(bw, (size_t)extra_size)) {
+            !DEDUP_vP8_LBitWriterResize(bw, (size_t)extra_size)) {
           bw->cur_ = bw->buf_;
           bw->error_ = 1;
           return;
         }
       }
       *(vp8l_wtype_t*)bw->cur_ = (vp8l_wtype_t)WSWAP((vp8l_wtype_t)lbits);
-      bw->cur_ += VP8L_WRITER_BYTES;
-      lbits >>= VP8L_WRITER_BITS;
-      used -= VP8L_WRITER_BITS;
+      bw->cur_ += DEDUP_vP8_L_WRITER_BYTES;
+      lbits >>= DEDUP_vP8_L_WRITER_BITS;
+      used -= DEDUP_vP8_L_WRITER_BITS;
     }
     bw->bits_ = lbits | ((vp8l_atype_t)bits << used);
     bw->used_ = used + n_bits;
   }
 }
 
-uint8_t* VP8LBitWriterFinish(VP8LBitWriter* const bw) {
+uint8_t* DEDUP_vP8_LBitWriterFinish(DEDUP_vP8_LBitWriter* const bw) {
   // flush leftover bits
-  if (VP8LBitWriterResize(bw, (bw->used_ + 7) >> 3)) {
+  if (DEDUP_vP8_LBitWriterResize(bw, (bw->used_ + 7) >> 3)) {
     while (bw->used_ > 0) {
       *bw->cur_++ = (uint8_t)bw->bits_;
       bw->bits_ >>= 8;

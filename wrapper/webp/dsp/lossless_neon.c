@@ -38,7 +38,7 @@ static void ConvertBGRAToRGBA(const uint32_t* src,
     vst4q_u8(dst, pixel);
     dst += 64;
   }
-  VP8LConvertBGRAToRGBA_C(src, num_pixels & 15, dst);  // left-overs
+  DEDUP_vP8_LConvertBGRAToRGBA_C(src, num_pixels & 15, dst);  // left-overs
 }
 
 static void ConvertBGRAToBGR(const uint32_t* src,
@@ -50,7 +50,7 @@ static void ConvertBGRAToBGR(const uint32_t* src,
     vst3q_u8(dst, tmp);
     dst += 48;
   }
-  VP8LConvertBGRAToBGR_C(src, num_pixels & 15, dst);  // left-overs
+  DEDUP_vP8_LConvertBGRAToBGR_C(src, num_pixels & 15, dst);  // left-overs
 }
 
 static void ConvertBGRAToRGB(const uint32_t* src,
@@ -62,7 +62,7 @@ static void ConvertBGRAToRGB(const uint32_t* src,
     vst3q_u8(dst, tmp);
     dst += 48;
   }
-  VP8LConvertBGRAToRGB_C(src, num_pixels & 15, dst);  // left-overs
+  DEDUP_vP8_LConvertBGRAToRGB_C(src, num_pixels & 15, dst);  // left-overs
 }
 
 #else  // WORK_AROUND_GCC
@@ -80,7 +80,7 @@ static void ConvertBGRAToRGBA(const uint32_t* src,
     vst1_u8(dst, vtbl1_u8(pixels, shuffle));
     dst += 8;
   }
-  VP8LConvertBGRAToRGBA_C(src, num_pixels & 1, dst);  // left-overs
+  DEDUP_vP8_LConvertBGRAToRGBA_C(src, num_pixels & 1, dst);  // left-overs
 }
 
 static const uint8_t kBGRShuffle[3][8] = {
@@ -107,7 +107,7 @@ static void ConvertBGRAToBGR(const uint32_t* src,
     vst1_u8(dst + 16, vtbl4_u8(pixels, shuffle2));
     dst += 8 * 3;
   }
-  VP8LConvertBGRAToBGR_C(src, num_pixels & 7, dst);  // left-overs
+  DEDUP_vP8_LConvertBGRAToBGR_C(src, num_pixels & 7, dst);  // left-overs
 }
 
 static const uint8_t kRGBShuffle[3][8] = {
@@ -134,7 +134,7 @@ static void ConvertBGRAToRGB(const uint32_t* src,
     vst1_u8(dst + 16, vtbl4_u8(pixels, shuffle2));
     dst += 8 * 3;
   }
-  VP8LConvertBGRAToRGB_C(src, num_pixels & 7, dst);  // left-overs
+  DEDUP_vP8_LConvertBGRAToRGB_C(src, num_pixels & 7, dst);  // left-overs
 }
 
 #endif   // !WORK_AROUND_GCC
@@ -184,13 +184,13 @@ static void AddGreenToBlueAndRed(uint32_t* argb_data, int num_pixels) {
     vst1q_u8((uint8_t*)argb_data, vaddq_u8(argb, greens));
   }
   // fallthrough and finish off with plain-C
-  VP8LAddGreenToBlueAndRed_C(argb_data, num_pixels & 3);
+  DEDUP_vP8_LAddGreenToBlueAndRed_C(argb_data, num_pixels & 3);
 }
 
 //------------------------------------------------------------------------------
 // Color Transform
 
-static void TransformColorInverse(const VP8LMultipliers* const m,
+static void TransformColorInverse(const DEDUP_vP8_LMultipliers* const m,
                                   uint32_t* argb_data, int num_pixels) {
   // sign-extended multiplying constants, pre-shifted by 6.
 #define CST(X)  (((int16_t)(m->X << 8)) >> 6)
@@ -243,7 +243,7 @@ static void TransformColorInverse(const VP8LMultipliers* const m,
     vst1q_u32(argb_data + i, out);
   }
   // Fall-back to C-version for left-overs.
-  VP8LTransformColorInverse_C(m, argb_data + i, num_pixels - i);
+  DEDUP_vP8_LTransformColorInverse_C(m, argb_data + i, num_pixels - i);
 }
 
 #undef USE_VTBLQ
@@ -251,19 +251,19 @@ static void TransformColorInverse(const VP8LMultipliers* const m,
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8LDspInitNEON(void);
+extern void DEDUP_vP8_LDspInitNEON(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8LDspInitNEON(void) {
-  VP8LConvertBGRAToRGBA = ConvertBGRAToRGBA;
-  VP8LConvertBGRAToBGR = ConvertBGRAToBGR;
-  VP8LConvertBGRAToRGB = ConvertBGRAToRGB;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_LDspInitNEON(void) {
+  DEDUP_vP8_LConvertBGRAToRGBA = ConvertBGRAToRGBA;
+  DEDUP_vP8_LConvertBGRAToBGR = ConvertBGRAToBGR;
+  DEDUP_vP8_LConvertBGRAToRGB = ConvertBGRAToRGB;
 
-  VP8LAddGreenToBlueAndRed = AddGreenToBlueAndRed;
-  VP8LTransformColorInverse = TransformColorInverse;
+  DEDUP_vP8_LAddGreenToBlueAndRed = AddGreenToBlueAndRed;
+  DEDUP_vP8_LTransformColorInverse = TransformColorInverse;
 }
 
 #else  // !WEBP_USE_NEON
 
-WEBP_DSP_INIT_STUB(VP8LDspInitNEON)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_LDspInitNEON)
 
 #endif  // WEBP_USE_NEON

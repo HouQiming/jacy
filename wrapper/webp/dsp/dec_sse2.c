@@ -104,7 +104,7 @@ static void Transform(const int16_t* in, uint8_t* dst, int do_two) {
     const __m128i tmp3 = _mm_sub_epi16(a, d);
 
     // Transpose the two 4x4.
-    VP8Transpose_2_4x4_16b(&tmp0, &tmp1, &tmp2, &tmp3, &T0, &T1, &T2, &T3);
+    DEDUP_vP8_Transpose_2_4x4_16b(&tmp0, &tmp1, &tmp2, &tmp3, &T0, &T1, &T2, &T3);
   }
 
   // Horizontal pass and subsequent transpose.
@@ -139,7 +139,7 @@ static void Transform(const int16_t* in, uint8_t* dst, int do_two) {
     const __m128i shifted3 = _mm_srai_epi16(tmp3, 3);
 
     // Transpose the two 4x4.
-    VP8Transpose_2_4x4_16b(&shifted0, &shifted1, &shifted2, &shifted3, &T0, &T1,
+    DEDUP_vP8_Transpose_2_4x4_16b(&shifted0, &shifted1, &shifted2, &shifted3, &T0, &T1,
                            &T2, &T3);
   }
 
@@ -156,10 +156,10 @@ static void Transform(const int16_t* in, uint8_t* dst, int do_two) {
       dst3 = _mm_loadl_epi64((__m128i*)(dst + 3 * BPS));
     } else {
       // Load four bytes/pixels per line.
-      dst0 = _mm_cvtsi32_si128(WebPMemToUint32(dst + 0 * BPS));
-      dst1 = _mm_cvtsi32_si128(WebPMemToUint32(dst + 1 * BPS));
-      dst2 = _mm_cvtsi32_si128(WebPMemToUint32(dst + 2 * BPS));
-      dst3 = _mm_cvtsi32_si128(WebPMemToUint32(dst + 3 * BPS));
+      dst0 = _mm_cvtsi32_si128(DEDUP_WEBP_MemToUint32(dst + 0 * BPS));
+      dst1 = _mm_cvtsi32_si128(DEDUP_WEBP_MemToUint32(dst + 1 * BPS));
+      dst2 = _mm_cvtsi32_si128(DEDUP_WEBP_MemToUint32(dst + 2 * BPS));
+      dst3 = _mm_cvtsi32_si128(DEDUP_WEBP_MemToUint32(dst + 3 * BPS));
     }
     // Convert to 16b.
     dst0 = _mm_unpacklo_epi8(dst0, zero);
@@ -185,10 +185,10 @@ static void Transform(const int16_t* in, uint8_t* dst, int do_two) {
       _mm_storel_epi64((__m128i*)(dst + 3 * BPS), dst3);
     } else {
       // Store four bytes/pixels per line.
-      WebPUint32ToMem(dst + 0 * BPS, _mm_cvtsi128_si32(dst0));
-      WebPUint32ToMem(dst + 1 * BPS, _mm_cvtsi128_si32(dst1));
-      WebPUint32ToMem(dst + 2 * BPS, _mm_cvtsi128_si32(dst2));
-      WebPUint32ToMem(dst + 3 * BPS, _mm_cvtsi128_si32(dst3));
+      DEDUP_WEBP_Uint32ToMem(dst + 0 * BPS, _mm_cvtsi128_si32(dst0));
+      DEDUP_WEBP_Uint32ToMem(dst + 1 * BPS, _mm_cvtsi128_si32(dst1));
+      DEDUP_WEBP_Uint32ToMem(dst + 2 * BPS, _mm_cvtsi128_si32(dst2));
+      DEDUP_WEBP_Uint32ToMem(dst + 3 * BPS, _mm_cvtsi128_si32(dst3));
     }
   }
 }
@@ -211,10 +211,10 @@ static void TransformAC3(const int16_t* in, uint8_t* dst) {
   const __m128i m3 = _mm_subs_epi16(B, d4);
   const __m128i zero = _mm_setzero_si128();
   // Load the source pixels.
-  __m128i dst0 = _mm_cvtsi32_si128(WebPMemToUint32(dst + 0 * BPS));
-  __m128i dst1 = _mm_cvtsi32_si128(WebPMemToUint32(dst + 1 * BPS));
-  __m128i dst2 = _mm_cvtsi32_si128(WebPMemToUint32(dst + 2 * BPS));
-  __m128i dst3 = _mm_cvtsi32_si128(WebPMemToUint32(dst + 3 * BPS));
+  __m128i dst0 = _mm_cvtsi32_si128(DEDUP_WEBP_MemToUint32(dst + 0 * BPS));
+  __m128i dst1 = _mm_cvtsi32_si128(DEDUP_WEBP_MemToUint32(dst + 1 * BPS));
+  __m128i dst2 = _mm_cvtsi32_si128(DEDUP_WEBP_MemToUint32(dst + 2 * BPS));
+  __m128i dst3 = _mm_cvtsi32_si128(DEDUP_WEBP_MemToUint32(dst + 3 * BPS));
   // Convert to 16b.
   dst0 = _mm_unpacklo_epi8(dst0, zero);
   dst1 = _mm_unpacklo_epi8(dst1, zero);
@@ -231,10 +231,10 @@ static void TransformAC3(const int16_t* in, uint8_t* dst) {
   dst2 = _mm_packus_epi16(dst2, dst2);
   dst3 = _mm_packus_epi16(dst3, dst3);
   // Store the results.
-  WebPUint32ToMem(dst + 0 * BPS, _mm_cvtsi128_si32(dst0));
-  WebPUint32ToMem(dst + 1 * BPS, _mm_cvtsi128_si32(dst1));
-  WebPUint32ToMem(dst + 2 * BPS, _mm_cvtsi128_si32(dst2));
-  WebPUint32ToMem(dst + 3 * BPS, _mm_cvtsi128_si32(dst3));
+  DEDUP_WEBP_Uint32ToMem(dst + 0 * BPS, _mm_cvtsi128_si32(dst0));
+  DEDUP_WEBP_Uint32ToMem(dst + 1 * BPS, _mm_cvtsi128_si32(dst1));
+  DEDUP_WEBP_Uint32ToMem(dst + 2 * BPS, _mm_cvtsi128_si32(dst2));
+  DEDUP_WEBP_Uint32ToMem(dst + 3 * BPS, _mm_cvtsi128_si32(dst3));
 }
 #undef MUL
 #endif   // USE_TRANSFORM_AC3
@@ -472,11 +472,11 @@ static WEBP_INLINE void Load8x4(const uint8_t* const b, int stride,
   // A0 = 63 62 61 60 23 22 21 20 43 42 41 40 03 02 01 00
   // A1 = 73 72 71 70 33 32 31 30 53 52 51 50 13 12 11 10
   const __m128i A0 = _mm_set_epi32(
-      WebPMemToUint32(&b[6 * stride]), WebPMemToUint32(&b[2 * stride]),
-      WebPMemToUint32(&b[4 * stride]), WebPMemToUint32(&b[0 * stride]));
+      DEDUP_WEBP_MemToUint32(&b[6 * stride]), DEDUP_WEBP_MemToUint32(&b[2 * stride]),
+      DEDUP_WEBP_MemToUint32(&b[4 * stride]), DEDUP_WEBP_MemToUint32(&b[0 * stride]));
   const __m128i A1 = _mm_set_epi32(
-      WebPMemToUint32(&b[7 * stride]), WebPMemToUint32(&b[3 * stride]),
-      WebPMemToUint32(&b[5 * stride]), WebPMemToUint32(&b[1 * stride]));
+      DEDUP_WEBP_MemToUint32(&b[7 * stride]), DEDUP_WEBP_MemToUint32(&b[3 * stride]),
+      DEDUP_WEBP_MemToUint32(&b[5 * stride]), DEDUP_WEBP_MemToUint32(&b[1 * stride]));
 
   // B0 = 53 43 52 42 51 41 50 40 13 03 12 02 11 01 10 00
   // B1 = 73 63 72 62 71 61 70 60 33 23 32 22 31 21 30 20
@@ -534,7 +534,7 @@ static WEBP_INLINE void Load16x4(const uint8_t* const r0,
 static WEBP_INLINE void Store4x4(__m128i* const x, uint8_t* dst, int stride) {
   int i;
   for (i = 0; i < 4; ++i, dst += stride) {
-    WebPUint32ToMem(dst, _mm_cvtsi128_si32(*x));
+    DEDUP_WEBP_Uint32ToMem(dst, _mm_cvtsi128_si32(*x));
     *x = _mm_srli_si128(*x, 4);
   }
 }
@@ -905,7 +905,7 @@ static void VE4(uint8_t* dst) {    // vertical
   const uint32_t vals = _mm_cvtsi128_si32(avg);
   int i;
   for (i = 0; i < 4; ++i) {
-    WebPUint32ToMem(dst + i * BPS, vals);
+    DEDUP_WEBP_Uint32ToMem(dst + i * BPS, vals);
   }
 }
 
@@ -919,10 +919,10 @@ static void LD4(uint8_t* dst) {   // Down-Left
   const __m128i lsb = _mm_and_si128(_mm_xor_si128(ABCDEFGH, CDEFGHH0), one);
   const __m128i avg2 = _mm_subs_epu8(avg1, lsb);
   const __m128i abcdefg = _mm_avg_epu8(avg2, BCDEFGH0);
-  WebPUint32ToMem(dst + 0 * BPS, _mm_cvtsi128_si32(               abcdefg    ));
-  WebPUint32ToMem(dst + 1 * BPS, _mm_cvtsi128_si32(_mm_srli_si128(abcdefg, 1)));
-  WebPUint32ToMem(dst + 2 * BPS, _mm_cvtsi128_si32(_mm_srli_si128(abcdefg, 2)));
-  WebPUint32ToMem(dst + 3 * BPS, _mm_cvtsi128_si32(_mm_srli_si128(abcdefg, 3)));
+  DEDUP_WEBP_Uint32ToMem(dst + 0 * BPS, _mm_cvtsi128_si32(               abcdefg    ));
+  DEDUP_WEBP_Uint32ToMem(dst + 1 * BPS, _mm_cvtsi128_si32(_mm_srli_si128(abcdefg, 1)));
+  DEDUP_WEBP_Uint32ToMem(dst + 2 * BPS, _mm_cvtsi128_si32(_mm_srli_si128(abcdefg, 2)));
+  DEDUP_WEBP_Uint32ToMem(dst + 3 * BPS, _mm_cvtsi128_si32(_mm_srli_si128(abcdefg, 3)));
 }
 
 static void VR4(uint8_t* dst) {   // Vertical-Right
@@ -940,10 +940,10 @@ static void VR4(uint8_t* dst) {   // Vertical-Right
   const __m128i lsb = _mm_and_si128(_mm_xor_si128(IXABCD, ABCD0), one);
   const __m128i avg2 = _mm_subs_epu8(avg1, lsb);
   const __m128i efgh = _mm_avg_epu8(avg2, XABCD);
-  WebPUint32ToMem(dst + 0 * BPS, _mm_cvtsi128_si32(               abcd    ));
-  WebPUint32ToMem(dst + 1 * BPS, _mm_cvtsi128_si32(               efgh    ));
-  WebPUint32ToMem(dst + 2 * BPS, _mm_cvtsi128_si32(_mm_slli_si128(abcd, 1)));
-  WebPUint32ToMem(dst + 3 * BPS, _mm_cvtsi128_si32(_mm_slli_si128(efgh, 1)));
+  DEDUP_WEBP_Uint32ToMem(dst + 0 * BPS, _mm_cvtsi128_si32(               abcd    ));
+  DEDUP_WEBP_Uint32ToMem(dst + 1 * BPS, _mm_cvtsi128_si32(               efgh    ));
+  DEDUP_WEBP_Uint32ToMem(dst + 2 * BPS, _mm_cvtsi128_si32(_mm_slli_si128(abcd, 1)));
+  DEDUP_WEBP_Uint32ToMem(dst + 3 * BPS, _mm_cvtsi128_si32(_mm_slli_si128(efgh, 1)));
 
   // these two are hard to implement in SSE2, so we keep the C-version:
   DST(0, 2) = AVG3(J, I, X);
@@ -965,10 +965,10 @@ static void VL4(uint8_t* dst) {   // Vertical-Left
   const __m128i lsb2 = _mm_and_si128(abbc, lsb1);
   const __m128i avg4 = _mm_subs_epu8(avg3, lsb2);
   const uint32_t extra_out = _mm_cvtsi128_si32(_mm_srli_si128(avg4, 4));
-  WebPUint32ToMem(dst + 0 * BPS, _mm_cvtsi128_si32(               avg1    ));
-  WebPUint32ToMem(dst + 1 * BPS, _mm_cvtsi128_si32(               avg4    ));
-  WebPUint32ToMem(dst + 2 * BPS, _mm_cvtsi128_si32(_mm_srli_si128(avg1, 1)));
-  WebPUint32ToMem(dst + 3 * BPS, _mm_cvtsi128_si32(_mm_srli_si128(avg4, 1)));
+  DEDUP_WEBP_Uint32ToMem(dst + 0 * BPS, _mm_cvtsi128_si32(               avg1    ));
+  DEDUP_WEBP_Uint32ToMem(dst + 1 * BPS, _mm_cvtsi128_si32(               avg4    ));
+  DEDUP_WEBP_Uint32ToMem(dst + 2 * BPS, _mm_cvtsi128_si32(_mm_srli_si128(avg1, 1)));
+  DEDUP_WEBP_Uint32ToMem(dst + 3 * BPS, _mm_cvtsi128_si32(_mm_srli_si128(avg4, 1)));
 
   // these two are hard to get and irregular
   DST(3, 2) = (extra_out >> 0) & 0xff;
@@ -992,10 +992,10 @@ static void RD4(uint8_t* dst) {   // Down-right
   const __m128i lsb = _mm_and_si128(_mm_xor_si128(JIXABCD__, LKJIXABCD), one);
   const __m128i avg2 = _mm_subs_epu8(avg1, lsb);
   const __m128i abcdefg = _mm_avg_epu8(avg2, KJIXABCD_);
-  WebPUint32ToMem(dst + 3 * BPS, _mm_cvtsi128_si32(               abcdefg    ));
-  WebPUint32ToMem(dst + 2 * BPS, _mm_cvtsi128_si32(_mm_srli_si128(abcdefg, 1)));
-  WebPUint32ToMem(dst + 1 * BPS, _mm_cvtsi128_si32(_mm_srli_si128(abcdefg, 2)));
-  WebPUint32ToMem(dst + 0 * BPS, _mm_cvtsi128_si32(_mm_srli_si128(abcdefg, 3)));
+  DEDUP_WEBP_Uint32ToMem(dst + 3 * BPS, _mm_cvtsi128_si32(               abcdefg    ));
+  DEDUP_WEBP_Uint32ToMem(dst + 2 * BPS, _mm_cvtsi128_si32(_mm_srli_si128(abcdefg, 1)));
+  DEDUP_WEBP_Uint32ToMem(dst + 1 * BPS, _mm_cvtsi128_si32(_mm_srli_si128(abcdefg, 2)));
+  DEDUP_WEBP_Uint32ToMem(dst + 0 * BPS, _mm_cvtsi128_si32(_mm_srli_si128(abcdefg, 3)));
 }
 
 #undef DST
@@ -1009,13 +1009,13 @@ static WEBP_INLINE void TrueMotion(uint8_t* dst, int size) {
   const __m128i zero = _mm_setzero_si128();
   int y;
   if (size == 4) {
-    const __m128i top_values = _mm_cvtsi32_si128(WebPMemToUint32(top));
+    const __m128i top_values = _mm_cvtsi32_si128(DEDUP_WEBP_MemToUint32(top));
     const __m128i top_base = _mm_unpacklo_epi8(top_values, zero);
     for (y = 0; y < 4; ++y, dst += BPS) {
       const int val = dst[-1] - top[-1];
       const __m128i base = _mm_set1_epi16(val);
       const __m128i out = _mm_packus_epi16(_mm_add_epi16(base, top_base), zero);
-      WebPUint32ToMem(dst, _mm_cvtsi128_si32(out));
+      DEDUP_WEBP_Uint32ToMem(dst, _mm_cvtsi128_si32(out));
     }
   } else if (size == 8) {
     const __m128i top_values = _mm_loadl_epi64((const __m128i*)top);
@@ -1178,54 +1178,54 @@ static void DC8uvNoTopLeft(uint8_t* dst) {    // DC with nothing
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8DspInitSSE2(void);
+extern void DEDUP_vP8_DspInitSSE2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8DspInitSSE2(void) {
-  VP8Transform = Transform;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_DspInitSSE2(void) {
+  DEDUP_vP8_Transform = Transform;
 #if defined(USE_TRANSFORM_AC3)
-  VP8TransformAC3 = TransformAC3;
+  DEDUP_vP8_TransformAC3 = TransformAC3;
 #endif
 
-  VP8VFilter16 = VFilter16;
-  VP8HFilter16 = HFilter16;
-  VP8VFilter8 = VFilter8;
-  VP8HFilter8 = HFilter8;
-  VP8VFilter16i = VFilter16i;
-  VP8HFilter16i = HFilter16i;
-  VP8VFilter8i = VFilter8i;
-  VP8HFilter8i = HFilter8i;
+  DEDUP_vP8_VFilter16 = VFilter16;
+  DEDUP_vP8_HFilter16 = HFilter16;
+  DEDUP_vP8_VFilter8 = VFilter8;
+  DEDUP_vP8_HFilter8 = HFilter8;
+  DEDUP_vP8_VFilter16i = VFilter16i;
+  DEDUP_vP8_HFilter16i = HFilter16i;
+  DEDUP_vP8_VFilter8i = VFilter8i;
+  DEDUP_vP8_HFilter8i = HFilter8i;
 
-  VP8SimpleVFilter16 = SimpleVFilter16;
-  VP8SimpleHFilter16 = SimpleHFilter16;
-  VP8SimpleVFilter16i = SimpleVFilter16i;
-  VP8SimpleHFilter16i = SimpleHFilter16i;
+  DEDUP_vP8_SimpleVFilter16 = SimpleVFilter16;
+  DEDUP_vP8_SimpleHFilter16 = SimpleHFilter16;
+  DEDUP_vP8_SimpleVFilter16i = SimpleVFilter16i;
+  DEDUP_vP8_SimpleHFilter16i = SimpleHFilter16i;
 
-  VP8PredLuma4[1] = TM4;
-  VP8PredLuma4[2] = VE4;
-  VP8PredLuma4[4] = RD4;
-  VP8PredLuma4[5] = VR4;
-  VP8PredLuma4[6] = LD4;
-  VP8PredLuma4[7] = VL4;
+  DEDUP_vP8_PredLuma4[1] = TM4;
+  DEDUP_vP8_PredLuma4[2] = VE4;
+  DEDUP_vP8_PredLuma4[4] = RD4;
+  DEDUP_vP8_PredLuma4[5] = VR4;
+  DEDUP_vP8_PredLuma4[6] = LD4;
+  DEDUP_vP8_PredLuma4[7] = VL4;
 
-  VP8PredLuma16[0] = DC16;
-  VP8PredLuma16[1] = TM16;
-  VP8PredLuma16[2] = VE16;
-  VP8PredLuma16[3] = HE16;
-  VP8PredLuma16[4] = DC16NoTop;
-  VP8PredLuma16[5] = DC16NoLeft;
-  VP8PredLuma16[6] = DC16NoTopLeft;
+  DEDUP_vP8_PredLuma16[0] = DC16;
+  DEDUP_vP8_PredLuma16[1] = TM16;
+  DEDUP_vP8_PredLuma16[2] = VE16;
+  DEDUP_vP8_PredLuma16[3] = HE16;
+  DEDUP_vP8_PredLuma16[4] = DC16NoTop;
+  DEDUP_vP8_PredLuma16[5] = DC16NoLeft;
+  DEDUP_vP8_PredLuma16[6] = DC16NoTopLeft;
 
-  VP8PredChroma8[0] = DC8uv;
-  VP8PredChroma8[1] = TM8uv;
-  VP8PredChroma8[2] = VE8uv;
-  VP8PredChroma8[3] = HE8uv;
-  VP8PredChroma8[4] = DC8uvNoTop;
-  VP8PredChroma8[5] = DC8uvNoLeft;
-  VP8PredChroma8[6] = DC8uvNoTopLeft;
+  DEDUP_vP8_PredChroma8[0] = DC8uv;
+  DEDUP_vP8_PredChroma8[1] = TM8uv;
+  DEDUP_vP8_PredChroma8[2] = VE8uv;
+  DEDUP_vP8_PredChroma8[3] = HE8uv;
+  DEDUP_vP8_PredChroma8[4] = DC8uvNoTop;
+  DEDUP_vP8_PredChroma8[5] = DC8uvNoLeft;
+  DEDUP_vP8_PredChroma8[6] = DC8uvNoTopLeft;
 }
 
 #else  // !WEBP_USE_SSE2
 
-WEBP_DSP_INIT_STUB(VP8DspInitSSE2)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_DspInitSSE2)
 
 #endif  // WEBP_USE_SSE2

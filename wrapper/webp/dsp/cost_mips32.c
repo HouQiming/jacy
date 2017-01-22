@@ -15,18 +15,18 @@
 
 #include "../enc/cost.h"
 
-static int GetResidualCost(int ctx0, const VP8Residual* const res) {
+static int GetResidualCost(int ctx0, const DEDUP_vP8_Residual* const res) {
   int temp0, temp1;
   int v_reg, ctx_reg;
   int n = res->first;
-  // should be prob[VP8EncBands[n]], but it's equivalent for n=0 or 1
+  // should be prob[DEDUP_vP8_EncBands[n]], but it's equivalent for n=0 or 1
   int p0 = res->prob[n][ctx0][0];
   CostArrayPtr const costs = res->costs;
   const uint16_t* t = costs[n][ctx0];
   // bit_cost(1, p0) is already incorporated in t[] tables, but only if ctx != 0
   // (as required by the syntax). For ctx0 == 0, we need to add it here or it'll
   // be missing during the loop.
-  int cost = (ctx0 == 0) ? VP8BitCost(1, p0) : 0;
+  int cost = (ctx0 == 0) ? DEDUP_vP8_BitCost(1, p0) : 0;
   const int16_t* res_coeffs = res->coeffs;
   const int res_last = res->last;
   const int const_max_level = MAX_VARIABLE_LEVEL;
@@ -35,7 +35,7 @@ static int GetResidualCost(int ctx0, const VP8Residual* const res) {
   const size_t inc_p_costs = NUM_CTX * sizeof(*p_costs);
 
   if (res->last < 0) {
-    return VP8BitCost(0, p0);
+    return DEDUP_vP8_BitCost(0, p0);
   }
 
   __asm__ volatile (
@@ -55,7 +55,7 @@ static int GetResidualCost(int ctx0, const VP8Residual* const res) {
     "move      %[ctx_reg],      %[v_reg]                                   \n\t"
     "movz      %[ctx_reg],      %[const_2],         %[temp0]               \n\t"
     "sll       %[temp1],        %[v_reg],           1                      \n\t"
-    "addu      %[temp1],        %[temp1],           %[VP8LevelFixedCosts]  \n\t"
+    "addu      %[temp1],        %[temp1],           %[DEDUP_vP8_LevelFixedCosts]  \n\t"
     "lhu       %[temp1],        0(%[temp1])                                \n\t"
     "slt       %[temp0],        %[v_reg],           %[const_max_level]     \n\t"
     "movz      %[v_reg],        %[const_max_level], %[temp0]               \n\t"
@@ -76,7 +76,7 @@ static int GetResidualCost(int ctx0, const VP8Residual* const res) {
       [ctx_reg]"=&r"(ctx_reg), [p_costs]"+&r"(p_costs), [temp0]"=&r"(temp0),
       [temp1]"=&r"(temp1), [res_coeffs]"+&r"(res_coeffs)
     : [const_2]"r"(const_2), [const_max_level]"r"(const_max_level),
-      [VP8LevelFixedCosts]"r"(VP8LevelFixedCosts), [res_last]"r"(res_last),
+      [DEDUP_vP8_LevelFixedCosts]"r"(DEDUP_vP8_LevelFixedCosts), [res_last]"r"(res_last),
       [inc_p_costs]"r"(inc_p_costs)
     : "memory"
   );
@@ -85,19 +85,19 @@ static int GetResidualCost(int ctx0, const VP8Residual* const res) {
   {
     const int v = abs(res->coeffs[n]);
     assert(v != 0);
-    cost += VP8LevelCost(t, v);
+    cost += DEDUP_vP8_LevelCost(t, v);
     if (n < 15) {
-      const int b = VP8EncBands[n + 1];
+      const int b = DEDUP_vP8_EncBands[n + 1];
       const int ctx = (v == 1) ? 1 : 2;
       const int last_p0 = res->prob[b][ctx][0];
-      cost += VP8BitCost(0, last_p0);
+      cost += DEDUP_vP8_BitCost(0, last_p0);
     }
   }
   return cost;
 }
 
 static void SetResidualCoeffs(const int16_t* const coeffs,
-                              VP8Residual* const res) {
+                              DEDUP_vP8_Residual* const res) {
   const int16_t* p_coeffs = (int16_t*)coeffs;
   int temp0, temp1, temp2, n, n1;
   assert(res->first == 0 || coeffs[0] == 0);
@@ -140,15 +140,15 @@ static void SetResidualCoeffs(const int16_t* const coeffs,
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8EncDspCostInitMIPS32(void);
+extern void DEDUP_vP8_EncDspCostInitMIPS32(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8EncDspCostInitMIPS32(void) {
-  VP8GetResidualCost = GetResidualCost;
-  VP8SetResidualCoeffs = SetResidualCoeffs;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_EncDspCostInitMIPS32(void) {
+  DEDUP_vP8_GetResidualCost = GetResidualCost;
+  DEDUP_vP8_SetResidualCoeffs = SetResidualCoeffs;
 }
 
 #else  // !WEBP_USE_MIPS32
 
-WEBP_DSP_INIT_STUB(VP8EncDspCostInitMIPS32)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_EncDspCostInitMIPS32)
 
 #endif  // WEBP_USE_MIPS32

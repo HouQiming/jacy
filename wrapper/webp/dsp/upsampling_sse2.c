@@ -169,13 +169,13 @@ static void FUNC_NAME(const uint8_t* top_y, const uint8_t* bottom_y,           \
 }
 
 // SSE2 variants of the fancy upsampler.
-SSE2_UPSAMPLE_FUNC(UpsampleRgbLinePair,  VP8YuvToRgb,  3)
-SSE2_UPSAMPLE_FUNC(UpsampleBgrLinePair,  VP8YuvToBgr,  3)
-SSE2_UPSAMPLE_FUNC(UpsampleRgbaLinePair, VP8YuvToRgba, 4)
-SSE2_UPSAMPLE_FUNC(UpsampleBgraLinePair, VP8YuvToBgra, 4)
-SSE2_UPSAMPLE_FUNC(UpsampleArgbLinePair, VP8YuvToArgb, 4)
-SSE2_UPSAMPLE_FUNC(UpsampleRgba4444LinePair, VP8YuvToRgba4444, 2)
-SSE2_UPSAMPLE_FUNC(UpsampleRgb565LinePair, VP8YuvToRgb565, 2)
+SSE2_UPSAMPLE_FUNC(UpsampleRgbLinePair,  DEDUP_vP8_YuvToRgb,  3)
+SSE2_UPSAMPLE_FUNC(UpsampleBgrLinePair,  DEDUP_vP8_YuvToBgr,  3)
+SSE2_UPSAMPLE_FUNC(UpsampleRgbaLinePair, DEDUP_vP8_YuvToRgba, 4)
+SSE2_UPSAMPLE_FUNC(UpsampleBgraLinePair, DEDUP_vP8_YuvToBgra, 4)
+SSE2_UPSAMPLE_FUNC(UpsampleArgbLinePair, DEDUP_vP8_YuvToArgb, 4)
+SSE2_UPSAMPLE_FUNC(UpsampleRgba4444LinePair, DEDUP_vP8_YuvToRgba4444, 2)
+SSE2_UPSAMPLE_FUNC(UpsampleRgb565LinePair, DEDUP_vP8_YuvToRgb565, 2)
 
 #undef GET_M
 #undef PACK_AND_STORE
@@ -188,33 +188,33 @@ SSE2_UPSAMPLE_FUNC(UpsampleRgb565LinePair, VP8YuvToRgb565, 2)
 //------------------------------------------------------------------------------
 // Entry point
 
-extern WebPUpsampleLinePairFunc WebPUpsamplers[/* MODE_LAST */];
+extern DEDUP_WEBP_UpsampleLinePairFunc DEDUP_WEBP_Upsamplers[/* MODE_LAST */];
 
-extern void WebPInitUpsamplersSSE2(void);
+extern void DEDUP_WEBP_InitUpsamplersSSE2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitUpsamplersSSE2(void) {
-  WebPUpsamplers[MODE_RGB]  = UpsampleRgbLinePair;
-  WebPUpsamplers[MODE_RGBA] = UpsampleRgbaLinePair;
-  WebPUpsamplers[MODE_BGR]  = UpsampleBgrLinePair;
-  WebPUpsamplers[MODE_BGRA] = UpsampleBgraLinePair;
-  WebPUpsamplers[MODE_ARGB] = UpsampleArgbLinePair;
-  WebPUpsamplers[MODE_rgbA] = UpsampleRgbaLinePair;
-  WebPUpsamplers[MODE_bgrA] = UpsampleBgraLinePair;
-  WebPUpsamplers[MODE_Argb] = UpsampleArgbLinePair;
-  WebPUpsamplers[MODE_RGB_565] = UpsampleRgb565LinePair;
-  WebPUpsamplers[MODE_RGBA_4444] = UpsampleRgba4444LinePair;
-  WebPUpsamplers[MODE_rgbA_4444] = UpsampleRgba4444LinePair;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_InitUpsamplersSSE2(void) {
+  DEDUP_WEBP_Upsamplers[MODE_RGB]  = UpsampleRgbLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_RGBA] = UpsampleRgbaLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_BGR]  = UpsampleBgrLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_BGRA] = UpsampleBgraLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_ARGB] = UpsampleArgbLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_rgbA] = UpsampleRgbaLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_bgrA] = UpsampleBgraLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_Argb] = UpsampleArgbLinePair;
+  DEDUP_WEBP_Upsamplers[MODE_RGB_565] = UpsampleRgb565LinePair;
+  DEDUP_WEBP_Upsamplers[MODE_RGBA_4444] = UpsampleRgba4444LinePair;
+  DEDUP_WEBP_Upsamplers[MODE_rgbA_4444] = UpsampleRgba4444LinePair;
 }
 
 #endif  // FANCY_UPSAMPLING
 
 //------------------------------------------------------------------------------
 
-extern WebPYUV444Converter WebPYUV444Converters[/* MODE_LAST */];
-extern void WebPInitYUV444ConvertersSSE2(void);
+extern DEDUP_WEBP_YUV444Converter DEDUP_WEBP_YUV444Converters[/* MODE_LAST */];
+extern void DEDUP_WEBP_InitYUV444ConvertersSSE2(void);
 
 #define YUV444_FUNC(FUNC_NAME, CALL, XSTEP) \
-extern void WebP##FUNC_NAME##C(const uint8_t* y, const uint8_t* u,             \
+extern void DEDUP_WEBP_##FUNC_NAME##C(const uint8_t* y, const uint8_t* u,             \
                                const uint8_t* v, uint8_t* dst, int len);       \
 static void FUNC_NAME(const uint8_t* y, const uint8_t* u, const uint8_t* v,    \
                       uint8_t* dst, int len) {                                 \
@@ -222,28 +222,28 @@ static void FUNC_NAME(const uint8_t* y, const uint8_t* u, const uint8_t* v,    \
   const int max_len = len & ~31;                                               \
   for (i = 0; i < max_len; i += 32) CALL(y + i, u + i, v + i, dst + i * XSTEP);\
   if (i < len) {  /* C-fallback */                                             \
-    WebP##FUNC_NAME##C(y + i, u + i, v + i, dst + i * XSTEP, len - i);         \
+    DEDUP_WEBP_##FUNC_NAME##C(y + i, u + i, v + i, dst + i * XSTEP, len - i);         \
   }                                                                            \
 }
 
-YUV444_FUNC(Yuv444ToRgba, VP8YuvToRgba32, 4);
-YUV444_FUNC(Yuv444ToBgra, VP8YuvToBgra32, 4);
-YUV444_FUNC(Yuv444ToRgb, VP8YuvToRgb32, 3);
-YUV444_FUNC(Yuv444ToBgr, VP8YuvToBgr32, 3);
+YUV444_FUNC(Yuv444ToRgba, DEDUP_vP8_YuvToRgba32, 4);
+YUV444_FUNC(Yuv444ToBgra, DEDUP_vP8_YuvToBgra32, 4);
+YUV444_FUNC(Yuv444ToRgb, DEDUP_vP8_YuvToRgb32, 3);
+YUV444_FUNC(Yuv444ToBgr, DEDUP_vP8_YuvToBgr32, 3);
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitYUV444ConvertersSSE2(void) {
-  WebPYUV444Converters[MODE_RGBA] = Yuv444ToRgba;
-  WebPYUV444Converters[MODE_BGRA] = Yuv444ToBgra;
-  WebPYUV444Converters[MODE_RGB]  = Yuv444ToRgb;
-  WebPYUV444Converters[MODE_BGR]  = Yuv444ToBgr;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_InitYUV444ConvertersSSE2(void) {
+  DEDUP_WEBP_YUV444Converters[MODE_RGBA] = Yuv444ToRgba;
+  DEDUP_WEBP_YUV444Converters[MODE_BGRA] = Yuv444ToBgra;
+  DEDUP_WEBP_YUV444Converters[MODE_RGB]  = Yuv444ToRgb;
+  DEDUP_WEBP_YUV444Converters[MODE_BGR]  = Yuv444ToBgr;
 }
 
 #else
 
-WEBP_DSP_INIT_STUB(WebPInitYUV444ConvertersSSE2)
+WEBP_DSP_INIT_STUB(DEDUP_WEBP_InitYUV444ConvertersSSE2)
 
 #endif  // WEBP_USE_SSE2
 
 #if !(defined(FANCY_UPSAMPLING) && defined(WEBP_USE_SSE2))
-WEBP_DSP_INIT_STUB(WebPInitUpsamplersSSE2)
+WEBP_DSP_INIT_STUB(DEDUP_WEBP_InitUpsamplersSSE2)
 #endif

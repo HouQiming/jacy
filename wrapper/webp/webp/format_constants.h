@@ -7,7 +7,7 @@
 // be found in the AUTHORS file in the root of the source tree.
 // -----------------------------------------------------------------------------
 //
-//  Internal header for constants related to WebP file format.
+//  Internal header for constants related to DEDUP_WEBP_ file format.
 //
 // Author: Urvang (urvang@google.com)
 
@@ -17,20 +17,20 @@
 // Create fourcc of the chunk from the chunk tag characters.
 #define MKFOURCC(a, b, c, d) ((a) | (b) << 8 | (c) << 16 | (uint32_t)(d) << 24)
 
-// VP8 related constants.
-#define VP8_SIGNATURE 0x9d012a              // Signature in VP8 data.
-#define VP8_MAX_PARTITION0_SIZE (1 << 19)   // max size of mode partition
-#define VP8_MAX_PARTITION_SIZE  (1 << 24)   // max size for token partition
-#define VP8_FRAME_HEADER_SIZE 10  // Size of the frame header within VP8 data.
+// DEDUP_vP8_ related constants.
+#define DEDUP_vP8__SIGNATURE 0x9d012a              // Signature in DEDUP_vP8_ data.
+#define DEDUP_vP8__MAX_PARTITION0_SIZE (1 << 19)   // max size of mode partition
+#define DEDUP_vP8__MAX_PARTITION_SIZE  (1 << 24)   // max size for token partition
+#define DEDUP_vP8__FRAME_HEADER_SIZE 10  // Size of the frame header within DEDUP_vP8_ data.
 
-// VP8L related constants.
-#define VP8L_SIGNATURE_SIZE          1      // VP8L signature size.
-#define VP8L_MAGIC_BYTE              0x2f   // VP8L signature byte.
-#define VP8L_IMAGE_SIZE_BITS         14     // Number of bits used to store
+// DEDUP_vP8_L related constants.
+#define DEDUP_vP8_L_SIGNATURE_SIZE          1      // DEDUP_vP8_L signature size.
+#define DEDUP_vP8_L_MAGIC_BYTE              0x2f   // DEDUP_vP8_L signature byte.
+#define DEDUP_vP8_L_IMAGE_SIZE_BITS         14     // Number of bits used to store
                                             // width and height.
-#define VP8L_VERSION_BITS            3      // 3 bits reserved for version.
-#define VP8L_VERSION                 0      // version 0
-#define VP8L_FRAME_HEADER_SIZE       5      // Size of the VP8L frame header.
+#define DEDUP_vP8_L_VERSION_BITS            3      // 3 bits reserved for version.
+#define DEDUP_vP8_L_VERSION                 0      // version 0
+#define DEDUP_vP8_L_FRAME_HEADER_SIZE       5      // Size of the DEDUP_vP8_L frame header.
 
 #define MAX_PALETTE_SIZE             256
 #define MAX_CACHE_BITS               11
@@ -57,7 +57,7 @@ typedef enum {
   CROSS_COLOR_TRANSFORM    = 1,
   SUBTRACT_GREEN           = 2,
   COLOR_INDEXING_TRANSFORM = 3
-} VP8LImageTransformType;
+} DEDUP_vP8_LImageTransformType;
 
 // Alpha related constants.
 #define ALPHA_HEADER_LEN            1
@@ -72,9 +72,9 @@ typedef enum {
 #define RIFF_HEADER_SIZE   12    // Size of the RIFF header ("RIFFnnnnWEBP").
 #define ANMF_CHUNK_SIZE    16    // Size of an ANMF chunk.
 #define ANIM_CHUNK_SIZE    6     // Size of an ANIM chunk.
-#define VP8X_CHUNK_SIZE    10    // Size of a VP8X chunk.
+#define DEDUP_vP8_X_CHUNK_SIZE    10    // Size of a DEDUP_vP8_X chunk.
 
-#define MAX_CANVAS_SIZE     (1 << 24)     // 24-bit max for VP8X width/height.
+#define MAX_CANVAS_SIZE     (1 << 24)     // 24-bit max for DEDUP_vP8_X width/height.
 #define MAX_IMAGE_AREA      (1ULL << 32)  // 32-bit max for width x height.
 #define MAX_LOOP_COUNT      (1 << 16)     // maximum value for loop-count
 #define MAX_DURATION        (1 << 24)     // maximum duration

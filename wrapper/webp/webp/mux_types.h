@@ -24,13 +24,13 @@ extern "C" {
 
 // Note: forward declaring enumerations is not allowed in (strict) C and C++,
 // the types are left here for reference.
-// typedef enum WebPFeatureFlags WebPFeatureFlags;
-// typedef enum WebPMuxAnimDispose WebPMuxAnimDispose;
-// typedef enum WebPMuxAnimBlend WebPMuxAnimBlend;
-typedef struct WebPData WebPData;
+// typedef enum DEDUP_WEBP_FeatureFlags DEDUP_WEBP_FeatureFlags;
+// typedef enum DEDUP_WEBP_MuxAnimDispose DEDUP_WEBP_MuxAnimDispose;
+// typedef enum DEDUP_WEBP_MuxAnimBlend DEDUP_WEBP_MuxAnimBlend;
+typedef struct DEDUP_WEBP_Data DEDUP_WEBP_Data;
 
-// VP8X Feature Flags.
-typedef enum WebPFeatureFlags {
+// DEDUP_vP8_X Feature Flags.
+typedef enum DEDUP_WEBP_FeatureFlags {
   ANIMATION_FLAG  = 0x00000002,
   XMP_FLAG        = 0x00000004,
   EXIF_FLAG       = 0x00000008,
@@ -38,31 +38,31 @@ typedef enum WebPFeatureFlags {
   ICCP_FLAG       = 0x00000020,
 
   ALL_VALID_FLAGS = 0x0000003e
-} WebPFeatureFlags;
+} DEDUP_WEBP_FeatureFlags;
 
 // Dispose method (animation only). Indicates how the area used by the current
 // frame is to be treated before rendering the next frame on the canvas.
-typedef enum WebPMuxAnimDispose {
+typedef enum DEDUP_WEBP_MuxAnimDispose {
   WEBP_MUX_DISPOSE_NONE,       // Do not dispose.
   WEBP_MUX_DISPOSE_BACKGROUND  // Dispose to background color.
-} WebPMuxAnimDispose;
+} DEDUP_WEBP_MuxAnimDispose;
 
 // Blend operation (animation only). Indicates how transparent pixels of the
 // current frame are blended with those of the previous canvas.
-typedef enum WebPMuxAnimBlend {
+typedef enum DEDUP_WEBP_MuxAnimBlend {
   WEBP_MUX_BLEND,              // Blend.
   WEBP_MUX_NO_BLEND            // Do not blend.
-} WebPMuxAnimBlend;
+} DEDUP_WEBP_MuxAnimBlend;
 
 // Data type used to describe 'raw' data, e.g., chunk data
-// (ICC profile, metadata) and WebP compressed image data.
-struct WebPData {
+// (ICC profile, metadata) and DEDUP_WEBP_ compressed image data.
+struct DEDUP_WEBP_Data {
   const uint8_t* bytes;
   size_t size;
 };
 
 // Initializes the contents of the 'webp_data' object with default values.
-static WEBP_INLINE void WebPDataInit(WebPData* webp_data) {
+static WEBP_INLINE void DEDUP_WEBP_DataInit(DEDUP_WEBP_Data* webp_data) {
   if (webp_data != NULL) {
     memset(webp_data, 0, sizeof(*webp_data));
   }
@@ -70,18 +70,18 @@ static WEBP_INLINE void WebPDataInit(WebPData* webp_data) {
 
 // Clears the contents of the 'webp_data' object by calling free(). Does not
 // deallocate the object itself.
-static WEBP_INLINE void WebPDataClear(WebPData* webp_data) {
+static WEBP_INLINE void DEDUP_WEBP_DataClear(DEDUP_WEBP_Data* webp_data) {
   if (webp_data != NULL) {
     free((void*)webp_data->bytes);
-    WebPDataInit(webp_data);
+    DEDUP_WEBP_DataInit(webp_data);
   }
 }
 
 // Allocates necessary storage for 'dst' and copies the contents of 'src'.
 // Returns true on success.
-static WEBP_INLINE int WebPDataCopy(const WebPData* src, WebPData* dst) {
+static WEBP_INLINE int DEDUP_WEBP_DataCopy(const DEDUP_WEBP_Data* src, DEDUP_WEBP_Data* dst) {
   if (src == NULL || dst == NULL) return 0;
-  WebPDataInit(dst);
+  DEDUP_WEBP_DataInit(dst);
   if (src->bytes != NULL && src->size != 0) {
     dst->bytes = (uint8_t*)malloc(src->size);
     if (dst->bytes == NULL) return 0;

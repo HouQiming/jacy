@@ -25,7 +25,7 @@
 //    http://valgrind.org/docs/manual/ms-manual.html
 // Here is an example command line:
 /*    valgrind --tool=massif --massif-out-file=massif.out \
-               --stacks=yes --alloc-fn=WebPSafeMalloc --alloc-fn=WebPSafeCalloc
+               --stacks=yes --alloc-fn=DEDUP_WEBP_SafeMalloc --alloc-fn=DEDUP_WEBP_SafeCalloc
       ms_print massif.out
 */
 // In addition:
@@ -183,7 +183,7 @@ static int CheckSizeArgumentsOverflow(uint64_t nmemb, size_t size) {
   return 1;
 }
 
-void* WebPSafeMalloc(uint64_t nmemb, size_t size) {
+void* DEDUP_WEBP_SafeMalloc(uint64_t nmemb, size_t size) {
   void* ptr;
   Increment(&num_malloc_calls);
   if (!CheckSizeArgumentsOverflow(nmemb, size)) return NULL;
@@ -193,7 +193,7 @@ void* WebPSafeMalloc(uint64_t nmemb, size_t size) {
   return ptr;
 }
 
-void* WebPSafeCalloc(uint64_t nmemb, size_t size) {
+void* DEDUP_WEBP_SafeCalloc(uint64_t nmemb, size_t size) {
   void* ptr;
   Increment(&num_calloc_calls);
   if (!CheckSizeArgumentsOverflow(nmemb, size)) return NULL;
@@ -203,7 +203,7 @@ void* WebPSafeCalloc(uint64_t nmemb, size_t size) {
   return ptr;
 }
 
-void WebPSafeFree(void* const ptr) {
+void DEDUP_WEBP_SafeFree(void* const ptr) {
   if (ptr != NULL) {
     Increment(&num_free_calls);
     SubMem(ptr);
@@ -212,13 +212,13 @@ void WebPSafeFree(void* const ptr) {
 }
 
 // Public API function.
-void WebPFree(void* ptr) {
+void DEDUP_WEBP_Free(void* ptr) {
   free(ptr);
 }
 
 //------------------------------------------------------------------------------
 
-void WebPCopyPlane(const uint8_t* src, int src_stride,
+void DEDUP_WEBP_CopyPlane(const uint8_t* src, int src_stride,
                    uint8_t* dst, int dst_stride, int width, int height) {
   assert(src != NULL && dst != NULL);
   assert(src_stride >= width && dst_stride >= width);
@@ -229,11 +229,11 @@ void WebPCopyPlane(const uint8_t* src, int src_stride,
   }
 }
 
-void WebPCopyPixels(const WebPPicture* const src, WebPPicture* const dst) {
+void DEDUP_WEBP_CopyPixels(const DEDUP_WEBP_Picture* const src, DEDUP_WEBP_Picture* const dst) {
   assert(src != NULL && dst != NULL);
   assert(src->width == dst->width && src->height == dst->height);
   assert(src->use_argb && dst->use_argb);
-  WebPCopyPlane((uint8_t*)src->argb, 4 * src->argb_stride, (uint8_t*)dst->argb,
+  DEDUP_WEBP_CopyPlane((uint8_t*)src->argb, 4 * src->argb_stride, (uint8_t*)dst->argb,
                 4 * dst->argb_stride, 4 * src->width, src->height);
 }
 
@@ -242,7 +242,7 @@ void WebPCopyPixels(const WebPPicture* const src, WebPPicture* const dst) {
 #define COLOR_HASH_SIZE         (MAX_PALETTE_SIZE * 4)
 #define COLOR_HASH_RIGHT_SHIFT  22  // 32 - log2(COLOR_HASH_SIZE).
 
-int WebPGetColorPalette(const WebPPicture* const pic, uint32_t* const palette) {
+int DEDUP_WEBP_GetColorPalette(const DEDUP_WEBP_Picture* const pic, uint32_t* const palette) {
   int i;
   int x, y;
   int num_colors = 0;

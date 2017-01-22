@@ -23,7 +23,7 @@
 //------------------------------------------------------------------------------
 
 static void SetResidualCoeffsSSE2(const int16_t* const coeffs,
-                                  VP8Residual* const res) {
+                                  DEDUP_vP8_Residual* const res) {
   const __m128i c0 = _mm_loadu_si128((const __m128i*)(coeffs + 0));
   const __m128i c1 = _mm_loadu_si128((const __m128i*)(coeffs + 8));
   // Use SSE2 to compare 16 values with a single instruction.
@@ -42,21 +42,21 @@ static void SetResidualCoeffsSSE2(const int16_t* const coeffs,
   res->coeffs = coeffs;
 }
 
-static int GetResidualCostSSE2(int ctx0, const VP8Residual* const res) {
+static int GetResidualCostSSE2(int ctx0, const DEDUP_vP8_Residual* const res) {
   uint8_t levels[16], ctxs[16];
   uint16_t abs_levels[16];
   int n = res->first;
-  // should be prob[VP8EncBands[n]], but it's equivalent for n=0 or 1
+  // should be prob[DEDUP_vP8_EncBands[n]], but it's equivalent for n=0 or 1
   const int p0 = res->prob[n][ctx0][0];
   CostArrayPtr const costs = res->costs;
   const uint16_t* t = costs[n][ctx0];
   // bit_cost(1, p0) is already incorporated in t[] tables, but only if ctx != 0
   // (as required by the syntax). For ctx0 == 0, we need to add it here or it'll
   // be missing during the loop.
-  int cost = (ctx0 == 0) ? VP8BitCost(1, p0) : 0;
+  int cost = (ctx0 == 0) ? DEDUP_vP8_BitCost(1, p0) : 0;
 
   if (res->last < 0) {
-    return VP8BitCost(0, p0);
+    return DEDUP_vP8_BitCost(0, p0);
   }
 
   {   // precompute clamped levels and contexts, packed to 8b.
@@ -83,7 +83,7 @@ static int GetResidualCostSSE2(int ctx0, const VP8Residual* const res) {
     const int ctx = ctxs[n];
     const int level = levels[n];
     const int flevel = abs_levels[n];   // full level
-    cost += VP8LevelFixedCosts[flevel] + t[level];  // simplified VP8LevelCost()
+    cost += DEDUP_vP8_LevelFixedCosts[flevel] + t[level];  // simplified DEDUP_vP8_LevelCost()
     t = costs[n + 1][ctx];
   }
   // Last coefficient is always non-zero
@@ -91,12 +91,12 @@ static int GetResidualCostSSE2(int ctx0, const VP8Residual* const res) {
     const int level = levels[n];
     const int flevel = abs_levels[n];
     assert(flevel != 0);
-    cost += VP8LevelFixedCosts[flevel] + t[level];
+    cost += DEDUP_vP8_LevelFixedCosts[flevel] + t[level];
     if (n < 15) {
-      const int b = VP8EncBands[n + 1];
+      const int b = DEDUP_vP8_EncBands[n + 1];
       const int ctx = ctxs[n];
       const int last_p0 = res->prob[b][ctx][0];
-      cost += VP8BitCost(0, last_p0);
+      cost += DEDUP_vP8_BitCost(0, last_p0);
     }
   }
   return cost;
@@ -105,15 +105,15 @@ static int GetResidualCostSSE2(int ctx0, const VP8Residual* const res) {
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8EncDspCostInitSSE2(void);
+extern void DEDUP_vP8_EncDspCostInitSSE2(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8EncDspCostInitSSE2(void) {
-  VP8SetResidualCoeffs = SetResidualCoeffsSSE2;
-  VP8GetResidualCost = GetResidualCostSSE2;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_EncDspCostInitSSE2(void) {
+  DEDUP_vP8_SetResidualCoeffs = SetResidualCoeffsSSE2;
+  DEDUP_vP8_GetResidualCost = GetResidualCostSSE2;
 }
 
 #else  // !WEBP_USE_SSE2
 
-WEBP_DSP_INIT_STUB(VP8EncDspCostInitSSE2)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_EncDspCostInitSSE2)
 
 #endif  // WEBP_USE_SSE2

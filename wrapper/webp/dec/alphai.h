@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-struct VP8LDecoder;  // Defined in dec/vp8li.h.
+struct DEDUP_vP8_LDecoder;  // Defined in dec/vp8li.h.
 
 typedef struct ALPHDecoder ALPHDecoder;
 struct ALPHDecoder {
@@ -30,10 +30,10 @@ struct ALPHDecoder {
   int method_;
   WEBP_FILTER_TYPE filter_;
   int pre_processing_;
-  struct VP8LDecoder* vp8l_dec_;
-  VP8Io io_;
+  struct DEDUP_vP8_LDecoder* vp8l_dec_;
+  DEDUP_vP8_Io io_;
   int use_8b_decode_;  // Although alpha channel requires only 1 byte per
-                       // pixel, sometimes VP8LDecoder may need to allocate
+                       // pixel, sometimes DEDUP_vP8_LDecoder may need to allocate
                        // 4 bytes per pixel internally during decode.
   uint8_t* output_;
   const uint8_t* prev_line_;   // last output row (or NULL)
@@ -43,7 +43,7 @@ struct ALPHDecoder {
 // internal functions. Not public.
 
 // Deallocate memory associated to dec->alpha_plane_ decoding
-void WebPDeallocateAlphaMemory(VP8Decoder* const dec);
+void DEDUP_WEBP_DeallocateAlphaMemory(DEDUP_vP8_Decoder* const dec);
 
 //------------------------------------------------------------------------------
 

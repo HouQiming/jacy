@@ -1583,56 +1583,56 @@ static void TM16(uint8_t* dst) {
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8DspInitNEON(void);
+extern void DEDUP_vP8_DspInitNEON(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void VP8DspInitNEON(void) {
-  VP8Transform = TransformTwo;
-  VP8TransformAC3 = TransformAC3;
-  VP8TransformDC = TransformDC;
-  VP8TransformWHT = TransformWHT;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_vP8_DspInitNEON(void) {
+  DEDUP_vP8_Transform = TransformTwo;
+  DEDUP_vP8_TransformAC3 = TransformAC3;
+  DEDUP_vP8_TransformDC = TransformDC;
+  DEDUP_vP8_TransformWHT = TransformWHT;
 
-  VP8VFilter16 = VFilter16;
-  VP8VFilter16i = VFilter16i;
-  VP8HFilter16 = HFilter16;
+  DEDUP_vP8_VFilter16 = VFilter16;
+  DEDUP_vP8_VFilter16i = VFilter16i;
+  DEDUP_vP8_HFilter16 = HFilter16;
 #if !defined(WORK_AROUND_GCC)
-  VP8HFilter16i = HFilter16i;
+  DEDUP_vP8_HFilter16i = HFilter16i;
 #endif
-  VP8VFilter8 = VFilter8;
-  VP8VFilter8i = VFilter8i;
+  DEDUP_vP8_VFilter8 = VFilter8;
+  DEDUP_vP8_VFilter8i = VFilter8i;
 #if !defined(WORK_AROUND_GCC)
-  VP8HFilter8 = HFilter8;
-  VP8HFilter8i = HFilter8i;
+  DEDUP_vP8_HFilter8 = HFilter8;
+  DEDUP_vP8_HFilter8i = HFilter8i;
 #endif
-  VP8SimpleVFilter16 = SimpleVFilter16;
-  VP8SimpleHFilter16 = SimpleHFilter16;
-  VP8SimpleVFilter16i = SimpleVFilter16i;
-  VP8SimpleHFilter16i = SimpleHFilter16i;
+  DEDUP_vP8_SimpleVFilter16 = SimpleVFilter16;
+  DEDUP_vP8_SimpleHFilter16 = SimpleHFilter16;
+  DEDUP_vP8_SimpleVFilter16i = SimpleVFilter16i;
+  DEDUP_vP8_SimpleHFilter16i = SimpleHFilter16i;
 
-  VP8PredLuma4[0] = DC4;
-  VP8PredLuma4[1] = TM4;
-  VP8PredLuma4[2] = VE4;
-  VP8PredLuma4[4] = RD4;
-  VP8PredLuma4[6] = LD4;
+  DEDUP_vP8_PredLuma4[0] = DC4;
+  DEDUP_vP8_PredLuma4[1] = TM4;
+  DEDUP_vP8_PredLuma4[2] = VE4;
+  DEDUP_vP8_PredLuma4[4] = RD4;
+  DEDUP_vP8_PredLuma4[6] = LD4;
 
-  VP8PredLuma16[0] = DC16TopLeft;
-  VP8PredLuma16[1] = TM16;
-  VP8PredLuma16[2] = VE16;
-  VP8PredLuma16[3] = HE16;
-  VP8PredLuma16[4] = DC16NoTop;
-  VP8PredLuma16[5] = DC16NoLeft;
-  VP8PredLuma16[6] = DC16NoTopLeft;
+  DEDUP_vP8_PredLuma16[0] = DC16TopLeft;
+  DEDUP_vP8_PredLuma16[1] = TM16;
+  DEDUP_vP8_PredLuma16[2] = VE16;
+  DEDUP_vP8_PredLuma16[3] = HE16;
+  DEDUP_vP8_PredLuma16[4] = DC16NoTop;
+  DEDUP_vP8_PredLuma16[5] = DC16NoLeft;
+  DEDUP_vP8_PredLuma16[6] = DC16NoTopLeft;
 
-  VP8PredChroma8[0] = DC8uv;
-  VP8PredChroma8[1] = TM8uv;
-  VP8PredChroma8[2] = VE8uv;
-  VP8PredChroma8[3] = HE8uv;
-  VP8PredChroma8[4] = DC8uvNoTop;
-  VP8PredChroma8[5] = DC8uvNoLeft;
-  VP8PredChroma8[6] = DC8uvNoTopLeft;
+  DEDUP_vP8_PredChroma8[0] = DC8uv;
+  DEDUP_vP8_PredChroma8[1] = TM8uv;
+  DEDUP_vP8_PredChroma8[2] = VE8uv;
+  DEDUP_vP8_PredChroma8[3] = HE8uv;
+  DEDUP_vP8_PredChroma8[4] = DC8uvNoTop;
+  DEDUP_vP8_PredChroma8[5] = DC8uvNoLeft;
+  DEDUP_vP8_PredChroma8[6] = DC8uvNoTopLeft;
 }
 
 #else  // !WEBP_USE_NEON
 
-WEBP_DSP_INIT_STUB(VP8DspInitNEON)
+WEBP_DSP_INIT_STUB(DEDUP_vP8_DspInitNEON)
 
 #endif  // WEBP_USE_NEON

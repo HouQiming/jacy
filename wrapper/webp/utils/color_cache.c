@@ -7,7 +7,7 @@
 // be found in the AUTHORS file in the root of the source tree.
 // -----------------------------------------------------------------------------
 //
-// Color Cache for WebP Lossless
+// Color Cache for DEDUP_WEBP_ Lossless
 //
 // Author: Jyrki Alakuijala (jyrki@google.com)
 
@@ -18,13 +18,13 @@
 #include "./utils.h"
 
 //------------------------------------------------------------------------------
-// VP8LColorCache.
+// DEDUP_vP8_LColorCache.
 
-int VP8LColorCacheInit(VP8LColorCache* const cc, int hash_bits) {
+int DEDUP_vP8_LColorCacheInit(DEDUP_vP8_LColorCache* const cc, int hash_bits) {
   const int hash_size = 1 << hash_bits;
   assert(cc != NULL);
   assert(hash_bits > 0);
-  cc->colors_ = (uint32_t*)WebPSafeCalloc((uint64_t)hash_size,
+  cc->colors_ = (uint32_t*)DEDUP_WEBP_SafeCalloc((uint64_t)hash_size,
                                           sizeof(*cc->colors_));
   if (cc->colors_ == NULL) return 0;
   cc->hash_shift_ = 32 - hash_bits;
@@ -32,15 +32,15 @@ int VP8LColorCacheInit(VP8LColorCache* const cc, int hash_bits) {
   return 1;
 }
 
-void VP8LColorCacheClear(VP8LColorCache* const cc) {
+void DEDUP_vP8_LColorCacheClear(DEDUP_vP8_LColorCache* const cc) {
   if (cc != NULL) {
-    WebPSafeFree(cc->colors_);
+    DEDUP_WEBP_SafeFree(cc->colors_);
     cc->colors_ = NULL;
   }
 }
 
-void VP8LColorCacheCopy(const VP8LColorCache* const src,
-                        VP8LColorCache* const dst) {
+void DEDUP_vP8_LColorCacheCopy(const DEDUP_vP8_LColorCache* const src,
+                        DEDUP_vP8_LColorCache* const dst) {
   assert(src != NULL);
   assert(dst != NULL);
   assert(src->hash_bits_ == dst->hash_bits_);

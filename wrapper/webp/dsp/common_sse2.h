@@ -56,7 +56,7 @@ static WEBP_INLINE void PrintReg(const __m128i r, const char* const name,
 // Math functions.
 
 // Return the sum of all the 8b in the register.
-static WEBP_INLINE int VP8HorizontalAdd8b(const __m128i* const a) {
+static WEBP_INLINE int DEDUP_vP8_HorizontalAdd8b(const __m128i* const a) {
   const __m128i zero = _mm_setzero_si128();
   const __m128i sad8x2 = _mm_sad_epu8(*a, zero);
   // sum the two sads: sad8x2[0:1] + sad8x2[8:9]
@@ -65,7 +65,7 @@ static WEBP_INLINE int VP8HorizontalAdd8b(const __m128i* const a) {
 }
 
 // Transpose two 4x4 16b matrices horizontally stored in registers.
-static WEBP_INLINE void VP8Transpose_2_4x4_16b(
+static WEBP_INLINE void DEDUP_vP8_Transpose_2_4x4_16b(
     const __m128i* const in0, const __m128i* const in1,
     const __m128i* const in2, const __m128i* const in3, __m128i* const out0,
     __m128i* const out1, __m128i* const out2, __m128i* const out3) {

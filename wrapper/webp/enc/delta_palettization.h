@@ -20,6 +20,6 @@
 // and generates optimal enc->palette_[].
 // This function can revert enc->use_palette_ / enc->use_predict_ flag
 // if delta-palettization is not producing expected saving.
-WebPEncodingError WebPSearchOptimalDeltaPalette(VP8LEncoder* const enc);
+DEDUP_WEBP_EncodingError DEDUP_WEBP_SearchOptimalDeltaPalette(DEDUP_vP8_LEncoder* const enc);
 
 #endif  // WEBP_ENC_DELTA_PALETTIZATION_H_

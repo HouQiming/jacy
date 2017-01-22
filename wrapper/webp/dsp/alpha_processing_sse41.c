@@ -79,14 +79,14 @@ static int ExtractAlpha(const uint8_t* argb, int argb_stride,
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void WebPInitAlphaProcessingSSE41(void);
+extern void DEDUP_WEBP_InitAlphaProcessingSSE41(void);
 
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitAlphaProcessingSSE41(void) {
-  WebPExtractAlpha = ExtractAlpha;
+WEBP_TSAN_IGNORE_FUNCTION void DEDUP_WEBP_InitAlphaProcessingSSE41(void) {
+  DEDUP_WEBP_ExtractAlpha = ExtractAlpha;
 }
 
 #else  // !WEBP_USE_SSE41
 
-WEBP_DSP_INIT_STUB(WebPInitAlphaProcessingSSE41)
+WEBP_DSP_INIT_STUB(DEDUP_WEBP_InitAlphaProcessingSSE41)
 
 #endif  // WEBP_USE_SSE41
