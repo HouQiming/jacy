@@ -811,6 +811,21 @@ class CDiffTracker
 		m_undo_queue.push(TDiffUndoItem(){ops:BlockEdit(MakeBlockOps(ops,is_loader_mode),0,is_loader_mode)})
 		if is_loader_mode:
 			m_undo_queue.pop()
+	auto SyncToPeer(CDiffTracker diff_peer)
+		diffsl_clonemap=new CDiffSLNode[iptr]
+		auto dfsCloneNode(CDiffSLNode nd)
+			if !nd:return nd
+			auto nd_ret=diffsl_clonemap[iptr(nd)]
+			if nd_ret:return nd_ret
+			nd_ret=new CDiffSLNode()
+			nd_ret.ccnts=nd.ccnts
+			diffsl_clonemap[iptr(nd)]=nd_ret
+			nd_ret.pchild=dfsCloneNode(nd.pchild)
+			nd_ret.pnext=dfsCloneNode(nd.pnext)
+			return nd_ret
+		this.m_skiplist=dfsCloneNode(diff_peer.m_skiplist)
+		this.m_undo_queue=new(diff_peer.m_undo_queue)
+		this.m_redo_queue=new(diff_peer.m_redo_queue)
 	auto RawUndo(TDiffUndoItem[] queue_in,TDiffUndoItem[] queue_out,TEditop[] ops)
 		if queue_in.n:
 			bops=queue_in.pop().ops
@@ -1418,6 +1433,7 @@ class CEditableText
 		//do the locators here
 		pb=CSLNode.NULL
 		ccnt_base=0LL
+		ccnt_tot=GetTextSize()
 		ofs=0LL
 		//////////
 		SortLocators()
@@ -1441,7 +1457,7 @@ class CEditableText
 			if ops[pops].s:rside_tar+=ops[pops].s.n
 			if ccnt_loc<=ccnt1:
 				//it overlapped the deletion
-				if loc.side<1||ccnt_loc<ccnt1:
+				if loc.side<1||ccnt_loc<ccnt1||ccnt1==ccnt_tot:
 					//push left
 					loc.ccnt=lside_tar
 				else
@@ -1688,6 +1704,33 @@ class CEditableText
 				diff.Edit(ops,0)
 				m_diff_trackers[n2++]=diff
 		m_diff_trackers.resize(n2)
+	auto ChopEditOps(TEditop[] ops,i64 ccnt_base_mine,i64 ccnt0,i64 ccnt1)
+		ops2=new TEditop[]
+		dccnt0=0LL
+		dccnt1=0LL
+		for op0 in ops
+			op=op0
+			op.ccnt+=ccnt_base_mine
+			if op.ccnt+op.sz<ccnt0:
+				if op.s:dccnt0+=op.s.n
+				dccnt0-=op.sz
+				continue
+			if op.ccnt<ccnt0:
+				op.s=string.NULL
+				op.sz-=(ccnt0-op.ccnt)
+				op.ccnt=ccnt0
+				if !(op.sz>0LL):continue
+			if op.ccnt>ccnt1:continue
+			if op.ccnt+op.sz>ccnt1:
+				op.sz=ccnt1-op.ccnt
+			////////
+			if op.s:dccnt1+=op.s.n
+			dccnt1-=op.sz
+			////////
+			op.ccnt-=ccnt0
+			ops2.push(op)
+		dccnt1+=dccnt0
+		return (ops2,dccnt0,dccnt1)
 	auto Edit(TEditop[] ops)
 		UnsyncedEdit(ops)
 		///////////////////////
@@ -1706,35 +1749,22 @@ class CEditableText
 						delta_mine-=op.sz
 					m_sync_groups[I].ccnt1+=delta_mine
 					continue
-				ops2=new TEditop[]
-				dccnt0=0LL
-				dccnt1=0LL
-				for op0 in ops
-					op=op0
-					op.ccnt+=ccnt_base_mine
-					if op.ccnt+op.sz<sg.ccnt0:
-						if op.s:dccnt0+=op.s.n
-						dccnt0-=op.sz
-						continue
-					if op.ccnt<sg.ccnt0:
-						op.s=string.NULL
-						op.sz-=(sg.ccnt0-op.ccnt)
-						op.ccnt=sg.ccnt0
-						if !(op.sz>0LL):continue
-					if op.ccnt>sg.ccnt1:continue
-					if op.ccnt+op.sz>sg.ccnt1:
-						op.sz=sg.ccnt1-op.ccnt
-					////////
-					if op.s:dccnt1+=op.s.n
-					dccnt1-=op.sz
-					////////
-					op.ccnt-=sg.ccnt0
-					ops2.push(op)
-				dccnt1+=dccnt0
+				(ops2,dccnt0,dccnt1)=this.ChopEditOps(ops,ccnt_base_mine,sg.ccnt0,sg.ccnt1)
 				m_sync_groups[I].ccnt0+=dccnt0
 				m_sync_groups[I].ccnt1+=dccnt1
 				//Writeln(ops,' ',ops2,' ',dccnt0,' ',dccnt1,' ',sg.ccnt0,'..',sg.ccnt1)
 				sg.ed.UnsyncedEdit(ops2);
+	auto ChopUndoRedo(i64 ccnt0,i64 ccnt1)
+		ccnt_base_mine=0LL
+		if m_sync_groups:
+			for sg in m_sync_groups
+				if __cast(iptr,sg.ed)==__cast(iptr,this):
+					ccnt_base_mine=sg.ccnt0
+					break
+		for uitem,I in this.m_undo_queue
+			(this.m_undo_queue[I].ops,dccnt0,dccnt1)=ChopEditOps(uitem.ops,ccnt_base_mine,ccnt0,ccnt1)
+		for uitem,I in this.m_redo_queue
+			(this.m_redo_queue[I].ops,dccnt0,dccnt1)=ChopEditOps(uitem.ops,ccnt_base_mine,ccnt0,ccnt1)
 	auto LoaderEdit(TEditop[] ops)
 		RawEdit(ops)
 		n2=0L
@@ -2504,6 +2534,11 @@ class CEditableText
 				fcheck=function(int c0,int c1){return c0!=' '&&c0!='\t'&&c0!='\r'&&c0!='\n'}
 			else
 				fcheck=function(int c0,int c1){return c1!=' '&&c1!='\t'&&c1!='\r'&&c1!='\n'}
+		else if stype=="file_name_boundary":
+			if direction<0:
+				fcheck=function(int c0,int c1){return !(c0!=' '&&c0!='\t'&&c0!='\r'&&c0!='\n'&&c0!='"'&&c0!='\'')}
+			else
+				fcheck=function(int c0,int c1){return !(c1!=' '&&c1!='\t'&&c1!='\r'&&c1!='\n'&&c1!='"'&&c1!='\'')}
 		else if stype=="word_boundary":
 			fcheck=function(int c0,int c1){return isWordChar(c0)!=isWordChar(c1)}
 		else if stype=="word_boundary_left":
@@ -2572,6 +2607,48 @@ class CEditableText
 		else
 			return 0
 	}
+	JS_SyncToPeer=function(JSContext JS){
+		ed_peer=JS.Param(0).as(CEditableText)
+		ccnt_tot=ed_peer.GetTextSize()
+		s_text=ed_peer.GetText(0LL,ccnt_tot)
+		this.LoaderEdit([TEditop(){ccnt:0LL,s:s_text}])
+		//sync the undo queue
+		RecreateUndoQueue=function(q){
+			auto ret=new TUndoItem[]
+			for uitem0 in q
+				uitem=uitem0
+				auto ops=new(uitem.ops)
+				for op,I in ops
+					if op.s:ops[I].s=new(op.s)
+				//drop the locator items
+				uitem.ops=ops
+				ret.push(uitem)
+			return ret
+		};
+		this.m_undo_queue=RecreateUndoQueue(ed_peer.m_undo_queue)
+		this.m_redo_queue=RecreateUndoQueue(ed_peer.m_redo_queue)
+		///////////////////////
+		//sync the difftrackers
+		diff_peer=CDiffTracker.NULL
+		foreach diff in ed_peer.m_diff_trackers
+			if diff.m_skiplist:
+				diff_peer=diff
+				break
+		if diff_peer:
+			n2=0L
+			foreach diff in this.m_diff_trackers
+				if diff.m_skiplist:
+					diff.SyncToPeer(diff_peer)
+					m_diff_trackers[n2++]=diff
+			m_diff_trackers.resize(n2)
+		return 0
+	}
+	JS_ChopUndoRedo=function(JSContext JS){
+		ccnt0=JS.Param(0).as(i64)
+		ccnt1=JS.Param(1).as(i64)
+		this.ChopUndoRedo(ccnt0,ccnt1)
+		return 0
+	}
 	///////////////////////////
 	auto debugDumpSL()
 		levels=new string[]
@@ -2617,6 +2694,8 @@ class CEditableText
 		proto.ExportMethod(this,"CreateLocator",JS_CreateLocator)
 		proto.ExportMethod(this,"CreateHighlight",JS_CreateHighlight)
 		proto.ExportMethod(this,"CreateDiffTracker",JS_CreateDiffTracker)
+		proto.ExportMethod(this,"SyncToPeer",JS_SyncToPeer)
+		proto.ExportMethod(this,"ChopUndoRedo",JS_ChopUndoRedo)
 		proto.ExportMethod(this,"XYFromCcnt",JS_XYFromCcnt)
 		proto.ExportMethod(this,"GetXYEnMasse",JS_GetXYEnMasse)
 		proto.ExportMethod(this,"SeekXY",JS_SeekXY)

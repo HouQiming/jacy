@@ -22,7 +22,10 @@ UpdateTo=function(fn_old,fn_new,use_symlink){
 };
 
 UpdateToCLike=function(fn_old,fn_new,use_symlink){
-	if(!FileExists(fn_new))return 0;
+	if(!FileExists(fn_new)){
+		//print('file not found: @1'.replace("@1",fn_new))
+		return 0;
+	}
 	if(FileExists(fn_old)&&!IsNewerThan(fn_new,fn_old))return 0;
 	if(use_symlink){
 		shell(["rm","-f",fn_old])
@@ -161,6 +164,16 @@ SearchForFile=function(fn){
 	for(var i=0;i<g_search_paths.length;i++){
 		var fnx=g_search_paths[i]+"/"+fn;
 		if(FileExists(fnx)){return fnx};
+	}
+	return fn;
+};
+
+SearchForDir=function(fn){
+	if(DirExists(fn)){return fn};
+	if(DirExists(g_base_dir+"/"+fn)){return g_base_dir+"/"+fn};
+	for(var i=0;i<g_search_paths.length;i++){
+		var fnx=g_search_paths[i]+"/"+fn;
+		if(DirExists(fnx)){return fnx};
 	}
 	return fn;
 };

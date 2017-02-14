@@ -979,7 +979,7 @@ W.Edit_prototype={
 	Copy:function(){
 		var ccnt0=this.sel0.ccnt;
 		var ccnt1=this.sel1.ccnt;
-		var ed=this.ed
+		var ed=this.ed;
 		if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
 		if(ccnt0<ccnt1){
 			UI.SDL_SetClipboardText(ed.GetText(ccnt0,ccnt1-ccnt0))

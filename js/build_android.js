@@ -77,6 +77,20 @@ g_action_handlers.make=function(){
 	mkdir(g_work_dir+"/touch")
 	var libs=g_json.lib_files
 	var re_zip=new RegExp(".*\\.zip");
+	var lib_dirs=g_json.lib_dirs
+	if(lib_dirs){
+		for(var i=0;i<lib_dirs.length;i++){
+			var fn=lib_dirs[i]
+			fn=SearchForDir(fn);
+			//var fntouch=g_work_dir+"/touch"+RemovePath(fn)+"._touch"
+			//if(IsNewerThan(fn,fntouch)){
+			//dir in lib_dirs, just copy there
+			//shell(["rsync","-r",fn+'/*',g_work_dir+'/'])
+			rsync(fn+'/',g_work_dir+'/');
+			CreateFile(fntouch,fn)
+			//}
+		}
+	}
 	if(libs){
 		for(var i=0;i<libs.length;i++){
 			var fn=libs[i]
