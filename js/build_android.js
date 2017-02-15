@@ -86,8 +86,8 @@ g_action_handlers.make=function(){
 			//if(IsNewerThan(fn,fntouch)){
 			//dir in lib_dirs, just copy there
 			//shell(["rsync","-r",fn+'/*',g_work_dir+'/'])
-			rsync(fn+'/',g_work_dir+'/');
-			CreateFile(fntouch,fn)
+			rsync(fn+'/',g_work_dir+'/jni/');
+			//CreateFile(fntouch,fn)
 			//}
 		}
 	}
@@ -261,7 +261,7 @@ g_action_handlers.make=function(){
 	for(var j=0;g_json.android_static_libnames&&g_json.android_static_libnames[j];j++){
 		var libname=g_json.android_static_libnames[j]
 		s_android_mk.push('include $(CLEAR_VARS)\n')
-		s_android_mk.push('LOCAL_MODULE := '+libname+'\n')
+		s_android_mk.push('LOCAL_MODULE := lib'+libname+'\n')
 		s_android_mk.push('LOCAL_SRC_FILES := $(TARGET_ARCH_ABI)/lib'+libname+'.a\n')
 		s_android_mk.push('LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/../trash\n')
 		s_android_mk.push('include $(PREBUILT_STATIC_LIBRARY)\n')
@@ -337,14 +337,14 @@ g_action_handlers.make=function(){
 	}
 	s_android_mk.push('\n')
 	s_android_mk.push('LOCAL_STATIC_LIBRARIES := ')
-	for(var j=0;g_json.android_static_libnames&&g_json.android_static_libnames[j];j++){
-		s_android_mk.push(' '+g_json.android_static_libnames[j])
-	}
 	for(var j=0;g_json.android_system_static_libnames&&g_json.android_system_static_libnames[j];j++){
 		s_android_mk.push(' '+g_json.android_system_static_libnames[j])
 	}
 	s_android_mk.push('\n')
-	s_android_mk.push('LOCAL_LDLIBS := -llog -landroid ')
+	s_android_mk.push('LOCAL_LDLIBS := -llog -landroid -L$(LOCAL_PATH)/$(TARGET_ARCH_ABI)/ ')
+	for(var j=0;g_json.android_static_libnames&&g_json.android_static_libnames[j];j++){
+		s_android_mk.push(' -l'+g_json.android_static_libnames[j])
+	}
 	if(!g_json.is_library){
 		s_android_mk.push('-lGLESv2 ')
 	}
