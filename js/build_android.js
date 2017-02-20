@@ -331,6 +331,13 @@ g_action_handlers.make=function(){
 	s_android_mk.push('\t\tLOCAL_CFLAGS += -mfpu=neon \n')
 	s_android_mk.push('\tendif\n')
 	s_android_mk.push('endif\n')
+	if(g_json.ldflags){
+		s_android_mk.push('LOCAL_LDFLAGS += ')
+		for(var j=0;j<g_json.ldflags.length;j++){
+			s_android_mk.push(' '+g_json.ldflags[j])
+		}
+		s_android_mk.push('\n')
+	}
 	s_android_mk.push('LOCAL_SHARED_LIBRARIES := ')
 	for(var j=0;g_json.android_libnames&&g_json.android_libnames[j];j++){
 		s_android_mk.push(' '+g_json.android_libnames[j])
