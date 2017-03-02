@@ -2649,6 +2649,15 @@ class CEditableText
 		this.ChopUndoRedo(ccnt0,ccnt1)
 		return 0
 	}
+	JS_QueryMySyncGroupOffset=function(JSContext JS){
+		ret=0LL
+		if m_sync_groups:
+			for sg,I in m_sync_groups
+				if iptr(sg.ed)==iptr(this):
+					ret=sg.ccnt0
+					break
+		return JS.Return(ret)
+	}
 	///////////////////////////
 	auto debugDumpSL()
 		levels=new string[]
@@ -2714,6 +2723,7 @@ class CEditableText
 		proto.ExportMethod(this,"GetUtf8CharNeighborhood",JS_GetUtf8CharNeighborhood)
 		proto.ExportMethod(this,"ConvertUTF8OffsetToBytesize",JS_ConvertUTF8OffsetToBytesize)
 		proto.ExportMethod(this,"GetHandlerByID",JS_GetHandlerByID)
+		proto.ExportMethod(this,"QueryMySyncGroupOffset",JS_QueryMySyncGroupOffset)
 
 g_registered_state_handlers=new function(CEditableText ret)[string]
 

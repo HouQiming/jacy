@@ -9744,17 +9744,20 @@ module Processes
 			//su.discard()
 			if !succ:
 				pret=CProcess.NULL
+			else if !IS_PIPED:
+				pret=new CProcess(){
+					pid:ret[0],
+				}
 			else
-				if !IS_PIPED:
-					pret=new CProcess(){
-						pid:ret[0],
-					}
+				pret=new CProcess(){
+					pid:ret[0],
+				}
+				if pipe_flags&1:
+					pret.pipe=ret[1]<0?CUnixFile.NULL:new CUnixFile(ret[1])
+					if pipe_flags&6:
+						pret.pipe_2nd=ret[2]<0?CUnixFile.NULL:new CUnixFile(ret[2])
 				else
-					pret=new CProcess(){
-						pid:ret[0],
-						pipe:ret[2]<0?CUnixFile.NULL:new CUnixFile(ret[2]),
-						pipe_2nd:ret[1]<0?CUnixFile.NULL:new CUnixFile(ret[1]),
-					}
+					pret.pipe=ret[2]<0?CUnixFile.NULL:new CUnixFile(ret[2])
 			return pret
 		auto Run(string[] cmd,string path,int show,string mode)
 			return _RunPiped(0,cmd,path,mode)

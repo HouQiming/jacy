@@ -55,6 +55,14 @@ var CopyJavaFile=function(fn0){
 	UpdateTo(star,fn)
 }
 
+var CopyJarFile=function(fn0){
+	var fn=SearchForFile(fn0);
+	var spackage_dir=g_work_dir+"/libs";
+	mkdir(spackage_dir)
+	var star=spackage_dir+"/"+RemovePath(fn)
+	UpdateTo(star,fn)
+}
+
 //var CopyCFile=function(fn0){
 //	var fn=fn0
 //	var star=g_work_dir+"/jni/"+RemovePath(fn)
@@ -167,6 +175,11 @@ g_action_handlers.make=function(){
 		}
 	}else{
 		mkdir(g_work_dir+"/src")
+	}
+	if(g_json.jar_files){
+		for(var i=0;i<g_json.jar_files.length;i++){
+			CopyJarFile(g_json.jar_files[i])
+		}
 	}
 	//copy-in the C files, which includes s7main.c
 	mkdir(g_work_dir+"/jni")
@@ -347,13 +360,16 @@ g_action_handlers.make=function(){
 	for(var j=0;g_json.android_system_static_libnames&&g_json.android_system_static_libnames[j];j++){
 		s_android_mk.push(' '+g_json.android_system_static_libnames[j])
 	}
+	for(var j=0;g_json.android_static_libnames&&g_json.android_static_libnames[j];j++){
+		s_android_mk.push(' '+g_json.android_static_libnames[j])
+	}
 	s_android_mk.push('\n')
 	s_android_mk.push('LOCAL_LDLIBS := -llog -landroid -L$(LOCAL_PATH)/$(TARGET_ARCH_ABI)/ ')
-	for(var j=0;g_json.android_static_libnames&&g_json.android_static_libnames[j];j++){
-		s_android_mk.push(' -l'+g_json.android_static_libnames[j])
-	}
+	//for(var j=0;g_json.android_static_libnames&&g_json.android_static_libnames[j];j++){
+	//	s_android_mk.push(' -l'+g_json.android_static_libnames[j])
+	//}
 	if(!g_json.is_library){
-		s_android_mk.push('-lGLESv2 ')
+		s_android_mk.push(' -lGLESv2')
 	}
 	for(var j=0;g_json.android_system_libnames&&g_json.android_system_libnames[j];j++){
 		s_android_mk.push(' -l'+g_json.android_system_libnames[j])

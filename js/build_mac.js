@@ -280,7 +280,7 @@ g_action_handlers.make=function(){
 		//hdiutil create -volname WhatYouWantTheDiskToBeNamed -srcfolder /path/to/the/folder/you/want/to/create -ov -format UDZO name.dmg
 		if(g_json.is_library){
 			//do nothing
-		}else{
+		}else if(g_build!="debug"){
 			sshell.push('mkdir -p download; cd build/',sdirname,'/; strip '+g_main_name,'.app/Contents/MacOS/',g_main_name,';')
 			sshell.push('rm -rf dmg; mkdir -p dmg; cp -r ',g_main_name,'.app dmg/; ln -s /Applications dmg/Applications;')
 			//sshell.push('; tar -czf '+g_main_name+'.tar.gz '+g_main_name+'.app; mv '+g_main_name+'.tar.gz ../../download/;')
@@ -290,7 +290,7 @@ g_action_handlers.make=function(){
 		envssh('mac',sshell.join(""))
 		if(g_json.is_library){
 			_rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/lib'+g_main_name+'.a',g_bin_dir)
-		}else{
+		}else if(g_build!="debug"){
 			rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/download',g_bin_dir)
 		}
 	}else{
