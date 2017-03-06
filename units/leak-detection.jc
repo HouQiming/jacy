@@ -264,7 +264,7 @@ auto DetectLeaks()
 			referer_pairs=AnalyzeReferer(leaks, state_new)
 			//Writeln([__pointer(ref.x) for ref in referer_pairs])
 			//Writeln([__pointer(ref.y) for ref in referer_pairs])
-			Writeln('=== ',leaks.n,' leaks, ',state_new.n,' alloced')
+			Writeln('=== ',leaks.n,' leaks, ',LeakDetection.GetMemoryUsage(),' bytes, ',state_new.n,' alloced')
 			foreach lk in leaks
 				p=lk.y
 				pobj=p+12*sizeof(iptr)
@@ -278,9 +278,9 @@ auto DetectLeaks()
 						ppref++
 					Writeln()
 		else
-			Writeln('=== no leak, ',state_new.n,' alloced')
+			Writeln('=== no leak, ',LeakDetection.GetMemoryUsage(),' bytes, ',state_new.n,' alloced')
 	else
-		Writeln('=== still preparing, ',state_new.n,' alloced')
+		Writeln('=== still preparing, ',LeakDetection.GetMemoryUsage(),' bytes, ',state_new.n,' alloced')
 	detail.g_previous_state0=detail.g_previous_state1
 	detail.g_previous_state1=state_new
 

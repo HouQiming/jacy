@@ -10539,6 +10539,7 @@ DUK_INTERNAL DUK_COLD void duk_err_uri(duk_hthread *thr) {
 DUK_INTERNAL DUK_COLD void duk_default_fatal_handler(void *udata, const char *msg) {
 	DUK_UNREF(udata);
 	DUK_UNREF(msg);
+	//*(int*)4+=4;
 
 #if defined(DUK_USE_FATAL_HANDLER)
 	/* duk_config.h provided a custom default fatal handler. */
