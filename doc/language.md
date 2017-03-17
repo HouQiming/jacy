@@ -580,10 +580,6 @@ using `const` as the type
 
 *Do not bother defining a general template class for vectors or matrices.* Most likely, you'll end up using only one instance of it (or two), and you'll have to specialize a good half of methods for optimal performance (e.g. the SVD code is completely different for 2x2 and 3x3).
 
-### Symbolic derivative and ANM generation
-
-!?
-
 ### Tuples and inline-structs
 
 crange

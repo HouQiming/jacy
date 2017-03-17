@@ -2315,7 +2315,7 @@ W.ListView_prototype={
 		var sel=this.value
 		var dim=this.dimension
 		var wh_dim=(dim=='y'?'h':'w')
-		var item_sel=this[(sel!=undefined&&this.items[sel].id)||("$"+sel)]
+		var item_sel=this[(sel!=undefined&&this.items[sel]&&this.items[sel].id)||("$"+sel)]
 		if(item_sel){
 			var pos_sel=item_sel[dim]-this[dim]+this.position
 			var pos_goal=Math.max(Math.min(this.position,pos_sel),pos_sel+item_sel[wh_dim]-this[wh_dim])

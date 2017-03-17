@@ -1848,6 +1848,17 @@ auto coreInit()
 			if !got_anything:
 				g_code_buffer.push('char dummy;')
 			g_code_buffer.push('};')
+			if fn.flags&FFLAG_LAMBDA_NEEDS_RTTI:
+				sbk2=g_code_buffer
+				g_code_buffer=g_c_global_buffer
+				g_code_buffer.push('static void* s7R_')
+				pobjfn_dtor=readPool(pobjfn+FUNCTION_OFS_FINALIZER)
+				genFunctionName(pobjfn_dtor)
+				g_code_buffer.push('=(void*)')
+				genFunctionName(pobjfn_dtor)
+				queueCodeGen(pobjfn_dtor)
+				g_code_buffer.push(';')
+				g_code_buffer=sbk2
 			//generate the string table once we get the type
 			if pobjfn==getStdObject(0,STDTYPE_STRING)&&g_c_str_consts.n:
 				g_global_strings_code.push('static ')
@@ -1936,10 +1947,10 @@ auto coreInit()
 			g_code_buffer.push('s7_BL->p=s7_BP;')
 		if (fn.flags&FFLAG_LAMBDA_NEEDS_RTTI)&&(fn.flags&FFLAG_LAMBDA_NEEDS_CONTEXT):
 			//for function-pointers that use NULL as a context substitute, we don't have to set the RTTI
-			g_code_buffer.push('s7_BL->s7rtti=(void*)')
 			pobjfn_dtor=readPool(pobjfn+FUNCTION_OFS_FINALIZER)
-			genFunctionName(pobjfn_dtor)
 			queueCodeGen(pobjfn_dtor)
+			g_code_buffer.push('s7_BL->s7rtti=(void*)&s7R_')
+			genFunctionName(pobjfn_dtor)
 			g_code_buffer.push(';')
 		if pobjfn==g_t_root_namespace&&(fn.flags&FFLAG_LAMBDA_NEEDS_CONTEXT):
 			//zero init should have been more efficient
@@ -3027,9 +3038,9 @@ auto coreInit()
 		if readPool(pecall+0)==2+EFLAG_FCALL:
 			//variant free - rtti call
 			g_s7_TF_rtti_dtor_used=1
-			g_code_buffer.push('((s7_TF_rtti_dtor)')
+			g_code_buffer.push('((s7_TF_rtti_dtor)(*(void**)')
 			genCode(readPool(pecall+EXPR_OFS_ARGS),LEVEL_POSTFIX)
-			g_code_buffer.push('->s7rtti)((void*)')
+			g_code_buffer.push('->s7rtti))((void*)')
 			genCode(readPool(pecall+EXPR_OFS_ARGS),LEVEL_PREFIX)
 			g_code_buffer.push(')')
 		else
@@ -3432,7 +3443,7 @@ auto coreInit()
 			//type RTTI - dtor name, fill during lambda tran
 			pf_dtor=readPool(t_object+FUNCTION_OFS_FINALIZER)
 			assert(!!pf_dtor)
-			g_code_buffer.push('((void*)')
+			g_code_buffer.push('((void*)&s7R_')
 			genFunctionName(pf_dtor)
 			g_code_buffer.push(')')
 		else
