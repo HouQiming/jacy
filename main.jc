@@ -17,6 +17,9 @@ if Platform.IS_WINDOWS:
 	__generate_json("ldflags","/STACK:67108864")
 if (Platform.ARCH=="rasppi"||Platform.ARCH=='linux32'||Platform.ARCH=='linux64')&&Platform.BUILD!="debug":
 	__generate_json("cflags","-g")
+if Platform.IS_LINUX:
+	__generate_json("ssh_remote_target","~/jc")
+	__generate_json("ssh_server","hqm@192.168.111.145")
 
 auto dumpAllErrors()
 	if Platform.BUILD=="debug":

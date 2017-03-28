@@ -9763,5 +9763,69 @@ module Processes
 			return _RunPiped(0,cmd,path,mode)
 		auto RunPiped(string[] cmd,string path,int show,string mode)
 			return _RunPiped(1,cmd,path,mode)
-		
+
+module Native
+	/**
+	@brief Import a C function
+	@param return_type is the return type, use int for void functions
+	@param name is the function name
+	@param header is the name of the header file containing the function, it can be followed by an optional source file name
+	@return The imported C function
+	*/
+	inline ImportCFunction(return_type,name,header)
+		if arguments.length>=4:
+			return __c_function(return_type,name,header,"c_files",arguments[4])
+		else
+			return __c_function(return_type,name,header)
+	/**
+	@brief Include a C header in the jc-generated C file
+	@param file_name is the file name to include
+	*/
+	inline IncludeCHeader(file_name)
+		__generate_json("h_files",file_name)
+		__generate_json("include_h_files",file_name)
+	/**
+	@brief Add a source file to the jc-generated project
+	@param file_name is the file name
+	*/
+	inline ProjectAddSource(file_name)
+		__generate_json("c_files",file_name)
+	/**
+	@brief Add a header file to the jc-generated project
+	@param file_name is the file name
+	*/
+	inline ProjectAddHeader(file_name)
+		__generate_json("h_files",file_name)
+	/**
+	@brief Create a local variable of a specified C struct type
+	@param type_name is the struct type name
+	@return A jc object representing the created local variable. 
+		Use `variable["member"].as(type)` and `variable["member"]=` to access members.
+	*/
+	inline CreateLocalCStruct(type_name)
+		ptr=__C(__pointer,"@decl:"+type_name+" @1={0}")
+		struct TCStruct
+			__pointer ptr
+			m_type_name=type_name
+			inline __C_autocast(){
+				return __C(__pointer,"("+m_type_name+"*)@1",ptr)
+			}
+			set_operator[]=inline(member_name,value)
+				if typeof(value)==string:
+					//__error("cannot write strings to C struct members")
+					if value.n:
+						__C(int,"memcpy((("+m_type_name+"*)(@1))->"+member_name+",@2,@3)",ptr,__pointer(value.d),value.n)
+					__C(int,"(("+m_type_name+"*)(@1))->"+member_name+"[@2]=0",ptr,value.n)
+				else
+					__C(typeof(value),"(("+m_type_name+"*)(@1))->"+member_name+"=@2",ptr,value)
+			operator[]=inline(member_name)
+				return {
+					as:inline(type){
+						if type==string:
+							return detail.pcharToString(__C(__pointer,"(("+m_type_name+"*)(@1))->"+member_name,ptr))
+						else
+							return __C(type,"(("+m_type_name+"*)(@1))->"+member_name,ptr)
+					}
+				}
+		return TCStruct(){ptr:ptr}
 //////////

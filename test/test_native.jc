@@ -1,0 +1,24 @@
+import "../units/system.jc"
+import System.Console.*
+
+(function(){
+	System.Native.ProjectAddSource("native.c")
+	FillStructMembers=System.Native.ImportCFunction(int,"FillStructMembers","native.h")
+	PrintStruct=System.Native.ImportCFunction(int,"PrintStruct","native.h")
+	s=System.Native.CreateLocalCStruct("TNativeStruct")
+	s2=System.Native.CreateLocalCStruct("TNativeStruct")
+	FillStructMembers(s)
+	Writeln(s["ival"].as(int),' ',s["dval"].as(double),' ',s["sval"].as(string),' ',s["sval2"].as(string))
+	PrintStruct(s)
+	s["ival"]=100
+	s["dval"]=NULL//9876.5
+	s["sval"]="modified"
+	s["sval2"]="modified2"
+	PrintStruct(s)
+	s2["ival"]=1000
+	s2["dval"]=98765.4321
+	s2["sval"]="s2_modified"
+	s2["sval2"]="s2_modified2"
+	PrintStruct(s2)
+	Writeln(s2["ival"].as(int),' ',s2["dval"].as(double),' ',s2["sval"].as(string),' ',s2["sval2"].as(string))
+})()
