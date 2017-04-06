@@ -19,7 +19,9 @@ security import ./ios_development.cer -k ios.keychain -T /usr/bin/codesign
 #then manually import apple wwdr ca cert to root
 #https://developer.apple.com/library/ios/documentation/IDEs/Conceptual/AppStoreDistributionTutorial/AddingYourAccounttoXcode/AddingYourAccounttoXcode.html
 
-nano /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/PackageApplication
+qpad /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/PackageApplication
+qpad /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/PackageApplication
+	find resource and remove it
 */
 var g_need_ssh_for_mac=(g_current_arch!="mac");
 var IOS=[]
@@ -80,9 +82,10 @@ var pushMakeItemArch=function(smakefile,c_files,arch,CC,CFLAGS,AR,STRIP){
 };
 
 g_action_handlers.make=function(){
-	var ssh_addr;
+	var ssh_addr,ssh_port;
 	if(g_need_ssh_for_mac){
 		ssh_addr=GetServerSSH('mac');
+		ssh_port=GetPortSSH('mac');
 	}
 	var dir_pmenv=g_root+"/mac/pmenv"
 	//build the project dir locally
@@ -401,12 +404,12 @@ g_action_handlers.make=function(){
 	//	sshell.push('security default-keychain -s login.keychain;')
 	if(g_need_ssh_for_mac){
 		sshell.push('exit')
-		rsync(g_work_dir+'/upload',ssh_addr+':~/_buildtmp/'+sbuildtmp)
+		rsync(g_work_dir+'/upload',ssh_addr+':~/_buildtmp/'+sbuildtmp,ssh_port)
 		envssh('mac',sshell.join(""))
 		if(g_json.is_library){
-			_rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/lib'+g_main_name+'.a',g_bin_dir)
+			_rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/lib'+g_main_name+'.a',g_bin_dir,ssh_port)
 		}else if(g_build!="debug"){
-			_rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/build/Release-iphoneos/'+g_main_name+'.ipa',g_bin_dir)
+			_rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/build/Release-iphoneos/'+g_main_name+'.ipa',g_bin_dir,ssh_port)
 		}
 	}else{
 		CreateFile(g_work_dir+"/build_local.sh",sshell.join(""))

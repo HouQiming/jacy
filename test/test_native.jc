@@ -11,7 +11,7 @@ import System.Console.*
 	Writeln(s["ival"].as(int),' ',s["dval"].as(double),' ',s["sval"].as(string),' ',s["sval2"].as(string))
 	PrintStruct(s)
 	s["ival"]=100
-	s["dval"]=NULL//9876.5
+	s["dval"]=9876.5
 	s["sval"]="modified"
 	s["sval2"]="modified2"
 	PrintStruct(s)
@@ -19,6 +19,9 @@ import System.Console.*
 	s2["dval"]=98765.4321
 	s2["sval"]="s2_modified"
 	s2["sval2"]="s2_modified2"
+	ptr=System.Native.CreateCPointer(char,s2["sval2"].as(__pointer))
+	ptr[0]='S'
+	ptr[1]=ptr[0]
 	PrintStruct(s2)
 	Writeln(s2["ival"].as(int),' ',s2["dval"].as(double),' ',s2["sval"].as(string),' ',s2["sval2"].as(string))
 })()

@@ -9767,7 +9767,7 @@ module Processes
 module Native
 	/**
 	@brief Import a C function
-	@param return_type is the return type, use int for void functions
+	@param return_type is the return type. Use `int` for void functions. Use `__pointer` to receive pointer types.
 	@param name is the function name
 	@param header is the name of the header file containing the function, it can be followed by an optional source file name
 	@return The imported C function
@@ -9785,6 +9785,12 @@ module Native
 		__generate_json("h_files",file_name)
 		__generate_json("include_h_files",file_name)
 	/**
+	@brief Add a search path to the jc-generated project
+	@param path is the search path relative to the jc file
+	*/
+	inline ProjectAddSearchPath(path)
+		__generate_json("relative_search_paths",path)
+	/**
 	@brief Add a source file to the jc-generated project
 	@param file_name is the file name
 	*/
@@ -9798,7 +9804,7 @@ module Native
 		__generate_json("h_files",file_name)
 	/**
 	@brief Create a local variable of a specified C struct type
-	@param type_name is the struct type name
+	@param type_name is a string containing the struct type name
 	@return A jc object representing the created local variable. 
 		Use `variable["member"].as(type)` and `variable["member"]=` to access members.
 	*/
@@ -9828,4 +9834,29 @@ module Native
 					}
 				}
 		return TCStruct(){ptr:ptr}
+	//memcpy=inline(dst,src,size)
+	//	return __basic_api.memcpy(__pointer(dst),__pointer(src),size)
+	//memset=inline(dst,value,size)
+	//	return __basic_api.memset(__pointer(dst),value,size)
+	//for C autocast
+	memcpy=__basic_api.memcpy
+	memset=__basic_api.memset
+	/**
+	@brief Create a typed C pointer
+	@param type is the type of the pointed-to value
+	@param pointer is the address of the pointer, either a `__pointer` returned by a C function or the `.d` member of a JC array
+	@return A struct representing a C pointer. Use `pointer[0]` for `*pointer`, use `pointer[i]` to access array elements.
+	*/
+	inline CreateCPointer(type,ptr)
+		struct TCPointer
+			__pointer ptr
+			m_type=type
+			inline __C_autocast(){
+				return __C(__pointer,"(@1*)@2",m_type,ptr)
+			}
+			set_operator[]=inline(subscript,value)
+				__C(m_type,"((@1*)(@2))[@3]=@4",m_type,ptr,subscript,value)
+			operator[]=inline(subscript)
+				return __C(m_type,"((@1*)(@2))[@3]",m_type,ptr,subscript)
+		return TCPointer(){ptr:__pointer(ptr)}
 //////////

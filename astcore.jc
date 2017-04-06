@@ -12714,7 +12714,9 @@ auto genCode(PExpression pe,int expr_oplevel)
 		break
 	case EFLAG_CTVAL:
 		pobjfn=(readPool(pe)&~EFLAG_MASK)
-		if readPool(pobjfn)!=g_tid_TFunction:
+		if readPool(pobjfn)==g_tid_TBuiltinType:
+			genType(pobjfn)
+		else if readPool(pobjfn)!=g_tid_TFunction:
 			errorAtExpr(ETYPE_LOW_LEVEL_ERROR,pe,"unable to generate C code for compile-time only expression '@1'".Replace(["@1",citeexpr(pe)]))
 			g_code_buffer.push('?err?')
 		else

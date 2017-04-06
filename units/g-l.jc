@@ -1419,6 +1419,8 @@ GL_STENCIL_INDEX16_EXT=0x8D49
 GL_RENDERBUFFER_WIDTH_EXT=0x8D42
 GL_RENDERBUFFER_HEIGHT_EXT=0x8D43
 GL_RENDERBUFFER_INTERNAL_FORMAT_EXT=0x8D44
+GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE=0x8CD0
+GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME=0x8CD1
 GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE_EXT=0x8CD0
 GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME_EXT=0x8CD1
 GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL_EXT=0x8CD2
@@ -2858,7 +2860,7 @@ if Platform.IS_LIBRARY:
 	if Platform.IS_WINDOWS:
 		GL_HEADER_FILE='glew.h'
 		glewInit=__c_function(int,"glewInit",GL_HEADER_FILE)
-		(inline(){glewInit()})()
+		(inline(){__C(int,"glewExperimental=1");glewInit()})()
 	else if Platform.ARCH=='mac':
 		GL_HEADER_FILE='OpenGL/gl.h'
 	else if Platform.ARCH=='ios':
@@ -2869,7 +2871,7 @@ if Platform.IS_LIBRARY:
 		//linux
 		GL_HEADER_FILE='glew.h'
 		glewInit=__c_function(int,"glewInit",GL_HEADER_FILE)
-		(inline(){glewInit()})()
+		(inline(){__C(int,"glewExperimental=1");glewInit()})()
 	__lib_import_gl=inline(){
 		if Platform.IS_WINDOWS:
 			__generate_json("c_files","glew.c")
