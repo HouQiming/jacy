@@ -1,9 +1,4 @@
 /*
-todo: update archiving commandline
-	http://bitbar.com/tipstricks-how-to-archive-and-export-ipa-from-script/
-	xcodebuild archive -project BitbarIOSSample.xcodeproj -scheme BitbarIOSSample-cal -archivePath BitbarIOSSample.xcarchive
-	xcodebuild -exportArchive -archivePath <PROJECT_NAME>.xcarchive -exportPath <PROJECT_NAME> -exportFormat ipa -exportProvisioningProfile "Name of Provisioning Profile"
-----
 security add-generic-password -s Xcode:itunesconnect.apple.com -a LOGIN -w PASSWORD -U
 build: CODE_SIGN_IDENTITY="iPhone Distribution:"
 ----
@@ -14,14 +9,15 @@ codesign -s "Distribution" the-ipa
 ----
 #setting up a new system
 security create-keychain -p '' ios.keychain
-security import ./ios_distribution.cer -k ios.keychain -T /usr/bin/codesign
+security import ./migration.p12 -k ios.keychain -T /usr/bin/codesign
 security import ./ios_development.cer -k ios.keychain -T /usr/bin/codesign
+mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles/
 #then manually import apple wwdr ca cert to root
 #https://developer.apple.com/library/ios/documentation/IDEs/Conceptual/AppStoreDistributionTutorial/AddingYourAccounttoXcode/AddingYourAccounttoXcode.html
 
 qpad /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/PackageApplication
-qpad /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/PackageApplication
 	find resource and remove it
+	upload the script if there's none
 */
 var g_need_ssh_for_mac=(g_current_arch!="mac");
 var IOS=[]
@@ -403,6 +399,7 @@ g_action_handlers.make=function(){
 	//	sshell.push('security list-keychains -s login.keychain;')
 	//	sshell.push('security default-keychain -s login.keychain;')
 	if(g_need_ssh_for_mac){
+		CreateIfDifferent(g_work_dir+'/upload/build.sh',sshell.join(""))
 		sshell.push('exit')
 		rsync(g_work_dir+'/upload',ssh_addr+':~/_buildtmp/'+sbuildtmp,ssh_port)
 		envssh('mac',sshell.join(""))
