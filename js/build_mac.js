@@ -63,9 +63,10 @@ var pushMakeItemArch=function(smakefile,c_files,arch,CC,CFLAGS,AR,STRIP){
 };
 
 g_action_handlers.make=function(){
-	var ssh_addr
+	var ssh_addr,ssh_port;
 	if(g_need_ssh_for_mac){
 		ssh_addr=GetServerSSH('mac');
+		ssh_port=GetPortSSH('mac');
 	}
 	var dir_pmenv=g_root+"/mac/pmenv"
 	mkdir(g_work_dir+"/upload/")
@@ -143,7 +144,7 @@ g_action_handlers.make=function(){
 		}
 		pushMakeItemArch(smakefile,c_files,'mac',
 			'/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang',
-			s_extra_cflags.join('')+" -pipe -arch x86_64 -fmessage-length=0 -fdiagnostics-show-note-include-stack -fmacro-backtrace-limit=0 -fcolor-diagnostics -Wno-trigraphs -fpascal-strings -O2 -msse2 -DNDEBUG -DUSE_SSE -Wno-missing-field-initializers -Wno-missing-prototypes -Werror=return-type -Wno-implicit-atomic-properties -Werror=deprecated-objc-isa-usage -Werror=objc-root-class -Wno-receiver-is-weak -Wno-arc-repeated-use-of-weak -Wduplicate-method-match -Wno-missing-braces -Wparentheses -Wswitch -Wunused-function -Wno-unused-label -Wno-unused-parameter -Wunused-variable -Wunused-value -Wempty-body -Wconditional-uninitialized -Wno-unknown-pragmas -Wno-shadow -Wno-four-char-constants -Wno-conversion -Wconstant-conversion -Wint-conversion -Wbool-conversion -Wenum-conversion -Wshorten-64-to-32 -Wpointer-sign -Wno-newline-eof -Wno-selector -Wno-strict-selector-match -Wundeclared-selector -Wno-deprecated-implementations -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/${MACSDK} -fasm-blocks -fstrict-aliasing -Wprotocol -Wdeprecated-declarations -mmacosx-version-min=10.8 -g -Wno-sign-conversion -I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include -ffast-math",
+			s_extra_cflags.join('')+" -pipe -arch x86_64 -fmessage-length=0 -fdiagnostics-show-note-include-stack -fmacro-backtrace-limit=0 -fcolor-diagnostics -Wno-trigraphs -fpascal-strings -O2 -msse2 -DNDEBUG -DUSE_SSE -Wno-missing-field-initializers -Wno-missing-prototypes -Werror=return-type -Wno-implicit-atomic-properties -Werror=deprecated-objc-isa-usage -Werror=objc-root-class -Wno-receiver-is-weak -Wno-arc-repeated-use-of-weak -Wduplicate-method-match -Wno-missing-braces -Wparentheses -Wswitch -Wunused-function -Wno-unused-label -Wno-unused-parameter -Wunused-variable -Wunused-value -Wempty-body -Wconditional-uninitialized -Wno-unknown-pragmas -Wno-shadow -Wno-four-char-constants -Wno-conversion -Wconstant-conversion -Wint-conversion -Wbool-conversion -Wenum-conversion -Wshorten-64-to-32 -Wpointer-sign -Wno-newline-eof -Wno-selector -Wno-strict-selector-match -Wundeclared-selector -Wno-deprecated-implementations -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/${MACSDK} -fasm-blocks -fstrict-aliasing -Wprotocol -Wdeprecated-declarations -mmacosx-version-min=10.8 -g -Wno-sign-conversion -I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include ",
 			"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar",
 			"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip");
 		CreateIfDifferent(g_work_dir+"/upload/Makefile",smakefile.join(""))
@@ -232,7 +233,7 @@ g_action_handlers.make=function(){
 	}
 	var sshell=[]
 	if(g_need_ssh_for_mac){
-		rsync(g_work_dir+'/upload',ssh_addr+':~/_buildtmp/'+sbuildtmp)
+		rsync(g_work_dir+'/upload',ssh_addr+':~/_buildtmp/'+sbuildtmp,ssh_port)
 		sshell.push('echo "----updating project----";')
 		sshell.push('cd ~/_buildtmp/'+sbuildtmp+';')
 		sshell.push('chmod -R 700 ~/_buildtmp/'+sbuildtmp+'/*;')
@@ -289,9 +290,9 @@ g_action_handlers.make=function(){
 		sshell.push('exit')
 		envssh('mac',sshell.join(""))
 		if(g_json.is_library){
-			_rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/lib'+g_main_name+'.a',g_bin_dir)
+			_rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/lib'+g_main_name+'.a',g_bin_dir,ssh_port)
 		}else if(g_build!="debug"){
-			rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/download',g_bin_dir)
+			rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/download',g_bin_dir,ssh_port)
 		}
 	}else{
 		sshell.push('cd build/'+sdirname+'/; strip '+g_main_name+'.app/Contents/MacOS/'+g_main_name+'; cp -r '+g_main_name+'.app ../../../../../../bin/'+g_relative_dir_name+'/;')

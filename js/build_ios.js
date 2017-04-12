@@ -15,6 +15,8 @@ mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles/
 #then manually import apple wwdr ca cert to root
 #https://developer.apple.com/library/ios/documentation/IDEs/Conceptual/AppStoreDistributionTutorial/AddingYourAccounttoXcode/AddingYourAccounttoXcode.html
 
+run build.sh in Gui once
+
 qpad /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/PackageApplication
 	find resource and remove it
 	upload the script if there's none

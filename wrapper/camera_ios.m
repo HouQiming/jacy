@@ -23,14 +23,18 @@
 #include "SDL.h"
 #include "TargetConditionals.h"
 #include "camera_ios.h"
+#ifndef TARGET_OS_MAC
 #include "ios_exposure_manager.h"
+#endif
 
 #define IOS_CAMERA_FRONT 0
 #define IOS_CAMERA_BACK 1
 
 static TCamera g_cameras[2]={{0}};
 static float OptimalLuminance = 100;
+#ifndef TARGET_OS_MAC
 static ExposureManager * exposure_manager=NULL;
+#endif
 static int luminance_sample_points[80001]; 
 static int frame_count = 0;
 
@@ -54,8 +58,10 @@ EXPORT int osal_TurnOnCamera(int cam_id,int w,int h,int fps){
 	if(cam->m_is_on){return 1;}
 	//////////////////
 
+	#ifndef TARGET_OS_MAC
 	exposure_manager = [[ExposureManager alloc]init];
 	[exposure_manager initializeVar];
+	#endif
 	luminance_sample_points[0]=-1;
 	frame_count = 0;
 
@@ -110,7 +116,9 @@ EXPORT int osal_TurnOnCamera(int cam_id,int w,int h,int fps){
 		cam->m_expect_T = -1;
 	}
 	if(!cam->m_session){
+		#ifndef TARGET_OS_MAC
 		[exposure_manager initializeCamera: cam->m_device];
+		#endif
 		AVCaptureDeviceInput *captureInput=
 			[AVCaptureDeviceInput 
 				deviceInputWithDevice:cam->m_device
@@ -212,6 +220,7 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 		memcpy(tar, src, w * 4);
 	}
 
+	#ifndef TARGET_OS_MAC
 	double ev_luminance = 0.0;
 	int luminance_count = 0;
 
@@ -270,6 +279,7 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 		}
 	}
 	[exposure_manager setTandISO: cam];
+	#endif
 	////////////////
 	SDL_LockMutex(cam->m_cam_mutex);
 	cam->m_image_ready=1;

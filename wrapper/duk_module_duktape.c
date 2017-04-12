@@ -20,37 +20,6 @@
 #define DUK__ASSERT_TOP(ctx,val) do { (void) ctx; (void) (val); } while (0)
 #endif
 
-#if defined(_MSC_VER) && _MSC_VER < 1900
-
-#define snprintf c99_snprintf
-#define vsnprintf c99_vsnprintf
-
-__inline int c99_vsnprintf(char *outBuf, size_t size, const char *format, va_list ap)
-{
-    int count = -1;
-
-    if (size != 0)
-        count = _vsnprintf_s(outBuf, size, _TRUNCATE, format, ap);
-    if (count == -1)
-        count = _vscprintf(format, ap);
-
-    return count;
-}
-
-__inline int c99_snprintf(char *outBuf, size_t size, const char *format, ...)
-{
-    int count;
-    va_list ap;
-
-    va_start(ap, format);
-    count = c99_vsnprintf(outBuf, size, format, ap);
-    va_end(ap);
-
-    return count;
-}
-
-#endif
-
 static void duk__resolve_module_id(duk_context *ctx, const char *req_id, const char *mod_id) {
 	duk_uint8_t buf[DUK_COMMONJS_MODULE_ID_LIMIT];
 	duk_uint8_t *p;
@@ -377,7 +346,7 @@ static duk_ret_t duk__require(duk_context *ctx) {
 	 * (Note capitalization: .filename matches Node.js while .fileName is
 	 * used elsewhere in Duktape.)
 	 */
-	duk_push_string(ctx, "})");
+	duk_push_string(ctx, "\n})");  /* Newline allows module last line to contain a // comment. */
 	duk_concat(ctx, 3);
 	if (!duk_get_prop_string(ctx, DUK__IDX_MODULE, "filename")) {
 		/* module.filename for .fileName, default to resolved ID if

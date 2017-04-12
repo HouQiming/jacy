@@ -22,8 +22,9 @@ module Camera
 		else if Platform.ARCH=="ios"||Platform.ARCH=="mac":
 			__generate_json("h_files","camera_ios.h")
 			__generate_json("c_files","camera_ios.m")
-			__generate_json("h_files","ios_exposure_manager.h")
-			__generate_json("c_files","ios_exposure_manager.m")
+			if Platform.ARCH!="mac":
+				__generate_json("h_files","ios_exposure_manager.h")
+				__generate_json("c_files","ios_exposure_manager.m")
 			__generate_json("ios_frameworks","System/Library/Frameworks/AVFoundation.framework")
 			__generate_json("ios_frameworks","System/Library/Frameworks/CoreMedia.framework")
 			__generate_json("ios_frameworks","System/Library/Frameworks/CoreVideo.framework")
