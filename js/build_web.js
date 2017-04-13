@@ -37,9 +37,9 @@ g_action_handlers.make=function(){
 	var s_emcc=(g_current_arch=='win32'||g_current_arch=='win64'?"emcc.bat":"emcc");
 	var smakefile_array=["CC = ",s_emcc,"\nLD = ",s_emcc,"\nCFLAGS0 = -DWEB\n"];
 	if(g_build!="debug"){
-		smakefile_array.push('LDFLAGS = -O2 --memory-init-file 1 \nCFLAGS1= --memory-init-file 1 -O2 -fno-exceptions -fno-rtti -fno-unwind-tables -fno-strict-aliasing -w -DPM_RELEASE ');
+		smakefile_array.push('LDFLAGS = -O2 -Os --memory-init-file 1 \nCFLAGS1= --memory-init-file 1 -O2 -Os -fno-exceptions -fno-rtti -fno-unwind-tables -fno-strict-aliasing -w -DPM_RELEASE -s WASM=1 ');
 	}else{
-		smakefile_array.push('LDFLAGS = --memory-init-file 1 \nCFLAGS1= --memory-init-file 1 -g2 -fno-exceptions -fno-rtti -fno-unwind-tables -fno-strict-aliasing -w ');
+		smakefile_array.push('LDFLAGS = --memory-init-file 1 \nCFLAGS1= --memory-init-file 1 -g2 -fno-exceptions -fno-rtti -fno-unwind-tables -fno-strict-aliasing -w -s WASM=1 ');
 	}
 	if(g_json.c_include_paths){
 		for(var i=0;i<g_json.c_include_paths.length;i++){

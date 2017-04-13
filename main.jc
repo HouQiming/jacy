@@ -166,7 +166,8 @@ Output-related options:
     --epilog=EPILOG: use "EPILOG" as the C code epilog
     --run: run the generated executable if build is successful
     --cpp: generate C++ code instead of C code
-    -S, --shared: generate a library instead of an executable
+    --dynamic_lib: generate a dynamic library instead of an executable
+    --static_lib: generate a static library instead of an executable
 
 Customizations:
     --32, --64: enforce a bit size
@@ -265,8 +266,11 @@ auto main()
 			g_is_cpp=1
 		else if s.StartsWith("--main="):
 			g_fn_s7_main=new(s[7:])
-		else if s=="--shared"||s=="-S":
+		else if s=="--shared"||s=="-S"||s=="--dynamic_lib":
 			g_is_library=1
+			s_epilog=""
+		else if s=="--static_lib":
+			g_is_library=2
 			s_epilog=""
 		else if s.StartsWith("-"):
 			Writeln('warning: unrecognized option @1'.Replace(["@1",s]))
@@ -378,7 +382,7 @@ auto main()
 	g_json_pool[getid("c_files")]=[getid(fn_output_c)]
 	g_json_pool[getid("h_files")]=new int[]
 	if g_is_library:
-		g_json_pool[getid("is_library")]=[1]
+		g_json_pool[getid("is_library")]=[getid(FormatAsText(g_is_library))]
 	if fn_output_exe.n:
 		g_json_pool[getid("output_file")]=[getid(fn_output_exe)]
 	id_input_files=new int[files.n]

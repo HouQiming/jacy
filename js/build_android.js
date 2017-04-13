@@ -375,7 +375,7 @@ g_action_handlers.make=function(){
 		s_android_mk.push(' -l'+g_json.android_system_libnames[j])
 	}
 	s_android_mk.push('\n')
-	if(g_json.android_build_static_library){
+	if(g_json.android_build_static_library||g_json.is_library&&parseInt(g_json.is_library[0])===2){
 		s_android_mk.push('include $(BUILD_STATIC_LIBRARY)\n')
 	}else{
 		s_android_mk.push('include $(BUILD_SHARED_LIBRARY)\n')
@@ -488,7 +488,7 @@ g_action_handlers.make=function(){
 		}
 		shell(["cp",fnjar,g_bin_dir+"/"+g_main_name+".jar"])
 		shell(["rm","-rf",g_bin_dir+"/libs"])
-		if(g_json.android_build_static_library){
+		if(g_json.android_build_static_library||g_json.is_library&&parseInt(g_json.is_library[0])===2){
 			for(var i=0;i<abis.length;i++){
 				mkdir(g_bin_dir+"/libs/"+abis[i])
 				shell(["cp",g_work_dir+"/obj/local/"+abis[i]+"/lib"+g_main_name+".a",g_bin_dir+"/libs/"+abis[i]+"/"])

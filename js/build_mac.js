@@ -33,7 +33,39 @@ var pushMakeItemArch=function(smakefile,c_files,arch,CC,CFLAGS,AR,STRIP){
 	for(var i=0;i<c_files.length;i++){
 		o_files.push(pushMakeItem(smakefile,c_files[i],arch,CC,CFLAGS));
 	}
-	if(g_build!="debug"){
+	if(g_json.mac_build_dynamic_library||g_json.is_library&&parseInt(g_json.is_library[0])===1){
+		//do nothing
+		smakefile.push(g_main_name+'.dylib: ')
+		for(var i=0;i<o_files.length;i++){
+			smakefile.push(' ');
+			smakefile.push(o_files[i]);
+		}
+		if(g_lib_files){
+			for(var i=0;i<g_lib_files.length;i++){
+				smakefile.push(' ',g_lib_files[i]);
+			}
+		}
+		smakefile.push('\n\tgcc -dynamiclib -o '+g_main_name+'.dylib ')
+		for(var i=0;i<o_files.length;i++){
+			smakefile.push(' ');
+			smakefile.push(o_files[i]);
+		}
+		if(g_lib_files){
+			for(var i=0;i<g_lib_files.length;i++){
+				smakefile.push(' ',g_lib_files[i]);
+			}
+		}
+		if(g_json.mac_frameworks){
+			smakefile.push(' -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/${MACSDK}')
+			for(var i=0;g_json.mac_frameworks[i];i++){
+				var match=g_json.mac_frameworks[i].match(/([^/]+)\.framework/);
+				if(match){
+					smakefile.push(' -framework ',match[1]);
+				}
+			}
+		}
+		smakefile.push(' -framework Foundation -lobjc\n\n')
+	}else if(g_build!="debug"){
 		smakefile.push('libtmp-',arch,'-unstripped.a:')
 		for(var i=0;i<o_files.length;i++){
 			smakefile.push(' ');
@@ -114,21 +146,25 @@ g_action_handlers.make=function(){
 	var c_files=CreateProjectForStandardFiles(g_work_dir+"/upload/")
 	if(g_json.is_library){
 		//library makefile
-		if(g_lib_files){
-			smakefile.push('lib'+g_main_name+'.a: libtmp.a')
-			for(var i=0;i<g_lib_files.length;i++){
-				smakefile.push(' ',g_lib_files[i]);
-			}
-			smakefile.push('\n\tlibtool -static -o lib'+g_main_name+'.a libtmp.a')
-			for(var i=0;i<g_lib_files.length;i++){
-				smakefile.push(' ',g_lib_files[i]);
-			}
-			smakefile.push('\n\n')
-			smakefile.push('libtmp.a: libtmp-mac.a\n')
-			smakefile.push('	lipo -create -output libtmp.a libtmp-mac.a\n\n')
+		if(g_json.mac_build_dynamic_library||g_json.is_library&&parseInt(g_json.is_library[0])===1){
+			//do nothing
 		}else{
-			smakefile.push('lib'+g_main_name+'.a: libtmp-mac.a\n')
-			smakefile.push('	lipo -create -output lib'+g_main_name+'.a libtmp-mac.a\n\n')
+			if(g_lib_files){
+				smakefile.push('lib'+g_main_name+'.a: libtmp.a')
+				for(var i=0;i<g_lib_files.length;i++){
+					smakefile.push(' ',g_lib_files[i]);
+				}
+				smakefile.push('\n\tlibtool -static -o lib'+g_main_name+'.a libtmp.a')
+				for(var i=0;i<g_lib_files.length;i++){
+					smakefile.push(' ',g_lib_files[i]);
+				}
+				smakefile.push('\n\n')
+				smakefile.push('libtmp.a: libtmp-mac.a\n')
+				smakefile.push('	lipo -create -output libtmp.a libtmp-mac.a\n\n')
+			}else{
+				smakefile.push('lib'+g_main_name+'.a: libtmp-mac.a\n')
+				smakefile.push('	lipo -create -output lib'+g_main_name+'.a libtmp-mac.a\n\n')
+			}
 		}
 		////////////////////////////////
 		var s_extra_cflags=[];
@@ -246,7 +282,11 @@ g_action_handlers.make=function(){
 		//sshell.push('export IOSSDK=`ls /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/ | grep [0-9]\\.`;')
 		//sshell.push('export EMUSDK=`ls /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/ | grep [0-9]\\.`;')
 		sshell.push('echo "----building----";')
-		sshell.push('make lib'+g_main_name+'.a;')
+		if(g_json.mac_build_dynamic_library||g_json.is_library&&parseInt(g_json.is_library[0])===1){
+			sshell.push('make '+g_main_name+'.dylib;')
+		}else{
+			sshell.push('make lib'+g_main_name+'.a;')
+		}
 	}else{
 		sshell.push('python ./tmp.py;')
 		if(g_json.icon_file){
@@ -290,7 +330,11 @@ g_action_handlers.make=function(){
 		sshell.push('exit')
 		envssh('mac',sshell.join(""))
 		if(g_json.is_library){
-			_rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/lib'+g_main_name+'.a',g_bin_dir,ssh_port)
+			if(g_json.mac_build_dynamic_library||g_json.is_library&&parseInt(g_json.is_library[0])===1){
+				_rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/'+g_main_name+'.dylib',g_bin_dir,ssh_port)
+			}else{
+				_rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/lib'+g_main_name+'.a',g_bin_dir,ssh_port)
+			}
 		}else if(g_build!="debug"){
 			rsync(ssh_addr+':~/_buildtmp/'+sbuildtmp+'/download',g_bin_dir,ssh_port)
 		}
