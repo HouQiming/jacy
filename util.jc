@@ -395,6 +395,7 @@ auto FormatCCode(string feed)
 				indent--
 				if I<feed.n-2&&(feed[I+1]==';'||feed[I+1]==','):
 					//nothing
+				else if I<feed.n-5&&(feed[I+1]=='e'&&feed[I+2]=='l'&&feed[I+3]=='s'&&feed[I+4]=='e'):
 				else
 					nextline()
 			else if ch==';'&&!nbra:

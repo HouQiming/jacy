@@ -1007,8 +1007,7 @@ module duktape
 			fn2=fn
 			this[sname]=function(JSContext JS){
 				native_this=JS.GetNativeThis(T_class)
-				if !native_this:return 0
-				return fn2.Bind(native_this)(JS)
+				return !native_this?0:fn2.Bind(native_this)(JS)
 			}
 		inline ExportGetterSetter(self,sname,fgetter0,fsetter0)
 			T_class=typeof(self)

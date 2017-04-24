@@ -2262,6 +2262,7 @@ auto ParseZip(string dat)
 	nfiles=iptr(dat.ReadAtU(ptail+10,u16))
 	ofs=iptr(dat.ReadAtU(ptail+16,u32))
 	if uptr(ofs)>=uptr(dat.n):return CZipFile.NULL
+	//Writeln('================');
 	for i=0:nfiles-1
 		pos0=ofs
 		if uptr(pos0+46L)>=uptr(dat.n):return NULL
@@ -2273,6 +2274,8 @@ auto ParseZip(string dat)
 		if uptr(ofs_local+30L)>=uptr(dat.n)||uptr(ofs_local)>=uptr(dat.n):return NULL
 		method=int(dat.ReadAtU(ofs_local+8L,i16))
 		szdata=iptr(dat.ReadAtU(ofs_local+18L,u32))
+		if !szdata:
+			szdata=iptr(dat.ReadAtU(pos0+20L,u32))
 		szname=iptr(dat.ReadAtU(ofs_local+26L,u16))
 		szextra=iptr(dat.ReadAtU(ofs_local+28L,u16))
 		if uptr(ofs_local+30L+szname)>=uptr(dat.n):return NULL
@@ -2280,6 +2283,7 @@ auto ParseZip(string dat)
 		pfiledata=ofs_local+30L+szname+szextra
 		sname=sname.Replace(["\\","/"]).ToLower()
 		ret.compressed_files[sname]=new CZipItem(){dat:dat[pfiledata:pfiledata+szdata-1],method:method}
+		//Writeln(sname,' ',method,' ',szdata,' ',iptr(dat.ReadAtU(pos0+20L,u32)));
 		////////////
 		ofs=pos0+46L+szcrap
 	return ret
