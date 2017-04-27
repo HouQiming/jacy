@@ -51,13 +51,13 @@
 #    define DECLSPEC    __declspec(dllimport)
 #   endif
 #  else
-#   define DECLSPEC __declspec(dllexport)
+#   define DECLSPEC /*__declspec(dllexport)*/
 #  endif
 # else
 #  if defined(__GNUC__) && __GNUC__ >= 4
 #   define DECLSPEC __attribute__ ((visibility("default")))
 #  elif defined(__GNUC__) && __GNUC__ >= 2
-#   define DECLSPEC __declspec(dllexport)
+#   define DECLSPEC /*__declspec(dllexport)*/
 #  else
 #   define DECLSPEC
 #  endif

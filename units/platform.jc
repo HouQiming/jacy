@@ -7,5 +7,5 @@ IS_WINDOWS=(ARCH=="win32"||ARCH=="win64"||ARCH=="winrt")
 IS_MOBILE=(ARCH=="android"||ARCH=="ios")
 IS_APPLE=(ARCH=='ios'||ARCH=='mac')
 IS_LINUX=(ARCH=="rasppi"||ARCH=='linux32'||ARCH=='linux64')
-if Platform.IS_WINDOWS:
+if Platform.IS_WINDOWS&&Platform.IS_LIBRARY:
 	__generate_json('__export_prefix','__declspec(dllexport)')

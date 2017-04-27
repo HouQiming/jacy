@@ -61,6 +61,7 @@ In the android mode, the sdl stuff are set by the build script. We don't have to
 #include <poll.h>
 #include <wchar.h>
 #include <sys/wait.h>
+#include <stdarg.h>
 ///////////
 #ifndef PM_RELEASE
 #include <signal.h>

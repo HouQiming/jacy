@@ -781,13 +781,7 @@ SDL_SendKeyboardKey(Uint8 state, SDL_Scancode scancode)
 }
 
 //malloc and pack pointer
-#ifdef _WIN32
-#define FORCE_EXPORT __declspec(dllexport)
-#else
-#define FORCE_EXPORT
-#endif
-
-FORCE_EXPORT char* SDL_GetInputEventText(SDL_Event* pevent){
+char* SDL_GetInputEventText(SDL_Event* pevent){
 	char* p=NULL;
 	if(pevent->text.text[0]!=(char)0xff){
 		return pevent->text.text;
@@ -796,7 +790,7 @@ FORCE_EXPORT char* SDL_GetInputEventText(SDL_Event* pevent){
 	return p;
 }
 
-FORCE_EXPORT void SDL_FreeInputEventText(SDL_Event* pevent){
+void SDL_FreeInputEventText(SDL_Event* pevent){
 	if(pevent->text.text[0]==(char)0xff){
 		char* p=NULL;
 		SDL_memcpy(&p,pevent->text.text+1,sizeof(char*));
