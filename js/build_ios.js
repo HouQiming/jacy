@@ -198,15 +198,21 @@ g_action_handlers.make=function(){
 				smakefile.push(' ',g_lib_files[i]);
 			}
 			smakefile.push('\n\n')
-			//smakefile.push('libtmp.a: libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a libtmp-emu.a\n')
-			//smakefile.push('	lipo -create -output libtmp.a libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a libtmp-emu.a\n\n')
-			smakefile.push('libtmp.a: libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a\n')
-			smakefile.push('	lipo -create -output libtmp.a libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a\n\n')
+			if(g_json.ios_build_emulator_library){
+				smakefile.push('libtmp.a: libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a libtmp-emu.a\n')
+				smakefile.push('	lipo -create -output libtmp.a libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a libtmp-emu.a\n\n')
+			}else{
+				smakefile.push('libtmp.a: libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a\n')
+				smakefile.push('	lipo -create -output libtmp.a libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a\n\n')
+			}
 		}else{
-			//smakefile.push('lib'+g_main_name+'.a: libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a libtmp-emu.a\n')
-			//smakefile.push('	lipo -create -output lib'+g_main_name+'.a libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a libtmp-emu.a\n\n')
-			smakefile.push('lib'+g_main_name+'.a: libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a\n')
-			smakefile.push('	lipo -create -output lib'+g_main_name+'.a libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a\n\n')
+			if(g_json.ios_build_emulator_library){
+				smakefile.push('lib'+g_main_name+'.a: libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a libtmp-emu.a\n')
+				smakefile.push('	lipo -create -output lib'+g_main_name+'.a libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a libtmp-emu.a\n\n')
+			}else{
+				smakefile.push('lib'+g_main_name+'.a: libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a\n')
+				smakefile.push('	lipo -create -output lib'+g_main_name+'.a libtmp-armv7.a libtmp-armv7s.a libtmp-arm64.a\n\n')
+			}
 		}
 		////////////////////////////////
 		var s_extra_cflags=[];
