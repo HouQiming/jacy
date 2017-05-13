@@ -1121,7 +1121,13 @@ UI.Font=function(face,size,embolden){
 		}
 		//print(JSON.stringify(fnames))
 		pfnt=UI.CreateFontChain(fnames.map(UI.HackCallback(function(cface){
-			return {hfnt:UI.CoreFont(cface)};
+			var scale=1;
+			if(cface.indexOf('*')>=0){
+				var arr=cface.split('*');
+				cface=arr[0];
+				scale=parseFloat(arr[1]);
+			}
+			return {hfnt:UI.CoreFont(cface),scale:scale};
 		})))
 		UI.font_cache[face]=pfnt;
 	}
