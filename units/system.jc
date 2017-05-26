@@ -9838,9 +9838,9 @@ module Native
 	//	return __basic_api.memcpy(__pointer(dst),__pointer(src),size)
 	//memset=inline(dst,value,size)
 	//	return __basic_api.memset(__pointer(dst),value,size)
-	//for C autocast
 	memcpy=__basic_api.memcpy
 	memset=__basic_api.memset
+	strlen=System.OS_API.strlen
 	/**
 	@brief Create a typed C pointer
 	@param type is the type of the pointed-to value
@@ -9859,4 +9859,12 @@ module Native
 			operator[]=inline(subscript)
 				return __C(m_type,"((@1*)(@2))[@3]",m_type,ptr,subscript)
 		return TCPointer(){ptr:__pointer(ptr)}
+	/**
+	@brief Create a JC string from a char*
+	@param p is the char*
+	@param n is the string length, you could create it from System.Native.strlen(p)
+	@return A JC string which is a copy of the C string
+	*/
+	CreateString=inline(p,n)
+		return __ptrToString(p,n)
 //////////

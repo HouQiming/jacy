@@ -1,0 +1,31 @@
+//qpad: additional_options="-Dnodllmess -Done_pass -Drebuild" optimization_for_size="1" warning_level="0" optimization_level="2" spap_backend="1" crt_static="1" disable_debugging="1"
+import "system.jc"
+import System.Console.*
+import System.Algorithm.*
+
+ShellExecuteW=__c_function(int,"ShellExecuteW","windows.h","lib_files","shell32.lib")
+
+(function(){
+	args=System.Console.GetCommandLine()
+	if args.n>1:
+		scmd=""
+		foreach s in args[2:]
+			s2=new string
+			foreach ch in s
+				if ch=='"':
+					s2.push('\\')
+				s2.push(ch)
+			if s2.back()=='\\':
+				s2.push('\\')
+			scmd.push(' ')
+			scmd.push('"')
+			scmd.push(s2)
+			scmd.push('"')
+		cmdrunu=Utf8ToUnicode(args[1]); cmdrunu.push(i16(0))
+		path2u=Utf8ToUnicode(System.Env.NormalizeFileName(".")); path2u.push(i16(0))
+		openu=Utf8ToUnicode("runas"); openu.push(i16(0))
+		paramsu=Utf8ToUnicode(scmd); paramsu.push(i16(0))
+		ShellExecuteW(NULL,openu,cmdrunu,paramsu,path2u,1)
+	else
+		System.Console.Writeln('usage: sudo <command>')
+})()

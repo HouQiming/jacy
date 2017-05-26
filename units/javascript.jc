@@ -52,7 +52,8 @@ module duktape
 	duk_is_null_or_undefined=__c_function(int,"duk_is_null_or_undefined","duktape.h")
 	duk_has_prop=__c_function(int,"duk_has_prop","duktape.h")
 	//duk_peval=__c_function(int,"duk_peval","duktape.h")
-	duk_eval_raw=__c_function(int,"duk_eval_raw","duktape.h")
+	//duk_eval_raw=__c_function(int,"duk_eval_raw","duktape.h")
+	duk_pcompile_lstring_filename=__c_function(int,"duk_pcompile_lstring_filename","duktape.h")
 	duk_pcall=__c_function(int,"duk_pcall","duktape.h")
 	duk_pcall_method=__c_function(int,"duk_pcall_method","duktape.h")
 	duk_set_finalizer=__c_function(int,"duk_set_finalizer","duktape.h")
@@ -74,12 +75,12 @@ module duktape
 	DUK_COMPILE_FUNCTION=(1 << 4)    /* compile function code (instead of global code) */
 	DUK_COMPILE_STRICT=(1 << 5)    /* use strict (outer) context for global, eval, or function code */
 	DUK_COMPILE_SHEBANG=(1 << 6)    /* allow shebang ('#! ...') comment on first line of source */
-	DUK_COMPILE_SAFE=(1 << 7)    /* (internal) catch compilation errors */
-	DUK_COMPILE_NORESULT=(1 << 8)    /* (internal) omit eval result */
-	DUK_COMPILE_NOSOURCE=(1 << 9)    /* (internal) no source string on stack */
-	DUK_COMPILE_STRLEN=(1 << 10)   /* (internal) take strlen() of src_buffer (avoids double evaluation in macro) */
-	DUK_COMPILE_NOFILENAME=(1 << 11)   /* (internal) no filename on stack */
-	DUK_COMPILE_FUNCEXPR=(1 << 12)   /* (internal) source is a function expression (used for Function constructor) */
+	//DUK_COMPILE_SAFE=(1 << 7)    /* (internal) catch compilation errors */
+	//DUK_COMPILE_NORESULT=(1 << 8)    /* (internal) omit eval result */
+	//DUK_COMPILE_NOSOURCE=(1 << 9)    /* (internal) no source string on stack */
+	//DUK_COMPILE_STRLEN=(1 << 10)   /* (internal) take strlen() of src_buffer (avoids double evaluation in macro) */
+	//DUK_COMPILE_NOFILENAME=(1 << 11)   /* (internal) no filename on stack */
+	//DUK_COMPILE_FUNCEXPR=(1 << 12)   /* (internal) source is a function expression (used for Function constructor) */
 	///////
 	//least wrapping - use the original api to get the args
 	//the who-hold-the-reference problem
@@ -582,7 +583,10 @@ module duktape
 			else
 				sfile="<eval>"
 			duk_push_lstring(_ctx(),sfile,sfile.n)
-			err=duk_eval_raw(_ctx(),s,s.n,DUK_COMPILE_EVAL|DUK_COMPILE_SAFE|DUK_COMPILE_NOSOURCE)
+			//err=duk_eval_raw(_ctx(),s,s.n,1|DUK_COMPILE_EVAL|DUK_COMPILE_SAFE|DUK_COMPILE_NOSOURCE)
+			err=duk_pcompile_lstring_filename(_ctx(),DUK_COMPILE_EVAL,s,s.n)
+			if err==0:
+				err=duk_pcall(_ctx(),0)
 			if T!=JSObject&&err!=0:
 				ret=__zero(T)
 			else
@@ -592,7 +596,10 @@ module duktape
 		inline evalVoid(string s,string sfile)
 			__explicit_rc(this,1)
 			duk_push_lstring(_ctx(),sfile,sfile.n)
-			err=duk_eval_raw(_ctx(),s,s.n,DUK_COMPILE_EVAL|DUK_COMPILE_SAFE|DUK_COMPILE_NOSOURCE)
+			//err=duk_eval_raw(_ctx(),s,s.n,1|DUK_COMPILE_EVAL|DUK_COMPILE_SAFE|DUK_COMPILE_NOSOURCE)
+			err=duk_pcompile_lstring_filename(_ctx(),DUK_COMPILE_EVAL,s,s.n)
+			if err==0:
+				err=duk_pcall(_ctx(),0)
 			if err!=0:
 				ret=_pop_typed(JSObject,1)
 			else
