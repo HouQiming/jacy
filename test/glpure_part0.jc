@@ -3034,6 +3034,19 @@ class GLTechnique
 					plast=I+1
 			if plast<code_fs.n:
 				fs_appeared[code_fs[plast:code_fs.n-1]]=1
+			/////////////////////////////
+			vs_appeared=new int[string]
+			code_vs=m_code_vs
+			plast=0L
+			foreach ch,I in code_vs
+				isalnum=(ch>='a'&&ch<='z'||ch>='A'&&ch<='Z'||ch>='0'&&ch<='9'||ch=='_'||ch>=128)
+				if !isalnum:
+					if plast<I:
+						vs_appeared[code_vs[plast:I-1]]=1
+					plast=I+1
+			if plast<code_vs.n:
+				vs_appeared[code_vs[plast:code_vs.n-1]]=1
+			/////////////////////////////
 			svs=new string
 			sfs=new string
 			svs.push(m_code_extensions)
@@ -3045,11 +3058,11 @@ class GLTechnique
 			svs.push(m_code_varyings)
 			sfs.push(m_code_varyings)
 			foreach di in m_ditems
-				if di.decl_code[0]=='a'||di.decl_code[0]=='u'&&!fs_appeared[di.loc_name]:
-					//put attribute and VTF in vs
+				if di.decl_code[0]=='a'||di.decl_code[0]=='u'&&vs_appeared[di.loc_name]:
+					//put attribute and vs_appeared stuff in vs
 					svs.push(di.decl_code)
-				else
-					//put everything else in fs
+				if di.decl_code[0]!='a'&&fs_appeared[di.loc_name]:
+					//put fs_appeared stuff in fs
 					sfs.push(di.decl_code)
 			svs.push(m_code_vs)
 			sfs.push(m_code_fs)

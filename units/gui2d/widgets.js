@@ -2582,10 +2582,17 @@ W.ListView=function(id,attrs){
 				W.Region(id_click_sel,{x:0,y:0,w:0,h:0,
 					numerical_id:i,
 					__kept:1,
-					OnClick:function(event){
+					OnMouseDown:function(event){
 						obj.OnChange(this.numerical_id)
+					},
+					OnClick:function(event){
+						//obj.OnChange(this.numerical_id)
+						var obj_i=obj["$"+this.numerical_id.toString()];
+						if(event.button==UI.SDL_BUTTON_RIGHT&&obj_i&&obj_i.OnRightClick){
+							return obj_i.OnRightClick(event);
+						}
 						if(obj.is_single_click_mode||event.clicks>1){
-							obj["$"+this.numerical_id.toString()].OnDblClick();
+							obj_i.OnDblClick();
 						}else{
 							UI.SetFocus(obj)
 						}
