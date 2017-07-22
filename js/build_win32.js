@@ -91,6 +91,9 @@ VC.Link=function(fnlist,soutput){
 	var sbatname=VC.sbatname
 	var sopt1=" ";
 	var subsystem=(g_json.subsystem||["console"])[0].toLowerCase();
+	var slinker_response_name=g_work_dir+"/linker_cmd.txt";
+	var scmd='';
+	var slinker_options='';
 	if(subsystem=="lib"&&g_json.is_library){
 		if(g_json.ldflags){
 			for(var i=0;i<g_json.ldflags.length;i++){
@@ -98,8 +101,8 @@ VC.Link=function(fnlist,soutput){
 				sopt1=sopt1+(" "+smain);
 			}
 		}
-		var scmd;
-		scmd='@echo off\ncall "'+sbatname+'"\nlib /OUT:"'+soutput+'" /NOLOGO  '+sopt1+' '+fnlist;
+		scmd='@echo off\ncall "'+sbatname+'"\nlib "@'+slinker_response_name+'"';
+		slinker_options=['/OUT:"',soutput,'" /NOLOGO  ',sopt1,' ',fnlist].join('');
 	}else{
 		if(g_is64){
 			sopt1=sopt1+" /MACHINE:x64";
@@ -116,8 +119,11 @@ VC.Link=function(fnlist,soutput){
 				sopt1=sopt1+(" "+smain);
 			}
 		}
-		var scmd;
-		scmd='@echo off\ncall "'+sbatname+'"\nlink /DEBUG /OUT:"'+soutput+'" /NOLOGO /OPT:REF /OPT:ICF /DYNAMICBASE /NXCOMPAT /ERRORREPORT:PROMPT /LARGEADDRESSAWARE '+sopt1+' '+fnlist;
+		scmd='@echo off\ncall "'+sbatname+'"\nlink "@'+slinker_response_name+'"';
+		slinker_options=['/DEBUG /OUT:"',soutput,'" /NOLOGO /OPT:REF /OPT:ICF /DYNAMICBASE /NXCOMPAT /ERRORREPORT:PROMPT /LARGEADDRESSAWARE ',sopt1,' ',fnlist].join('');
+	}
+	if(!CreateFile(slinker_response_name,slinker_options)){
+		throw new Error("can't create "+slinker_response_name);
 	}
 	var scallcl=g_work_dir+"/calllink.bat";
 	if(!CreateFile(scallcl,scmd)){

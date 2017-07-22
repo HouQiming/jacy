@@ -40,6 +40,13 @@ var pushMakeItem=function(smakefile,fn_c,arch,CC,CFLAGS){
 	if(s_ext=='m'||s_ext=='c'){
 		smakefile.push(' -std=c99 ');
 	}
+	if(s_ext=='mm'||s_ext=='cc'||s_ext=='cpp'||s_ext=='cxx'){
+		if(g_json.cxxflags){
+			for(var i=0;g_json.cxxflags[i];i++){
+				smakefile.push(' ',g_json.cxxflags[i]);
+			}
+		}
+	}
 	smakefile.push(' -DPM_IS_LIBRARY ');
 	smakefile.push(CFLAGS,' -w -o $@ -c $<\n\n');
 	return RemoveExtension(fn_c)+'-'+arch+'.o';
