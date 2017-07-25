@@ -35,8 +35,12 @@ IOS.CopyToUpload=function(fn0){
 
 var pushMakeItem=function(smakefile,fn_c,arch,CC,CFLAGS){
 	smakefile.push(RemoveExtension(fn_c),'-',arch,'.o: ',fn_c,'\n')
-	smakefile.push('\t',CC,' ')
 	var s_ext=GetExtension(fn_c).toLowerCase();
+	if(s_ext=='mm'||s_ext=='cc'||s_ext=='cpp'||s_ext=='cxx'){
+		smakefile.push('\t',CC.replace('gcc','g++'),' ')
+	}else{
+		smakefile.push('\t',CC,' ')
+	}
 	if(s_ext=='m'||s_ext=='c'){
 		smakefile.push(' -std=c99 ');
 	}
@@ -235,23 +239,23 @@ g_action_handlers.make=function(){
 		}
 		pushMakeItemArch(smakefile,c_files,'armv7',
 			'/Applications/Xcode.app/Contents/Developer/usr/bin/gcc',
-			s_extra_cflags.join('')+" -fembed-bitcode -DNDEBUG -DHAS_NEON -arch armv7 -pipe -mdynamic-no-pic -Wno-trigraphs -fpascal-strings -O2 -Wreturn-type -Wunused-variable -fmessage-length=0 -fvisibility=hidden -miphoneos-version-min=3.2 -I/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/${IOSSDK}/usr/include/libxml2 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/${IOSSDK}/",
+			s_extra_cflags.join('')+" -fembed-bitcode -DNDEBUG -DHAS_NEON -arch armv7 -pipe -mdynamic-no-pic -Wno-trigraphs -fpascal-strings -O2 -Wreturn-type -Wunused-variable -fmessage-length=0 -fvisibility=hidden -miphoneos-version-min=5.0 -I/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/${IOSSDK}/usr/include/libxml2 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/${IOSSDK}/",
 			"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar",
 			"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip");
 		pushMakeItemArch(smakefile,c_files,'armv7s',
 			'/Applications/Xcode.app/Contents/Developer/usr/bin/gcc',
-			s_extra_cflags.join('')+" -fembed-bitcode -DNDEBUG -DHAS_NEON -arch armv7s -pipe -mdynamic-no-pic -Wno-trigraphs -fpascal-strings -O2 -Wreturn-type -Wunused-variable -fmessage-length=0 -fvisibility=hidden -miphoneos-version-min=3.2 -I/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/${IOSSDK}/usr/include/libxml2 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/${IOSSDK}/",
+			s_extra_cflags.join('')+" -fembed-bitcode -DNDEBUG -DHAS_NEON -arch armv7s -pipe -mdynamic-no-pic -Wno-trigraphs -fpascal-strings -O2 -Wreturn-type -Wunused-variable -fmessage-length=0 -fvisibility=hidden -miphoneos-version-min=5.0 -I/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/${IOSSDK}/usr/include/libxml2 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/${IOSSDK}/",
 			"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar",
 			"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip");
 		pushMakeItemArch(smakefile,c_files,'arm64',
 			'/Applications/Xcode.app/Contents/Developer/usr/bin/gcc',
-			s_extra_cflags.join('')+" -fembed-bitcode -DNDEBUG -DHAS_NEON -arch arm64 -pipe -mdynamic-no-pic -Wno-trigraphs -fpascal-strings -O2 -Wreturn-type -Wunused-variable -fmessage-length=0 -fvisibility=hidden -miphoneos-version-min=3.2 -I/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/${IOSSDK}/usr/include/libxml2 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/${IOSSDK}/",
+			s_extra_cflags.join('')+" -fembed-bitcode -DNDEBUG -DHAS_NEON -arch arm64 -pipe -mdynamic-no-pic -Wno-trigraphs -fpascal-strings -O2 -Wreturn-type -Wunused-variable -fmessage-length=0 -fvisibility=hidden -miphoneos-version-min=5.0 -I/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/${IOSSDK}/usr/include/libxml2 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/${IOSSDK}/",
 			"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar",
 			"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip");
 		if(g_json.ios_build_emulator_library){
 			pushMakeItemArch(smakefile,c_files,'emu',
 				'/Applications/Xcode.app/Contents/Developer/usr/bin/gcc',
-				s_extra_cflags.join('')+" -arch x86_64 -pipe -mdynamic-no-pic -Wno-trigraphs -fpascal-strings -DNDEBUG -DUSE_SSE -O2 -Wreturn-type -Wunused-variable -fmessage-length=0 -fvisibility=hidden -miphoneos-version-min=3.2 -I/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/${EMUSDK}/usr/include/libxml2 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/${EMUSDK}/",
+				s_extra_cflags.join('')+" -arch x86_64 -pipe -mdynamic-no-pic -Wno-trigraphs -fpascal-strings -DNDEBUG -DUSE_SSE -O2 -Wreturn-type -Wunused-variable -fmessage-length=0 -fvisibility=hidden -miphoneos-version-min=5.0 -I/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/${EMUSDK}/usr/include/libxml2 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/${EMUSDK}/",
 				"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar",
 				"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip");
 		}
