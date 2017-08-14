@@ -2013,8 +2013,8 @@ auto createUIObject(JSObject JS_UI,CUISandbox sbox,int is_real)
 				is_underlining=0
 			x+=dx
 			xmax=max(xmax,x)
-		attrs["w"]=xmax-x0
-		attrs["h"]=y+(x>x0?hc:0.f)-y0
+		attrs["w"]=float(xmax-x0)/g_renderer.m_pixels_per_unit
+		attrs["h"]=float(y+(x>x0?hc:0.f)-y0)/g_renderer.m_pixels_per_unit
 		return 0
 	}
 	JS_UI["DrawTextControl"]=function(JSContext JS){

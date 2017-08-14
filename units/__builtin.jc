@@ -158,6 +158,8 @@ class __array(T)
 	inline set_operator[](auto i,value)
 		if Platform.BUILD=="debug":
 			__range_check(i)
+		if !__is_type("builtin",T)&&T!=typeof(value):
+			__error("array element type mismatch: @1 expected but @2 provided",T,typeof(value))
 		if IS_STRUCT:
 			ptr=__cast(T,d+sizeof(T)*iptr(i))
 			__struct_copy(ptr,value)

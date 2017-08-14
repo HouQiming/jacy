@@ -1,0 +1,53 @@
+//bug report by Wu Yunxiao
+import 'system.jc'
+import System.Console.*
+import System.Math.*
+import System.Algorithm.*
+
+(function(){
+	a=0.f
+	b=0.f
+	x=0.f
+	
+	//if b>0.f:
+		x=a/b
+	
+	ret=[x]
+	Writeln(formatNumber(u32(__float_as_int(ret[0])),{base:16,align:8}))
+})()
+
+(function(){
+	a=0.
+	b=0.
+	x=0.
+	
+	//if b>0.f:
+		x=a/b
+	
+	ret=[x]
+	Writeln(formatNumber(u64(__double_as_longlong(ret[0])),{base:16,align:16}))
+})()
+
+(function(){
+	a=1.f
+	b=0.f
+	x=0.f
+	
+	//if b>0.f:
+		x=a/b
+	
+	ret=[x]
+	Writeln(formatNumber(__float_as_int(ret[0]),{base:16,align:8}))
+})()
+
+(function(){
+	a=1.
+	b=0.
+	x=0.
+	
+	//if b>0.f:
+		x=a/b
+	
+	ret=[x]
+	Writeln(formatNumber(__double_as_longlong(ret[0]),{base:16,align:16}))
+})()
