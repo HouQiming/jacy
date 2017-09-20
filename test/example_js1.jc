@@ -1,0 +1,23 @@
+import "system.jc"
+import "javascript.jc"
+import System.Console.*
+import Javascript.*
+
+(function(){
+	JS=new JSContext
+	Javascript.duktape.duk_console_init(JS._ctx(),0) // initialize 'console.log' for debugging
+	///////////
+	Writeln('----------------------------------------------------')
+	obj0=JS.eval(JSObject,"(function(){
+		return {
+			m_name:'initial_name',
+			PrintName:function(){
+				console.log('My name is',this.m_name);
+				return 0;
+			}
+		};
+	})()")
+	obj0.CallMethod(int,'PrintName')
+	obj0['m_name']='new_name'
+	obj0.CallMethod(int,'PrintName')
+})();

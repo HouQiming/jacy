@@ -1,0 +1,16 @@
+import "system.jc"
+import "javascript.jc"
+import System.Console.*
+import Javascript.*
+
+(function(){
+	JS=new JSContext
+	///////////
+	Writeln('----------------------------------------------------')
+	obj0=JS.eval(JSObject,"(function(){return {dbl_value:4.56,str_value:'Hello world!',array_value:[100,200,300]}})()")
+	Writeln('obj0.dbl_value=',obj0["dbl_value"].as(double))
+	Writeln('obj0.str_value=',obj0["str_value"].as(string))
+	Writeln('obj0.str_value is not a double: ',obj0["str_value"].as(double))
+	Writeln('obj0.array_value[1]=',obj0["array_value"][1].as(int))
+	Writeln('obj0.array_value[100] is undefined: ',obj0["array_value"][100].as(double))
+})();
