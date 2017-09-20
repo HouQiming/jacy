@@ -391,6 +391,15 @@ g_action_handlers.runjs=function(){
 		}
 	}
 	//locate the per-arch script and eval that
+	if(g_json.hack_remove_from_c_files){
+		var removed_files={};
+		for(var i=0;i<g_json.hack_remove_from_c_files.length;i++){
+			removed_files[g_json.hack_remove_from_c_files[i]]=1
+		}
+		if(g_json.c_files){
+			g_json.c_files=g_json.c_files.filter(function(fn){return !removed_files[fn];});
+		}
+	}
 	if(g_json.c_files){
 		var fn=g_root+"/js/build_"+g_arch+".js";
 		var s_jssrc=ReadFile(fn)

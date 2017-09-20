@@ -404,6 +404,14 @@ g_action_handlers.make=function(){
 		s_application_mk.push(" "+abi_i)
 	}
 	s_application_mk.push("\nAPP_PLATFORM := android-9\n")
+	if(g_json.application_mk){
+		for(var j=0;j<g_json.application_mk.length;j++){
+			s_application_mk.push('\n')
+			s_application_mk.push(g_json.application_mk[j])
+			s_application_mk.push('\n')
+		}
+	}
+	//s_application_mk.push("\nNDK_TOOLCHAIN_VERSION := clang\n")
 	CreateIfDifferent(g_work_dir+"/jni/Application.mk",s_application_mk.join(""))
 	//fill strings.xml, AndroidManifest.xml, build.xml, add the main java file
 	//////////

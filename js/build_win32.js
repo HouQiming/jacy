@@ -75,6 +75,9 @@ VC.Compile=function(fnsrc,soutput){
 	}
 	/////////////////
 	sopt0=sopt0+' /Fo"'+soutput+'"';
+	if(RemovePath(fnsrc).toLowerCase()==='s7main.c'){
+		sopt0=sopt0+(" /Tc");
+	}
 	var scmd='@echo off\ncall "'+sbatname+'" >NUL\ncl /nologo '+sopt0+' "'+fnsrc+'"\n';
 	var scallcl=g_work_dir+"/callcl.bat";
 	if(!CreateFile(scallcl,scmd)){

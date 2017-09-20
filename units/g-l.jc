@@ -2867,6 +2867,8 @@ if Platform.IS_LIBRARY:
 		GL_HEADER_FILE='OpenGLES/ES2/gl.h'
 	else if Platform.ARCH=='android':
 		GL_HEADER_FILE='GLES2/gl2.h'
+	else if Platform.ARCH=='web':
+		GL_HEADER_FILE='GLES2/gl2.h'
 	else
 		//linux
 		GL_HEADER_FILE='glew.h'
@@ -2884,6 +2886,8 @@ if Platform.IS_LIBRARY:
 			__generate_json("ios_frameworks","System/Library/Frameworks/OpenGLES.framework")
 		else if Platform.ARCH=='android':
 			__generate_json("android_system_libnames","GLESv2")
+		else if Platform.ARCH=='web':
+			__generate_json("android_system_libnames","gl")
 		else
 			//linux
 			__generate_json("ldflags","-lglew")
@@ -3149,7 +3153,7 @@ class GLTechnique
 		glGetError()//clear the error
 		if m_ebo_type!=GL_INVALID_ENUM:
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,m_ebo)
-			if m_instance_count>1&&!Platform.IS_MOBILE:
+			if m_instance_count>1&&!Platform.IS_MOBILE&&Platform.ARCH!='web':
 				glDrawElementsInstanced(mode,count,m_ebo_type,__pointer(m_ebo_ofs),m_instance_count)
 			else
 				//Writeln('count=',count)
@@ -3159,7 +3163,7 @@ class GLTechnique
 			err_draw=glGetError()
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0u)
 		else
-			if m_instance_count>1&&!Platform.IS_MOBILE:
+			if m_instance_count>1&&!Platform.IS_MOBILE&&Platform.ARCH!='web':
 				glDrawArraysInstanced(mode,0,count,m_instance_count)
 			else
 				glDrawArrays(mode,0,count)
