@@ -271,9 +271,28 @@ g_action_handlers.runjs=function(){
 	debugEval(scode,g_cli_args[0]);
 };
 
+var g_default_config='if(g_current_arch=="linux32"||g_current_arch=="linux64"){\n\
+	return {\n\
+		"DEFAULT_SEARCH_PATHS":[g_root+"/wrapper"],\n\
+		"SDL_PATH":"/usr/include/SDL2/",\n\
+	}\n\
+}\n\
+//default: windows\n\
+return {\n\
+	"DEFAULT_SEARCH_PATHS":[g_root+"/wrapper"],\n\
+	"OSSLIB_PATH":g_root+"/osslib",\n\
+	"ADK_PATH":g_root+"/osslib/android",\n\
+	"EMSCRIPTEN_PATH":g_root+"/osslib/emscripten",\n\
+	"SDL_PATH":g_root+"/osslib",\n\
+	"IOS_SKELETON_PATH":g_root+"/osslib/ios/skeleton_project",\n\
+	"MAC_SKELETON_PATH":g_root+"/osslib/mac/skeleton_project",\n\
+	"IOS_USE_REAL_PHONE":1,\n\
+}\n\
+';
+
 (function(){
 	var fn_config=g_root+"/js/config.json";
-	g_config=eval("(function(){"+ReadFile(fn_config)+"})()");
+	g_config=eval("(function(){"+(ReadFile(fn_config)||g_default_config)+"})()");
 	g_config.ROOT=g_root
 	//handle utilities
 	if(g_action_handlers[g_action]){

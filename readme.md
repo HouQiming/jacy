@@ -10,9 +10,11 @@ Crunching numbers on the mobile? Tired of weird memory bugs in C? JC (read "Jacy
 
 ## To build
 
-On Windows, just run 2.bat for a debug build, 1.bat for a release build.
+On Windows, run: 
 
-With a Windows build in place, build the compiler for other platforms using:
+	bootstrap.bat
+
+With a Windows debug build in place, build the compiler for other platforms using:
 
 	2 --arch=something --build=release main.jc
 

@@ -52,7 +52,8 @@ module duktape
 	duk_is_null_or_undefined=__c_function(int,"duk_is_null_or_undefined","duktape.h")
 	duk_has_prop=__c_function(int,"duk_has_prop","duktape.h")
 	//duk_peval=__c_function(int,"duk_peval","duktape.h")
-	duk_eval_raw=__c_function(int,"duk_eval_raw","duktape.h")
+	//duk_eval_raw=__c_function(int,"duk_eval_raw","duktape.h")
+	duk_pcompile_lstring_filename=__c_function(int,"duk_pcompile_lstring_filename","duktape.h")
 	duk_pcall=__c_function(int,"duk_pcall","duktape.h")
 	duk_pcall_method=__c_function(int,"duk_pcall_method","duktape.h")
 	duk_set_finalizer=__c_function(int,"duk_set_finalizer","duktape.h")
@@ -64,14 +65,22 @@ module duktape
 	duk_push_error_object=__c_function(int,"duk_push_error_object","duktape.h")
 	duk_push_error_object_raw=__c_function(int,"duk_push_error_object_raw","duktape.h")
 	duk_is_error=__c_function(int,"duk_is_error","duktape.h")
+	duk_gc=__c_function(int,"duk_gc","duktape.h")
 	///////
-	DUK_COMPILE_EVAL=(1 << 0)
-	DUK_COMPILE_FUNCTION=(1 << 1)
-	DUK_COMPILE_STRICT=(1 << 2)
-	DUK_COMPILE_SAFE=(1 << 3)
-	DUK_COMPILE_NORESULT=(1 << 4)
-	DUK_COMPILE_NOSOURCE=(1 << 5)
-	DUK_COMPILE_STRLEN=(1 << 6)
+	duk_module_duktape_init=__c_function(int,"duk_module_duktape_init","duk_module_duktape.h","c_files","duk_module_duktape.c")
+	duk_print_alert_init=__c_function(int,"duk_print_alert_init","duk_print_alert.h","c_files","duk_print_alert.c")
+	duk_console_init=__c_function(int,"duk_console_init","duk_console.h","c_files","duk_console.c")
+	///////
+	DUK_COMPILE_EVAL=(1 << 3)    /* compile eval code (instead of global code) */
+	DUK_COMPILE_FUNCTION=(1 << 4)    /* compile function code (instead of global code) */
+	DUK_COMPILE_STRICT=(1 << 5)    /* use strict (outer) context for global, eval, or function code */
+	DUK_COMPILE_SHEBANG=(1 << 6)    /* allow shebang ('#! ...') comment on first line of source */
+	//DUK_COMPILE_SAFE=(1 << 7)    /* (internal) catch compilation errors */
+	//DUK_COMPILE_NORESULT=(1 << 8)    /* (internal) omit eval result */
+	//DUK_COMPILE_NOSOURCE=(1 << 9)    /* (internal) no source string on stack */
+	//DUK_COMPILE_STRLEN=(1 << 10)   /* (internal) take strlen() of src_buffer (avoids double evaluation in macro) */
+	//DUK_COMPILE_NOFILENAME=(1 << 11)   /* (internal) no filename on stack */
+	//DUK_COMPILE_FUNCEXPR=(1 << 12)   /* (internal) source is a function expression (used for Function constructor) */
 	///////
 	//least wrapping - use the original api to get the args
 	//the who-hold-the-reference problem
@@ -90,46 +99,49 @@ module duktape
 	auto js_release(__pointer vptr)
 		//Writeln('js_release ',vptr)
 		ret=__cast(__variant,vptr)
-		LeakDetection.JSRelease(__cast(iptr,ret))
+		if Platform.BUILD=="debug"&&LeakDetection.isEnabled():
+			LeakDetection.JSRelease(__cast(iptr,ret))
 		__explicit_rc(ret,-1)
 		return 0
-	__C(int,"@global:
-	typedef int(*s7_CB_duktape_fptr)(void*);
-
-	static duk_ret_t s7_CB_duktape_call(duk_context *ctx){
-		void* vptr=NULL;
-		duk_push_current_function(ctx);
-		duk_get_prop_index(ctx,-1,0);
-		duk_to_primitive(ctx,-1,0);
-		vptr=duk_get_pointer(ctx,-1);
-		duk_pop_2(ctx);
-		if(vptr){
-			int ret=((s7_CB_duktape_fptr)@1)(vptr);
-			if(ret<0){duk_throw(ctx);}
-			return ret;
-		}else{
+	inline __reach_native_functions()
+		__C(int,"@global:
+		typedef int(*s7_CB_duktape_fptr)(void*);
+	
+		static duk_ret_t s7_CB_duktape_call(duk_context *ctx){
+			void* vptr=NULL;
+			duk_push_current_function(ctx);
+			duk_get_prop_index(ctx,-1,0);
+			duk_to_primitive(ctx,-1,0);
+			vptr=duk_get_pointer(ctx,-1);
+			duk_pop_2(ctx);
+			if(vptr){
+				int ret=((s7_CB_duktape_fptr)@1)(vptr);
+				if(ret<0){duk_throw(ctx);}
+				return ret;
+			}else{
+				return 0;
+			}
+		}
+		
+		static duk_ret_t s7_CB_duktape_finalizer(duk_context *ctx){
+			void* vptr=NULL;
+			duk_get_prop_index(ctx,0,0);
+			duk_to_primitive(ctx,-1,0);
+			vptr=duk_get_pointer(ctx,-1);
+			duk_pop(ctx);
+			if(vptr){
+				duk_push_pointer(ctx,NULL);
+				duk_put_prop_index(ctx,0,0);
+				((s7_CB_duktape_fptr)@2)(vptr);
+			}
 			return 0;
 		}
-	}
-	
-	static duk_ret_t s7_CB_duktape_finalizer(duk_context *ctx){
-		void* vptr=NULL;
-		duk_get_prop_index(ctx,0,0);
-		duk_to_primitive(ctx,-1,0);
-		vptr=duk_get_pointer(ctx,-1);
-		duk_pop(ctx);
-		if(vptr){
-			duk_push_pointer(ctx,NULL);
-			duk_put_prop_index(ctx,0,0);
-			((s7_CB_duktape_fptr)@2)(vptr);
-		}
-		return 0;
-	}
-	",js_call,js_release)
-	__reach(js_call)
-	__reach(js_release)
+		",js_call,js_release)
+		__reach(js_call)
+		__reach(js_release)
 	class JSContext
 		m_hctx=(inline(){
+			__reach_native_functions()
 			if Platform.BUILD=="debug"&&LeakDetection.isEnabled():
 				__C(int,"@global:
 				static void* s7_LD_duk_calloc(void* udata,size_t sz);
@@ -149,8 +161,25 @@ module duktape
 		m_cached_prototypes=new JSObject[iptr]
 		inline _ctx()
 			return __C(__pointer,"(duk_context*)@1",m_hctx)
+		auto ResetHeap()
+			(function(){
+				m_cached_prototypes=new JSObject[iptr]
+			})();
+			if m_hctx:
+				duk_destroy_heap(_ctx())
+				m_hctx=NULL
+			if Platform.BUILD=="debug"&&LeakDetection.isEnabled():
+				m_hctx=__C(__pointer,"s7_LD_duk_create_heap()")
+			else
+				m_hctx=duk_create_heap_default()
+			m_ref_first_free=-1
+			m_ref_count=1
+			m_stash_array_position=1
+			_init_stash()
 		auto __done__()
-			duk_destroy_heap(_ctx())
+			if m_hctx:
+				duk_destroy_heap(_ctx())
+				m_hctx=NULL
 		///////////
 		//init the ref-holding stash
 		auto _init_stash()
@@ -321,6 +350,9 @@ module duktape
 						LeakDetection.JSAddref(__cast(iptr,obj))
 					__C(int,"duk_push_c_function(@1,s7_CB_duktape_finalizer,1)",_ctx())
 					duk_set_finalizer(_ctx(),-2)
+		inline _put_prop(value)
+			_push_value(value)
+			duk_put_prop(_ctx(),-3)
 		inline _put_prop_and_pop(value)
 			_push_value(value)
 			duk_put_prop(_ctx(),-3)
@@ -425,6 +457,11 @@ module duktape
 			return _pop_typed(JSObject,1)
 		auto New()
 			duk_push_object(_ctx())
+			return _pop_typed(JSObject,1)
+		auto FromHandle(int handle)
+			return new JSObject(){m_jsctx:this,m_handle:handle}
+		inline ConvertToObject(a)
+			_push_value(a)
 			return _pop_typed(JSObject,1)
 		//auto NewFixedBuffer(iptr size)
 		//	duk_push_buffer(_ctx(),size,0)
@@ -547,7 +584,10 @@ module duktape
 			else
 				sfile="<eval>"
 			duk_push_lstring(_ctx(),sfile,sfile.n)
-			err=duk_eval_raw(_ctx(),s,s.n,DUK_COMPILE_EVAL|DUK_COMPILE_SAFE|DUK_COMPILE_NOSOURCE)
+			//err=duk_eval_raw(_ctx(),s,s.n,1|DUK_COMPILE_EVAL|DUK_COMPILE_SAFE|DUK_COMPILE_NOSOURCE)
+			err=duk_pcompile_lstring_filename(_ctx(),DUK_COMPILE_EVAL,s,s.n)
+			if err==0:
+				err=duk_pcall(_ctx(),0)
 			if T!=JSObject&&err!=0:
 				ret=__zero(T)
 			else
@@ -557,7 +597,10 @@ module duktape
 		inline evalVoid(string s,string sfile)
 			__explicit_rc(this,1)
 			duk_push_lstring(_ctx(),sfile,sfile.n)
-			err=duk_eval_raw(_ctx(),s,s.n,DUK_COMPILE_EVAL|DUK_COMPILE_SAFE|DUK_COMPILE_NOSOURCE)
+			//err=duk_eval_raw(_ctx(),s,s.n,1|DUK_COMPILE_EVAL|DUK_COMPILE_SAFE|DUK_COMPILE_NOSOURCE)
+			err=duk_pcompile_lstring_filename(_ctx(),DUK_COMPILE_EVAL,s,s.n)
+			if err==0:
+				err=duk_pcall(_ctx(),0)
 			if err!=0:
 				ret=_pop_typed(JSObject,1)
 			else
@@ -580,6 +623,8 @@ module duktape
 			fnamen=new(fname)
 			fnamen.push(char(0))
 			return debugEval(scode,fnamen)
+		inline gc()
+			duk_gc(m_hctx,0)
 		/////////
 		if Platform.BUILD=="debug":
 			//i8[iptr] m_is_function_dumped
@@ -616,7 +661,8 @@ module duktape
 				auto expand()
 					if duk_is_function(_ctx(),-1):
 						//don't enum into functions
-						if duk_is_ecmascript_function(_ctx(),-1):
+						//if duk_is_ecmascript_function(_ctx(),-1):
+						if 1:
 							obj_handle=iptr(duk_get_heapptr(_ctx(),-1))
 							if !m_is_function_dumped[obj_handle]:
 								m_is_function_dumped[obj_handle]=i8(1)
@@ -822,11 +868,10 @@ module duktape
 			if Platform.BUILD=="debug":
 				m_checker.m_completed=1
 			duk_get_prop(_ctx(),-2)//for the *previous* subscript
-			arguments0=arguments
-			for i in crange(arguments0.length)
+			for i in crange(arguments.length)
 				if i>0:
-					m_jsctx._push_value(arguments0[i])
-			duk_pcall(_ctx(),arguments0.length-1)
+					m_jsctx._push_value(arguments[i])
+			duk_pcall(_ctx(),arguments.length-1)
 			return m_jsctx._pop_typed(T,2)
 		inline PushAsFunction()
 			if Platform.BUILD=="debug":
@@ -839,11 +884,10 @@ module duktape
 				m_checker.m_completed=1
 			duk_get_prop(_ctx(),-2)//for the *previous* subscript
 			m_jsctx._push_value(arg_this)
-			arguments0=arguments
-			for i in crange(arguments0.length)
+			for i in crange(arguments.length)
 				if i>1:
-					m_jsctx._push_value(arguments0[i])
-			duk_pcall_method(_ctx(),arguments0.length-2)
+					m_jsctx._push_value(arguments[i])
+			duk_pcall_method(_ctx(),arguments.length-2)
 			return m_jsctx._pop_typed(T,2)
 		inline CallMethod(T,string fname)
 			if Platform.BUILD=="debug":
@@ -880,6 +924,15 @@ module duktape
 			m_jsctx._push_object(m_handle)
 			_push_subscript(this,name)
 			return _IncompleteJSPropertyAccess(){"m_jsctx":m_jsctx}
+		inline set(a)
+			m_jsctx._push_object(m_handle)
+			members=__member_list(a)
+			for i in crange(members.length):
+				id_name=members[i]
+				id_name1=id_name
+				_push_subscript(this,id_name1)
+				m_jsctx._put_prop(__dot(a,id_name))
+			duk_pop(_ctx())
 		inline set_operator[](name,value)
 			m_jsctx._push_object(m_handle)
 			_push_subscript(this,name)
@@ -892,39 +945,40 @@ module duktape
 			return m_jsctx._pop_pointer(1)
 		inline Call(T)
 			m_jsctx._push_object(m_handle)
-			arguments0=arguments
-			for i in crange(arguments0.length)
+			for i in crange(arguments.length)
 				if i>0:
-					m_jsctx._push_value(arguments0[i])
-			duk_pcall(_ctx(),arguments0.length-1)
+					m_jsctx._push_value(arguments[i])
+			duk_pcall(_ctx(),arguments.length-1)
 			return m_jsctx._pop_typed(T,1)
 		inline PushAsFunction()
 			m_jsctx._push_object(m_handle)
 		inline CallAsMethod(T,arg_this)
 			m_jsctx._push_object(m_handle)
 			m_jsctx._push_value(arg_this)
-			arguments0=arguments
-			for i in crange(arguments0.length)
+			for i in crange(arguments.length)
 				if i>1:
-					m_jsctx._push_value(arguments0[i])
-			duk_pcall_method(_ctx(),arguments0.length-2)
+					m_jsctx._push_value(arguments[i])
+			duk_pcall_method(_ctx(),arguments.length-2)
 			return m_jsctx._pop_typed(T,1)
 		inline CallMethod(T,string fname)
 			m_jsctx._push_object(m_handle)
 			_push_subscript(this,fname)
 			duk_get_prop(_ctx(),-2)
 			duk_swap_top(_ctx(),-2)
-			arguments0=arguments
-			for i in crange(arguments0.length)
+			for i in crange(arguments.length)
 				if i>1:
-					m_jsctx._push_value(arguments0[i])
-			duk_pcall_method(_ctx(),arguments0.length-2)
+					m_jsctx._push_value(arguments[i])
+			duk_pcall_method(_ctx(),arguments.length-2)
 			return m_jsctx._pop_typed(T,1)
 		inline SetPrototype(JSObject proto)
 			m_jsctx._push_object(m_handle)
 			m_jsctx._push_object(proto.m_handle)
 			duk_set_prototype(_ctx(),-2)
 			duk_pop(_ctx())
+		inline ToHandle()
+			auto ret=m_handle
+			m_handle=0
+			return ret
 		auto __done__()
 			if m_handle:
 				m_jsctx._free_refid(m_handle)
@@ -963,8 +1017,7 @@ module duktape
 			fn2=fn
 			this[sname]=function(JSContext JS){
 				native_this=JS.GetNativeThis(T_class)
-				if !native_this:return 0
-				return fn2.Bind(native_this)(JS)
+				return !native_this?0:fn2.Bind(native_this)(JS)
 			}
 		inline ExportGetterSetter(self,sname,fgetter0,fsetter0)
 			T_class=typeof(self)
