@@ -1,0 +1,16 @@
+import "system.jc"
+import System.Console.*
+
+struct Matrix4x4
+	float4 l0
+	float4 l1
+	float4 l2
+	float4 l3
+	inline test()
+		l0[2]=1.234567f
+
+(function(){
+	a=Matrix4x4()
+	a.test()
+	Writeln(a)
+})()

@@ -8343,6 +8343,8 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 						else
 							return ssa_names[ssa_vid].gvn_id
 				else
+					//if !bid:
+					//	errorAtExpr(ETYPE_WARNING,pe,"uninitialized variable '@1'".Replace(["@1",citeexpr(pe)]))
 					gvn_id_ret=get_gvn_id(int3(g_fakectval_gvn_extvar,pobj_var,volatile_value_time_extvar),readPool(pe+EXPR_OFS_EPOS),volatile_value_time_extvar)
 					if g_gvn_values[gvn_id_ret].pv_backing<=0:
 						g_gvn_values[gvn_id_ret].pv_backing=pobj_var
@@ -8524,6 +8526,8 @@ auto partialSSAGVN(PExpression pe_top,int aggressive_linear_coalescing,int is_gl
 						is_different_from_code=bk
 					is_referring_to_unpredictable=1
 					gvn_id_ret=make_unpredictable(pe)
+					if DEBUG_DUMP_SSA:
+						Writeln('GVN number-unpredictable ',gvn_id_ret,' ',dumpExpr(pe,fcolor_abbrv_blocks))
 				//increase value times after the call
 				if !pobjfn||!(getFFlag(pobjfn)&(FFLAG_BUILTIN|FFLAG_IMPORTED)):
 					volatile_value_time_extvar++

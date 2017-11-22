@@ -84,21 +84,54 @@ JS['JSON'].CallMethod(JSObject, 'parse', '{"value":42}')
 
 ### 给JS导出JC函数
 
-这应该是接口中最重要的一项功能，其作用是将应用的底层接口暴露给JS，以便在JS中实现上层逻辑。基本做法是将JS对象的成员赋值成特定形式的JC函数：
+这应该是接口中最重要的一项功能，其作用是将应用的底层接口暴露给JS，以便在JS中实现上层逻辑。基本做法是将JS对象的成员赋值成特定形式的JC函数，例如：
 ```javascript
 obj_gl=JS.New()
-obj_gl["clearColor"]=function(JSContext JS){
-	red=JS.Param(0).as(GLclampf);
-	green=JS.Param(1).as(GLclampf);
-	blue=JS.Param(2).as(GLclampf);
-	alpha=JS.Param(3).as(GLclampf);
-	glClearColor(red,green,blue,alpha);
-	return 0;
+obj_gl["getFramebufferAttachmentParameter"]=function(JSContext JS){
+	target=JS.Param(0).as(GLenum);
+	attachment=JS.Param(1).as(GLenum);
+	pname=JS.Param(2).as(GLenum);
+	ret=0
+	glGetFramebufferAttachmentParameteriv(target,attachment,pname,&ret)
+	return JS.Return(ret)
 }
 ```
 
-
+这里JC函数的参数必须只有一个`JSContext JS`，表示调用函数的JS解释器环境。由JS传过来的参数需要用`JS.Param(参数编号).as(类型)`的方法获得。如果需要返回什么值，必须用`return JS.Return(返回值)`。如果需要返回错误，必须用`return JS.ReturnError('错误信息')`。如果要返回`undefined`，请用`return 0`。
 
 ### 在JS中使用JC对象
 
-!? todo: typed array, ...
+普通JC对象在传递给JS之后会变成没有任何有意义成员/方法的黑盒子，只能经由JS重新传给JC处理。如果需要在JS中访问JC对象的方法/成员的话，需要在JC对象中暴露一个`__JS_prototype`方法：
+```javascript
+class CNativeClass
+	int n
+	js_hello=function(JSContext JS){
+		Writeln('n=',n,' param=',JS.Param(0).as(string))
+		return 0
+	}
+	auto __JS_prototype(JSObject proto)
+		proto.ExportProperty(this,"n")
+		proto.ExportMethod(this,"hello",js_hello)
+		return proto
+```
+
+如上所示，`__JS_prototype`需要接收一个`proto`对象（其实是JS中对应于这个JC类的`__prototype__`对象），然后在里面填进去需要暴露的成员和方法。`proto.ExportProperty(this,"成员名")`用来暴露成员名，`proto.ExportMethod(this,"JS里见到的方法名"，JC里的方法名)`用来暴露方法。
+
+### 功能限制
+
+任何传给JS的数据都会受到JS语言层面和duktape实现层面的限制：
+- 如无特殊说明，所有传给JS的数值类型都会被强制转换成`double`。如果原本是`i64`或者`u64`的话，可能会有精度损失。
+- duktape会默认所有传给JS的字符串都经过了合法的UTF8编码，但并不会真的检查这一点。如果传给JS一个非UTF8字符串之后又在上面调用了JS自带的字符串处理函数的话（比如`.match(……)`），就可能会出现各种奇怪错误。
+- 出于性能的考虑传给JS的数值数组会变成JS中的typed array而非普通数组。里面的数值不会强转成double，但要注意typed array并不支持array的很多方法，比如`.push()`，比如越界写入，比如修改数组元素类型。
+- 传给JS的JC对象会由JS的垃圾回收机制接管，如果JS一侧没有运行gc，就可能得不到释放。这种情况下可以用`JS.ResetHeap()`强制重置JS解释器环境，释放所有的接管对象。
+
+出于性能的考虑，JC中在访问JS对象成员时直接使用了duktape的全局栈，所以**同一条JC语句中只能出现至多一次JS对象的成员访问**，`JS.eval`、`JS.Return`和`JS.Param`之类也包括在内。对这一点并没有进行检查，需要自行注意。比如这么写就是错的：
+```javascript
+return JS.Return(JS.Param(0).as(int) + obj["m_constant"].as(int))
+```
+必须改成这样：
+```javascript
+param0=JS.Param(0).as(int)
+param1=obj["m_constant"].as(int)
+return JS.Return(param0 + param1)
+```

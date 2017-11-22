@@ -1,0 +1,16 @@
+import "system.jc"
+import System.Console.*
+
+(function(){
+	byte_array = [
+		u8(0), u8(1), u8(2), u8(3),
+		u8(4), u8(5), u8(6), u8(7),
+		u8(8), u8(9), u8(10), u8(11)]
+	int_array = byte_array[4:7].ConvertToAsBinary(int)
+	Writeln('byte_array is ',byte_array)
+	Writeln('int_array is ',int_array,' which is [0x', 
+		formatNumber(int_array[0], {base:16,align:8}), '] in hex')
+	Writeln('set int_array[0] to 0x07070707')
+	int_array[0]=0x07070707
+	Writeln('byte_array is now ',byte_array)
+})()

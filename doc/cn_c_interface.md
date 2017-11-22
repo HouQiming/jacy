@@ -105,7 +105,7 @@ void PrintStruct(TNativeStruct* pstruct);
 
 可以在JC里面这么使用：
 ```javascript
-import "../units/system.jc"
+import "system.jc"
 import System.Console.*
 
 (function(){

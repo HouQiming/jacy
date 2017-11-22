@@ -97,7 +97,7 @@ VC.Link=function(fnlist,soutput){
 	var slinker_response_name=g_work_dir+"/linker_cmd.txt";
 	var scmd='';
 	var slinker_options='';
-	if(subsystem=="lib"&&g_json.is_library){
+	if(subsystem=="lib"&&g_json.is_library||g_json.is_library&&parseInt(g_json.is_library[0])===2){
 		if(g_json.ldflags){
 			for(var i=0;i<g_json.ldflags.length;i++){
 				var smain=g_json.ldflags[i]
@@ -154,7 +154,7 @@ var NVCCCompile=function(fnc,fnobj,s_cuda_options){
 g_action_handlers.make=function(){
 	var s_final_output;
 	if(!g_json.output_file){
-		s_final_output=g_bin_dir+"/"+g_main_name+(g_json.is_library?g_json.subsystem=="lib"?".lib":".dll":".exe");
+		s_final_output=g_bin_dir+"/"+g_main_name+(g_json.is_library?parseInt(g_json.is_library[0])===2||g_json.subsystem==="lib"?".lib":".dll":".exe");
 	}else{
 		s_final_output=g_json.output_file[0];
 	}
@@ -242,7 +242,7 @@ g_action_handlers.make=function(){
 		}
 		sopt1.push(' "'+fn_res+'"')
 	}
-	if(g_lib_files&&g_json.subsystem!="lib"){
+	if(g_lib_files&&g_json.subsystem!="lib"&&!(g_json.is_library&&parseInt(g_json.is_library[0])===2)){
 		for(var i=0;i<g_lib_files.length;i++){
 			if(FileExists(g_work_dir+"/"+g_lib_files[i])){
 				sopt1.push(' "'+g_work_dir+"/"+g_lib_files[i]+'"');

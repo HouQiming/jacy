@@ -1,13 +1,17 @@
+### 常见问题
+
 [和C的接口](cn_c_interface)
 
 [和JS的接口](cn_js_interface)
 
 [跨平台问题](cn_cross_platform)
 
-# 跨平台问题
+[线程问题](cn_threading)
 
-### 平台专用代码
+[引用计数细节](cn_refcount)
 
-### 平台专用选项
+### 自带库
 
-### 在JC或JS中判断平台
+[内置功能](cn_lib_builtin)
+
+[System.*](cn_lib_system)

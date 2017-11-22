@@ -1,0 +1,13 @@
+import "system.jc"
+import System.Console.*
+
+(function(){
+	byte_array = [
+		u8(0), u8(1), u8(2), u8(3),
+		u8(4), u8(5), u8(6), u8(7),
+		u8(8), u8(9), u8(10), u8(11)]
+	Writeln('byte_array is ',byte_array)
+	Writeln('copy byte_array[0:3] from byte_array[4:7]')
+	copy(byte_array[0:3], byte_array[4:7])
+	Writeln('byte_array is now ',byte_array)
+})()

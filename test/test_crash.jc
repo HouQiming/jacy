@@ -4,6 +4,7 @@ printf=__c_function(int,"printf","stdio.h")
 g_arr=int[100]
 
 auto crash_function()
+	g_arr=int[].NULL
 	g_arr[200]++
 
 inline inline_function()

@@ -99,7 +99,8 @@ module duktape
 	auto js_release(__pointer vptr)
 		//Writeln('js_release ',vptr)
 		ret=__cast(__variant,vptr)
-		LeakDetection.JSRelease(__cast(iptr,ret))
+		if Platform.BUILD=="debug"&&LeakDetection.isEnabled():
+			LeakDetection.JSRelease(__cast(iptr,ret))
 		__explicit_rc(ret,-1)
 		return 0
 	inline __reach_native_functions()
