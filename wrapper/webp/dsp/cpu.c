@@ -134,11 +134,12 @@ static int x86CPUInfo(CPUFeature feature) {
 DEDUP_vP8_CPUInfo DEDUP_vP8_GetCPUInfo = x86CPUInfo;
 #elif defined(WEBP_ANDROID_NEON)  // NB: needs to be before generic NEON test.
 static int AndroidCPUInfo(CPUFeature feature) {
-  const AndroidCpuFamily cpu_family = android_getCpuFamily();
-  const uint64_t cpu_features = android_getCpuFeatures();
+  //const AndroidCpuFamily cpu_family = android_getCpuFamily();
+  //const uint64_t cpu_features = android_getCpuFeatures();
   if (feature == kNEON) {
-    return (cpu_family == ANDROID_CPU_FAMILY_ARM &&
-            0 != (cpu_features & ANDROID_CPU_ARM_FEATURE_NEON));
+    //return (cpu_family == ANDROID_CPU_FAMILY_ARM &&
+    //        0 != (cpu_features & ANDROID_CPU_ARM_FEATURE_NEON));
+    return 1;
   }
   return 0;
 }

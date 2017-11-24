@@ -7090,7 +7090,7 @@ module IO
 			fo=CreateFile(tar)
 			if !fo:return 0
 			for(;;)
-				s=fi.Read(fi)
+				s=fi.Read(COPY_BUFFER)
 				if !s.n:break
 				if fo.Write(s)<s.n:return 0
 			return 1

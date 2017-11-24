@@ -2824,6 +2824,8 @@ GL_MAP_UNSYNCHRONIZED_BIT=0x0020
 IS_OPENGL_ES=(Platform.ARCH=="android"||Platform.ARCH=="ios"||Platform.ARCH=="rasppi"||Platform.ARCH=="linux32"||Platform.ARCH=="web")
 
 auto mygluGetErrorString(GLenum err)
+	//Writeln('>>> ',err);
+	//assert(0);
 	switch(err){
 	case GL_NO_ERROR:return "GL_NO_ERROR"
 	case GL_INVALID_VALUE:return "GL_INVALID_VALUE"

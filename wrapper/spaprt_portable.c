@@ -1781,13 +1781,16 @@ void *lpvReserved){
 
 #if defined(ANDROID)||defined(__ANDROID__)
 #include <jni.h>
-JNIEnv* g_jni_env=NULL;
+//static JNIEnv* g_jni_env=NULL;
+static JavaVM* g_jvm=NULL;
 EXPORT JNIEnv* SDL_AndroidGetJNIEnv(){
+	JNIEnv* g_jni_env=NULL;
+	(*g_jvm)->GetEnv(g_jvm,(void**)&g_jni_env,JNI_VERSION_1_4);
 	return g_jni_env;
 }
 
 jint JNI_OnLoad(JavaVM* vm, void* reserved){
-    (*vm)->GetEnv(vm,(void**)&g_jni_env,JNI_VERSION_1_4);
+    g_jvm=vm;
     return JNI_VERSION_1_4;
 }
 #endif
