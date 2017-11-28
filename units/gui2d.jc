@@ -2236,8 +2236,10 @@ class CZipFile
 	auto ReadAll(string fname0)
 		fname=fname0.Replace(["\\","/"]).ToLower()
 		item=compressed_files[fname]
-		if !item:return string.NULL
-		return item.method==0?item.dat:inflate(item.dat)
+		if !item:
+			return string.NULL
+		else
+			return item.method==0?item.dat:inflate(item.dat)
 	inline AllFileNames()
 		return {forEach:inline(fbody){
 			foreach d,k,I in compressed_files

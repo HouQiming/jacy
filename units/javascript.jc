@@ -832,7 +832,7 @@ module duktape
 			if Platform.BUILD=="debug":
 				m_checker.m_completed=1
 			duk_get_prop(_ctx(),-2)//for the *previous* subscript
-			if duk_is_object(_ctx(),-1):
+			if duk_is_object(_ctx(),-1)&&!duk_is_null_or_undefined(_ctx(),-1):
 				_push_subscript(this,name)
 				ret=duk_has_prop(_ctx(),-2)
 			else
@@ -921,7 +921,7 @@ module duktape
 			return m_jsctx
 		inline has(name)
 			m_jsctx._push_object(m_handle)
-			if duk_is_object(_ctx(),-1):
+			if duk_is_object(_ctx(),-1)&&!duk_is_null_or_undefined(_ctx(),-1):
 				_push_subscript(this,name)
 				ret=duk_has_prop(_ctx(),-2)
 			else
