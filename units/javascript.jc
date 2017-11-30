@@ -193,10 +193,19 @@ module duktape
 			m_stash_array_position=1
 			_init_stash()
 			m_is_external_heap=1
+			//finalizer-bind to the main heap
+			//leak an object that cleans our own borrowed heap pointer on main heap destruction
+			class CHeapBinder
+				JSContext ctx
+				auto __done__()
+					this.ctx.m_hctx=NULL
+			_push_value(new CHeapBinder(){ctx:this})
+			_pop_object()
 		auto __done__()
-			if m_hctx:
-				duk_destroy_heap(_ctx())
-				m_hctx=NULL
+			if !m_is_external_heap:
+				if m_hctx:
+					duk_destroy_heap(_ctx())
+					m_hctx=NULL
 		///////////
 		//init the ref-holding stash
 		auto _init_stash()
@@ -238,6 +247,7 @@ module duktape
 				ret=m_ref_count++
 			return ret
 		auto _free_refid(int refid)
+			if !_ctx():return
 			_push_stash_array()
 			duk_push_int(_ctx(),m_ref_first_free)
 			duk_put_prop_index(_ctx(),-2,refid);
