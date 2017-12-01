@@ -155,9 +155,9 @@ g_action_handlers.make=function(){
 	CreateIfDifferent(g_work_dir+"/build_number",s_build_number)
 	CreateIfDifferent(g_work_dir+"/upload/Info.plist",s_text.replace(new RegExp("com.yourcompany.*\\}","g"),"com.spap."+g_main_name.replace(new RegExp("_","g"),"")))
 	//////////////////////
-	var fn_c_32=g_work_dir+"/s7main.c";
-	var fn_c_64=g_work_dir+"/s7main64.c";
-	var fn_c_bi=g_work_dir+"/s7main_bi.c";
+	var fn_c_32=g_work_dir+"/s7main_"+g_main_name+".c";
+	var fn_c_64=g_work_dir+"/s7main64_"+g_main_name+".c";
+	var fn_c_bi=g_work_dir+"/s7main_bi_"+g_main_name+".c";
 	if(IsNewerThan(fn_c_32,fn_c_64)){
 		//64-bit build
 		var jc_cmdline=[g_root+"/bin/win32_release/jc.exe","--64","-a"+g_arch,"-b"+g_build,"-c","--c="+fn_c_64];
@@ -179,7 +179,7 @@ g_action_handlers.make=function(){
 	}
 	if(!got_original_main_c){
 		print(JSON.stringify(g_json.c_files),fn_c_32)
-		throw new Error("cannot find s7main.c in c_files")
+		throw new Error("cannot find s7main_"+g_main_name+".c in c_files")
 	}
 	if(g_json.is_library){
 		var s_c_64=ReadFile(fn_c_64)

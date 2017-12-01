@@ -332,9 +332,9 @@ auto main()
 			fn_output_json=s_tempdir+"/s7main.json"
 		if !fn_output_c.n:
 			if g_is_cpp:
-				fn_output_c=s_tempdir+"/s7main.cpp"
+				fn_output_c=s_tempdir+"/s7main_"+fn_main+".cpp"
 			else
-				fn_output_c=s_tempdir+"/s7main.c"
+				fn_output_c=s_tempdir+"/s7main_"+fn_main+".c"
 		if !fn_output_exe.n:
 			s_bindir=s_basedir+"bin/"+s_dirname
 			CreateDirectoryX(s_bindir)
