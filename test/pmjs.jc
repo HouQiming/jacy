@@ -147,6 +147,7 @@ auto add_raw_zip(JSContext JS)
 		//fn=System.Env.NormalizeFileName(fn0)
 		fn=fn0
 		fdata=System.IO.ReadAll(fn)
+		if !fdata:continue
 		crc=crc32(fdata)
 		s_local=new("PK\x03\x04\x0A\x00\x00\x00\x00\x00\x0C\x93\xC8D")
 		//CRC-32, size, size, namelen, paddinglen, name, padding
