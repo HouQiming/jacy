@@ -237,6 +237,7 @@ g_action_handlers.make=function(){
 				s_extra_cflags.push(' ',g_json.cflags[i]);
 			}
 		}
+		//todo: debug vs release
 		pushMakeItemArch(smakefile,c_files,'armv7',
 			'/Applications/Xcode.app/Contents/Developer/usr/bin/gcc',
 			s_extra_cflags.join('')+" -fembed-bitcode -DNDEBUG -DHAS_NEON -arch armv7 -pipe -mdynamic-no-pic -Wno-trigraphs -fpascal-strings -O2 -Wreturn-type -Wunused-variable -fmessage-length=0 -fvisibility=hidden -miphoneos-version-min=5.0 -I/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/${IOSSDK}/usr/include/libxml2 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/${IOSSDK}/",

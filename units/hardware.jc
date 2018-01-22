@@ -1,51 +1,60 @@
 
 module Camera
 	//int osal_TurnOnCamera(int cam_id,int w,int h,int fps)
-	osal_GetCameraImage=__c_function(__pointer,"osal_GetCameraImage","osal_camera.h")
-	osal_TurnOnCamera=__c_function(int,"osal_TurnOnCamera","osal_camera.h")
-	osal_TurnOffCamera=__c_function(int,"osal_TurnOffCamera","osal_camera.h")
-	osal_GetFrontCameraId=__c_function(int,"osal_GetFrontCameraId","osal_camera.h")
-	osal_GetBackCameraId=__c_function(int,"osal_GetBackCameraId","osal_camera.h")
-	if Platform.ARCH=='android':
-		osal_AndroidSetCameraPreviewTexture=__c_function(int,"osal_AndroidSetCameraPreviewTexture","osal_camera.h")
-		osal_AndroidCallUpdateTexImage=__c_function(int,"osal_AndroidCallUpdateTexImage","osal_camera.h")
-		osal_AndroidSetNV21Mode=__c_function(int,"osal_AndroidSetNV21Mode","osal_camera.h")
-	auto osal_GetCameraImageManaged(int cam_id)
-		if Platform.ARCH=="android":
-			__generate_json("h_files","camera_android.h")
-			__generate_json("c_files","camera_android.c")
-			__generate_json("h_files","android_exposure_manager.h")
-			__generate_json("c_files","android_exposure_manager.c")
-			__generate_json("java_files","camera.java")
-			__generate_json("android_permissions","android.permission.CAMERA")
-			__generate_json("android_features","android:hardware.camera")
-		else if Platform.ARCH=="ios"||Platform.ARCH=="mac":
-			__generate_json("h_files","camera_ios.h")
-			__generate_json("c_files","camera_ios.m")
-			if Platform.ARCH!="mac":
-				__generate_json("h_files","ios_exposure_manager.h")
-				__generate_json("c_files","ios_exposure_manager.m")
-			__generate_json("ios_frameworks","System/Library/Frameworks/AVFoundation.framework")
-			__generate_json("ios_frameworks","System/Library/Frameworks/CoreMedia.framework")
-			__generate_json("ios_frameworks","System/Library/Frameworks/CoreVideo.framework")
-			__generate_json("mac_frameworks","System/Library/Frameworks/AVFoundation.framework")
-			__generate_json("mac_frameworks","System/Library/Frameworks/CoreMedia.framework")
-			__generate_json("mac_frameworks","System/Library/Frameworks/CoreVideo.framework")
-		else if Platform.ARCH=="web":
-			__generate_json("c_files","camera_web.c")
-			__generate_json("exported_functions","cam_get_buffer_pointer")
-			__generate_json("exported_functions","cam_callback")
-			__generate_json('shim_prolog','<video id="webcam_video" style="display:none;"></video><canvas id="webcam_data" style="display:none;"></canvas>')
-		else
-			__generate_json("c_files","camera_win.cpp")
-		w=0
-		h=0
-		ret=iptr(osal_GetCameraImage(cam_id,&w,&h))
-		if ret:
-			aret=new int[]
-			aret.__bind(1,ret,w*h)
-		else
-			aret=int[].NULL
+	if Platform.ARCH=='linux32'||Platform.ARCH=='linux64':
+		osal_GetCameraImage=inline(cam_id, pw,ph){return NULL}
+		osal_TurnOnCamera=inline(cam_id,w,h,fps){return 0}
+		osal_TurnOffCamera=inline(cam_id){return 0}
+		osal_GetFrontCameraId=inline(){return 0}
+		osal_GetBackCameraId=inline(){return 1}
+		auto osal_GetCameraImageManaged(int cam_id)
+			return (int[].NULL,0,0)
+	else
+		osal_GetCameraImage=__c_function(__pointer,"osal_GetCameraImage","osal_camera.h")
+		osal_TurnOnCamera=__c_function(int,"osal_TurnOnCamera","osal_camera.h")
+		osal_TurnOffCamera=__c_function(int,"osal_TurnOffCamera","osal_camera.h")
+		osal_GetFrontCameraId=__c_function(int,"osal_GetFrontCameraId","osal_camera.h")
+		osal_GetBackCameraId=__c_function(int,"osal_GetBackCameraId","osal_camera.h")
+		if Platform.ARCH=='android':
+			osal_AndroidSetCameraPreviewTexture=__c_function(int,"osal_AndroidSetCameraPreviewTexture","osal_camera.h")
+			osal_AndroidCallUpdateTexImage=__c_function(int,"osal_AndroidCallUpdateTexImage","osal_camera.h")
+			osal_AndroidSetNV21Mode=__c_function(int,"osal_AndroidSetNV21Mode","osal_camera.h")
+		auto osal_GetCameraImageManaged(int cam_id)
+			if Platform.ARCH=="android":
+				__generate_json("h_files","camera_android.h")
+				__generate_json("c_files","camera_android.c")
+				__generate_json("h_files","android_exposure_manager.h")
+				__generate_json("c_files","android_exposure_manager.c")
+				__generate_json("java_files","camera.java")
+				__generate_json("android_permissions","android.permission.CAMERA")
+				__generate_json("android_features","android:hardware.camera")
+			else if Platform.ARCH=="ios"||Platform.ARCH=="mac":
+				__generate_json("h_files","camera_ios.h")
+				__generate_json("c_files","camera_ios.m")
+				if Platform.ARCH!="mac":
+					__generate_json("h_files","ios_exposure_manager.h")
+					__generate_json("c_files","ios_exposure_manager.m")
+				__generate_json("ios_frameworks","System/Library/Frameworks/AVFoundation.framework")
+				__generate_json("ios_frameworks","System/Library/Frameworks/CoreMedia.framework")
+				__generate_json("ios_frameworks","System/Library/Frameworks/CoreVideo.framework")
+				__generate_json("mac_frameworks","System/Library/Frameworks/AVFoundation.framework")
+				__generate_json("mac_frameworks","System/Library/Frameworks/CoreMedia.framework")
+				__generate_json("mac_frameworks","System/Library/Frameworks/CoreVideo.framework")
+			else if Platform.ARCH=="web":
+				__generate_json("c_files","camera_web.c")
+				__generate_json("exported_functions","cam_get_buffer_pointer")
+				__generate_json("exported_functions","cam_callback")
+				__generate_json('shim_prolog','<video id="webcam_video" style="display:none;"></video><canvas id="webcam_data" style="display:none;"></canvas>')
+			else
+				__generate_json("c_files","camera_win.cpp")
 			w=0
 			h=0
-		return (aret,w,h)
+			ret=iptr(osal_GetCameraImage(cam_id,&w,&h))
+			if ret:
+				aret=new int[]
+				aret.__bind(1,ret,w*h)
+			else
+				aret=int[].NULL
+				w=0
+				h=0
+			return (aret,w,h)

@@ -6543,7 +6543,7 @@ module IO
 			sz=osal_GetFileSize(fd)
 			p=mmap(NULL,sz,isrw?(PROT_READ|PROT_WRITE):PROT_READ,(mode&OPEN_COPY_ON_WRITE)?MAP_PRIVATE:MAP_SHARED,fd,0)
 			close(fd)
-			if !p:
+			if !p||iptr(p)==-1L:
 				return string.NULL
 			if !g_dtor_unmap:
 				g_dtor_unmap=__registerArrayBinder(function(iptr p,iptr sz){munmap(__pointer(p),sz);return 1})

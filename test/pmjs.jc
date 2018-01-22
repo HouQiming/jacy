@@ -7,6 +7,9 @@ import Javascript.*
 
 c_system=__c_function(int,"system","stdlib.h")
 exit=__c_function(int,"exit","stdlib.h")
+if Platform.IS_LINUX:
+	__generate_json("ssh_remote_target","~/jc")
+	__generate_json("ssh_server","liu@192.168.0.37")
 
 auto genString(string s0)
 	s=new string

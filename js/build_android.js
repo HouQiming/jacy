@@ -139,7 +139,7 @@ g_action_handlers.make=function(){
 		}
 		if(!got_original_main_c){
 			print(JSON.stringify(g_json.c_files),fn_c_32)
-			throw new Error("cannot find s7main_"+g_main_bi_name+".c in c_files")
+			throw new Error("cannot find s7main_bi_"+g_main_name+".c in c_files")
 		}
 		var s_c_64=ReadFile(fn_c_64)
 		var s_c_32=ReadFile(fn_c_32)
@@ -316,10 +316,18 @@ g_action_handlers.make=function(){
 					LOCAL_CFLAGS += -mfloat-abi=softfp -mfpu=neon -DHAS_NEON -DNEED_MAIN_WRAPPING\n\
 				endif\n\
 			endif\n')
-		s_android_mk.push('LOCAL_CFLAGS += -O3 -fno-var-tracking-assignments -DPM_RELEASE -std=c99 -fomit-frame-pointer\n')
+		if(g_json.android_use_clang&&parseInt(g_json.android_use_clang[0])){
+			s_android_mk.push('LOCAL_CFLAGS += -O3 -DPM_RELEASE -std=c99 -fomit-frame-pointer\n')
+		}else{
+			s_android_mk.push('LOCAL_CFLAGS += -O3 -fno-var-tracking-assignments -DPM_RELEASE -std=c99 -fomit-frame-pointer\n')
+		}
 	}else{
 		//-ffast-math
-		s_android_mk.push('LOCAL_CFLAGS += -O0 -fno-var-tracking-assignments -std=c99\n')
+		if(g_json.android_use_clang&&parseInt(g_json.android_use_clang[0])){
+			s_android_mk.push('LOCAL_CFLAGS += -O0 -std=c99\n')
+		}else{
+			s_android_mk.push('LOCAL_CFLAGS += -O0 -fno-var-tracking-assignments -std=c99\n')
+		}
 	}
 	if(g_json.is_library){
 		//s_android_mk.push('LOCAL_CFLAGS += -DPM_IS_LIBRARY\n')
@@ -385,6 +393,7 @@ g_action_handlers.make=function(){
 	}
 	CreateIfDifferent(g_work_dir+"/jni/Android.mk",s_android_mk.join(""))
 	var s_application_mk=[];
+	s_application_mk.push("APP_SHORT_COMMANDS := true\n")
 	if(g_json.android_stl){
 		s_application_mk.push("APP_STL :=")
 		s_application_mk.push(g_json.android_stl[0]);
@@ -411,7 +420,9 @@ g_action_handlers.make=function(){
 			s_application_mk.push('\n')
 		}
 	}
-	//s_application_mk.push("\nNDK_TOOLCHAIN_VERSION := clang\n")
+	if(g_json.android_use_clang&&parseInt(g_json.android_use_clang[0])){
+		s_application_mk.push("\nNDK_TOOLCHAIN_VERSION := clang\n")
+	}
 	CreateIfDifferent(g_work_dir+"/jni/Application.mk",s_application_mk.join(""))
 	//fill strings.xml, AndroidManifest.xml, build.xml, add the main java file
 	//////////
