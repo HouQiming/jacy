@@ -157,7 +157,6 @@ struct TTextureSubImage
 struct TStretchDIBits
 	vdata=int4()
 	//hwnd=NULL
-	bmpid=0
 	C=int4()
 
 struct TDrawCall
@@ -414,7 +413,7 @@ class CRenderer
 	m_window_w=1.f
 	m_window_h=1.f
 	m_viewport_hack_h=1
-	m_uv16_scale=1
+	//m_uv16_scale=1
 	m_drawcalls=new TDrawCall[]
 	//////////////
 	CJSGLRenderToTextureContext m_srgb_fbo
@@ -521,51 +520,54 @@ class CRenderer
 		if m_StretchDIBits_calls.n:
 			m_vbo.resize(m_StretchDIBits_calls.n*(VERTEX_SIZE*6))
 			foreach scall,I in m_StretchDIBits_calls
-				packed=m_packed_textures[scall.bmpid]
 				n0=I*(VERTEX_SIZE*6)
 				vdata=scall.vdata
-				u0=__int_as_float(0x4b000000+1+packed.x)-8388608.f
-				v0=__int_as_float(0x4b000000+1+packed.y)-8388608.f
-				du=__int_as_float(0x4b000000-2+packed.w)-8388608.f
-				dv=__int_as_float(0x4b000000-2+packed.h)-8388608.f
+				//u0=__int_as_float(0x4b000000+1+packed.x)-8388608.f
+				//v0=__int_as_float(0x4b000000+1+packed.y)-8388608.f
+				//du=__int_as_float(0x4b000000-2+packed.w)-8388608.f
+				//dv=__int_as_float(0x4b000000-2+packed.h)-8388608.f
 				//clip_u0=f32(vdata.z&0xffff)/32768.f
 				//clip_v0=f32(u32(vdata.z)>>16)/32768.f
 				//clip_u1=f32(vdata.w&0xffff)/32768.f
 				//clip_v1=f32(u32(vdata.w)>>16)/32768.f
-				clip_u0=__int_as_float((vdata.z&0xffff)+0x43800000)-256.f
-				clip_v0=__int_as_float(int(u32(vdata.z)>>16)+0x43800000)-256.f
-				clip_u1=__int_as_float((vdata.w&0xffff)+0x43800000)-256.f
-				clip_v1=__int_as_float(int(u32(vdata.w)>>16)+0x43800000)-256.f
-				u1=u0+du*clip_u1
-				v1=v0+dv*clip_v1
-				u0=u0+du*clip_u0
-				v0=v0+dv*clip_v0
-				inline f2i_uv(float f)
-					//return max(min(int(f*float(m_uv16_scale)),65535),0)
-					return max(min(__float_as_int(f*float(m_uv16_scale)+8388608.f)-0x4b000000,65535),0)
-				u0i=f2i_uv(u0)
-				v0i=(f2i_uv(v0)<<16)
-				u1i=f2i_uv(u1)
-				v1i=(f2i_uv(v1)<<16)
+				//clip_u0=__int_as_float((vdata.z&0xffff)+0x43800000)-256.f
+				//clip_v0=__int_as_float(int(u32(vdata.z)>>16)+0x43800000)-256.f
+				//clip_u1=__int_as_float((vdata.w&0xffff)+0x43800000)-256.f
+				//clip_v1=__int_as_float(int(u32(vdata.w)>>16)+0x43800000)-256.f
+				//u1=u0+du*clip_u1
+				//v1=v0+dv*clip_v1
+				//u0=u0+du*clip_u0
+				//v0=v0+dv*clip_v0
+				//u0i=(vdata.z&0xffff)
+				//u1i=(vdata.w&0xffff)
+				//v0i=(vdata.z&0xffff0000)
+				//v1i=(vdata.w&0xffff0000)
+				//inline f2i_uv(float f)
+				//	//return max(min(int(f*float(m_uv16_scale)),65535),0)
+				//	return max(min(__float_as_int(f*float(m_uv16_scale)+8388608.f)-0x4b000000,65535),0)
+				//u0i=f2i_uv(u0)
+				//v0i=(f2i_uv(v0)<<16)
+				//u1i=f2i_uv(u1)
+				//v1i=(f2i_uv(v1)<<16)
 				m_vbo[n0+(VERTEX_SIZE*0+0)]=vdata.x
-				m_vbo[n0+(VERTEX_SIZE*0+1)]=v0i+u0i
-				m_vbo[n0+(VERTEX_SIZE*0+2)]=scall.C[0]
+				m_vbo[n0+(VERTEX_SIZE*0+1)]=vdata.z
+				m_vbo[n0+(VERTEX_SIZE*0+2)]=scall.C.x
 				m_vbo[n0+(VERTEX_SIZE*1+0)]=(vdata.x&0xffff0000)+(vdata.y&0xffff)
-				m_vbo[n0+(VERTEX_SIZE*1+1)]=v0i+u1i
-				m_vbo[n0+(VERTEX_SIZE*1+2)]=scall.C[1]
+				m_vbo[n0+(VERTEX_SIZE*1+1)]=(vdata.z&0xffff0000)+(vdata.w&0xffff)
+				m_vbo[n0+(VERTEX_SIZE*1+2)]=scall.C.y
 				m_vbo[n0+(VERTEX_SIZE*2+0)]=vdata.y
-				m_vbo[n0+(VERTEX_SIZE*2+1)]=v1i+u1i
-				m_vbo[n0+(VERTEX_SIZE*2+2)]=scall.C[2]
+				m_vbo[n0+(VERTEX_SIZE*2+1)]=vdata.w
+				m_vbo[n0+(VERTEX_SIZE*2+2)]=scall.C.z
 				//////////////////////////////////////////
 				m_vbo[n0+(VERTEX_SIZE*3+0)]=vdata.x
-				m_vbo[n0+(VERTEX_SIZE*3+1)]=v0i+u0i
-				m_vbo[n0+(VERTEX_SIZE*3+2)]=scall.C[0]
+				m_vbo[n0+(VERTEX_SIZE*3+1)]=vdata.z
+				m_vbo[n0+(VERTEX_SIZE*3+2)]=scall.C.x
 				m_vbo[n0+(VERTEX_SIZE*4+0)]=vdata.y
-				m_vbo[n0+(VERTEX_SIZE*4+1)]=v1i+u1i
-				m_vbo[n0+(VERTEX_SIZE*4+2)]=scall.C[2]
+				m_vbo[n0+(VERTEX_SIZE*4+1)]=vdata.w
+				m_vbo[n0+(VERTEX_SIZE*4+2)]=scall.C.z
 				m_vbo[n0+(VERTEX_SIZE*5+0)]=(vdata.x&0xffff)+(vdata.y&0xffff0000)
-				m_vbo[n0+(VERTEX_SIZE*5+1)]=v1i+u0i
-				m_vbo[n0+(VERTEX_SIZE*5+2)]=scall.C[3]
+				m_vbo[n0+(VERTEX_SIZE*5+1)]=(vdata.z&0xffff)+(vdata.w&0xffff0000)
+				m_vbo[n0+(VERTEX_SIZE*5+2)]=scall.C.w
 				//Writeln(u0,' ',v0,' ',du,' ',dv,' ',formatNumber(u32(scall.C),{base:16,align:8}))
 			m_StretchDIBits_calls=TStretchDIBits[].NULL
 			//dt=System.Time.tick64()-tick0
@@ -623,7 +625,7 @@ class CRenderer
 		inline i2f_P(int i)
 			return (__int_as_float(i+0x4b000000)-8388608.f)/float(m_crd16_scale)
 		inline i2f_uv(int i)
-			return (__int_as_float(i+0x4b000000)-8388608.f)/float(m_uv16_scale)
+			return (__int_as_float(i+0x4b000000)-8388608.f)//float(m_uv16_scale)
 		for i=0:VERTEX_SIZE:m_vbo.n-VERTEX_SIZE
 			P_x=i2f_P(m_vbo[i]&0xffff)
 			P_y=i2f_P((m_vbo[i]>>16)&0xffff)
@@ -741,7 +743,7 @@ class CRenderer
 				m_tech.SetVertexPointer("uv_vert", 2,GL_UNSIGNED_SHORT,0, VERTEX_SIZE*sizeof(int),(dc.pv+1)*sizeof(int))
 				m_tech.SetVertexPointer("C_vert", 4,GL_UNSIGNED_BYTE,1, VERTEX_SIZE*sizeof(int),(dc.pv+2)*sizeof(int))
 				scale_scr=float2(scale.x*2.f/f32(dc.window_w),-scale.y*2.f/f32(dc.window_h))
-				m_tech.SetUniform("scale",float4(scale_scr.x/f32(dc.crd16_scale),scale_scr.y/f32(dc.crd16_scale), 1.f/f32(m_texture_width*m_uv16_scale),1.f/f32(m_texture_height*m_uv16_scale)))
+				m_tech.SetUniform("scale",float4(scale_scr.x/f32(dc.crd16_scale),scale_scr.y/f32(dc.crd16_scale), 1.f/f32(m_texture_width),1.f/f32(m_texture_height)))
 				m_tech.SetUniform("trans",float2(-1.f,1.f)+translation*scale_scr)
 				m_tech.SetTexture2D("tex0", m_texid)
 				m_tech.Draw(m_gl_vbo,GL_TRIANGLES,dc.nv)
@@ -803,7 +805,7 @@ class CRenderer
 	auto BeginPaint(__pointer hwnd,float w,float h)
 		//if m_static_textures:
 		//	PackStaticBitmaps()
-		m_uv16_scale=32768/m_texture_width
+		//m_uv16_scale=32768/m_texture_width
 		m_hwnd=hwnd
 		m_clip=float4(0.f,0.f,w,h)
 		m_clip_stack.clear()
@@ -948,7 +950,7 @@ class CRenderer
 		iy0=f2i_P(y)
 		ix1=f2i_P(x+w)
 		iy1=f2i_P(y+h)
-		vdata=int4(((iy0)<<16)+(ix0),((iy1)<<16)+(ix1),0,0x80008000)
+		vdata=int4(((iy0)<<16)+(ix0),((iy1)<<16)+(ix1),0,0xffffffff)
 		//if clipped:
 		//	iu0=f2i_uv(u0)
 		//	iv0=f2i_uv(v0)
@@ -972,7 +974,14 @@ class CRenderer
 		//	m_vbo[n0+(VERTEX_SIZE*3+1)]=((iv1)<<16)+(iu0)
 		//	m_vbo[n0+(VERTEX_SIZE*3+2)]=C
 		//else
-		m_StretchDIBits_calls.push(TStretchDIBits(){vdata:vdata,bmpid:hbmp,C:int4(C,C,C,C)})
+		packed=m_packed_textures[hbmp]
+		vdata.z&=(packed.w+(packed.h<<16))-0x20002
+		vdata.w&=(packed.w+(packed.h<<16))-0x20002
+		vdata.z+=(packed.x+(packed.y<<16))+0x10001
+		vdata.w+=(packed.x+(packed.y<<16))+0x10001
+		//vdata.z*=m_uv16_scale
+		//vdata.w*=m_uv16_scale
+		m_StretchDIBits_calls.push(TStretchDIBits(){vdata:vdata,C:int4(C,C,C,C)})
 		//Writeln(x,' ',y,' ',w,' ',h,' ',m_vbo.n)
 	inline DrawRectangle(float x0,float y0,float w0,float h0, int C)
 		DrawBitmap(0,x0,y0,w0,h0,C)
@@ -1395,14 +1404,14 @@ class CRenderer
 		//we need 16 points
 		struct T3x3Point
 			float x,y
-			float u,v
+			int u,v
 			int C
 		points=new T3x3Point[16]
 		xs=float4(0.f,radius,w-radius,w)+float4(x00,x00,x00,x00)
 		ys=float4(0.f,radius,h-radius,h)+float4(y00,y00,y00,y00)
 		ri=System.Math.ceil(radius)
-		us=float4(1.f,0.f,0.f,1.f)
-		vs=float4(1.f,0.f,0.f,1.f)
+		us=int4(0xffff,0,0,0xffff)
+		vs=int4(0xffff,0,0,0xffff)
 		for y in crange(4)
 			for x in crange(4)
 				points[y*4+x].x=xs[x]
@@ -1445,8 +1454,8 @@ class CRenderer
 		//draw the quads
 		inline f2i_P(float f)
 			return max(min(int(f*float(m_crd16_scale)),65535),0)
-		inline f2i_uv(float f)
-			return max(min(int(f*32768.f),65535),0)
+		//inline f2i_uv(float f)
+		//	return max(min(int(f*32768.f),65535),0)
 		for y=0:2
 			for x=0:2
 				if is_border&&x==1&&y==1:continue
@@ -1499,12 +1508,12 @@ class CRenderer
 				//if !(y1>y0):continue
 				ix0=f2i_P(x0)
 				iy0=f2i_P(y0)
-				iu0=f2i_uv(u0)
-				iv0=f2i_uv(v0)
+				iu0=(u0)
+				iv0=(v0)
 				ix1=f2i_P(x1)
 				iy1=f2i_P(y1)
-				iu1=f2i_uv(u1)
-				iv1=f2i_uv(v1)
+				iu1=(u1)
+				iv1=(v1)
 				//if bmpid_xy==-1:
 				//	//all 0.f anyway, should work as is
 				//	m_vbo[n0+(VERTEX_SIZE*0+0)]=((iy0)<<16)+(ix0)
@@ -1521,7 +1530,14 @@ class CRenderer
 				//	m_vbo[n0+(VERTEX_SIZE*3+2)]=C3
 				//else
 				vdata=int4(((iy0)<<16)+(ix0),((iy1)<<16)+(ix1),((iv0)<<16)+(iu0),((iv1)<<16)+(iu1))
-				m_StretchDIBits_calls.push(TStretchDIBits(){vdata:vdata,bmpid:bmpid_xy,C:int4(C0,C1,C2,C3)})
+				packed=m_packed_textures[bmpid_xy]
+				vdata.z&=(packed.w+(packed.h<<16))-0x20002
+				vdata.w&=(packed.w+(packed.h<<16))-0x20002
+				vdata.z+=(packed.x+(packed.y<<16))+0x10001
+				vdata.w+=(packed.x+(packed.y<<16))+0x10001
+				//vdata.z*=m_uv16_scale
+				//vdata.w*=m_uv16_scale
+				m_StretchDIBits_calls.push(TStretchDIBits(){vdata:vdata,C:int4(C0,C1,C2,C3)})
 	auto DrawRR(TRRContext ctx,float x,float y,float w,float h)
 		assert(ctx.is_valid)
 		Draw3x3(x,y,w,h,ctx.eff_radius, ctx.bmpid,ctx.color,0)
