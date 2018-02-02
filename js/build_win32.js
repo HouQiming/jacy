@@ -194,6 +194,17 @@ g_action_handlers.make=function(){
 		}
 		sopt1.push(' "'+fnobj+'"')
 	}
+	if(g_lib_files&&!need_link){
+		for(var i=0;i<g_lib_files.length;i++){
+			if(FileExists(g_work_dir+"/"+g_lib_files[i])&&IsNewerThan(g_work_dir+"/"+g_lib_files[i],s_final_output)){
+				need_link=1;
+				break;
+			}else if(IsNewerThan(g_lib_files[i],s_final_output)){
+				need_link=1;
+				break;
+			}
+		}
+	}
 	//sync and compile CUDA files
 	if(g_json.cu_files){
 		var s_cuda_options="";

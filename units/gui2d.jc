@@ -156,7 +156,7 @@ struct TTextureSubImage
 
 struct TStretchDIBits
 	vdata=int4()
-	hwnd=NULL
+	//hwnd=NULL
 	bmpid=0
 	C=int4()
 
@@ -409,6 +409,8 @@ class CRenderer
 	m_vbo_uploaded=0
 	m_drawcall_start=0
 	m_crd16_scale=1
+	m_window_x=0
+	m_window_y=0
 	m_window_w=1.f
 	m_window_h=1.f
 	m_viewport_hack_h=1
@@ -703,6 +705,7 @@ class CRenderer
 			//SavePNG("$dynamic.png",[(int(a)*0x010101)|0xff000000 foreach a in m_texture_data],m_texture_width,m_texture_height)
 		glDisable(GL_DEPTH_TEST)
 		glEnable(GL_BLEND)
+		glEnable(GL_SCISSOR_TEST)
 		if !IS_OPENGL_ES&&m_srgb_supported&&m_srgb_supported!=2:
 			glGetError()
 			glEnable(GL_FRAMEBUFFER_SRGB_EXT)
@@ -806,9 +809,12 @@ class CRenderer
 		m_clip_stack.clear()
 		m_crd16_scale=max(65536/promoteToTextureSize(int(ceil(max(w,h)))+1),1)
 		m_drawcall_start=int(m_StretchDIBits_calls.n)
+		m_window_x=0
+		m_window_y=0
 		m_window_w=w
 		m_window_h=h
 		m_viewport_hack_h=int(h)
+		ResetClip()
 	auto FlushDrawcall()
 		//create a drawcall
 		if m_window_w&&m_window_h&&m_drawcall_start<int(m_StretchDIBits_calls.n):
@@ -867,49 +873,68 @@ class CRenderer
 		//m_clip_stack.clear()
 		m_crd16_scale=max(65536/promoteToTextureSize(max(w,h)+1),1)
 		m_drawcall_start=int(m_StretchDIBits_calls.n)
+		if is_new_window:
+			m_window_x=0
+			m_window_y=0
+		else
+			m_window_x=x
+			m_window_y=y
 		m_window_w=f32(w)
 		m_window_h=f32(h)
+		ResetClip()
 	inline PushCliprect(float x,float y,float w,float h)
 		m_clip_stack.push(m_clip)
 		m_clip=float4(max(m_clip.x,x),max(m_clip.y,y),min(m_clip.z,x+w),min(m_clip.w,y+h))
+		ResetClip()
 	inline PopCliprect()
 		m_clip=m_clip_stack.pop()
+		ResetClip()
+	inline ResetClip()
+		hw=m_viewport_hack_h
+		x=m_window_x+int(floor(m_clip.x))
+		y=m_window_y+int(floor(m_clip.y))
+		w=max(int(ceil(m_clip.z)-floor(m_clip.x)),0)
+		h=max(int(ceil(m_clip.w)-floor(m_clip.y)),0)
+		clip=m_clip
+		InsertNativeDrawCall(function(){
+			glScissor(x,hw-y-h,w,h)
+		})
 	auto DrawBitmap(int hbmp, float x0,float y0,float w0,float h0, int C)
-		u0=0.f
-		v0=0.f
-		cu=1.f
-		cv=1.f
+		//u0=0.f
+		//v0=0.f
+		//cu=1.f
+		//cv=1.f
 		clipped=0
 		x=x0;y=y0;w=w0;h=h0
-		if x<m_clip.x:
-			dx=m_clip.x-x
-			t=dx/w
-			x=m_clip.x;w-=dx
-			du=cu*t
-			u0+=du;cu-=du
-			clipped=1
-		if m_clip.z<x+w:
-			dx=m_clip.z-x
-			t=dx/w
-			w=dx
-			cu*=t
-			clipped=1
-		//use negated tests against NaN
-		if !(cu>0.f)||!(x+w>x):return
-		if y<m_clip.y:
-			dy=m_clip.y-y
-			t=dy/h
-			y=m_clip.y;h-=dy
-			dv=cv*t
-			v0+=dv;cv-=dv
-			clipped=1
-		if m_clip.w<y+h:
-			dy=m_clip.w-y
-			t=dy/h
-			h=dy
-			cv*=t
-			clipped=1
-		if !(cv>0.f)||!(y+h>y):return
+		//if x<m_clip.x:
+		//	dx=m_clip.x-x
+		//	t=dx/w
+		//	x=m_clip.x;w-=dx
+		//	du=cu*t
+		//	u0+=du;cu-=du
+		//	clipped=1
+		//if m_clip.z<x+w:
+		//	dx=m_clip.z-x
+		//	t=dx/w
+		//	w=dx
+		//	cu*=t
+		//	clipped=1
+		////use negated tests against NaN
+		//if !(cu>0.f)||!(x+w>x):return
+		//if y<m_clip.y:
+		//	dy=m_clip.y-y
+		//	t=dy/h
+		//	y=m_clip.y;h-=dy
+		//	dv=cv*t
+		//	v0+=dv;cv-=dv
+		//	clipped=1
+		//if m_clip.w<y+h:
+		//	dy=m_clip.w-y
+		//	t=dy/h
+		//	h=dy
+		//	cv*=t
+		//	clipped=1
+		//if !(cv>0.f)||!(y+h>y):return
 		inline f2i_P(float f)
 			//return max(min(int(f*float(m_crd16_scale)),65535),0)
 			return max(min(__float_as_int(f*float(m_crd16_scale)+8388608.f)-0x4b000000,65535),0)
@@ -924,13 +949,13 @@ class CRenderer
 		ix1=f2i_P(x+w)
 		iy1=f2i_P(y+h)
 		vdata=int4(((iy0)<<16)+(ix0),((iy1)<<16)+(ix1),0,0x80008000)
-		if clipped:
-			iu0=f2i_uv(u0)
-			iv0=f2i_uv(v0)
-			iu1=f2i_uv(u0+cu)
-			iv1=f2i_uv(v0+cv)
-			vdata.z=((iv0)<<16)+(iu0)
-			vdata.w=((iv1)<<16)+(iu1)
+		//if clipped:
+		//	iu0=f2i_uv(u0)
+		//	iv0=f2i_uv(v0)
+		//	iu1=f2i_uv(u0+cu)
+		//	iv1=f2i_uv(v0+cv)
+		//	vdata.z=((iv0)<<16)+(iu0)
+		//	vdata.w=((iv1)<<16)+(iu1)
 		//if is_static:
 		//	n0=m_vbo.n
 		//	m_vbo.resize(n0+VERTEX_SIZE*4)
@@ -947,7 +972,7 @@ class CRenderer
 		//	m_vbo[n0+(VERTEX_SIZE*3+1)]=((iv1)<<16)+(iu0)
 		//	m_vbo[n0+(VERTEX_SIZE*3+2)]=C
 		//else
-		m_StretchDIBits_calls.push(TStretchDIBits(){vdata:vdata,hwnd:m_hwnd,bmpid:hbmp,C:int4(C,C,C,C)})
+		m_StretchDIBits_calls.push(TStretchDIBits(){vdata:vdata,bmpid:hbmp,C:int4(C,C,C,C)})
 		//Writeln(x,' ',y,' ',w,' ',h,' ',m_vbo.n)
 	inline DrawRectangle(float x0,float y0,float w0,float h0, int C)
 		DrawBitmap(0,x0,y0,w0,h0,C)
@@ -1446,32 +1471,32 @@ class CRenderer
 				else
 					bmpid_xy=bmpid
 				//clipping
-				if x0<m_clip.x:
-					dx=m_clip.x-x0
-					t=dx/(x1-x0)
-					x0=m_clip.x
-					du=(u1-u0)*t
-					u0+=du
-				if m_clip.z<x1:
-					dx=m_clip.z-x1
-					t=dx/(x1-x0)
-					x1=m_clip.z
-					du=(u1-u0)*t
-					u1+=du
-				if !(x1>x0):continue
-				if y0<m_clip.y:
-					dy=m_clip.y-y0
-					t=dy/(y1-y0)
-					y0=m_clip.y
-					dv=(v1-v0)*t
-					v0+=dv
-				if m_clip.w<y1:
-					dy=m_clip.w-y1
-					t=dy/(y1-y0)
-					y1=m_clip.w
-					dv=(v1-v0)*t
-					v1+=dv
-				if !(y1>y0):continue
+				//if x0<m_clip.x:
+				//	dx=m_clip.x-x0
+				//	t=dx/(x1-x0)
+				//	x0=m_clip.x
+				//	du=(u1-u0)*t
+				//	u0+=du
+				//if m_clip.z<x1:
+				//	dx=m_clip.z-x1
+				//	t=dx/(x1-x0)
+				//	x1=m_clip.z
+				//	du=(u1-u0)*t
+				//	u1+=du
+				//if !(x1>x0):continue
+				//if y0<m_clip.y:
+				//	dy=m_clip.y-y0
+				//	t=dy/(y1-y0)
+				//	y0=m_clip.y
+				//	dv=(v1-v0)*t
+				//	v0+=dv
+				//if m_clip.w<y1:
+				//	dy=m_clip.w-y1
+				//	t=dy/(y1-y0)
+				//	y1=m_clip.w
+				//	dv=(v1-v0)*t
+				//	v1+=dv
+				//if !(y1>y0):continue
 				ix0=f2i_P(x0)
 				iy0=f2i_P(y0)
 				iu0=f2i_uv(u0)
@@ -1496,7 +1521,7 @@ class CRenderer
 				//	m_vbo[n0+(VERTEX_SIZE*3+2)]=C3
 				//else
 				vdata=int4(((iy0)<<16)+(ix0),((iy1)<<16)+(ix1),((iv0)<<16)+(iu0),((iv1)<<16)+(iu1))
-				m_StretchDIBits_calls.push(TStretchDIBits(){vdata:vdata,hwnd:m_hwnd,bmpid:bmpid_xy,C:int4(C0,C1,C2,C3)})
+				m_StretchDIBits_calls.push(TStretchDIBits(){vdata:vdata,bmpid:bmpid_xy,C:int4(C0,C1,C2,C3)})
 	auto DrawRR(TRRContext ctx,float x,float y,float w,float h)
 		assert(ctx.is_valid)
 		Draw3x3(x,y,w,h,ctx.eff_radius, ctx.bmpid,ctx.color,0)
