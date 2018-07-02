@@ -559,7 +559,7 @@ auto main()
 	/////////////
 	//doSDL()
 	/////////////
-	doVectors()
+	//doVectors()
 	Writeln('g-l.jc updated')
 
 main()

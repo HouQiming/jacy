@@ -376,6 +376,9 @@ return {\n\
 	var s_dirname=g_build=="debug"?g_arch:g_arch+"_"+g_build;
 	g_work_dir=base_dir+"/pm_tmp/"+s_dirname+"/"+main_name;
 	g_bin_dir=base_dir+"/bin/"+s_dirname;
+	//if(g_json.force_rebuild){
+	//	shell(["rm","-rf",g_work_dir])
+	//}
 	g_relative_dir_name=s_dirname
 	g_base_dir=base_dir;
 	mkdir(g_work_dir);

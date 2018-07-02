@@ -93366,3 +93366,11 @@ DUK_INTERNAL duk_double_t duk_util_tinyrandom_get_double(duk_hthread *thr) {
 #undef DUK__RANDOM_XOROSHIRO128PLUS
 #undef DUK__RND_BIT
 #undef DUK__UPDATE_RND
+
+DUK_EXTERNAL void duk_get_var_env(duk_context* ctx,void* obj_handle){
+	if(DUK_HOBJECT_IS_COMPFUNC((duk_hobject*)obj_handle)){
+		duk_push_hobject(ctx, DUK_HCOMPFUNC_GET_VARENV(ctx->heap,(duk_hcompfunc*)obj_handle));
+	}else{
+		duk_push_null(ctx);
+	}
+}

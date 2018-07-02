@@ -327,6 +327,12 @@ auto main()
 					return 0
 			else
 				return 1
+		if force_rebuild:{
+			//wipe pm_tmp when --rebuild is specified
+			auto scmdline="rm -rf "+s_tempdir
+			scmdline.push(char(0))
+			c_system(scmdline)
+		}
 		CreateDirectoryX(s_tempdir)
 		if !fn_output_json.n:
 			fn_output_json=s_tempdir+"/s7main.json"

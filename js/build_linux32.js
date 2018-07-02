@@ -37,11 +37,12 @@ g_action_handlers.make=function(){
 	//create a makefile
 	//-ffast-math
 	//var smakefile_array=["CC = gcc\nLD = gcc\nCFLAGS0 = -I$(HOME)/pmenv/SDL2-2.0.3/include -I$(HOME)/pmenv/include -DLINUX\nLDFLAGS = -s -L$(HOME)/pmenv/SDL2-2.0.3/build/.libs -L$(HOME)/pmenv/SDL2-2.0.3/build"];
+	//-fno-rtti 
 	var smakefile_array=["AR = ",g_json.linux_ar?g_json.linux_ar[0]:'ar',"\nCC = ",g_json.linux_cc?g_json.linux_cc[0]:'gcc',"\nLD = ",g_json.linux_ld?g_json.linux_ld[0]:'gcc',"\nCFLAGS0 = -DLINUX\nLDFLAGS = "];
 	if(g_build!="debug"){
-		smakefile_array.push('\nCFLAGS1= -O2 -fno-var-tracking-assignments -fno-exceptions -fno-rtti -fno-unwind-tables -fno-strict-aliasing -w -static-libgcc -DPM_RELEASE ');
+		smakefile_array.push('\nCFLAGS1= -O2 -fno-var-tracking-assignments -fno-exceptions -fno-unwind-tables -fno-strict-aliasing -w -static-libgcc -DPM_RELEASE -DNDEBUG ');
 	}else{
-		smakefile_array.push('\nCFLAGS1= -g -fno-var-tracking-assignments -fno-exceptions -fno-rtti -fno-unwind-tables -fno-strict-aliasing -w -static-libgcc ');
+		smakefile_array.push('\nCFLAGS1= -g -fno-var-tracking-assignments -fno-exceptions -fno-unwind-tables -fno-strict-aliasing -w -static-libgcc ');
 	}
 	if(g_json.is_library){
 		smakefile_array.push(' -fPIC ');
@@ -60,6 +61,13 @@ g_action_handlers.make=function(){
 	if(g_json.cflags){
 		for(var i=0;i<g_json.cflags.length;i++){
 			var smain=g_json.cflags[i]
+			smakefile_array.push(" "+smain);
+		}
+	}
+	smakefile_array.push('\nCXXFLAGS = ');
+	if(g_json.cxxflags){
+		for(var i=0;i<g_json.cxxflags.length;i++){
+			var smain=g_json.cxxflags[i]
 			smakefile_array.push(" "+smain);
 		}
 	}
@@ -105,7 +113,12 @@ g_action_handlers.make=function(){
 	for(var i=0;i<c_files.length;i++){
 		var scfile=c_files[i];
 		var smain=RemoveExtension(scfile)
-		smakefile_array.push("\n"+smain+".o: "+scfile+"\n\t$(CC) $(CFLAGS0) $(CFLAGS1) -c $< -o $@\n")
+		if(GetExtension(scfile)!=='c'){
+			smakefile_array.push("\n"+smain+".o: "+scfile+"\n\t$(CC) $(CFLAGS0) $(CFLAGS1) $(CXXFLAGS) -c $< -o $@\n")
+		}else{
+			smakefile_array.push("\n"+smain+".o: "+scfile+"\n\t$(CC) $(CFLAGS0) $(CFLAGS1) -c $< -o $@\n")
+		}
+		
 	}
 	CreateIfDifferent(g_work_dir+"/upload/Makefile",smakefile_array.join(""))
 	//////////////////////////

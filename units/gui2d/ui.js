@@ -1834,7 +1834,15 @@ UI.unify_enters_versions=1;
 UI.m_poll_job_termination_event=undefined;
 UI.TestEventInPollJob=function(){
 	if(UI.m_poll_job_termination_event){return 1;}
-	UI.m_poll_job_termination_event=UI.SDL_PollEvent();
+	var event=UI.SDL_PollEvent();
+	UI.m_poll_job_termination_event=event;
+	if(event&&event.type===UI.SDL_USEREVENT&&event.code===2){
+		//ignore the autorefresh timer, run other timer functions right away
+		var fn=UI.getTimerFunction(event.data1);
+		if(fn&&fn!==fauto_refresher){fn();}
+		UI.m_poll_job_termination_event=undefined;
+		return 0;
+	}
 	return !!UI.m_poll_job_termination_event;
 }
 UI.m_absolute_mouse_position={x:0,y:0};
@@ -1959,7 +1967,7 @@ UI.Run=function(){
 						}
 					}
 					break;
-				}else if(event.code==2){
+				}else if(event.code===2){
 					//timer
 					var fn=UI.getTimerFunction(event.data1);
 					if(fn){fn();}

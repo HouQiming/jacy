@@ -31,6 +31,11 @@ function call7z(sdir,fnzip0,fnames,sextra_arg){
 
 (function(){
 	var is_static=(g_json.use_static_res&&g_json.use_static_res[0]);
+	var fn_filecount=g_work_dir+"/res_zip_count.txt";
+	if(!FileExists(fn_filecount)){
+		CreateFile(fn_filecount,0);
+	}
+	var old_n_files=parseInt(ReadFile(fn_filecount));
 	var fnzip=(is_static?g_work_dir+"/raw_res.zip":g_bin_dir+"/res.zip");
 	if(g_arch=="ios"||g_arch=="mac"){
 		fnzip=g_work_dir+"/reszip.bundle";
@@ -41,50 +46,49 @@ function call7z(sdir,fnzip0,fnames,sextra_arg){
 	}
 	var needed=0;
 	var res_files=find(g_base_dir+"/res/*");
+	var n_files=0;
 	if(!FileExists(fnzip)){
 		needed=1;
-	}else{
-		for(var i=0;i<res_files.length;i++){
-			var fn=res_files[i];
+	}
+	for(var i=0;i<res_files.length;i++){
+		var fn=res_files[i];
+		n_files++;
+		if(IsNewerThan(fn,fnzip)){
+			needed=1;
+		}
+	}
+	if(g_json.js_units){
+		for(var i=0;i<g_json.js_units.length;i++){
+			var fn_in_zip=g_json.js_units[i];
+			var fn=g_root+"/units/"+fn_in_zip;
+			n_files++;
 			if(IsNewerThan(fn,fnzip)){
 				needed=1;
-				break;
 			}
 		}
 	}
-	if(!needed){
-		if(g_json.js_units){
-			for(var i=0;i<g_json.js_units.length;i++){
-				var fn_in_zip=g_json.js_units[i];
-				var fn=g_root+"/units/"+fn_in_zip;
-				if(IsNewerThan(fn,fnzip)){
-					needed=1;
-					break;
-				}
-			}
+	var files=find(g_base_dir+"/assets/*")
+	for(var i=0;i<files.length;i++){
+		var fn=files[i];
+		n_files++;
+		if(IsNewerThan(fn,fnzip)){
+			needed=1;
 		}
 	}
-	if(!needed){
-		var files=find(g_base_dir+"/assets/*")
-		for(var i=0;i<files.length;i++){
-			var fn=files[i];
-			if(IsNewerThan(fn,fnzip)){
-				needed=1;
-				break;
-			}
-		}
-	}
-	if(!needed&&g_json.extra_resource_dirs){
+	if(g_json.extra_resource_dirs){
 		for(var di=0;di<g_json.extra_resource_dirs.length;di++){
 			var files=find(g_base_dir+"/"+g_json.extra_resource_dirs[di]+"/*")
 			for(var i=0;i<files.length;i++){
 				var fn=files[i];
+				n_files++;
 				if(IsNewerThan(fn,fnzip)){
 					needed=1;
-					break;
 				}
 			}
 		}
+	}
+	if(old_n_files!==n_files){
+		needed=1;
 	}
 	if(!needed){
 		if(is_static){
@@ -93,6 +97,7 @@ function call7z(sdir,fnzip0,fnames,sextra_arg){
 		}
 		return;
 	}
+	CreateFile(fn_filecount,n_files.toString());
 	var fnzip0=(is_static?g_work_dir+"/raw_res.zip":g_bin_dir+"/res.zip");
 	var fnzip_temp="__temp__.zip";
 	if(FileExists(fnzip)){

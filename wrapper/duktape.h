@@ -1272,6 +1272,8 @@ DUK_EXTERNAL_DECL duk_double_t duk_components_to_time(duk_context *ctx, duk_time
 DUK_EXTERNAL_DECL const void * const duk_rom_compressed_pointers[];
 #endif
 
+DUK_EXTERNAL_DECL void duk_get_var_env(duk_context* ctx,void* obj_handle);
+
 /*
  *  C++ name mangling
  */

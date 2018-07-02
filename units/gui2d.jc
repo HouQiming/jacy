@@ -899,7 +899,10 @@ class CRenderer
 		h=max(int(ceil(m_clip.w)-floor(m_clip.y)),0)
 		clip=m_clip
 		InsertNativeDrawCall(function(){
-			glScissor(x,hw-y-h,w,h)
+			if w<=0||h<=0:
+				glScissor(0,0,0,0)
+			else
+				glScissor(x,hw-y-h,w,h)
 		})
 	auto DrawBitmap(int hbmp, float x0,float y0,float w0,float h0, int C)
 		//u0=0.f
@@ -1621,7 +1624,7 @@ inline CharToUtf8(auto s,T)
 					if (ch&0x0400):
 						//2nd
 						if surrogate_1st>=0:
-							ch=(surrogate_1st*0x400)+(ch&0x3ff)
+							ch=(surrogate_1st*0x400)+(ch&0x3ff)+0x10000
 							surrogate_1st=-1
 							II=surrogate_II
 						else

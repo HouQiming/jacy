@@ -1,6 +1,6 @@
 if Platform.IS_WINDOWS:
 	__generate_json("cflags","/openmp")
-else
+else if Platform.ARCH!='ios':
 	__generate_json("cflags","-fopenmp")
 
 omp_range=inline(n){

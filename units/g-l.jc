@@ -2824,8 +2824,6 @@ GL_MAP_UNSYNCHRONIZED_BIT=0x0020
 IS_OPENGL_ES=(Platform.ARCH=="android"||Platform.ARCH=="ios"||Platform.ARCH=="rasppi"||Platform.ARCH=="linux32"||Platform.ARCH=="web")
 
 auto mygluGetErrorString(GLenum err)
-	//Writeln('>>> ',err);
-	//assert(0);
 	switch(err){
 	case GL_NO_ERROR:return "GL_NO_ERROR"
 	case GL_INVALID_VALUE:return "GL_INVALID_VALUE"
@@ -2882,6 +2880,7 @@ if Platform.IS_LIBRARY:
 			__generate_json("h_files","glew.h")
 			__generate_json("h_files","wglew.h")
 			__generate_json("lib_files","opengl32.lib")
+			__generate_json("cflags","/DGLEW_NO_GLU")
 		else if Platform.ARCH=='mac':
 			__generate_json("mac_frameworks","System/Library/Frameworks/OpenGL.framework")
 		else if Platform.ARCH=='ios':
@@ -3213,6 +3212,10 @@ class GLTechnique
 		Declare(m_prg?string.NULL:"uniform vec3 "+name+";\n",name,f)
 	auto SetFloat4(string name,float4 a0)
 		a=a0
+		f=function(int slot){glUniform4f(slot,a.x,a.y,a.z,a.w)}
+		Declare(m_prg?string.NULL:"uniform vec4 "+name+";\n",name,f)
+	auto SetFloat4v(string name,float[] a0)
+		a=float4(a0[0],a0[1],a0[2],a0[3])
 		f=function(int slot){glUniform4f(slot,a.x,a.y,a.z,a.w)}
 		Declare(m_prg?string.NULL:"uniform vec4 "+name+";\n",name,f)
 	auto SetMatrix(string name,float[] mat)

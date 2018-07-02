@@ -66,6 +66,7 @@ module duktape
 	duk_push_error_object_raw=__c_function(int,"duk_push_error_object_raw","duktape.h")
 	duk_is_error=__c_function(int,"duk_is_error","duktape.h")
 	duk_gc=__c_function(int,"duk_gc","duktape.h")
+	duk_get_var_env=__c_function(int,"duk_get_var_env","duktape.h")
 	///////
 	duk_module_duktape_init=__c_function(int,"duk_module_duktape_init","duk_module_duktape.h","c_files","duk_module_duktape.c")
 	duk_print_alert_init=__c_function(int,"duk_print_alert_init","duk_print_alert.h","c_files","duk_print_alert.c")
@@ -736,18 +737,19 @@ module duktape
 								//		Writeln('>>> ',formatNumber(u64(tval),{align:16,base:16}))
 								//	s_object_path.resize(n0)
 								//dfs into the function
-								s_name1="\xffLexenv"
-								duk_push_lstring(_ctx(),s_name1,s_name1.n)
-								duk_get_prop(_ctx(),-2)
-								n0=s_object_path.n
-								s_object_path.push('._Lexenv')
-								test()
-								s_object_path.resize(n0)
-								duk_pop(_ctx())
+								//s_name1="\xffLexenv"
+								//duk_push_lstring(_ctx(),s_name1,s_name1.n)
+								//duk_get_prop(_ctx(),-2)
+								//n0=s_object_path.n
+								//s_object_path.push('._Lexenv')
+								//test()
+								//s_object_path.resize(n0)
+								//duk_pop(_ctx())
 								//////////
-								s_name2="\xffVarenv"
-								duk_push_lstring(_ctx(),s_name2,s_name2.n)
-								duk_get_prop(_ctx(),-2)
+								//s_name2="\xffVarenv"
+								//duk_push_lstring(_ctx(),s_name2,s_name2.n)
+								//duk_get_prop(_ctx(),-2)
+								duk_get_var_env(_ctx(),__pointer(obj_handle))
 								n0=s_object_path.n
 								s_object_path.push('._Varenv')
 								test()

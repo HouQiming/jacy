@@ -241,6 +241,7 @@ g_action_handlers.make=function(){
 			}else{
 				ResampleImage(fn_icon,g_work_dir+'/a.ico','ico');
 			}
+			//todo: dig up rc.exe from C:\Program Files (x86)\Windows Kits\10\bin\...\x64
 			var scmd='@echo off\ncall "'+VC.sbatname+'" >NUL\nrc /fo "'+fn_res+'" "'+g_work_dir+"/a.rc"+'"'
 			var scallrc=g_work_dir+"/callrc.bat";
 			if(!CreateFile(scallrc,scmd)){
