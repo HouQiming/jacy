@@ -3220,11 +3220,11 @@ class GLTechnique
 		Declare(m_prg?string.NULL:"uniform vec4 "+name+";\n",name,f)
 	auto SetFloatArray(string name,float[] a0)
 		m_refs.push(variant(a0))
-		f=function(int slot){glUniform4fv(slot,a0.n,__pointer(a0.d))}
+		f=function(int slot){glUniform4fv(slot,int(a0.n),__pointer(a0.d))}
 		Declare(m_prg?string.NULL:"uniform float "+name+"["+string(a0.n)+"];\n",name,f)
 	auto SetFloat4Array(string name,float[] a0)
 		m_refs.push(variant(a0))
-		f=function(int slot){glUniform4fv(slot,a0.n>>2,__pointer(a0.d))}
+		f=function(int slot){glUniform4fv(slot,int(a0.n>>2),__pointer(a0.d))}
 		Declare(m_prg?string.NULL:"uniform vec4 "+name+"["+string(a0.n>>2)+"];\n",name,f)
 	auto SetMatrix(string name,float[] mat)
 		f=function(int slot){
