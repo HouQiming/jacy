@@ -2036,6 +2036,15 @@ UI.Run=function(){
 						UI.t_linux_bogus_keys=undefined;
 					}
 				}
+				if(UI.remap_tiny_keyboard){
+					if(event.keysym===UI.SDLK_RALT){
+						event.keysym=UI.SDLK_HOME;
+					}else if(event.keysym===UI.SDLK_APPLICATION||event.keysym===UI.SDLK_RCTRL){
+						event.keysym=UI.SDLK_END;
+					}else if(event.keysym===UI.SDLK_RSHIFT||event.keysym===UI.SDLK_INSERT){
+						event.keysym=UI.SDLK_DELETE;
+					}
+				}
 				if(UI.unify_enters_versions){
 					if(event.keysym==UI.SDLK_RETURN2||event.keysym==UI.SDLK_KP_ENTER){
 						event.keysym=UI.SDLK_RETURN;

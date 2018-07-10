@@ -342,6 +342,14 @@ g_action_handlers.make=function(){
 		}
 		s_android_mk.push('\n')
 	}
+	if(g_json.cxxflags){
+		s_android_mk.push('LOCAL_CXXFLAGS += ')
+		for(var i=0;i<g_json.cxxflags.length;i++){
+			var smain=g_json.cxxflags[i];
+			s_android_mk.push(" "+smain);
+		}
+		s_android_mk.push('\n')
+	}
 	s_android_mk.push('ifeq ($(TARGET_ARCH_ABI),x86)\n')
 	s_android_mk.push('\tLOCAL_CFLAGS += -DANDROID_X86\n')
 	s_android_mk.push('else\n')
