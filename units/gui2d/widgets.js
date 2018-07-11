@@ -388,7 +388,7 @@ W.Bitmap=function(id,attrs){
 }
 
 W.Text=function(id,attrs){
-	if(attrs.w==undefined&&attrs.h==undefined&&attrs.anchor==undefined){
+	if(attrs.w===undefined&&attrs.h===undefined&&attrs.anchor===undefined){
 		UI.DrawTextControlImmediate(attrs,attrs.x,attrs.y,attrs.color||0xffffffff)
 	}else{
 		if(!attrs.__layout){UI.LayoutText(attrs);}
@@ -437,10 +437,10 @@ W.PureRegion=function(id,obj){
 			UI.context_tentative_focus=obj;
 		}
 	}
-	if(obj==UI.nd_focus){
+	if(obj===UI.nd_focus){
 		UI.context_focus_is_a_region=1
 	}
-	if(obj==UI.nd_mouse_over){
+	if(obj===UI.nd_mouse_over){
 		UI.context_mouse_over_is_a_region=1;
 	}
 	obj.sub_window_offset_x=UI.sub_window_offset_x
@@ -458,10 +458,10 @@ W.RestoreRegion=function(obj){
 			UI.context_tentative_focus=obj;
 		}
 	}
-	if(obj==UI.nd_focus){
+	if(obj===UI.nd_focus){
 		UI.context_focus_is_a_region=1
 	}
-	if(obj==UI.nd_mouse_over){
+	if(obj===UI.nd_mouse_over){
 		UI.context_mouse_over_is_a_region=1;
 	}
 	UI.context_regions.push(obj);
@@ -529,7 +529,7 @@ W.PureGroup=function(obj,ending_hint){
 	//delete the non-kept
 	for(var key in obj){
 		//check for leading $
-		if(key.charCodeAt(0)==0x24){
+		if(key.charCodeAt(0)===0x24){
 			var child=obj[key];
 			if(child&&child.__kept){
 				child.__kept=0;
@@ -595,9 +595,9 @@ W.DrawIconText=function(id,obj,attrs){
 	var alg=(obj.icon_text_align||'center');
 	var inner_w=obj.w_text;
 	var x;
-	if(alg=='left'){
+	if(alg==='left'){
 		x=obj.x+padding;
-	}else if(alg=='center'){
+	}else if(alg==='center'){
 		x=obj.x+(obj.w-inner_w)*0.5;
 	}else{
 		x=obj.x+(obj.w-inner_w-padding);
@@ -605,9 +605,9 @@ W.DrawIconText=function(id,obj,attrs){
 	var inner_h=obj.h_text;
 	var y;
 	alg=(obj.icon_text_valign||'center');
-	if(alg=='up'){
+	if(alg==='up'){
 		y=obj.y+padding;
-	}else if(alg=='center'){
+	}else if(alg==='center'){
 		y=obj.y+(obj.h-inner_h)*0.5;
 	}else{
 		y=obj.y+(obj.h-inner_h-padding);
@@ -633,19 +633,19 @@ W.DrawIconTextEx=function(style,data){
 };
 
 W.DrawTooltip=function(obj,alpha){
-	if(alpha==undefined){alpha=1;}
+	if(alpha===undefined){alpha=1;}
 	UI.TopMostWidget(function(){
 		var tstyle=(obj.tooltip_style||UI.default_styles.tooltip)
 		var dim=UI.MeasureText(tstyle.font,obj.tooltip)
 		dim.w+=tstyle.padding*2
 		dim.h+=tstyle.padding*2
 		var x,y;
-		if(obj.tooltip_placement=='right'){
+		if(obj.tooltip_placement==='right'){
 			x=obj.x+obj.w+tstyle.spacing;
 			y=obj.y+(obj.h-dim.h)*0.5;
 		}else{
 			x=obj.x+(obj.w-dim.w)*0.5;
-			if(obj.tooltip_placement=='up'){
+			if(obj.tooltip_placement==='up'){
 				y=obj.y-dim.h-tstyle.spacing
 			}else{
 				y=obj.y+obj.h+tstyle.spacing
@@ -662,10 +662,10 @@ W.DrawTooltip=function(obj,alpha){
 		})
 		var dim_triangle;
 		if(tstyle.triangle_font){
-			dim_triangle=UI.MeasureText(tstyle.triangle_font,obj.tooltip_placement=='right'?"\u25C0":"\u25B2")
+			dim_triangle=UI.MeasureText(tstyle.triangle_font,obj.tooltip_placement==='right'?"\u25C0":"\u25B2")
 		}
 		if(tstyle.triangle_font2){
-			if(obj.tooltip_placement=='right'){
+			if(obj.tooltip_placement==='right'){
 				UI.PushCliprect(x-dim_triangle.w*0.5,obj.y,dim_triangle.w*0.5,obj.h)
 				UI.DrawChar(tstyle.triangle_font2,x-dim_triangle.w*0.5,
 					obj.y+(obj.h-dim_triangle.h)*0.5,
@@ -687,7 +687,7 @@ W.DrawTooltip=function(obj,alpha){
 			border_width:tstyle.border_width,
 		})
 		if(tstyle.triangle_font){
-			if(obj.tooltip_placement=='right'){
+			if(obj.tooltip_placement==='right'){
 				UI.DrawChar(tstyle.triangle_font,x-dim_triangle.w*0.5,
 					obj.y+(obj.h-dim_triangle.h)*0.5,
 					UI.fade_rgba(tstyle.color,alpha),0x25C0)
@@ -709,7 +709,7 @@ W.Button=function(id,attrs){
 	W.DrawIconText(id,obj,attrs)
 	if(obj.tooltip){
 		var tooltip_alpha=0
-		if(((obj.mouse_state||'out')!='out'||obj.show_tooltip_override)){
+		if(((obj.mouse_state||'out')!=='out'||obj.show_tooltip_override)){
 			tooltip_alpha=1
 		}
 		UI.Begin(obj)
@@ -766,19 +766,19 @@ W.Edit_prototype={
 		var hc=this.GetCharacterHeightAtCaret();
 		var page_height=this.h;
 		var h_top_hint=(this.h_top_hint||0);
-		if(mode=='bound'){
+		if(mode==='bound'){
 			var x0=this.scroll_x;
 			var y0=this.scroll_y;
 			this.scroll_x=Math.max(this.scroll_x,0);
 			this.scroll_y=Math.max(Math.min(this.scroll_y,ytot-page_height),0);
-			if(this.scroll_x!=x0||this.scroll_y!=y0){
+			if(this.scroll_x!==x0||this.scroll_y!==y0){
 				this.scrolling_animation=undefined;
 			}
 			return;
 		}
-		if(mode!='show'){
+		if(mode!=='show'){
 			//print(ed_caret,this.sel1.ccnt,this.ed.GetTextSize())
-			if(this.scroll_y>ed_caret.y||this.scroll_y<=ed_caret.y-page_height||mode=='center'){
+			if(this.scroll_y>ed_caret.y||this.scroll_y<=ed_caret.y-page_height||mode==='center'){
 				//mode 'center_if_hidden': only center when the thing was invisible
 				this.scroll_y=ed_caret.y-(page_height-hc)/2;
 			}
@@ -788,7 +788,7 @@ W.Edit_prototype={
 			this.scroll_y=(ed_caret.y-(page_height-hc));
 		}
 		var wwidth=this.w-wc*(this.right_side_autoscroll_margin||1);
-		if(mode!='show'&&this.sel0.ccnt!=this.sel1.ccnt){
+		if(mode!=='show'&&this.sel0.ccnt!==this.sel1.ccnt){
 			//make sure sel0 shows up
 			this.scroll_x=Math.min(this.scroll_x,Math.min(ed.XYFromCcnt(ccnt0).x,ed_caret.x))
 		}
@@ -804,7 +804,7 @@ W.Edit_prototype={
 			//going over the right
 			var chneib=ed.GetUtf8CharNeighborhood(ccnt1);
 			var ch=chneib[1];
-			if(ch==13||ch==10){
+			if(ch===13||ch===10){
 				//line end, don't do anything funny
 				this.scroll_x=ed_caret.x-wwidth;
 			}else{
@@ -861,7 +861,7 @@ W.Edit_prototype={
 	},
 	GetEnhancedEnd:function(ccnt){
 		var ccnt_lend=this.SeekLC(this.GetLC(ccnt)[0],1e17);
-		if(ccnt_lend>ccnt&&this.ed.GetText(ccnt_lend-1,1)=="\n"){ccnt_lend--;}
+		if(ccnt_lend>ccnt&&this.ed.GetText(ccnt_lend-1,1)==="\n"){ccnt_lend--;}
 		return this.SnapToValidLocation(this.ed.MoveToBoundary(ccnt_lend,-1,"space"),-1)
 	},
 	////////////////////////////
@@ -901,7 +901,7 @@ W.Edit_prototype={
 		//skip invisible
 		if(!ignore_newline_before){
 			var ccnt_maybe_newline=this.SkipInvisibles(ccnt,-1)
-			if(ccnt_maybe_newline>0&&ed.GetUtf8CharNeighborhood(ccnt_maybe_newline)[0]==10){
+			if(ccnt_maybe_newline>0&&ed.GetUtf8CharNeighborhood(ccnt_maybe_newline)[0]===10){
 				//it's a newline before
 				var xy=ed.XYFromCcnt(ccnt)
 				if(xy.y>y){
@@ -911,10 +911,10 @@ W.Edit_prototype={
 			}
 		}
 		var chneib=ed.GetUtf8CharNeighborhood(ccnt);
-		if(chneib[0]==13&&chneib[1]==10){
+		if(chneib[0]===13&&chneib[1]===10){
 			ccnt--;
 		}
-		if(ccnt==ed.GetTextSize()){
+		if(ccnt===ed.GetTextSize()){
 			//eof special case for mousing
 			ccnt=ed.SeekXY(x,ed.XYFromCcnt(ccnt).y)
 		}
@@ -1001,7 +1001,7 @@ W.Edit_prototype={
 	},
 	Paste:function(){
 		var stext=UI.SDL_GetClipboardText()
-		if(UI.Platform.ARCH=="win32"||UI.Platform.ARCH=="win64"){
+		if(UI.Platform.ARCH==="win32"||UI.Platform.ARCH==="win64"){
 			stext=stext.replace(g_regexp_dos2unix,"\n");
 		}
 		if(this.is_single_line){
@@ -1097,10 +1097,10 @@ W.Edit_prototype={
 		if(!hk){return 0;}
 		for(var i=hk.length-1;i>=0;i--){
 			var hki=hk[i]
-			if(event.text==hki.key){
+			if(event.text===hki.key){
 				if(!hki.action.call(this,hki.key)){
 					//0 for cancel
-					//if(sel0_ccnt!=this.sel0.ccnt||sel1_ccnt!=this.sel1.ccnt){
+					//if(sel0_ccnt!==this.sel0.ccnt||sel1_ccnt!==this.sel1.ccnt){
 					//	this.CallOnSelectionChange()
 					//}
 					UI.Refresh()
@@ -1117,7 +1117,7 @@ W.Edit_prototype={
 		var ccnt1=this.sel1.ccnt;var sel1_ccnt=ccnt1
 		if(ccnt0>ccnt1){var tmp=ccnt1;ccnt1=ccnt0;ccnt0=tmp;}
 		var ops=[ccnt0,ccnt1-ccnt0,event.text];
-		if(event.text.length==1&&!event.is_paste){
+		if(event.text.length===1&&!event.is_paste){
 			//ASCII key events
 			if(this.ProcessHotkeysInput(this.m_transient_hotkeys,event)){return;}
 			if(this.ProcessHotkeysInput(this.m_additional_hotkeys,event)){return;}
@@ -1142,10 +1142,10 @@ W.Edit_prototype={
 		if(!hk){return 0;}
 		for(var i=hk.length-1;i>=0;i--){
 			var hki=hk[i]
-			if(hki.key.length!=1&&IsHotkey(event,hki.key)){
+			if(hki.key.length!==1&&IsHotkey(event,hki.key)){
 				if(!hki.action.call(this,hki.key,event)){
 					//return 0 for "cancel default"
-					if(sel0_ccnt!=this.sel0.ccnt||sel1_ccnt!=this.sel1.ccnt){
+					if(sel0_ccnt!==this.sel0.ccnt||sel1_ccnt!==this.sel1.ccnt){
 						this.CallOnSelectionChange()
 					}
 					UI.Refresh()
@@ -1203,7 +1203,7 @@ W.Edit_prototype={
 				epilog();
 			}else{
 				if(this.same_line_only_left_right){
-					if(this.ed.GetUtf8CharNeighborhood(ccnt)[0]==10){
+					if(this.ed.GetUtf8CharNeighborhood(ccnt)[0]===10){
 						return;
 					}
 				}
@@ -1227,7 +1227,7 @@ W.Edit_prototype={
 				if(ccnt<ed.GetTextSize()){
 					sel1.ccnt=this.SnapToValidLocation(ccnt+1,1);
 					if(this.same_line_only_left_right){
-						if(this.ed.GetUtf8CharNeighborhood(sel1.ccnt)[0]==10){
+						if(this.ed.GetUtf8CharNeighborhood(sel1.ccnt)[0]===10){
 							sel1.ccnt=ccnt;
 							return;
 						}
@@ -1257,7 +1257,7 @@ W.Edit_prototype={
 			var is_backspace=(!IsHotkey(event,"DELETE"));
 			var bk_m_user_just_typed_char=this.m_user_just_typed_char
 			if(ccnt0>ccnt1){var tmp=ccnt0;ccnt0=ccnt1;ccnt1=tmp;}
-			if(ccnt0==ccnt1){
+			if(ccnt0===ccnt1){
 				if(is_backspace){
 					if(ccnt0>0){ccnt0=ed.SnapToCharBoundary(this.SkipInvisibles(ccnt0,-1)-1,-1);}
 				}else{
@@ -1295,17 +1295,17 @@ W.Edit_prototype={
 			}else{
 				this.OnTextInput({"text":"\n"})
 			}
-		}else if(IsHotkey(event,"TAB")&&this.tab_is_char&&sel0.ccnt==sel1.ccnt){
+		}else if(IsHotkey(event,"TAB")&&this.tab_is_char&&sel0.ccnt===sel1.ccnt){
 			this.OnTextInput({"text":"\t"})
 		}else if(IsHotkey(event,"HOME SHIFT+HOME")){
 			var ed_caret=this.GetCaretXY();
 			var ccnt_lhome=this.SeekXY(0,ed_caret.y);
 			var ccnt_rehome=this.GetEnhancedHome(ccnt_lhome)//sel1_ccnt
 			var ccnt_ehome=Math.max(ccnt_rehome,ccnt_lhome);
-			if(sel1.ccnt==ccnt_ehome&&ccnt_lhome==ccnt_ehome){
+			if(sel1.ccnt===ccnt_ehome&&ccnt_lhome===ccnt_ehome){
 				sel1.ccnt=ccnt_rehome;
 				this.caret_is_wrapped=0;
-			}else if(sel1.ccnt==ccnt_ehome||ccnt_lhome==ccnt_ehome){
+			}else if(sel1.ccnt===ccnt_ehome||ccnt_lhome===ccnt_ehome){
 				sel1.ccnt=ccnt_lhome;
 				this.caret_is_wrapped=Math.max(ed.IsAtLineWrap(this.sel1.ccnt),0);
 			}else{
@@ -1318,10 +1318,10 @@ W.Edit_prototype={
 			var ccnt_lend=this.SeekXY(1e17,ed_caret.y);
 			var ccnt_reend=this.GetEnhancedEnd(ccnt_lend)//sel1_ccnt
 			var ccnt_eend=Math.min(ccnt_reend,ccnt_lend);
-			if(sel1.ccnt==ccnt_eend&&ccnt_lend==ccnt_eend){
+			if(sel1.ccnt===ccnt_eend&&ccnt_lend===ccnt_eend){
 				sel1.ccnt=ccnt_reend;
 				this.caret_is_wrapped=0;
-			}else if(sel1.ccnt==ccnt_eend||ccnt_lend==ccnt_eend){
+			}else if(sel1.ccnt===ccnt_eend||ccnt_lend===ccnt_eend){
 				sel1.ccnt=ccnt_lend;
 				this.caret_is_wrapped=Math.min(ed.IsAtLineWrap(this.sel1.ccnt),0);
 			}else{
@@ -1360,7 +1360,7 @@ W.Edit_prototype={
 			this.Redo();
 		}else{
 		}
-		if(sel0_ccnt!=sel0.ccnt||sel1_ccnt!=sel1.ccnt){
+		if(sel0_ccnt!==sel0.ccnt||sel1_ccnt!==sel1.ccnt){
 			this.CallOnSelectionChange()
 		}
 	},
@@ -1368,7 +1368,7 @@ W.Edit_prototype={
 		var ccnt_tot=this.ed.GetTextSize();
 		this.sel0.ccnt=Math.min(Math.max(ccnt0,0),ccnt_tot);
 		this.sel1.ccnt=Math.min(Math.max(ccnt1,0),ccnt_tot);
-		//this.AutoScroll(mode&&this.sel0.ccnt==ccnt0&&this.sel1.ccnt==ccnt1?"center":"center_if_hidden");
+		//this.AutoScroll(mode&&this.sel0.ccnt===ccnt0&&this.sel1.ccnt===ccnt1?"center":"center_if_hidden");
 		this.AutoScroll("center_if_hidden");
 		this.caret_is_wrapped=0
 		UI.Refresh()
@@ -1383,7 +1383,7 @@ W.Edit_prototype={
 		var y0=event.y-this.y+this.scroll_y
 		var ccnt_clicked=this.SeekXY(x0,y0);
 		this.dragging_shift=0;
-		if(event.clicks==2){
+		if(event.clicks===2){
 			//double-click
 			this.sel0.ccnt=this.SnapToValidLocation(this.ed.MoveToBoundary(this.ed.SnapToCharBoundary(Math.max(this.SkipInvisibles(ccnt_clicked,-1),0),-1),-1,"word_boundary_left"),-1)
 			this.sel1.ccnt=this.SnapToValidLocation(this.ed.MoveToBoundary(this.ed.SnapToCharBoundary(Math.min(this.SkipInvisibles(ccnt_clicked,1),this.ed.GetTextSize()),1),1,"word_boundary_right"),1)
@@ -1403,7 +1403,7 @@ W.Edit_prototype={
 			//UI.Refresh()
 			//return
 		}else{
-			if(event.button==UI.SDL_BUTTON_RIGHT&&this.OnRightClick){
+			if(event.button===UI.SDL_BUTTON_RIGHT&&this.OnRightClick){
 				//prevent sel when right clicking selected text
 				var sel=this.GetSelection();
 				if(ccnt_clicked>=sel[0]&&ccnt_clicked<=sel[1]){
@@ -1429,7 +1429,7 @@ W.Edit_prototype={
 		UI.CaptureMouse(this)
 		if(event.clicks>=3){
 			this.CallHooks('tripleClick')
-		}else if(event.clicks==2){
+		}else if(event.clicks===2){
 			this.CallHooks('doubleClick')
 		}
 		UI.Refresh()
@@ -1645,8 +1645,8 @@ W.Menu=function(id,attrs){
 			}
 			var obj_w=(attrs.w||w_max+(obj.w_base||0));
 			var obj_h=(attrs.h||Math.min(h_tot,obj.h_max||h_tot));
-			if(obj.w!=obj_w){obj.w=obj_w;UI.Refresh()}
-			if(obj.h!=obj_h){obj.h=obj_h;UI.Refresh()}
+			if(obj.w!==obj_w){obj.w=obj_w;UI.Refresh()}
+			if(obj.h!==obj_h){obj.h=obj_h;UI.Refresh()}
 		}
 		return obj;
 	})}else{
@@ -1665,7 +1665,7 @@ W.ComboBox_prototype={
 		}else{
 			this.menu.selection={};
 			for(var i=0;i<this.items.length;i++){
-				if(this.items[i].text==this.value){
+				if(this.items[i].text===this.value){
 					this.menu.selection["$"+i]=1
 					break
 				}
@@ -1681,7 +1681,7 @@ W.ComboBox_prototype={
 W.ComboBox=function(id,attrs){
 	//items same as menu, need explicit w h
 	var obj=UI.StdWidget(id,attrs,"combobox",W.ComboBox_prototype)
-	if(obj.value==undefined){
+	if(obj.value===undefined){
 		if(obj.items.length){
 			obj.value=obj.items[0].text;
 		}else{
@@ -1735,7 +1735,7 @@ W.Slider_prototype={
 		UI.Refresh();
 	},
 	OnMouseMove:function(event){
-		if(this.mouse_state!="down"){return;}
+		if(this.mouse_state!=="down"){return;}
 		this.OnChange(Math.max(Math.min((event.x-this.x)/this.w,1),0),1)
 		UI.Refresh()
 	},
@@ -1815,7 +1815,7 @@ W.EditBox_prototype={
 	focus_state:"blur",
 	OnClick:function(){
 		if(!this.OnChange){return;}
-		if(this.focus_state=="blur"){
+		if(this.focus_state==="blur"){
 			this.bak_value=this.value;
 			this.focus_state="focus"
 		}else{
@@ -1838,7 +1838,7 @@ W.EditBox=function(id,attrs){
 	var dim_text=UI.MeasureIconText({font:obj.font,text:obj.value||obj.hint_text||"0"})
 	UI.Begin(obj)
 		if(!obj.OnChange){obj.focus_state="blur";}
-		if(obj.focus_state=="focus"||UI.nd_focus==obj){
+		if(obj.focus_state==="focus"||UI.nd_focus===obj){
 			var is_newly_created=!obj.edit;
 			W.Edit("edit",{
 				anchor:'parent',anchor_align:"left",anchor_valign:"center",
@@ -1856,7 +1856,7 @@ W.EditBox=function(id,attrs){
 					UI.Refresh()
 				}}],
 				OnBlur:function(){
-					if(obj.focus_state=="blur"){return;}
+					if(obj.focus_state==="blur"){return;}
 					obj.focus_state="blur"
 					obj.OnChange(obj.edit.ed.GetText())
 					UI.Refresh()
@@ -1908,7 +1908,7 @@ W.Select=function(id,attrs){
 	var obj=UI.StdWidget(id,attrs,"select",W.Select_prototype)
 	UI.Begin(obj)
 		var items=obj.items;
-		if(items.length==2&&items[0]==0&&items[1]==1){
+		if(items.length===2&&items[0]===0&&items[1]===1){
 			//on/off slider for the [0,1] case
 			W.Slider("impl",{
 				anchor:'parent',anchor_align:'right',anchor_valign:'fill',x:obj.slider_style.middle_bar.w*0.25,y:0,
@@ -1932,7 +1932,7 @@ W.Select=function(id,attrs){
 				},
 				OnMouseUp:function(event){
 					W.Slider_prototype.OnMouseUp.call(this,event)
-					if(this.clickdet_value==obj.value&&!this.clickdet_out){
+					if(this.clickdet_value===obj.value&&!this.clickdet_out){
 						obj.OnChange(obj.value?0:1)
 					}
 				},
@@ -1954,7 +1954,7 @@ W.Select=function(id,attrs){
 				var x_base=obj.x+obj.w-w_needed+obj.button_style.border_width,x_cur=x_base;
 				for(var i=0;i<items.length;i++){
 					var x_last=x_cur
-					if(i==0){
+					if(i===0){
 						x_cur+=obj.padding;
 					}else{
 						x_cur+=obj.spacing*0.5;
@@ -1970,7 +1970,7 @@ W.Select=function(id,attrs){
 					var btn_i=W.Button("$"+i,{
 						x:x_base+obj.button_style.border_width,y:obj.y+obj.button_style.border_width,w:w_needed-obj.button_style.border_width*2,h:obj.h-obj.button_style.border_width*2,
 						text:"",style:obj.button_style,
-						value:(obj.value==i),i:i,
+						value:(obj.value===i),i:i,
 						OnChange:function(value){
 							obj.OnChange(this.i);
 							UI.Refresh()
@@ -1999,7 +1999,7 @@ W.Select=function(id,attrs){
 					style:obj.combo_box_style,
 					OnChange:function(value){
 						for(var i=0;i<items.length;i++){
-							if(items[i]==value){
+							if(items[i]===value){
 								obj.OnChange(i);
 								break
 							}
@@ -2019,10 +2019,10 @@ W.AutoHidePanel_prototype={
 	position:undefined,velocity:0,max_velocity:1000,acceleration:1500,oob_scale:0.5,oob_limit:20,dt_threshold:0.1,velocity_to_target_threshold:0.3,
 	Simulate:function(){
 		var a=this.dragging_samples;
-		var size=(this.anchor_placement=='left'||this.anchor_placement=='right'?this.w:this.h)
+		var size=(this.anchor_placement==='left'||this.anchor_placement==='right'?this.w:this.h)
 		var tick_last=this.sim_tick;
 		this.sim_tick=Duktape.__ui_get_tick();
-		if(tick_last==undefined){tick_last=this.sim_tick-1/UI.animation_framerate;}
+		if(tick_last===undefined){tick_last=this.sim_tick-1/UI.animation_framerate;}
 		var sim_dt=Duktape.__ui_seconds_between_ticks(tick_last,this.sim_tick)
 		if(a){
 			var n=a.length,p0=Math.max(n-3,0);
@@ -2047,7 +2047,7 @@ W.AutoHidePanel_prototype={
 				this.target_position=size
 			}
 		}else{
-			if(this.target_position!=undefined){
+			if(this.target_position!==undefined){
 				this.position+=this.velocity*sim_dt;
 				if(this.position<-this.oob_limit){this.velocity=0;this.position=-this.oob_limit}
 				if(this.position>size+this.oob_limit){this.velocity=0;this.position=size+this.oob_limit}
@@ -2079,15 +2079,15 @@ W.AutoHidePanel_knob_prototype={
 		obj.anchored_position=obj.position
 		obj.tick0=Duktape.__ui_get_tick()
 		this.OnMouseMove(event);
-		obj.target_position=(obj.position==0?obj.w:0)
+		obj.target_position=(obj.position===0?obj.w:0)
 		UI.CaptureMouse(this)
 	},
 	OnMouseMove:function(event){
 		var obj=this.owner;
 		if(!obj.dragging_samples){return;}
 		var t=Duktape.__ui_seconds_between_ticks(obj.tick0,Duktape.__ui_get_tick());
-		var side=(obj.anchor_placement=='left'||obj.anchor_placement=='right'?"x":"y")
-		if(obj.anchor_placement=='left'||obj.anchor_placement=='up'){
+		var side=(obj.anchor_placement==='left'||obj.anchor_placement==='right'?"x":"y")
+		if(obj.anchor_placement==='left'||obj.anchor_placement==='up'){
 			obj.dragging_samples.push({x:event[side],t:t})
 		}else{
 			obj.dragging_samples.push({x:-event[side],t:t})
@@ -2104,7 +2104,7 @@ W.AutoHidePanel_knob_prototype={
 			obj.velocity*=Math.max(obj.dt_threshold-dt,0)/obj.dt_threshold
 		}
 		if(obj.velocity>obj.max_velocity*obj.velocity_to_target_threshold){
-			var size=(obj.anchor_placement=='left'||obj.anchor_placement=='right'?obj.w:obj.h)
+			var size=(obj.anchor_placement==='left'||obj.anchor_placement==='right'?obj.w:obj.h)
 			obj.target_position=size
 		}
 		if(obj.velocity<-obj.max_velocity*obj.velocity_to_target_threshold){
@@ -2118,8 +2118,8 @@ var g_inverse_dir={'left':'right','right':'left','up':'down','down':'up','center
 W.AutoHidePanel=function(id,attrs){
 	var obj=UI.Keep(id,attrs,W.AutoHidePanel_prototype)
 	UI.StdStyling(id,obj,attrs,"auto_hide_panel")
-	if(obj.position==undefined){obj.position=(obj.initial_position||0);}
-	if(obj.anchor_placement=='left'||obj.anchor_placement=='right'){
+	if(obj.position===undefined){obj.position=(obj.initial_position||0);}
+	if(obj.anchor_placement==='left'||obj.anchor_placement==='right'){
 		obj.x=-obj.position;obj.y=0
 		obj.anchor_align=obj.anchor_placement
 		obj.anchor_valign='fill'
@@ -2130,7 +2130,7 @@ W.AutoHidePanel=function(id,attrs){
 	}
 	obj.anchor='parent'
 	UI.StdAnchoring(id,obj)
-	var is_x=(obj.anchor_placement=='left'||obj.anchor_placement=='right')
+	var is_x=(obj.anchor_placement==='left'||obj.anchor_placement==='right')
 	var size=(is_x?obj.w:obj.h)
 	//simply place the child object inside Begin / End
 	UI.Begin(obj)
@@ -2150,7 +2150,7 @@ W.ScrollBar_prototype={
 	OnMouseOver:function(){this.mouse_state="over";UI.Refresh();},
 	OnMouseOut:function(){this.mouse_state="out";UI.Refresh();},
 	GetSubStyle:function(){
-		if(this.bar&&this.bar.mouse_state=="over"){return "over";}
+		if(this.bar&&this.bar.mouse_state==="over"){return "over";}
 		return this.mouse_state
 	},
 	///////////////
@@ -2181,7 +2181,7 @@ W.ScrollBarThingy_prototype={
 		UI.Refresh()
 	},
 	OnMouseMove:function(event){
-		if(this.anchored_value==undefined){return;}
+		if(this.anchored_value===undefined){return;}
 		var owner=this.owner
 		owner.OnChange(Math.min(Math.max(this.anchored_value+(event[owner.dimension]-this.anchored_xy)/this.factor,0),1))
 	},
@@ -2196,7 +2196,7 @@ W.ScrollBar=function(id,attrs){
 		}else{
 			szbar=0.2;
 		}
-		szbar*=obj[obj.dimension=="y"?"h":"w"]
+		szbar*=obj[obj.dimension==="y"?"h":"w"]
 		szbar=Math.max(szbar,obj.szbar_min)
 		if(obj.bgcolor||obj.border_color){
 			UI.RoundRect({
@@ -2205,7 +2205,7 @@ W.ScrollBar=function(id,attrs){
 		}
 		if(obj.middle_bar){
 			var rect;
-			if(obj.dimension=="y"){
+			if(obj.dimension==="y"){
 				rect={
 					x:obj.x+(obj.w-obj.middle_bar.w)*0.5,
 					y:obj.y+(obj.h-szbar)*obj.value, 
@@ -2244,10 +2244,10 @@ W.ListView_prototype={
 	//just a velocity
 	Simulate:function(){
 		var a=this.dragging_samples;
-		var size=Math.max(this.dim_tot-(this.dimension=='y'?this.h:this.w),0)
+		var size=Math.max(this.dim_tot-(this.dimension==='y'?this.h:this.w),0)
 		var tick_last=this.sim_tick;
 		this.sim_tick=Duktape.__ui_get_tick();
-		if(tick_last==undefined){tick_last=this.sim_tick-1/UI.animation_framerate;}
+		if(tick_last===undefined){tick_last=this.sim_tick-1/UI.animation_framerate;}
 		var sim_dt=Duktape.__ui_seconds_between_ticks(tick_last,this.sim_tick)
 		if(a){
 			var n=a.length,p0=Math.max(n-3,0);
@@ -2267,7 +2267,7 @@ W.ListView_prototype={
 				this.velocity=(a[n-1].x-a[Math.max(n-2,0)].x)/dt;
 			}
 		}else{
-			//if(this.m_autoscroll_goal!=undefined){
+			//if(this.m_autoscroll_goal!==undefined){
 			//	if(!this.velocity){this.velocity=0;}
 			//	if(this.position<this.m_autoscroll_goal){
 			//		this.velocity=this.max_velocity;
@@ -2314,13 +2314,13 @@ W.ListView_prototype={
 	AutoScroll:function(){
 		var sel=this.value
 		var dim=this.dimension
-		var wh_dim=(dim=='y'?'h':'w')
-		var item_sel=this[(sel!=undefined&&this.items[sel]&&this.items[sel].id)||("$"+sel)]
+		var wh_dim=(dim==='y'?'h':'w')
+		var item_sel=this[(sel!==undefined&&this.items[sel]&&this.items[sel].id)||("$"+sel)]
 		if(item_sel){
 			var pos_sel=item_sel[dim]-this[dim]+this.position
 			var pos_goal=Math.max(Math.min(this.position,pos_sel),pos_sel+item_sel[wh_dim]-this[wh_dim])
 			pos_goal=Math.max(Math.min(pos_goal,this.dim_tot-this[wh_dim]),0)
-			//if(pos_goal!=this.position){
+			//if(pos_goal!==this.position){
 			//	this.m_autoscroll_goal=pos_goal
 			//}else{
 			//	this.m_autoscroll_goal=undefined
@@ -2339,7 +2339,7 @@ W.ListView_prototype={
 		obj.anchored_position=obj.position
 		obj.tick0=Duktape.__ui_get_tick()
 		this.OnMouseMove(event);
-		obj.target_position=(obj.position==0?obj.w:0)
+		obj.target_position=(obj.position===0?obj.w:0)
 		UI.CaptureMouse(this)
 	},
 	OnMouseMove:function(event){
@@ -2360,7 +2360,7 @@ W.ListView_prototype={
 			obj.velocity*=Math.max(obj.dt_threshold-dt,0)/obj.dt_threshold
 		}
 		if(obj.velocity>obj.max_velocity*obj.velocity_to_target_threshold){
-			var size=(obj.anchor_placement=='left'||obj.anchor_placement=='right'?obj.w:obj.h)
+			var size=(obj.anchor_placement==='left'||obj.anchor_placement==='right'?obj.w:obj.h)
 			obj.target_position=size
 		}
 		if(obj.velocity<-obj.max_velocity*obj.velocity_to_target_threshold){
@@ -2372,7 +2372,7 @@ W.ListView_prototype={
 	OnKeyDown:function(event){
 		var n=this.items.length
 		var value=this.value
-		if(UI.IsHotkey(event,this.dimension=="y"?"UP":"LEFT")){
+		if(UI.IsHotkey(event,this.dimension==="y"?"UP":"LEFT")){
 			var p_goal=value;
 			for(var p=value-1;p>=0;p--){
 				var item_p=this.items[p];
@@ -2380,8 +2380,8 @@ W.ListView_prototype={
 				p_goal=p
 				break;
 			}
-			if(value!=p_goal){this.OnChange(p_goal);}
-		}else if(UI.IsHotkey(event,this.dimension=="y"?"DOWN":"RIGHT")){
+			if(value!==p_goal){this.OnChange(p_goal);}
+		}else if(UI.IsHotkey(event,this.dimension==="y"?"DOWN":"RIGHT")){
 			var p_goal=value;
 			for(var p=value+1;p<n;p++){
 				var item_p=this.items[p];
@@ -2389,11 +2389,11 @@ W.ListView_prototype={
 				p_goal=p
 				break;
 			}
-			if(value!=p_goal){this.OnChange(p_goal);}
+			if(value!==p_goal){this.OnChange(p_goal);}
 		}else if(UI.IsHotkey(event,"PGUP")&&this.items.length){
 			var obj_sel=this["$"+value]
 			var dim=this.dimension
-			var wh_dim=(dim=='y'?'h':'w')
+			var wh_dim=(dim==='y'?'h':'w')
 			var delta=this[wh_dim]
 			var p_goal=value
 			for(var p=value-1;p>=0;p--){
@@ -2410,11 +2410,11 @@ W.ListView_prototype={
 					break;
 				}
 			}
-			if(p_goal!=value){this.OnChange(p_goal)}
+			if(p_goal!==value){this.OnChange(p_goal)}
 		}else if(UI.IsHotkey(event,"PGDN")&&this.items.length){
 			var obj_sel=this["$"+value]
 			var dim=this.dimension
-			var wh_dim=(dim=='y'?'h':'w')
+			var wh_dim=(dim==='y'?'h':'w')
 			var delta=this[wh_dim]
 			var p_goal=value
 			for(var p=value;p<this.items.length;p++){
@@ -2431,7 +2431,7 @@ W.ListView_prototype={
 					break;
 				}
 			}
-			if(p_goal!=value){this.OnChange(p_goal)}
+			if(p_goal!==value){this.OnChange(p_goal)}
 		}else if(UI.IsHotkey(event,"RETURN RETURN2")){
 			var obj_sel=this["$"+value]
 			if(obj_sel&&obj_sel.OnDblClick){
@@ -2454,7 +2454,7 @@ W.ListView_prototype={
 	},
 	OnMouseWheel:function(event){
 		var dim=this.dimension
-		var wh_dim=(dim=='y'?'h':'w')
+		var wh_dim=(dim==='y'?'h':'w')
 		this.position=Math.max(Math.min(this.position-event.y*this.mouse_wheel_speed,this.dim_tot-this[wh_dim]),0)
 		UI.Refresh()
 	},
@@ -2469,7 +2469,7 @@ W.ListView=function(id,attrs){
 		if(obj.real_items){items=obj.real_items}
 		var y0=-obj.position;
 		var items_new=[]
-		var wh_dim=(obj.dimension=='y'?'h':'w')
+		var wh_dim=(obj.dimension==='y'?'h':'w')
 		var any_changed=0;
 		var value_new=obj.value;
 		for(var i=0;i<items.length;i++){
@@ -2482,15 +2482,15 @@ W.ListView=function(id,attrs){
 			var item_i=items[i]
 			if(!item_i){continue;}
 			var expanded=obj.OnDemand.call(item_i)
-			if(i==obj.value){value_new=items_new.length;}
-			if((typeof(expanded))=="string"){
-				if(expanded=="drop"){
+			if(i===obj.value){value_new=items_new.length;}
+			if((typeof(expanded))==="string"){
+				if(expanded==="drop"){
 					//do nothing
 					delete obj[item_i.id]
 					id_changed=1
 					any_changed=1;
 				}else{
-					UI.assert(expanded=="keep","you must return 'drop' or 'keep' or an array of offsprings")
+					UI.assert(expanded==="keep","you must return 'drop' or 'keep' or an array of offsprings")
 					if(id_changed){
 						delete obj[item_i.id]
 						delete item_i.id;
@@ -2500,7 +2500,7 @@ W.ListView=function(id,attrs){
 				}
 			}else{
 				delete obj[item_i.id];
-				if(expanded.length!=1){id_changed=1;}
+				if(expanded.length!==1){id_changed=1;}
 				for(var j=0;j<expanded.length;j++){
 					items_new.push(expanded[j])
 					y0+=(expanded[j][wh_dim]||item_template[wh_dim]||0)+(obj.layout_spacing||0)
@@ -2530,7 +2530,7 @@ W.ListView=function(id,attrs){
 	}
 	var layout_spacing=(obj.layout_spacing||0);
 	var dim_tot=layout_spacing*(items.length+1)
-	if(obj.dimension=="y"){
+	if(obj.dimension==="y"){
 		for(var i=0;i<items.length;i++){
 			dim_tot+=items[i].h;
 			if(items[i].is_hidden){
@@ -2554,9 +2554,9 @@ W.ListView=function(id,attrs){
 		obj.layout_scroll_y=0
 	}
 	obj.dim_tot=dim_tot
-	obj.selection={};if(obj.value!=undefined){obj.selection[items[obj.value]&&items[obj.value].id||('$'+obj.value)]=1}
+	obj.selection={};if(obj.value!==undefined){obj.selection[items[obj.value]&&items[obj.value].id||('$'+obj.value)]=1}
 	UI.RoundRect(obj);
-	if(obj.no_listview_region==0||!obj.no_region){W.PureRegion(id,obj)}//region goes before children
+	if(obj.no_listview_region===0||!obj.no_region){W.PureRegion(id,obj)}//region goes before children
 	if(!obj.no_clipping){UI.PushCliprect(obj.x,obj.y,obj.w,obj.h)}
 	if(!obj.dragging_samples){obj.Simulate()}
 	//forced clicksel
@@ -2588,7 +2588,7 @@ W.ListView=function(id,attrs){
 					OnClick:function(event){
 						//obj.OnChange(this.numerical_id)
 						var obj_i=obj["$"+this.numerical_id.toString()];
-						if(event.button==UI.SDL_BUTTON_RIGHT&&obj_i&&obj_i.OnRightClick){
+						if(event.button===UI.SDL_BUTTON_RIGHT&&obj_i&&obj_i.OnRightClick){
 							return obj_i.OnRightClick(event);
 						}
 						if(obj.is_single_click_mode||event.clicks>1){
@@ -2640,7 +2640,7 @@ W.ListView=function(id,attrs){
 	UI.Begin(obj)
 		if(obj.has_scroll_bar){
 			//associated scrollbar
-			if(obj.dimension=="y"){
+			if(obj.dimension==="y"){
 				if(obj.h<dim_tot){
 					W.ScrollBar("scroll_bar",{
 						anchor:'parent',anchor_align:'right',anchor_valign:'fill',

@@ -399,6 +399,10 @@ IME_InputLangChanged(SDL_VideoData *videodata)
     if (lang != PRIMLANG()) {
         IME_ClearComposition(videodata);
     }
+    
+    //for WIN+SPACE
+    SDL_SendKeyboardKey(SDL_RELEASED,SDL_SCANCODE_LGUI);
+    SDL_SendKeyboardKey(SDL_RELEASED,SDL_SCANCODE_RGUI);
 }
 
 static void

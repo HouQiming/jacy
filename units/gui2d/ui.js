@@ -6,10 +6,10 @@ var UI=exports;
 
 Duktape.__ui_native_hack(UI);
 
-UI.IS_MOBILE=(UI.Platform.ARCH=="android"||UI.Platform.ARCH=="ios");
-UI.IS_APPLE=(UI.Platform.ARCH=="mac"||UI.Platform.ARCH=="ios");
-UI.IS_LINUX=(UI.Platform.ARCH=="linux32"||UI.Platform.ARCH=="linux64");
-if(UI.Platform.BUILD=="debug"){
+UI.IS_MOBILE=(UI.Platform.ARCH==="android"||UI.Platform.ARCH==="ios");
+UI.IS_APPLE=(UI.Platform.ARCH==="mac"||UI.Platform.ARCH==="ios");
+UI.IS_LINUX=(UI.Platform.ARCH==="linux32"||UI.Platform.ARCH==="linux64");
+if(UI.Platform.BUILD==="debug"){
 	UI.assert=function(cond,message){
 		if(!cond){
 			throw new Error(message)
@@ -1005,7 +1005,7 @@ UI.AutoRefresh=function(){
 	if(frame_rate>20){
 		UI.Refresh()
 	}else{
-		if(g_auto_refresh_timer_id==undefined){
+		if(g_auto_refresh_timer_id===undefined){
 			UI.Refresh()
 			g_auto_refresh_timer_id=UI.setInterval(fauto_refresher,1000/frame_rate)
 		}else{
@@ -1015,7 +1015,7 @@ UI.AutoRefresh=function(){
 };
 
 UI.SetAnimationFrameRate=function(fps){
-	if(g_auto_refresh_timer_id!=undefined){
+	if(g_auto_refresh_timer_id!==undefined){
 		var my_id=g_auto_refresh_timer_id;
 		g_auto_refresh_timer_id=undefined;
 		UI.clearInterval(my_id);
@@ -1047,7 +1047,7 @@ UI.Keep=function(id,attrs,prototype){
 				if(ppt[2]){attrs.BeginContinuousChange=ppt[2];}
 				if(ppt[3]){attrs.EndContinuousChange=ppt[3];}
 			}else{
-				if(ppt!=undefined){attrs.value=ppt;}
+				if(ppt!==undefined){attrs.value=ppt;}
 				attrs.OnChange=function(value){sheet[this.property_name]=value;};
 			}
 		}
@@ -1056,7 +1056,7 @@ UI.Keep=function(id,attrs,prototype){
 		ret=attrs_old;
 		for(var key in attrs){
 			var f=attrs[key];
-			if(typeof f=='function'){f.prototype=undefined;}
+			if(typeof f==='function'){f.prototype=undefined;}
 			ret[key]=f;
 		}
 		ret.__anchored=0;
@@ -1114,7 +1114,7 @@ UI.Font=function(face,size,embolden){
 	var pfnt=UI.font_cache[face];
 	if(!pfnt){
 		var fnames=face.split(",");
-		if(fnames.length>0&&fnames[fnames.length-1]=="!"){
+		if(fnames.length>0&&fnames[fnames.length-1]==="!"){
 			fnames.pop();
 		}else{
 			fnames=fnames.concat(UI.fallback_font_names);
@@ -1152,7 +1152,7 @@ UI.Begin=function(obj){
 		obj.__property_sheet_parent=UI.context_property_sheet;
 		UI.context_property_sheet=obj.property_sheet;
 	}
-	if(obj.__prev_children==undefined){
+	if(obj.__prev_children===undefined){
 		obj.__prev_children=(obj.__children||[])
 		obj.__children=[]
 	}
@@ -1163,7 +1163,7 @@ UI.RecordTopMostContext=function(){
 	return UI.context_topmost_callbacks.length;
 }
 UI.FlushTopMostContext=function(n){
-	if(n==undefined){n=0}
+	if(n===undefined){n=0}
 	for(var i=n;i<UI.context_topmost_callbacks.length;i++){
 		UI.context_topmost_callbacks[i]()
 	}
@@ -1189,7 +1189,7 @@ UI.End=function(is_temp){
 		}
 		for(var i=0;i<__prev_children.length;i++){
 			var c_i=__prev_children[i];
-			if(c_i.__ditch&&obj[c_i.__id]==c_i){
+			if(c_i.__ditch&&obj[c_i.__id]===c_i){
 				if(c_i.__hwnd){UI.DestroyWindow(c_i);}
 				obj[c_i.__id]=undefined;
 			}
@@ -1216,12 +1216,12 @@ UI.End=function(is_temp){
 ////////////////////////////////////////
 //UI.LayoutText=function(attrs){
 //	var font=attrs.font||"Arial,16,b";
-//	if(typeof font=='string'){
+//	if(typeof font==='string'){
 //		var sparts=font.split(",");
 //		if(sparts.length<3){return;}
 //		var sbold=sparts.pop();
 //		var ssize=sparts.pop();
-//		attrs.font=UI.Font(sparts.join(","),parseFloat(ssize),sbold=="b"||sbold=="ab");
+//		attrs.font=UI.Font(sparts.join(","),parseFloat(ssize),sbold==="b"||sbold==="ab");
 //	}
 //	UI._LayoutText(attrs);
 //}
@@ -1262,7 +1262,7 @@ UI.PopSubWindow=function(){
 }
 
 lerp=function(a,b,t){return a+(b-a)*t;}
-isNumber=function(a){return typeof(a)=='number';}
+isNumber=function(a){return typeof(a)==='number';}
 
 UI.default_styles={};
 UI.curve_linear=function(t){return t}
@@ -1322,18 +1322,18 @@ UI.StdStyling=function(id,obj,attrs,s_default_style_name,child_style){
 		}
 		if(cstyle){
 			for(var key in cstyle){
-				if(attrs[key]==undefined){
+				if(attrs[key]===undefined){
 					obj[key]=cstyle[key];
 				}
 			}
 			for(var key in style){
-				if(key!="$"&&attrs[key]==undefined&&cstyle[key]==undefined){
+				if(key!=="$"&&attrs[key]===undefined&&cstyle[key]===undefined){
 					obj[key]=style[key];
 				}
 			}
 		}else{
 			for(var key in style){
-				if(key!="$"&&attrs[key]==undefined){
+				if(key!=="$"&&attrs[key]===undefined){
 					obj[key]=style[key];
 				}
 			}
@@ -1384,9 +1384,9 @@ UI.StdStyling=function(id,obj,attrs,s_default_style_name,child_style){
 		}else{
 			var need_transition=0;
 			for(var key in ref_frame){
-				if(ref_frame[key]!=obj[key]){
+				if(ref_frame[key]!==obj[key]){
 					//gradient comparison
-					if((typeof ref_frame[key])=='object'||(typeof obj[key])=='object'){
+					if((typeof ref_frame[key])==='object'||(typeof obj[key])==='object'){
 						continue;
 					}
 					need_transition=1;
@@ -1417,26 +1417,26 @@ UI.StdStyling=function(id,obj,attrs,s_default_style_name,child_style){
 };
 
 UI.doHAlign=function(anchor_align,attrs,obj_anchor){
-	if(anchor_align=="left"){
+	if(anchor_align==="left"){
 		attrs.x=obj_anchor.x+(attrs.x||0);
-	}else if(anchor_align=="center"){
+	}else if(anchor_align==="center"){
 		attrs.x=obj_anchor.x+(attrs.x||0)+(obj_anchor.w-attrs.w)*0.5;
-	}else if(anchor_align=="right"){
+	}else if(anchor_align==="right"){
 		attrs.x=obj_anchor.x-(attrs.x||0)+obj_anchor.w-attrs.w;
-	}else if(anchor_align=="fill"){
+	}else if(anchor_align==="fill"){
 		attrs.w=obj_anchor.w-(attrs.x||0)*2;
 		attrs.x=obj_anchor.x+(attrs.x||0);
 	}
 };
 
 UI.doVAlign=function(anchor_align,attrs,obj_anchor){
-	if(anchor_align=="up"){
+	if(anchor_align==="up"){
 		attrs.y=obj_anchor.y+(attrs.y||0);
-	}else if(anchor_align=="center"){
+	}else if(anchor_align==="center"){
 		attrs.y=obj_anchor.y+(attrs.y||0)+(obj_anchor.h-attrs.h)*0.5;
-	}else if(anchor_align=="down"){
+	}else if(anchor_align==="down"){
 		attrs.y=obj_anchor.y-(attrs.y||0)+obj_anchor.h-attrs.h;
-	}else if(anchor_align=="fill"){
+	}else if(anchor_align==="fill"){
 		attrs.h=obj_anchor.h-(attrs.y||0)*2;
 		attrs.y=obj_anchor.y+(attrs.y||0);
 	}
@@ -1446,7 +1446,7 @@ UI.StdAnchoring=function(id,attrs){
 	//anchoring, default to parent
 	if(attrs.__anchored){return;}
 	//var tick0=Duktape.__ui_get_tick()
-	var obj_anchor=attrs.anchor;if(obj_anchor=='parent'){obj_anchor=UI.context_parent;}
+	var obj_anchor=attrs.anchor;if(obj_anchor==='parent'){obj_anchor=UI.context_parent;}
 	var anchor_placement;
 	var anchor_align;
 	var anchor_valign;
@@ -1457,7 +1457,7 @@ UI.StdAnchoring=function(id,attrs){
 		anchor_align=(attrs.anchor_align||"left");
 		anchor_valign=(attrs.anchor_valign||"up");
 		anchor_spacing=0;
-	}else if(UI.context_parent.layout_direction&&attrs.anchor_placement!='absolute'){
+	}else if(UI.context_parent.layout_direction&&attrs.anchor_placement!=='absolute'){
 		obj_anchor=UI.context_parent.layout_auto_anchor;
 		anchor_placement=(UI.context_parent.layout_direction||"down");
 		anchor_align=(UI.context_parent.layout_align||"fill");
@@ -1465,13 +1465,13 @@ UI.StdAnchoring=function(id,attrs){
 		anchor_spacing=(UI.context_parent.layout_spacing||0);
 		if(!obj_anchor){
 			obj_anchor={x:UI.context_parent.x,y:UI.context_parent.y,w:UI.context_parent.w,h:UI.context_parent.h};
-			if(anchor_placement=="left"){
+			if(anchor_placement==="left"){
 				obj_anchor.x+=obj_anchor.w;obj_anchor.w=0;
-			}else if (anchor_placement=="right"){
+			}else if (anchor_placement==="right"){
 				obj_anchor.w=0;
-			}else if(anchor_placement=="up"){
+			}else if(anchor_placement==="up"){
 				obj_anchor.y+=obj_anchor.h;obj_anchor.h=0;
-			}else if(anchor_placement=="down"){
+			}else if(anchor_placement==="down"){
 				obj_anchor.h=0;
 			}
 			obj_anchor.x-=(UI.context_parent.layout_scroll_x||0)
@@ -1484,32 +1484,32 @@ UI.StdAnchoring=function(id,attrs){
 		//attrs.y+=obj_anchor.y;
 		return;
 	}
-	if(anchor_placement=="inside"){
+	if(anchor_placement==="inside"){
 		obj_anchor=(obj_anchor||UI.context_parent);
 		UI.doHAlign(anchor_align,attrs,obj_anchor);
 		UI.doVAlign(anchor_valign,attrs,obj_anchor);
-	}else if(anchor_placement=="up"){
+	}else if(anchor_placement==="up"){
 		attrs.y=obj_anchor.y-attrs.h-anchor_spacing-attrs.y;
 		UI.doHAlign(anchor_align,attrs,obj_anchor);
-	}else if(anchor_placement=="down"){
+	}else if(anchor_placement==="down"){
 		attrs.y=obj_anchor.y+obj_anchor.h+anchor_spacing+attrs.y;
 		UI.doHAlign(anchor_align,attrs,obj_anchor);
-	}else if(anchor_placement=="left"){
+	}else if(anchor_placement==="left"){
 		attrs.x=obj_anchor.x-attrs.w-anchor_spacing-attrs.x;
 		UI.doVAlign(anchor_valign,attrs,obj_anchor);
-	}else if(anchor_placement=="right"){
+	}else if(anchor_placement==="right"){
 		attrs.x=obj_anchor.x+obj_anchor.w+anchor_spacing+attrs.x;
 		UI.doVAlign(anchor_valign,attrs,obj_anchor);
 	}else{
 		//bad anchor placement - consider as "absolute"
 	}
-	if(UI.context_parent.layout_direction&&UI.context_parent.layout_direction!="inside"){
+	if(UI.context_parent.layout_direction&&UI.context_parent.layout_direction!=="inside"){
 		var layout_auto_anchor={x:attrs.x,y:attrs.y,w:attrs.w,h:attrs.h}
 		UI.context_parent.layout_auto_anchor=layout_auto_anchor;
-		if(anchor_placement=="left"||anchor_placement=="right"){
+		if(anchor_placement==="left"||anchor_placement==="right"){
 			layout_auto_anchor.y=UI.context_parent.y
 			layout_auto_anchor.h=UI.context_parent.h
-		}else if(anchor_placement=="up"||anchor_placement=="down"){
+		}else if(anchor_placement==="up"||anchor_placement==="down"){
 			layout_auto_anchor.x=UI.context_parent.x
 			layout_auto_anchor.w=UI.context_parent.w
 		}
@@ -1529,7 +1529,7 @@ UI.StdWidget=function(id,attrs,style_name,proto){
 UI.DeleteTemps=function(attrs){
 	for(var key in attrs){
 		//check for leading $
-		if(key.charCodeAt(0)==0x24){
+		if(key.charCodeAt(0)===0x24){
 			delete attrs[key];
 		}
 	}
@@ -1555,14 +1555,14 @@ UI.CaptureMouse=function(attrs){
 }
 
 UI.ReleaseMouse=function(attrs){
-	if(UI.nd_captured&&UI.nd_captured==attrs){
+	if(UI.nd_captured&&UI.nd_captured===attrs){
 		UI.nd_captured=undefined;
 		UI.SDL_SetWindowGrab(attrs.region___hwnd,0);
 	}
 }
 
 UI.SetFocus=function(obj,is_own_call){
-	if(UI.nd_focus!=obj){
+	if(UI.nd_focus!==obj){
 		var old_focus=UI.nd_focus;
 		if(UI.nd_focus){
 			UI.CallIfAvailable(UI.nd_focus,"OnBlur",obj)
@@ -1573,7 +1573,7 @@ UI.SetFocus=function(obj,is_own_call){
 			if(!is_own_call){
 				UI.context_focus_is_a_region=1;
 			}//if it's set explicitly, assume it's valid for the current frame
-			if(UI.nd_focus!=obj){
+			if(UI.nd_focus!==obj){
 				//focus changed in OnFocus, skip the text input stuff
 				return;
 			}
@@ -1588,20 +1588,20 @@ UI.SetFocus=function(obj,is_own_call){
 }
 
 UI.HasFocus=function(attrs){
-	return UI.nd_focus==attrs;
+	return UI.nd_focus===attrs;
 }
 
 UI.IsKey=function(event,name){
 	var mod=event.keymod;
 	var sym_tested=0;
-	if(typeof name=="string"){name=[name];};
+	if(typeof name==="string"){name=[name];};
 	for(var i=0;i<name.length;i++){
 		var name_i=name[i];
-		if(event.keysym==UI["SDLK_"+name_i]){sym_tested=1;continue;}
-		if(name_i.length==1){
+		if(event.keysym===UI["SDLK_"+name_i]){sym_tested=1;continue;}
+		if(name_i.length===1){
 			var asc_code=name_i.charCodeAt(0);
 			if(asc_code>=65&&asc_code<=90){asc_code+=32;}
-			if(event.keysym==asc_code){sym_tested=1;continue;}
+			if(event.keysym===asc_code){sym_tested=1;continue;}
 		}
 		var mod_mask=UI["KMOD_"+name_i];
 		if(mod_mask&&(mod&mod_mask)){
@@ -1610,7 +1610,7 @@ UI.IsKey=function(event,name){
 			return 0;
 		}
 	}
-	if(mod!=0){return 0;}
+	if(mod!==0){return 0;}
 	if(sym_tested){
 		return 1;
 	}else{
@@ -1619,7 +1619,7 @@ UI.IsKey=function(event,name){
 };
 
 UI.IsModifier=function(event,name){
-	return UI.IsKey(event,name)==undefined;
+	return UI.IsKey(event,name)===undefined;
 };
 
 var g_re_mac_symbols=new RegExp("[\u21e7\uff3e\u2325\u2318]","g")
@@ -1726,7 +1726,7 @@ UI.DrawFrame=function(){
 UI.JSDrawWindow=function(obj){
 	//var tick0=Duktape.__ui_get_tick()
 	UI.GL_Begin(obj.__hwnd)
-	if(!(obj.bgcolor==0)){
+	if(!(obj.bgcolor===0)){
 		UI.Clear(obj.bgcolor||0xffffffff);
 	}
 	UI.DrawWindow(obj.__hwnd);
@@ -1815,7 +1815,7 @@ UI.CallGCLater=function(){
 
 UI.TimingEvent=function(s){
 	var event_timing_tick=Duktape.__ui_get_tick();
-	if(UI.m_timing_tick!=undefined){
+	if(UI.m_timing_tick!==undefined){
 		console.log("=== after "+(Duktape.__ui_seconds_between_ticks(UI.m_timing_tick,event_timing_tick)*1000).toFixed(2)+"ms: "+s);
 	}
 	UI.m_timing_tick=event_timing_tick;
@@ -1857,7 +1857,7 @@ UI.Run=function(){
 		if(UI.need_to_refresh){
 			UI.m_frame_is_invalid=0;
 			UI.DrawFrame();
-			if(UI.is_real&&UI.GetSRGBStatus().srgb_supported==-1){
+			if(UI.is_real&&UI.GetSRGBStatus().srgb_supported===-1){
 				UI.need_to_refresh=1
 			}
 			if(UI.m_frame_is_invalid){
@@ -1873,7 +1873,7 @@ UI.Run=function(){
 					runCaretCallback(obj);
 				}
 			}
-			if(UI.Platform.ARCH=="android"&&UI.android_hack_refresh_twice){
+			if(UI.Platform.ARCH==="android"&&UI.android_hack_refresh_twice){
 				//android bug: need to refresh twice
 				UI.android_hack_refresh_twice=0;
 				UI.need_to_refresh=1;
@@ -1894,7 +1894,7 @@ UI.Run=function(){
 				event=UI.SDL_PollEvent();
 			}
 			if(!event){
-				if(UI.Platform.ARCH=="web"){
+				if(UI.Platform.ARCH==="web"){
 					//emscripten only presents the result when we return
 					return;
 				}
@@ -1917,7 +1917,7 @@ UI.Run=function(){
 			if(UI.OnIdle){
 				UI.OnIdle();
 			}
-			if(UI.Platform.ARCH=="web"){
+			if(UI.Platform.ARCH==="web"){
 				//emscripten has a different mainloop design
 				event=UI.SDL_PollEvent();
 				if(!event){
@@ -1932,7 +1932,7 @@ UI.Run=function(){
 			if(UI.enable_timing){
 				UI.TimingEvent("event "+JSON.stringify(event));
 			}
-			if(event.type==UI.SDL_QUIT){
+			if(event.type===UI.SDL_QUIT){
 				if(UI.SDL_bad_quit>0){
 					UI.SDL_bad_quit--;
 					event=UI.SDL_PollEvent();
@@ -1955,9 +1955,9 @@ UI.Run=function(){
 			}
 			if(!UI.EventFilter||UI.EventFilter(event)){switch(event.type){
 			case UI.SDL_USEREVENT:
-				if(event.code==1){
+				if(event.code===1){
 					//close
-					if(UI.Platform.ARCH=="mac"){
+					if(UI.Platform.ARCH==="mac"){
 						UI.SDL_bad_quit++;
 					}
 					var obj=UI.m_window_map[event.windowID.toString()]
@@ -1973,14 +1973,14 @@ UI.Run=function(){
 					if(fn){fn();}
 				}else if(UI.OnCustomEvent){
 					//custom notifications
-					//camera events hardcoded at code==3
+					//camera events hardcoded at code===3
 					UI.OnCustomEvent(event)
 				}
 				break
 			case UI.SDL_WINDOWEVENT:
 				switch(event.event){
 				case UI.SDL_WINDOWEVENT_SIZE_CHANGED:
-					if(UI.Platform.ARCH=="android"){
+					if(UI.Platform.ARCH==="android"){
 						//android bug: need to refresh twice
 						UI.android_hack_refresh_twice=1;
 					}
@@ -2036,35 +2036,26 @@ UI.Run=function(){
 						UI.t_linux_bogus_keys=undefined;
 					}
 				}
-				if(UI.remap_tiny_keyboard){
-					if(event.keysym===UI.SDLK_RALT){
-						event.keysym=UI.SDLK_HOME;
-					}else if(event.keysym===UI.SDLK_APPLICATION||event.keysym===UI.SDLK_RCTRL){
-						event.keysym=UI.SDLK_END;
-					}else if(event.keysym===UI.SDLK_RSHIFT||event.keysym===UI.SDLK_INSERT){
-						event.keysym=UI.SDLK_DELETE;
-					}
-				}
 				if(UI.unify_enters_versions){
-					if(event.keysym==UI.SDLK_RETURN2||event.keysym==UI.SDLK_KP_ENTER){
+					if(event.keysym===UI.SDLK_RETURN2||event.keysym===UI.SDLK_KP_ENTER){
 						event.keysym=UI.SDLK_RETURN;
 					}
 				}
 				var obj_window=UI.m_window_map[event.windowID.toString()];
 				event.keymod&=~(UI.KMOD_CAPS|UI.KMOD_NUM)//get rid of the bogus SDL flags
-				if((event.keymod&UI.KMOD_ALT)&&event.keysym==UI.SDLK_TAB){
+				if((event.keymod&UI.KMOD_ALT)&&event.keysym===UI.SDLK_TAB){
 					//ignore alt+tab
 					break;
 				}
 				//console.log(JSON.stringify(event),obj_window.m_just_alted)
-				if(obj_window&&UI.Platform.ARCH!="mac"){
-					if((event.keysym==UI.SDLK_LALT||event.keysym==UI.SDLK_RALT)){
+				if(obj_window&&UI.Platform.ARCH!=="mac"){
+					if((event.keysym===UI.SDLK_LALT||event.keysym===UI.SDLK_RALT)){
 						if(event.repeat){
 							//do nothing
 						}else{
 							//alt-menu case
-							//console.log("ALT",event.type==UI.SDL_KEYDOWN?"DOWN":"UP")
-							if(event.type==UI.SDL_KEYDOWN){
+							//console.log("ALT",event.type===UI.SDL_KEYDOWN?"DOWN":"UP")
+							if(event.type===UI.SDL_KEYDOWN){
 								obj_window.m_just_alted=1;
 							}else{
 								if(obj_window.m_just_alted){
@@ -2080,7 +2071,7 @@ UI.Run=function(){
 						obj_window.m_just_alted=0;
 					}
 				}
-				if(event.type==UI.SDL_KEYDOWN){
+				if(event.type===UI.SDL_KEYDOWN){
 					var hotkeys=UI.context_hotkeys;
 					var lg=hotkeys.length;
 					var hotkeyed=0;
@@ -2096,7 +2087,7 @@ UI.Run=function(){
 				}
 				//keyboard focus
 				if(UI.nd_focus){
-					UI.CallIfAvailable(UI.nd_focus,event.type==UI.SDL_KEYDOWN?"OnKeyDown":"OnKeyUp",event);
+					UI.CallIfAvailable(UI.nd_focus,event.type===UI.SDL_KEYDOWN?"OnKeyDown":"OnKeyUp",event);
 				}
 				break
 			case UI.SDL_TEXTEDITING:
@@ -2111,7 +2102,7 @@ UI.Run=function(){
 				var hotkeyed=0;
 				for(var i=lg-1;i>=0;i--){
 					var attrs=hotkeys[i];
-					if(attrs.text&&event.text==attrs.text){
+					if(attrs.text&&event.text===attrs.text){
 						attrs.action();
 						hotkeyed=1
 						break;
@@ -2128,7 +2119,7 @@ UI.Run=function(){
 				UI.inside_IME=0
 				break
 			case UI.SDL_MOUSEWHEEL:
-				if(UI.wheel_message_mode=="focus"){
+				if(UI.wheel_message_mode==="focus"){
 					if(UI.nd_focus){
 						UI.CallIfAvailable(UI.nd_focus,"OnMouseWheel",event);
 					}
@@ -2145,7 +2136,7 @@ UI.Run=function(){
 				var obj_window=UI.m_window_map[event.windowID.toString()];
 				event.x*=UI.SDL_bad_coordinate_corrector
 				event.y*=UI.SDL_bad_coordinate_corrector
-				if(UI.t_kill_mousedown==event.timestamp&&event.type==UI.SDL_MOUSEBUTTONDOWN||!obj_window){
+				if(UI.t_kill_mousedown===event.timestamp&&event.type===UI.SDL_MOUSEBUTTONDOWN||!obj_window){
 					//filter out the bogus mousedowns sent by SDL
 					break
 				}
@@ -2189,7 +2180,7 @@ UI.Run=function(){
 					nd_mouse_receiver=UI.nd_captured;
 				}
 				if(!nd_mouse_receiver){
-					if(event.type==UI.SDL_MOUSEMOTION){
+					if(event.type===UI.SDL_MOUSEMOTION){
 						if(UI.nd_mouse_over){
 							var xbk=event.x,ybk=event.y;
 							event.x-=UI.nd_mouse_over.sub_window_offset_x;
@@ -2212,9 +2203,9 @@ UI.Run=function(){
 				event.y-=nd_mouse_receiver.sub_window_offset_y;
 				event.x/=nd_mouse_receiver.sub_window_scale
 				event.y/=nd_mouse_receiver.sub_window_scale
-				if(event.type==UI.SDL_MOUSEMOTION){
+				if(event.type===UI.SDL_MOUSEMOTION){
 					//nd_mouse_receiver
-					if(!UI.nd_mouse_over||UI.nd_mouse_over!=nd_mouse_receiver){
+					if(!UI.nd_mouse_over||UI.nd_mouse_over!==nd_mouse_receiver){
 						if(UI.nd_mouse_over){
 							var xbk=event.x,ybk=event.y;
 							event.x=(event_x0-UI.nd_mouse_over.sub_window_offset_x)/UI.nd_mouse_over.sub_window_scale;
@@ -2229,13 +2220,13 @@ UI.Run=function(){
 					UI.CallIfAvailable(nd_mouse_receiver,"OnMouseMove",event);
 				}else{
 					//coulddo: do dragging in a higher level abstraction
-					if(event.type==UI.SDL_MOUSEBUTTONDOWN){
+					if(event.type===UI.SDL_MOUSEBUTTONDOWN){
 						UI.nd_mouse_down[event.button]=nd_mouse_receiver;
 						UI.CallIfAvailable(nd_mouse_receiver,"OnMouseDown",event);
 					}else{
 						var attrs_previous=UI.nd_mouse_down[event.button];
 						UI.CallIfAvailable(nd_mouse_receiver,"OnMouseUp",event);
-						if(attrs_previous&&attrs_previous==nd_mouse_receiver){
+						if(attrs_previous&&attrs_previous===nd_mouse_receiver){
 							UI.CallIfAvailable(nd_mouse_receiver,"OnClick",event);
 						}
 						UI.nd_mouse_down[event.button]=undefined;
@@ -2251,7 +2242,7 @@ UI.Run=function(){
 		}}catch(error){
 			UI.HandleError(error);
 		}
-		if(UI.Platform.ARCH=="web"){
+		if(UI.Platform.ARCH==="web"){
 			//emscripten only presents the result when we return
 			return;
 		}
@@ -2261,14 +2252,14 @@ UI.Run=function(){
 	//Duktape.gc()
 	return UI;
 }
-if(UI.Platform.ARCH=="web"){
+if(UI.Platform.ARCH==="web"){
 	Duktape.__EmscriptenMainLoop=UI.Run;
 	UI.Run=function(){
 		Duktape.__EmscriptenSetMainLoop();
 	}
 }
 
-if(UI.Platform.ARCH=="android"){
+if(UI.Platform.ARCH==="android"){
 	print=function(){
 		Duktape.__write_log(Array.prototype.slice.call(arguments,0).join(" "))
 	}
@@ -2288,7 +2279,7 @@ UI.Format=function(s){
 	var args0=arguments
 	return UI._(s).replace(g_regex_format,function(smatch,sid){
 		var value=args0[sid];
-		if(value==undefined){
+		if(value===undefined){
 			throw new Error("insufficient number of parameters")
 		}
 		return value;
@@ -2335,7 +2326,7 @@ UI.FlushTabEvents=function(){
 	if(!stops.length){return;}
 	var cur_stop=-1;
 	for(var i=0;i<stops.length;i++){
-		if(stops[i]==UI.nd_focus){
+		if(stops[i]===UI.nd_focus){
 			cur_stop=i;
 			break;
 		}
