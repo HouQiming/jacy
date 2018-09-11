@@ -3570,6 +3570,8 @@ class CJSGLRenderToTextureContext
 		proto.ExportProperty(this,"m_fbo")
 		proto.ExportProperty(this,"w")
 		proto.ExportProperty(this,"h")
+	}
+
 GL_RTT_MIPMAP=1
 GL_RTT_DEPTH=2
 inline glCreateFramebuffer()
