@@ -3197,6 +3197,8 @@ class GLTechnique
 		Declare(m_prg?string.NULL:"uniform "+s_sampler+" "+name+";\n",name,f)
 	auto SetTexture2D(string name,GLuint texid)
 		SetTexture(name,"sampler2D",GL_TEXTURE_2D,texid)
+	auto SetTextureCube(string name,GLuint texid)
+		SetTexture(name,"samplerCube",GL_TEXTURE_CUBE_MAP,texid)
 	//////////////////
 	auto SetFloat(string name,float a0)
 		a=a0
