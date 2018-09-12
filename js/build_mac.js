@@ -52,7 +52,12 @@ var pushMakeItemArch=function(smakefile,c_files,arch,CC,CFLAGS,AR,STRIP){
 				smakefile.push(' ',g_lib_files[i]);
 			}
 		}
-		smakefile.push('\n\tgcc -dynamiclib -o '+g_main_name+'.dylib ')
+		smakefile.push('\n\tgcc -dynamiclib -o '+g_main_name+'.dylib')
+		if(g_json.ldflags){
+			for(var i=0;i<g_json.ldflags.length;i++){
+				smakefile.push(' ',g_json.ldflags[i]);
+			}
+		}
 		for(var i=0;i<o_files.length;i++){
 			smakefile.push(' ');
 			smakefile.push(o_files[i]);
