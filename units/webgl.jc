@@ -108,8 +108,7 @@ CreateWebGLContextObject=function(JSContext JS){
 	}
 	obj_gl["checkFramebufferStatus"]=function(JSContext JS){
 		target=JS.Param(0).as(GLenum);
-		glCheckFramebufferStatus(target);
-		return 0;
+		return JS.Return(glCheckFramebufferStatus(target));
 	}
 	obj_gl["clear"]=function(JSContext JS){
 		mask=JS.Param(0).as(GLbitfield);
