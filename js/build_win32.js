@@ -31,7 +31,17 @@ VC.Detect=function(){
 	return VC
 };
 VC.Compile=function(fnsrc,soutput){
-	if(!IsNewerThan(fnsrc,soutput)){return -1;}
+	var included_files=FindCIncludes(fnsrc);
+	var any_newer=IsNewerThan(fnsrc,soutput);
+	if(!any_newer){
+		for(var j=0;j<included_files.length;j++){
+			if(IsNewerThan(included_files[j],soutput)){
+				any_newer=1;
+				break;
+			}
+		}
+	}
+	if(!any_newer){return -1;}
 	var compiler_path=VC.compiler_path;
 	var sbatname=VC.sbatname;
 	var sopt0=" "
@@ -150,6 +160,26 @@ var NVCCCompile=function(fnc,fnobj,s_cuda_options){
 	}
 }
 
+var FindCIncludes=function(fn_to){
+	var ret=[];
+	var s_source_code=ReadFile(fn_to).toString('binary');
+	s_source_code.replace(/^[ \t]*#[ \t]*include[ \t]*((?:<.*?>)|(?:["].*?["]))/gm,function(s_match,s_included,offset){
+		if(s_included[0]==='<'){return;}
+		var s_included_real=undefined;
+		try{
+			s_included_real=JSON.parse(s_included);
+		}catch(err){
+			return s_match;
+		}
+		var fn_included=GetDirName(fn_to)+'/'+s_included_real;
+		if(FileExists(fn_included)){
+			ret.push(fn_included);
+		}
+		return s_match;
+	});
+	return ret;
+};
+
 //could have multiple targets here
 g_action_handlers.make=function(){
 	var s_final_output;
@@ -221,7 +251,17 @@ g_action_handlers.make=function(){
 			var fnc=g_work_dir+"/"+RemovePath(fn)
 			UpdateTo(fnc,fn);
 			var fnobj=g_work_dir+"/"+GetMainFileName(fn)+".obj"
-			if(IsNewerThan(fnc,fnobj)||s_cuda_options0!=s_cuda_options){
+			var included_files=FindCIncludes(fnc);
+			var any_newer=IsNewerThan(fnc,fnobj);
+			if(!any_newer){
+				for(var j=0;j<included_files.length;j++){
+					if(IsNewerThan(included_files[j],fnobj)){
+						any_newer=1;
+						break;
+					}
+				}
+			}
+			if(any_newer||s_cuda_options0!=s_cuda_options){
 				NVCCCompile(fnc,fnobj,s_cuda_options)
 				if(IsNewerThan(fnobj,s_final_output)){
 					need_link=1;

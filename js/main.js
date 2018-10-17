@@ -159,6 +159,17 @@ RemovePath=function(fname){
 	return main_name;
 };
 
+GetDirName=function(fname){
+	var ret=fname.match(g_regexp_chopdir);
+	var main_name=null;
+	if(!ret){
+		main_name='.';
+	}else{
+		main_name=ret[1];
+	}
+	return main_name;
+};
+
 SearchForFile=function(fn){
 	if(FileExists(fn)){return fn};
 	if(FileExists(g_base_dir+"/"+fn)){return g_base_dir+"/"+fn};
@@ -215,9 +226,10 @@ CreateProjectForFileSet=function(is_c_like,c_files,s_target_dir,use_symlink){
 	return ret;
 };
 
+g_h_files=undefined;
 g_lib_files=undefined;
 CreateProjectForStandardFiles=function(s_target_dir,use_symlink){
-	CreateProjectForFileSet(1,g_json.h_files,s_target_dir,use_symlink);
+	g_h_files=CreateProjectForFileSet(1,g_json.h_files,s_target_dir,use_symlink);
 	g_lib_files=CreateProjectForFileSet(0,g_json.lib_files,s_target_dir,use_symlink);
 	return CreateProjectForFileSet(1,g_json.c_files,s_target_dir,use_symlink);
 };
